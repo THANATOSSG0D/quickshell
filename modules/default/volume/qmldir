@@ -1,0 +1,5 @@
+module volume
+Volume 1.0 Volume.qml
+VolumeContent 1.0 VolumeContent.qml
+VolumePanel 1.0 VolumePanel.qml
+VolumePopup 1.0 VolumePopup.qml

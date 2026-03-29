@@ -1,0 +1,79 @@
+import Quickshell
+import Quickshell.Hyprland
+import Quickshell.Io
+import QtQuick
+
+QtObject {
+  id: state
+
+  readonly property int edgeThreshold: 5
+  readonly property int hideDelayMs:   300
+
+  property int cursorX: 0
+  property int cursorY: 0
+
+  property bool   autoHide:     true
+  property string currentTheme: "Pill"
+  property int    position:     2 
+
+  property var config: BarConfig { id: barConfig }
+
+  property var _configConn: Connections {
+    target: barConfig
+    function onThemeChanged()    { state.currentTheme = barConfig.theme    }
+    function onAutoHideChanged() { state.autoHide     = barConfig.autoHide }
+    function onPositionChanged() { state.position     = barConfig.position }
+  }
+
+  onCurrentThemeChanged: barConfig.theme    = currentTheme
+  onAutoHideChanged:     barConfig.autoHide = autoHide
+  onPositionChanged:     barConfig.position = position
+
+  property var _proc: Process {
+    id: cursorProc
+    command: ["hyprctl", "cursorpos"]
+    stdout: SplitParser {
+      onRead: data => {
+        var parts = data.split(",")
+        if (parts.length === 2) {
+          state.cursorX = parseInt(parts[0].trim())
+          state.cursorY = parseInt(parts[1].trim())
+        }
+      }
+    }
+  }
+
+  property var _timer: Timer {
+    interval: 100
+    repeat:   true
+    running:  true
+    onTriggered: cursorProc.running = true
+  }
+
+  property var _toggleShortcut: GlobalShortcut {
+    name:        "toggleBar"
+    description: "Toggle auto-hide da barra"
+    onPressed:   state.autoHide = !state.autoHide
+  }
+
+  property var _themeShortcut: GlobalShortcut {
+    name:        "nextTheme"
+    description: "Próximo tema do bar"
+    onPressed: {
+      var themes = ["Default", "Minimal", "Pill"]
+      var idx    = themes.indexOf(state.currentTheme)
+      state.currentTheme = themes[(idx + 1) % themes.length]
+    }
+  }
+
+  property var _positionShortcut: GlobalShortcut {
+    name:        "nextBarPosition"
+    description: "Próxima posição do bar (top→right→bottom→left)"
+    onPressed: {
+      // 1=top 2=right 3=bottom 4=left — cicla apenas as posições horizontais/verticais
+      var positions = [1, 2, 3, 4]
+      var idx       = positions.indexOf(state.position)
+      state.position = positions[(idx + 1) % positions.length]
+    }
+  }
+}

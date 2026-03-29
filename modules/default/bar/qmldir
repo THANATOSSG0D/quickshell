@@ -1,0 +1,5 @@
+module bar
+Bar 1.0 Bar.qml
+BarConfig 1.0 BarConfig.qml
+BarState 1.0 BarState.qml
+singleton BarTooltip 1.0 BarTooltip.qml

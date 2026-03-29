@@ -1,0 +1,5 @@
+module mediaPlayer
+MediaPlayer 1.0 MediaPlayer.qml
+MediaPlayerContent 1.0 MediaPlayerContent.qml
+MediaPlayerPanel 1.0 MediaPlayerPanel.qml
+MediaPlayerPopup 1.0 MediaPlayerPopup.qml

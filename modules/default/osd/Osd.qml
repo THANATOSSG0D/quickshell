@@ -1,0 +1,240 @@
+import Quickshell
+import Quickshell.Wayland
+import Quickshell.Hyprland
+import Quickshell.Io
+import Quickshell.Services.Pipewire
+import QtQuick
+
+// ── Osd.qml ──────────────────────────────────────────────────────────────
+// Scope raiz do OSD. Instancia OsdService (lógica) + PanelWindows (UI).
+//
+// Adições em relação à versão anterior:
+//   • Recebe clockContent (injetado pelo shell.qml) para conectar timerElapsed
+//   • Modo timer usa HyprlandFocusGrab para capturar cliques nos botões
+//   • OSD timer tem dismiss automático após 8s sem interação
+//   • OSD volume/media fecha em 1600/2200ms como antes
+//   • IPC deviceInputMute / deviceOutputMute para mutear dispositivo por nome
+
+Scope {
+  id: osdRoot
+
+  readonly property alias osdService: osdService
+
+  // Injetado pelo shell.qml após o ClockPopup estar disponível
+  property var clockContent: null
+
+  PwObjectTracker {
+    objects: [ Pipewire.defaultAudioSink, Pipewire.defaultAudioSource ]
+  }
+
+  OsdService { id: osdService }
+
+  // Conecta o sinal timerElapsed do ClockContent ao OsdService
+  Connections {
+    target: osdRoot.clockContent
+    ignoreUnknownSignals: true
+    function onTimerElapsed(mode, phaseLabel) {
+      var cc = osdRoot.clockContent
+      if (!cc) return
+      osdService.timerOsd(
+        phaseLabel,
+        cc.barRemaining,
+        mode === "pomodoro",
+        false
+      )
+    }
+  }
+
+  IpcHandler {
+    target: "osd"
+
+    // ── Ações de OUTPUT (sink padrão) ────────────────────────────────────
+    function outputUp(arg: double)   { osdService.doSinkStep( arg > 0 ? arg : 5)  }
+    function outputDown(arg: double) { osdService.doSinkStep(-(arg > 0 ? arg : 5)) }
+    function outputSet(arg: double)  { osdService.doSinkSet(arg / 100) }
+    function outputMute()            { osdService.doSinkMuteToggle()   }
+    function outputMuteOn()          { osdService.doSinkMuteSet(true)  }
+    function outputMuteOff()         { osdService.doSinkMuteSet(false) }
+
+    // ── Ações de INPUT (source padrão) ───────────────────────────────────
+    function inputUp(arg: double)    { osdService.doSourceStep( arg > 0 ? arg : 5)  }
+    function inputDown(arg: double)  { osdService.doSourceStep(-(arg > 0 ? arg : 5)) }
+    function inputSet(arg: double)   { osdService.doSourceSet(arg / 100) }
+    function inputMute()             { osdService.doSourceMuteToggle()   }
+    function inputMuteOn()           { osdService.doSourceMuteSet(true)  }
+    function inputMuteOff()          { osdService.doSourceMuteSet(false) }
+
+    // ── Dispositivo INPUT específico por nome (--device) ─────────────────
+    // name: nome exato do nó Pipewire (ex: alsa_input.usb-Generic_Blue...)
+    function deviceInputMute(name: string)    { osdService.doDeviceMuteToggle(name, true)        }
+    function deviceInputMuteOn(name: string)  { osdService.doDeviceMuteSet(name, true,  true)    }
+    function deviceInputMuteOff(name: string) { osdService.doDeviceMuteSet(name, true,  false)   }
+
+    // ── Dispositivo OUTPUT específico por nome (--device) ─────────────────
+    function deviceOutputMute(name: string)    { osdService.doDeviceMuteToggle(name, false)       }
+    function deviceOutputMuteOn(name: string)  { osdService.doDeviceMuteSet(name, false, true)    }
+    function deviceOutputMuteOff(name: string) { osdService.doDeviceMuteSet(name, false, false)   }
+
+    // ── Mídia — player padrão ────────────────────────────────────────────
+    function mediaPlayPause() { osdService.doMediaPlayPause() }
+    function mediaPlay()      { osdService.doMediaPlay()      }
+    function mediaPause()     { osdService.doMediaPause()     }
+    function mediaStop()      { osdService.doMediaStop()      }
+    function mediaNext()      { osdService.doMediaNext()      }
+    function mediaPrev()      { osdService.doMediaPrev()      }
+
+    // ── Mídia — player específico (--player) ─────────────────────────────
+    // name: identity ou desktopEntry do player (ex: "spotify", "firefox")
+    // Comparação sem case; aceita match parcial como fallback.
+    function mediaPlayPausePlayer(name: string) { osdService.doMediaPlayPausePlayer(name) }
+    function mediaPlayPlayer(name: string)      { osdService.doMediaPlayPlayer(name)      }
+    function mediaPausePlayer(name: string)     { osdService.doMediaPausePlayer(name)     }
+    function mediaStopPlayer(name: string)      { osdService.doMediaStopPlayer(name)      }
+    function mediaNextPlayer(name: string)      { osdService.doMediaNextPlayer(name)      }
+    function mediaPrevPlayer(name: string)      { osdService.doMediaPrevPlayer(name)      }
+
+    function sinkShow()   { osdService.sinkShow()   }
+    function sourceShow() { osdService.sourceShow() }
+  }
+
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: osdWin
+      required property var modelData
+
+      screen: modelData
+      color:  "transparent"
+
+      WlrLayershell.layer:         WlrLayershell.Overlay
+      WlrLayershell.keyboardFocus: WlrLayershell.None
+      exclusionMode:               ExclusionMode.Ignore
+
+      anchors.top:    true
+      anchors.bottom: true
+      anchors.left:   true
+      anchors.right:  true
+
+      readonly property int pillW: osdContent.implicitWidth
+      readonly property int pillH: osdContent.implicitHeight
+
+      // Centralizado horizontalmente; verticalmente a 72% do topo
+      margins.left:   Math.round((screen.width  - pillW) / 2)
+      margins.right:  Math.round((screen.width  - pillW) / 2)
+      margins.top:    Math.round((screen.height - pillH) * 0.72)
+      margins.bottom: Math.round((screen.height - pillH) * 0.28)
+
+      implicitWidth:  pillW
+      implicitHeight: pillH
+
+      // ── Estado ────────────────────────────────────────────────────────
+      property bool   osdVisible:      false
+      property string osdType:         "volume"
+      property string osdIcon:         "\uf028"
+      property real   osdValue:        0.0
+      property string osdLabel:        ""
+      property bool   osdMuted:        false
+      // Dados específicos do timer
+      property string osdTimerLabel:   ""
+      property string osdTimerPhase:   ""
+      property bool   osdTimerIsPom:   false
+      property bool   osdTimerRunning: false
+
+      // ── Focus grab — só ativo no modo timer ───────────────────────────
+      HyprlandFocusGrab {
+        id: timerFocusGrab
+        windows: [ osdWin ]
+        active:  osdWin.osdVisible && osdWin.osdType === "timer"
+        onCleared: {
+          if (osdWin.osdType === "timer") osdWin.osdVisible = false
+        }
+      }
+
+      Connections {
+        target: osdService
+        function onShowRequested(data) {
+          osdWin.osdType    = data.type  || "volume"
+          osdWin.osdIcon    = data.icon  || ""
+          osdWin.osdLabel   = data.label || ""
+          osdWin.osdValue   = data.value !== undefined ? data.value : 0
+          osdWin.osdMuted   = data.muted || false
+
+          if (data.type === "timer") {
+            osdWin.osdTimerLabel   = data.timerLabel  || ""
+            osdWin.osdTimerPhase   = data.timerPhase  || ""
+            osdWin.osdTimerIsPom   = data.isPomodoro  || false
+            osdWin.osdTimerRunning = data.isRunning   || false
+            hideTimer.interval = 8000
+          } else {
+            hideTimer.interval = (data.type === "media") ? 2200 : 1600
+          }
+
+          osdWin.osdVisible = true
+          hideTimer.restart()
+        }
+      }
+
+      Timer {
+        id: hideTimer; repeat: false
+        onTriggered: osdWin.osdVisible = false
+      }
+
+      // Fade
+      Item {
+        anchors.fill: parent
+        opacity: osdWin.osdVisible ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+        OsdContent {
+          id: osdContent
+          anchors.fill: parent
+
+          // Volume / media
+          icon:   osdWin.osdIcon
+          value:  osdWin.osdValue
+          label:  osdWin.osdLabel
+          muted:  osdWin.osdMuted
+
+          // Timer
+          timerMode:       osdWin.osdType === "timer"
+          timerLabel:      osdWin.osdTimerLabel
+          timerPhase:      osdWin.osdTimerPhase
+          timerIsPomodoro: osdWin.osdTimerIsPom
+          timerRunning:    osdWin.osdTimerRunning
+
+          colorBg:     Qt.rgba(0.08, 0.08, 0.08, 0.92)
+          colorAccent: "#ffb4a9"
+          colorMuted:  Qt.rgba(1, 1, 1, 0.22)
+          colorTrack:  Qt.rgba(1, 1, 1, 0.12)
+          colorText:   Qt.rgba(1, 1, 1, 0.55)
+          colorIcon:   Qt.rgba(1, 1, 1, 0.90)
+
+          // Botões do timer — chamam o ClockContent via osdRoot.clockContent
+          onTimerToggle: {
+            var cc = osdRoot.clockContent; if (!cc) return
+            cc.toggleRunning()
+            osdWin.osdTimerRunning = cc.barRunning
+            hideTimer.restart()
+          }
+          onTimerAddMin: {
+            var cc = osdRoot.clockContent; if (!cc) return
+            cc.adjustTimer(60)
+            var r = cc.barRemaining
+            var mm = Math.floor(r/60); var ss = r%60
+            osdWin.osdTimerLabel = (mm<10?"0":"")+mm+":"+(ss<10?"0":"")+ss
+            hideTimer.restart()
+          }
+          onTimerNext: {
+            var cc = osdRoot.clockContent; if (!cc) return
+            cc.pomodoroNext()
+            osdWin.osdVisible = false
+          }
+          onTimerDismiss: {
+            osdWin.osdVisible = false
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+module osd
+OsdService 1.0 OsdService.qml
+OsdContent 1.0 OsdContent.qml
+Osd 1.0 Osd.qml
