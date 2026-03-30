@@ -4,6 +4,7 @@ import "../modules" as Modules
 import "../../volume" as Vol
 import "../../mediaPlayer/" as Media
 import "../../clock" as ClockModule
+import "../../quicksettings" as QsModule
 
 Item {
   id: root
@@ -21,6 +22,7 @@ Item {
   signal sinkPanelRequested()
   signal sourcePanelRequested()
   signal clockPanelRequested()
+  signal quickSettingsPanelRequested()
 
   property var mediaPlayer:  layoutLoader.item ? layoutLoader.item.mediaPlayer  : null
   property var volumeWidget: layoutLoader.item ? layoutLoader.item.volumeWidget : null
@@ -164,12 +166,30 @@ Item {
         dimColorActive:         root.cfgMpDimColorActive
       }
 
-      // Direita: Clock + separador + Volume, agrupados num Row
+      // Direita: QuickSettings + Clock + separador + Volume, agrupados num Row
       Row {
         id: rightRow
         anchors.right:          parent.right
         anchors.verticalCenter: parent.verticalCenter
         spacing: 6
+
+        // ── Botão QuickSettings ────────────────────────────────────────
+        QsModule.QuickSettings {
+          anchors.verticalCenter: parent.verticalCenter
+          isHorizontal:           true
+          barPosition:            root.barPosition
+          textColor:              root.cfgVolTextColor
+          dimColor:               root.cfgVolDimColor
+          accentColor:            root.colAccent
+          onPanelRequested:       root.quickSettingsPanelRequested()
+        }
+
+        Rectangle {
+          anchors.verticalCenter: parent.verticalCenter
+          width:   1; height: 14; radius: 1
+          color:   root.cfgClkDimColor
+          opacity: 0.3
+        }
 
         ClockModule.Clock {
           id: ckH
@@ -289,6 +309,20 @@ Item {
         bgColorActive:            root.cfgMpBgColorActive
         textColorActive:          root.cfgMpTextColorActive
         dimColorActive:           root.cfgMpDimColorActive
+      }
+
+      // ── Botão QuickSettings (vertical, abaixo do MediaPlayer) ─────────
+      QsModule.QuickSettings {
+        id: qsV
+        anchors.top:              mp.bottom
+        anchors.topMargin:        6
+        anchors.horizontalCenter: parent.horizontalCenter
+        isHorizontal:             false
+        barPosition:              root.barPosition
+        textColor:                root.cfgVolTextColor
+        dimColor:                 root.cfgVolDimColor
+        accentColor:              root.colAccent
+        onPanelRequested:         root.quickSettingsPanelRequested()
       }
 
       // Rodapé: Volume

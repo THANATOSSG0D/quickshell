@@ -6,6 +6,7 @@ import QtQuick
 import '../mediaPlayer' as MediaPanel
 import '../volume' as VolumeModule
 import '../clock' as ClockModule
+import '../quicksettings' as QsModule
 
 Scope {
   id: barRoot
@@ -25,24 +26,28 @@ Scope {
   property bool sinkPanelOpen:   false
   property bool sourcePanelOpen: false
   property bool clockPanelOpen:  false
+  property bool qsPanelOpen:     false
 
   readonly property bool anyPanelOpen:
-    playerPanelOpen || sinkPanelOpen || sourcePanelOpen || clockPanelOpen
+    playerPanelOpen || sinkPanelOpen || sourcePanelOpen || clockPanelOpen || qsPanelOpen
 
   function openPanel(which) {
-    var wasOpen = (which === "player" && playerPanelOpen)
-               || (which === "sink"   && sinkPanelOpen)
-               || (which === "source" && sourcePanelOpen)
-               || (which === "clock"  && clockPanelOpen)
+    var wasOpen = (which === "player"        && playerPanelOpen)
+               || (which === "sink"          && sinkPanelOpen)
+               || (which === "source"        && sourcePanelOpen)
+               || (which === "clock"         && clockPanelOpen)
+               || (which === "quicksettings" && qsPanelOpen)
     playerPanelOpen = false
     sinkPanelOpen   = false
     sourcePanelOpen = false
     clockPanelOpen  = false
+    qsPanelOpen     = false
     if (!wasOpen) {
-      if      (which === "player") playerPanelOpen = true
-      else if (which === "sink")   sinkPanelOpen   = true
-      else if (which === "source") sourcePanelOpen = true
-      else if (which === "clock")  clockPanelOpen  = true
+      if      (which === "player")        playerPanelOpen = true
+      else if (which === "sink")          sinkPanelOpen   = true
+      else if (which === "source")        sourcePanelOpen = true
+      else if (which === "clock")         clockPanelOpen  = true
+      else if (which === "quicksettings") qsPanelOpen     = true
     }
   }
 
@@ -51,6 +56,7 @@ Scope {
     sinkPanelOpen   = false
     sourcePanelOpen = false
     clockPanelOpen  = false
+    qsPanelOpen     = false
   }
 
   property var barMediaPlayerRef: null
@@ -373,9 +379,14 @@ Scope {
         function onClockPanelRequested() {
           if (!clockCooldown.running) { barRoot.openPanel("clock"); clockCooldown.restart() }
         }
+        // ── QuickSettings ────────────────────────────────────────────────
+        function onQuickSettingsPanelRequested() {
+          if (!qsCooldown.running) { barRoot.openPanel("quicksettings"); qsCooldown.restart() }
+        }
       }
       Timer { id: volCooldown;   interval: 100; repeat: false }
       Timer { id: clockCooldown; interval: 100; repeat: false }
+      Timer { id: qsCooldown;    interval: 100; repeat: false }
 
       Connections {
         target: loader.item && loader.item.mediaPlayer ? loader.item.mediaPlayer : null
@@ -665,6 +676,46 @@ Scope {
         colorText:       barState.config.paletteText
         colorTextDim:    barState.config.paletteTextDim
         colorAccent:     barState.config.paletteAccent
+        colorProgressBg: barState.config.paletteProgressBg
+        colorDivider:    barState.config.paletteDivider
+
+        onCloseRequested: barRoot.closeAllPanels()
+      }
+
+      // ── Popup QuickSettings ────────────────────────────────────────────
+      QsModule.QuickSettingsPopup {
+        id: qsPopup
+
+        anchor.window: bar
+        anchor.rect: {
+          var bw = bar.implicitWidth
+          var bh = bar.implicitHeight
+          var pw = 320
+          var ph = 540
+          if (!bar.isVertical)
+            return Qt.rect(Math.max(0, bw - pw - 8), 0, pw, bh)
+          return Qt.rect(0, Math.max(0, (bh - ph) / 2), bw, ph)
+        }
+        anchor.edges: {
+          if (bar.position === 1) return Edges.Bottom
+          if (bar.position === 2) return Edges.Left
+          if (bar.position === 3) return Edges.Top
+          return Edges.Right
+        }
+        anchor.gravity: {
+          if (bar.position === 1) return Edges.Bottom
+          if (bar.position === 2) return Edges.Left
+          if (bar.position === 3) return Edges.Top
+          return Edges.Right
+        }
+
+        panelOpen: barRoot.qsPanelOpen
+
+        colorPanelBg:    barState.config.palettePanelBg
+        colorText:       barState.config.paletteText
+        colorTextDim:    barState.config.paletteTextDim
+        colorAccent:     barState.config.paletteAccent
+        colorMuted:      barState.config.paletteWsDotUrgentColor
         colorProgressBg: barState.config.paletteProgressBg
         colorDivider:    barState.config.paletteDivider
 
