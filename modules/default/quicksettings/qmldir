@@ -1,0 +1,6 @@
+module QuickSettings
+
+QuickSettings        1.0 QuickSettings.qml
+QuickSettingsContent 1.0 QuickSettingsContent.qml
+QuickSettingsPanel   1.0 QuickSettingsPanel.qml
+QuickSettingsPopup   1.0 QuickSettingsPopup.qml

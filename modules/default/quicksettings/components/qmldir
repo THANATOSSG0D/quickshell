@@ -1,0 +1,14 @@
+module QuickSettings.components
+
+QsToggleTile       1.0 QsToggleTile.qml
+QsVolumeSlider     1.0 QsVolumeSlider.qml
+QsBrightnessSlider 1.0 QsBrightnessSlider.qml
+QsNightMode        1.0 QsNightMode.qml
+QsThermalSection   1.0 QsThermalSection.qml
+QsTabBar           1.0 QsTabBar.qml
+QsTabNetworks      1.0 QsTabNetworks.qml
+QsTabBluetooth     1.0 QsTabBluetooth.qml
+QsTabSystem        1.0 QsTabSystem.qml
+QsTabTray          1.0 QsTabTray.qml
+QsTabTrayImpl      1.0 QsTabTrayImpl.qml
+QsFooter           1.0 QsFooter.qml
