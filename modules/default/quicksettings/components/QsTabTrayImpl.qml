@@ -3,65 +3,97 @@ import Quickshell.Services.SystemTray
 import QtQuick
 import QtQuick.Layouts
 
-// ── Implementação real do Tray ────────────────────────────────────────────────
-// Carregada via Loader no QsTabTray para isolamento de import.
-// API do Quickshell SystemTray: activate(x,y) e secondaryActivate(x,y)
-// diretamente no item — sem .display intermediário.
+// ── Aba: System Tray ─────────────────────────────────────────────────────────
+// Sem ToolTip (requer QtQuick.Controls — não disponível aqui).
+// Filtra itens sem title E sem icon para evitar entradas fantasma.
 Item {
     id: root
 
     property color colorText:    "#e2e2e2"
     property color colorTextDim: "#c6c6c6"
 
+    // Filtra itens válidos (remove entradas vazias que causam "item a mais")
+    readonly property var validItems: {
+        var all = SystemTray.items.values
+        var out = []
+        for (var i = 0; i < all.length; i++) {
+            var it = all[i]
+            if (!it) continue
+            var hasTitle = it.title  && it.title.trim()  !== ""
+            var hasIcon  = it.icon   && it.icon.trim()   !== ""
+            if (hasTitle || hasIcon) out.push(it)
+        }
+        return out
+    }
+
     Flow {
         anchors.fill: parent
-        spacing:      6
-        clip:         true
+        spacing: 6; clip: true
 
         Repeater {
-            model: SystemTray.items
+            model: root.validItems
 
             delegate: Rectangle {
-                id: trayItem
+                id: td
                 required property var modelData
+                required property int index
+
+                // Captura local para evitar bug de binding em closures
+                readonly property var trayItem: td.modelData
 
                 width: 32; height: 32; radius: 8
-                color: trayMa.containsMouse
-                    ? Qt.rgba(1, 1, 1, 0.14)
-                    : Qt.rgba(1, 1, 1, 0.07)
+                color: tdMA.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.07)
                 Behavior on color { ColorAnimation { duration: 100 } }
 
                 Image {
                     id: trayImg
                     anchors.centerIn: parent
                     width: 18; height: 18
-                    source:   trayItem.modelData.icon || ""
+                    source:   td.trayItem.icon || ""
                     fillMode: Image.PreserveAspectFit
                     visible:  status === Image.Ready
+                    smooth:   true
                 }
                 Text {
                     anchors.centerIn: parent
                     visible:        trayImg.status !== Image.Ready
                     text:           "\uf1e6"
                     color:          root.colorTextDim
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     font.family:    "JetBrainsMono Nerd Font"
                 }
 
+                // Título como texto pequeno abaixo (substitui ToolTip)
+                Text {
+                    anchors.top:              parent.bottom
+                    anchors.topMargin:        2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible:        tdMA.containsMouse && (td.trayItem.title || "") !== ""
+                    text:           td.trayItem.title || ""
+                    color:          root.colorTextDim
+                    font.pixelSize: 8
+                    opacity:        0.8
+                    z:              10
+                }
+
                 MouseArea {
-                    id: trayMa
+                    id: tdMA
                     anchors.fill:    parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     hoverEnabled:    true
                     onClicked: (mouse) => {
-                        var item = trayItem.modelData
-                        // API direta no item — sem .display intermediário
+                        var it = td.trayItem
+                        if (!it) return
                         if (mouse.button === Qt.LeftButton) {
-                            if (typeof item.activate === "function")
-                                item.activate(mouseX, mouseY)
+                            if (typeof it.activate === "function")
+                                it.activate(td.x, td.y)
+                            else if (typeof it.trigger === "function")
+                                it.trigger()
                         } else {
-                            if (typeof item.secondaryActivate === "function")
-                                item.secondaryActivate(mouseX, mouseY)
+                            if (typeof it.secondaryActivate === "function")
+                                it.secondaryActivate(td.x, td.y)
+                            else if (it.menu && typeof it.menu.open === "function")
+                                it.menu.open()
                         }
                     }
                 }
@@ -71,11 +103,9 @@ Item {
 
     Text {
         anchors.centerIn: parent
-        visible:        SystemTray.items.values.length === 0
+        visible:        root.validItems.length === 0
         text:           "\uf1e6  Tray vazio"
         color:          root.colorTextDim
-        font.pixelSize: 10
-        font.family:    "JetBrainsMono Nerd Font"
-        opacity:        0.5
+        font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"; opacity: 0.5
     }
 }
