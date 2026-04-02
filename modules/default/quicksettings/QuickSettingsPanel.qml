@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
+import "./components" as QsComp
 
 // ── QuickSettingsPanel ───────────────────────────────────────────────────────
 // PanelWindow que hospeda o QuickSettingsContent.

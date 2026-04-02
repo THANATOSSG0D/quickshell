@@ -19,51 +19,79 @@ Item {
     implicitHeight: col.implicitHeight
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Estado explícito — nunca bindado direto a proc.stdout
-    // (SplitParser.onRead → variável local → UI vincula à variável)
+    // Estado — escrito apenas por onRead/onExited, nunca bindado a proc.stdout
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Shader
-    property string shaderCurrent:    ""       // o que hyprshade current retorna agora
-    property bool   shaderAutoActive: false    // hyprshade.timer está active?
-    property var    shaderList:       []       // hyprshade ls
+    property string shaderCurrent:    ""
+    property bool   shaderAutoActive: false
+    property bool   shaderDaemonOn:   false   // qualquer serviço do shader ativo
+    property var    shaderList:       []
+    property var    _shaderBuf:       []
 
-    // Temperatura
-    property bool   tempAutoActive:   false    // hyprsunset.timer está active?
-    property int    tempFromLog:      0        // última temp lida do log automático
-    property string tempPhase:        ""       // phase= do log
-    property int    tempFromFile:     0        // temp salva manualmente em /tmp
+    property bool   tempAutoActive:   false
+    property bool   tempDaemonOn:     false   // hyprsunset-daemon.service ativo
+    property int    tempFromLog:      0
+    property string tempPhase:        ""
+    property int    tempFromFile:     0
 
-    // Slider — fonte de verdade para a UI
     property int    tempSlider:       4500
-    // Flag: usuário arrastou o slider → não sobrescrever até auto reativar
     property bool   _userControl:     false
 
-    // Dropdown do shader
     property bool   shaderDropOpen:   false
 
-    // Buffer para acumular linhas do hyprshade ls
-    property var _shaderBuf: []
-
     // ─────────────────────────────────────────────────────────────────────────
-    // Processos de leitura — TODOS usam SplitParser para garantir reatividade
+    // Processo de status único — checa tudo num único bash para evitar
+    // condição de corrida entre múltiplos processos paralelos
+    // Formato de saída (uma linha cada):
+    //   SHADER_CURRENT:<valor ou vazio>
+    //   SHADER_TIMER:<active|inactive>
+    //   SHADER_DAEMON:<active|inactive>
+    //   TEMP_TIMER:<active|inactive>
+    //   TEMP_DAEMON:<active|inactive>
     // ─────────────────────────────────────────────────────────────────────────
 
-    // hyprshade current — uma linha ou vazio (sem shader ativo)
     Process {
-        id: procShaderCurrent
-        command: ["bash", "-c", "hyprshade current 2>/dev/null; true"]
-        property string _pending: ""
+        id: procStatus
+        command: ["bash", "-c", [
+            "echo \"SHADER_CURRENT:$(hyprshade current 2>/dev/null)\"",
+            "echo \"SHADER_TIMER:$(systemctl --user is-active hyprshade.timer 2>/dev/null)\"",
+            "echo \"SHADER_DAEMON:$(systemctl --user is-active hyprshader-updater.timer 2>/dev/null)\"",
+            "echo \"TEMP_TIMER:$(systemctl --user is-active hyprsunset.timer 2>/dev/null)\"",
+            "echo \"TEMP_DAEMON:$(systemctl --user is-active hyprsunset-daemon.service 2>/dev/null)\""
+        ].join(" ; ")]
         stdout: SplitParser {
-            onRead: line => { procShaderCurrent._pending = line.trim() }
-        }
-        onExited: {
-            root.shaderCurrent = _pending   // "" se vazio = sem shader
-            _pending = ""
+            onRead: line => {
+                var sep = line.indexOf(":")
+                if (sep < 0) return
+                var key = line.substring(0, sep)
+                var val = line.substring(sep + 1).trim()
+                switch (key) {
+                    case "SHADER_CURRENT":
+                        root.shaderCurrent    = val; break
+                    case "SHADER_TIMER":
+                        root.shaderAutoActive = val === "active"; break
+                    case "SHADER_DAEMON":
+                        root.shaderDaemonOn   = val === "active"; break
+                    case "TEMP_TIMER":
+                        root.tempAutoActive   = val === "active"
+                        if (val === "active") root._userControl = false
+                        break
+                    case "TEMP_DAEMON":
+                        root.tempDaemonOn     = val === "active"; break
+                }
+            }
         }
     }
 
-    // hyprshade ls — acumula linhas, publica em onExited
+    // Shader ligado = há shader aplicado OU algum serviço rodando
+    readonly property bool shaderOn: shaderCurrent.length > 0
+                                  || shaderAutoActive
+                                  || shaderDaemonOn
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lista de shaders
+    // ─────────────────────────────────────────────────────────────────────────
+
     Process {
         id: procShaderList
         command: ["bash", "-c",
@@ -75,32 +103,20 @@ Item {
                     root._shaderBuf = root._shaderBuf.concat([t])
             }
         }
-        onExited: {
-            root.shaderList = root._shaderBuf.slice()
-            root._shaderBuf = []
-        }
+        onExited: { root.shaderList = root._shaderBuf.slice(); root._shaderBuf = [] }
     }
 
-    // systemctl --user is-active hyprshade.timer
-    Process {
-        id: procShaderAutoCheck
-        command: ["bash", "-c", "systemctl --user is-active hyprshade.timer 2>/dev/null"]
-        stdout: SplitParser {
-            onRead: line => { root.shaderAutoActive = line.trim() === "active" }
-        }
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Log de temperatura
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // Log do hyprsunset.sh — última linha de sumário
-    // Formato: "YYYY-MM-DD HH:MM:SS | phase=X | ... | temp=XXXK | gamma=Y"
     Process {
         id: procTempLog
         command: ["bash", "-c",
             "source ~/.config/hypr/noturne.config 2>/dev/null" +
             " && grep '| phase=' \"$HYPRSUNSET_LOG\" 2>/dev/null | tail -1"]
         property string _line: ""
-        stdout: SplitParser {
-            onRead: line => { procTempLog._line = line.trim() }
-        }
+        stdout: SplitParser { onRead: line => { procTempLog._line = line.trim() } }
         onExited: {
             var line = _line; _line = ""
             if (line.length === 0) return
@@ -108,45 +124,22 @@ Item {
             var mp = line.match(/\bphase=(\w+)\b/)
             if (mt) root.tempFromLog = parseInt(mt[1])
             if (mp) root.tempPhase   = mp[1]
-            // Sincroniza slider com valor do log SÓ se auto ativo e usuário não arrastou
             if (root.tempAutoActive && !root._userControl && root.tempFromLog > 0)
                 root.tempSlider = root.tempFromLog
         }
     }
 
-    // /tmp/hyprnight-manual-temp — temp definida manualmente
     Process {
         id: procTempManualFile
         command: ["bash", "-c", "cat /tmp/hyprnight-manual-temp 2>/dev/null"]
-        property string _pending: ""
-        stdout: SplitParser {
-            onRead: line => { procTempManualFile._pending = line.trim() }
-        }
+        property string _val: ""
+        stdout: SplitParser { onRead: line => { procTempManualFile._val = line.trim() } }
         onExited: {
-            var v = parseInt(_pending); _pending = ""
+            var v = parseInt(_val); _val = ""
             if (!isNaN(v) && v > 0) {
                 root.tempFromFile = v
-                // Atualiza slider só se em controle manual pelo usuário
-                // (não sobrescreve se o auto acabou de ser desligado e slider já tem valor)
-                if (!root.tempAutoActive && root._userControl)
+                if (!root.tempAutoActive && !root._userControl)
                     root.tempSlider = v
-            }
-        }
-    }
-
-    // systemctl --user is-active hyprsunset.timer
-    Process {
-        id: procTempAutoCheck
-        command: ["bash", "-c", "systemctl --user is-active hyprsunset.timer 2>/dev/null"]
-        stdout: SplitParser {
-            onRead: line => {
-                var wasAuto = root.tempAutoActive
-                root.tempAutoActive = line.trim() === "active"
-                // Ao reativar auto: libera controle do usuário e sincroniza slider
-                if (!wasAuto && root.tempAutoActive) {
-                    root._userControl = false
-                    if (root.tempFromLog > 0) root.tempSlider = root.tempFromLog
-                }
             }
         }
     }
@@ -155,88 +148,138 @@ Item {
     // Processos de ação
     // ─────────────────────────────────────────────────────────────────────────
 
+    // Shader: aplica manualmente e salva em ml4w/settings
     Process {
         id: procShaderApply
-        onExited: {
-            // Pequeno delay para o hyprshade aplicar antes de checar
-            Qt.callLater(() => _run(procShaderCurrent))
-        }
+        onExited: { Qt.callLater(() => { if (!procStatus.running) procStatus.running = true }) }
     }
 
-    // Bug 3 fix: timer de delay para checar shader depois que o serviço aplicou
+    // Delay para checar shader após serviço aplicar
     Timer {
-        id: shaderAutoRefreshTimer
-        interval: 1800; repeat: false
-        onTriggered: _run(procShaderCurrent)
+        id: shaderRefreshTimer; interval: 1800; repeat: false
+        onTriggered: { if (!procStatus.running) procStatus.running = true }
     }
 
     Process {
         id: procShaderEnableAuto
         command: ["bash", "-c",
             "systemctl --user start hyprshade.timer hyprshader-updater.timer hyprshade.service 2>/dev/null"]
-        onExited: {
-            _run(procShaderAutoCheck)
-            shaderAutoRefreshTimer.restart()  // aguarda hyprshade aplicar o shader
-        }
+        onExited: shaderRefreshTimer.restart()
     }
 
     Process {
         id: procShaderDisableAuto
         command: ["bash", "-c",
             "systemctl --user stop hyprshade.timer hyprshader-updater.timer hyprshade.service 2>/dev/null"]
-        onExited: { _run(procShaderAutoCheck); _run(procShaderCurrent) }
+        onExited: { if (!procStatus.running) procStatus.running = true }
     }
 
+    // Toggle power do shader
+    Process {
+        id: procShaderToggle
+        onExited: { if (!procStatus.running) procStatus.running = true }
+    }
+
+    function toggleShader() {
+        if (root.shaderOn) {
+            procShaderToggle.command = ["bash", "-c",
+                "systemctl --user stop hyprshade.timer hyprshader-updater.timer hyprshade.service 2>/dev/null" +
+                " ; hyprshade off 2>/dev/null" +
+                " && echo 'hyprshade_filter=\"off\"' > ~/.config/ml4w/settings/hyprshade.sh"]
+            if (!procShaderToggle.running) procShaderToggle.running = true
+        } else {
+            procShaderToggle.command = ["bash", "-c",
+                "f=~/.config/ml4w/settings/hyprshade.sh" +
+                " ; [ -f \"$f\" ] && source \"$f\" || hyprshade_filter=blue-light-filter" +
+                " ; [ \"$hyprshade_filter\" = off ] && hyprshade_filter=blue-light-filter" +
+                " ; hyprshade on \"$hyprshade_filter\" 2>/dev/null"]
+            if (!procShaderToggle.running) procShaderToggle.running = true
+        }
+    }
+
+    // Shader: seleciona manualmente
+    function applyShader(name) {
+        shaderDropOpen = false
+        var save  = "echo 'hyprshade_filter=\"" + name + "\"' > ~/.config/ml4w/settings/hyprshade.sh"
+        var apply = name === "off" ? "hyprshade off" : "hyprshade on \"" + name + "\""
+        procShaderApply.command = ["bash", "-c", save + " && " + apply + " 2>/dev/null"]
+        if (!procShaderApply.running) procShaderApply.running = true
+    }
+
+    // Temperatura: liga/desliga auto
     Process {
         id: procTempEnableAuto
         command: ["bash", "-c",
             "systemctl --user start hyprsunset-daemon.service 2>/dev/null" +
             " && sleep 0.4" +
             " && systemctl --user start hyprsunset.timer hyprsunset.service 2>/dev/null"]
-        onExited: { _run(procTempAutoCheck); _run(procTempLog) }
+        onExited: {
+            if (!procStatus.running) procStatus.running = true
+            if (!procTempLog.running) procTempLog.running = true
+        }
     }
 
     Process {
         id: procTempDisableAuto
         command: ["bash", "-c",
             "systemctl --user stop hyprsunset.timer hyprsunset.service 2>/dev/null"]
-        onExited: { _run(procTempAutoCheck) }
+        onExited: { if (!procStatus.running) procStatus.running = true }
     }
 
-    // Aplica temperatura via hyprctl e salva em /tmp para leitura futura
+    // Toggle power da temperatura
+    Process {
+        id: procTempToggle
+        onExited: {
+            if (!procStatus.running) procStatus.running = true
+            if (!procTempManualFile.running) procTempManualFile.running = true
+        }
+    }
+
+    function toggleTemp() {
+        if (root.tempDaemonOn) {
+            procTempToggle.command = ["bash", "-c",
+                "systemctl --user stop hyprsunset.timer hyprsunset.service hyprsunset-daemon.service 2>/dev/null" +
+                " ; rm -f /tmp/hyprnight-manual-temp"]
+            root.tempAutoActive = false
+            root._userControl   = false
+            root.tempSlider     = 6500
+        } else {
+            var lastTemp = root.tempFromFile > 0 ? root.tempFromFile
+                         : root.tempFromLog  > 0 ? root.tempFromLog
+                         : 4500
+            procTempToggle.command = ["bash", "-c",
+                "systemctl --user start hyprsunset-daemon.service 2>/dev/null" +
+                " && sleep 0.3" +
+                " && hyprctl hyprsunset temperature " + lastTemp + " 2>/dev/null" +
+                " && echo " + lastTemp + " > /tmp/hyprnight-manual-temp"]
+            root.tempSlider   = lastTemp
+            root._userControl = true
+        }
+        if (!procTempToggle.running) procTempToggle.running = true
+    }
+
+    // Temperatura: aplica valor manual
     Process {
         id: procTempApply
-        onExited: { _run(procTempManualFile) }
+        onExited: { if (!procTempManualFile.running) procTempManualFile.running = true }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Funções
-    // ─────────────────────────────────────────────────────────────────────────
-
-    function _run(proc) { if (!proc.running) proc.running = true }
-
-    function applyShader(name) {
-        shaderDropOpen = false
-        var save  = "echo 'hyprshade_filter=\"" + name + "\"' > ~/.config/ml4w/settings/hyprshade.sh"
-        var apply = name === "off" ? "hyprshade off" : "hyprshade on \"" + name + "\""
-        procShaderApply.command = ["bash", "-c", save + " && " + apply + " 2>/dev/null"]
-        _run(procShaderApply)
-    }
-
-    // Aplica temperatura manualmente e persiste em /tmp
     function applyManualTemp(temp) {
         procTempApply.command = ["bash", "-c",
             "systemctl --user start hyprsunset-daemon.service 2>/dev/null" +
             " ; hyprctl hyprsunset temperature " + temp + " 2>/dev/null" +
             " && echo " + temp + " > /tmp/hyprnight-manual-temp"]
-        _run(procTempApply)
+        if (!procTempApply.running) procTempApply.running = true
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers visuais
+    // ─────────────────────────────────────────────────────────────────────────
 
     function tempPct(t) {
         if (t <= 0) return 0
         return Math.max(0, Math.min(1, (t - tempMin) / (tempMax - tempMin)))
     }
-
     function phaseColor(p) {
         if (p === "sunrise") return "#ff8a65"
         if (p === "day")     return "#ffd54f"
@@ -253,19 +296,28 @@ Item {
     // ─────────────────────────────────────────────────────────────────────────
 
     function refreshAll() {
-        _run(procShaderCurrent); _run(procShaderAutoCheck); _run(procShaderList)
-        _run(procTempAutoCheck); _run(procTempLog); _run(procTempManualFile)
+        if (!procStatus.running)         procStatus.running         = true
+        if (!procShaderList.running)     procShaderList.running     = true
+        if (!procTempLog.running)        procTempLog.running        = true
+        if (!procTempManualFile.running) procTempManualFile.running = true
     }
 
     Component.onCompleted: refreshAll()
     onPanelOpenChanged:    if (panelOpen) refreshAll()
 
-    // Poll shader atual e log de temp
-    Timer { interval: 10000; running: true; repeat: true
-        onTriggered: { _run(procShaderCurrent); _run(procTempLog) } }
-    // Poll estado dos serviços (menos frequente)
-    Timer { interval: 30000; running: true; repeat: true
-        onTriggered: { _run(procShaderAutoCheck); _run(procTempAutoCheck) } }
+    // Poll status e temp a cada 8s
+    Timer { interval: 8000; running: true; repeat: true
+        onTriggered: {
+            if (!procStatus.running) procStatus.running = true
+            if (!procTempLog.running) procTempLog.running = true
+        }
+    }
+
+    // Sincroniza slider com log quando auto ativo
+    onTempFromLogChanged: {
+        if (tempAutoActive && !_userControl && tempFromLog > 0)
+            tempSlider = tempFromLog
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // UI
@@ -286,19 +338,29 @@ Item {
             Text {
                 text: "\uf0eb"
                 font { pixelSize: 12; family: "JetBrainsMono Nerd Font" }
-                color: root.shaderCurrent.length > 0 ? root.colorAccent : root.colorTextDim
+                color: root.shaderOn ? root.colorAccent : root.colorTextDim
                 Behavior on color { ColorAnimation { duration: 200 } }
             }
             Text { text: "Shader"; color: root.colorText; font.pixelSize: 11 }
             Item { Layout.fillWidth: true }
+
+            // AUTO
             AutoPill {
                 active: root.shaderAutoActive
                 accentColor: root.colorAccent
-                onClicked: root.shaderAutoActive ? _run(procShaderDisableAuto) : _run(procShaderEnableAuto)
+                onClicked: root.shaderAutoActive
+                    ? (procShaderDisableAuto.running ? null : (procShaderDisableAuto.running = true))
+                    : (procShaderEnableAuto.running  ? null : (procShaderEnableAuto.running  = true))
+            }
+
+            // POWER toggle
+            PowerButton {
+                active: root.shaderOn
+                onClicked: root.toggleShader()
             }
         }
 
-        // Selector — mostra shader atual, abre dropdown ao clicar
+        // Selector dropdown
         Item {
             Layout.fillWidth: true; implicitHeight: 28
 
@@ -317,7 +379,6 @@ Item {
                 RowLayout {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
                     spacing: 6
-
                     Text {
                         text: root.shaderCurrent.length > 0 ? root.shaderCurrent : "off"
                         color: root.shaderCurrent.length > 0 ? root.colorAccent : root.colorTextDim
@@ -333,18 +394,18 @@ Item {
                     }
                 }
             }
-
             MouseArea {
                 id: selectorMA; anchors.fill: parent
                 hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     root.shaderDropOpen = !root.shaderDropOpen
-                    if (root.shaderDropOpen) _run(procShaderList)
+                    if (root.shaderDropOpen && !procShaderList.running)
+                        procShaderList.running = true
                 }
             }
         }
 
-        // Dropdown — altura animada
+        // Dropdown animado
         Item {
             Layout.fillWidth: true
             implicitHeight: dropH
@@ -371,8 +432,7 @@ Item {
                     boundsMovement: Flickable.StopAtBounds
 
                     ColumnLayout {
-                        id: dropContent
-                        width: parent.width; spacing: 0
+                        id: dropContent; width: parent.width; spacing: 0
 
                         DropItem {
                             Layout.fillWidth: true; label: "off"
@@ -407,18 +467,18 @@ Item {
             Text {
                 text: "\uf2c9"
                 font { pixelSize: 12; family: "JetBrainsMono Nerd Font" }
-                color: root.tempAutoActive ? root.phaseColor(root.tempPhase) : root.colorTextDim
+                color: root.tempDaemonOn
+                    ? (root.tempAutoActive ? root.phaseColor(root.tempPhase) : root.colorAccent)
+                    : root.colorTextDim
                 Behavior on color { ColorAnimation { duration: 300 } }
             }
             Text { text: "Temperatura"; color: root.colorText; font.pixelSize: 11 }
 
-            // Valor exibido: o do slider (que já sincroniza com o log/arquivo)
             Text {
                 text: root.tempSlider + " K"
                 color: root.colorAccent; font.pixelSize: 11; font.weight: Font.Light
             }
 
-            // Fase atual (só no modo auto)
             Text {
                 visible: root.tempAutoActive && root.tempPhase.length > 0
                 text: "· " + root.tempPhase
@@ -428,18 +488,26 @@ Item {
 
             Item { Layout.fillWidth: true }
 
+            // AUTO
             AutoPill {
                 active: root.tempAutoActive
                 accentColor: "#ff7043"
-                onClicked: root.tempAutoActive ? _run(procTempDisableAuto) : _run(procTempEnableAuto)
+                onClicked: root.tempAutoActive
+                    ? (procTempDisableAuto.running ? null : (procTempDisableAuto.running = true))
+                    : (procTempEnableAuto.running  ? null : (procTempEnableAuto.running  = true))
+            }
+
+            // POWER toggle
+            PowerButton {
+                active: root.tempDaemonOn
+                onClicked: root.toggleTemp()
             }
         }
 
-        // Slider único — leitura e controle
+        // Slider único
         Item {
             Layout.fillWidth: true; implicitHeight: 24
 
-            // Track com gradiente de temperatura
             Rectangle {
                 id: tempTrack
                 anchors.verticalCenter: parent.verticalCenter
@@ -452,7 +520,6 @@ Item {
                 }
             }
 
-            // Fill colorido até o thumb
             Rectangle {
                 anchors.verticalCenter: tempTrack.verticalCenter
                 width: Math.max(tempThumb.width / 2,
@@ -464,13 +531,9 @@ Item {
                     GradientStop { position: 0.35; color: "#e07c3f" }
                     GradientStop { position: 1.0;  color: "#ffd54f" }
                 }
-                // Animação suave somente quando não está arrastando
-                Behavior on width {
-                    NumberAnimation { duration: sliderMA.pressed ? 0 : 500; easing.type: Easing.OutCubic }
-                }
+                Behavior on width { NumberAnimation { duration: sliderMA.pressed ? 0 : 500; easing.type: Easing.OutCubic } }
             }
 
-            // Thumb
             Rectangle {
                 id: tempThumb
                 x: root.tempPct(root.tempSlider) * (tempTrack.width - width)
@@ -488,18 +551,15 @@ Item {
                 anchors { fill: tempTrack; margins: -10 }
                 preventStealing: true
                 cursorShape: Qt.SizeHorCursor
-
                 onPressed:         m => _drag(m.x)
                 onPositionChanged: m => _drag(m.x)
                 onReleased: m => {
                     _drag(m.x)
-                    // Marca controle do usuário — impede que o log auto sobrescreva o slider
                     root._userControl = true
-                    // Se auto estava ativo, para o timer (mantém daemon rodando)
-                    if (root.tempAutoActive) _run(procTempDisableAuto)
+                    if (root.tempAutoActive && !procTempDisableAuto.running)
+                        procTempDisableAuto.running = true
                     root.applyManualTemp(root.tempSlider)
                 }
-
                 function _drag(mx) {
                     var r = Math.max(0, Math.min(1, mx / tempTrack.width))
                     root.tempSlider = Math.round(
@@ -507,7 +567,6 @@ Item {
                 }
             }
 
-            // Labels min/max
             Text {
                 anchors { left: tempTrack.left; top: tempTrack.bottom; topMargin: 4 }
                 text: root.tempMin + " K"; font.pixelSize: 8
@@ -520,7 +579,6 @@ Item {
             }
         }
 
-        // Espaço para os labels min/max
         Item { Layout.fillWidth: true; implicitHeight: 10 }
     }
 
@@ -528,7 +586,6 @@ Item {
     // Componentes inline
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Pílula AUTO — destaque quando ativo
     component AutoPill: Item {
         id: pill
         required property bool  active
@@ -567,7 +624,42 @@ Item {
         }
     }
 
-    // Linha do dropdown de shaders
+    component PowerButton: Item {
+        id: pwrBtn
+        required property bool active   // true = ligado (vermelho), false = desligado (cinza)
+        signal clicked()
+        implicitWidth: 18; implicitHeight: 18
+
+        Rectangle {
+            anchors.fill: parent; radius: height / 2
+            color: pwrBtn.active
+                ? (pwrMA.containsMouse ? Qt.rgba(0.94, 0.32, 0.31, 0.35) : Qt.rgba(0.94, 0.32, 0.31, 0.18))
+                : (pwrMA.containsMouse ? Qt.rgba(1,1,1,0.14)              : Qt.rgba(1,1,1,0.07))
+            border {
+                color: pwrBtn.active
+                    ? Qt.rgba(0.94, 0.32, 0.31, 0.60)
+                    : Qt.rgba(1,1,1,0.18)
+                width: 1
+            }
+            Behavior on color        { ColorAnimation { duration: 140 } }
+            Behavior on border.color { ColorAnimation { duration: 140 } }
+        }
+        Text {
+            anchors.centerIn: parent
+            text: "\uf011"
+            font { pixelSize: 9; family: "JetBrainsMono Nerd Font" }
+            color: pwrBtn.active
+                ? (pwrMA.containsMouse ? "#ef5350" : Qt.rgba(0.94, 0.32, 0.31, 0.85))
+                : Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.40)
+            Behavior on color { ColorAnimation { duration: 140 } }
+        }
+        MouseArea {
+            id: pwrMA; anchors.fill: parent
+            hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+            onClicked: pwrBtn.clicked()
+        }
+    }
+
     component DropItem: Item {
         id: di
         required property string label
@@ -588,7 +680,6 @@ Item {
             RowLayout {
                 anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                 spacing: 8
-
                 Rectangle {
                     width: 5; height: 5; radius: 2.5
                     color: di.active ? di.accentColor : "transparent"
