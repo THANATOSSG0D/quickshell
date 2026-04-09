@@ -12,6 +12,5 @@ QsTabSystem        1.0 QsTabSystem.qml
 QsTabTray          1.0 QsTabTray.qml
 QsTabTrayImpl      1.0 QsTabTrayImpl.qml
 QsFooter           1.0 QsFooter.qml
-QsDropdownPopup  1.0 QsDropdownPopup.qml
 QsInlineDropdown 1.0 QsInlineDropdown.qml
 

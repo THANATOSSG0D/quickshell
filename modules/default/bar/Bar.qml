@@ -4,8 +4,8 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import '../mediaPlayer' as MediaPanel
-import '../volume' as VolumeModule
-import '../clock' as ClockModule
+import '../volume'      as VolumeModule
+import '../clock'       as ClockModule
 import '../quicksettings' as QsModule
 
 Scope {
@@ -21,69 +21,114 @@ Scope {
   property bool themeHasPanel:   false
   property int  themePanelWidth: 400
 
-  // ── Controle de painéis — um aberto por vez ────────────────────────────
-  property bool playerPanelOpen: false
-  property bool sinkPanelOpen:   false
-  property bool sourcePanelOpen: false
-  property bool clockPanelOpen:  false
-  property bool qsPanelOpen:     false
-
-  readonly property bool anyPanelOpen:
-    playerPanelOpen || sinkPanelOpen || sourcePanelOpen || clockPanelOpen || qsPanelOpen
-
-  function openPanel(which) {
-    var wasOpen = (which === "player"        && playerPanelOpen)
-               || (which === "sink"          && sinkPanelOpen)
-               || (which === "source"        && sourcePanelOpen)
-               || (which === "clock"         && clockPanelOpen)
-               || (which === "quicksettings" && qsPanelOpen)
-    playerPanelOpen = false
-    sinkPanelOpen   = false
-    sourcePanelOpen = false
-    clockPanelOpen  = false
-    qsPanelOpen     = false
-    if (!wasOpen) {
-      if      (which === "player")        playerPanelOpen = true
-      else if (which === "sink")          sinkPanelOpen   = true
-      else if (which === "source")        sourcePanelOpen = true
-      else if (which === "clock")         clockPanelOpen  = true
-      else if (which === "quicksettings") qsPanelOpen     = true
-    }
-  }
-
-  function closeAllPanels() {
-    playerPanelOpen = false
-    sinkPanelOpen   = false
-    sourcePanelOpen = false
-    clockPanelOpen  = false
-    qsPanelOpen     = false
-  }
-
   property var barMediaPlayerRef: null
   property var barClockRef:       null
 
-  // Referência ao OsdService do módulo OSD — injetada pelo shell.qml
-  // e repassada aos widgets do tema via onLoaded.
+  // Referência ao OsdService injetada pelo shell.qml
   property var osdService: null
+
+  // Referência ao ClockContent (dentro do clockPopup) — exposta para que
+  // shell.qml possa injetar em osd.clockContent e conectar timerElapsed.
+  property var clockContentRef: null
+
+  // ── Conexão primária: timerElapsed → osdService ────────────────────────
+  // Esta conexão vive aqui no Scope porque Bar.qml tem acesso direto tanto
+  // ao clockContentRef quanto ao osdService, sem depender do timing do shell.qml.
+  // Mesmo que shell.qml também conecte via osd.clockContent, o OsdService é
+  // idempotente — receber a mesma chamada duas vezes só gera um OSD.
+  property var _barCcConnected: null
+
+  function _barOnTimerElapsed(mode, phaseLabel) {
+    if (!barRoot.osdService || !barRoot.clockContentRef) return
+    var cc = barRoot.clockContentRef
+    barRoot.osdService.timerOsd(phaseLabel, cc.barRemaining, mode === "pomodoro", cc.barRunning)
+  }
+
+  onClockContentRefChanged: {
+    if (_barCcConnected) {
+      try { _barCcConnected.timerElapsed.disconnect(barRoot._barOnTimerElapsed) } catch(e) {}
+    }
+    _barCcConnected = clockContentRef
+    if (clockContentRef)
+      clockContentRef.timerElapsed.connect(barRoot._barOnTimerElapsed)
+  }
+
+  // ── IPC do timer ──────────────────────────────────────────────────────
+  // Uso: qs ipc call timer <comando> [arg]
+  //
+  //   toggle          → play/pause
+  //   start           → inicia com a duração configurada
+  //   reset           → para e reseta
+  //   addMin          → +1 minuto
+  //   subMin          → -1 minuto
+  //   setTimer <min>  → define duração em minutos e inicia
+  //   pomodoro        → inicia sessão Pomodoro
+  //   pomodoroNext    → avança para a próxima fase do Pomodoro
+  //   dismiss         → para o alerta sonoro e reseta
+  IpcHandler {
+    target: "timer"
+    function toggle()   {
+      var cc = barRoot.clockContentRef; if (cc) cc.toggleRunning()
+    }
+    function start()    {
+      var cc = barRoot.clockContentRef; if (cc) cc.startFree(cc.freeTimerDuration)
+    }
+    function reset()    {
+      var cc = barRoot.clockContentRef; if (cc) cc.resetTimer()
+    }
+    function addMin()   {
+      var cc = barRoot.clockContentRef; if (cc) cc.adjustTimer(60)
+    }
+    function subMin()   {
+      var cc = barRoot.clockContentRef; if (cc) cc.adjustTimer(-60)
+    }
+    function setTimer(arg: double) {
+      var cc = barRoot.clockContentRef
+      if (cc) cc.startFree(Math.max(1, Math.round(arg)) * 60)
+    }
+    function pomodoro() {
+      var cc = barRoot.clockContentRef; if (cc) cc.startPomodoro()
+    }
+    function pomodoroNext() {
+      var cc = barRoot.clockContentRef; if (cc) cc.pomodoroNext()
+    }
+    function dismiss()  {
+      var cc = barRoot.clockContentRef
+      if (cc) { cc.stopSound(); cc.resetTimer() }
+    }
+  }
 
   property int position: barState.position
 
+  // ── IDs de painel — evita strings mágicas espalhadas pelo código ───────
+  readonly property int panelNone:   0
+  readonly property int panelSink:   1
+  readonly property int panelSource: 2
+  readonly property int panelPlayer: 3
+  readonly property int panelClock:  4
+  readonly property int panelQs:     5
+
+  // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
+  // Todos os popups usam themePanelWidth como largura.
+  // Alturas fixas por módulo — ajuste aqui para mudar todos de uma vez.
+  readonly property int popupHVolume: 380
+  readonly property int popupHPlayer: 420
+  readonly property int popupHClock:  480
+  readonly property int popupHQs:     540
+  readonly property int popupWQs:     320   // QS tem largura própria (mais estreito)
+
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
   //
-  // IMPORTANTE — por que os popups estão DENTRO do PanelWindow:
+  // IMPORTANTE — os popups devem ser filhos QML do PanelWindow:
   //
-  // PopupWindow em Quickshell é um xdg_popup Wayland. Para funcionar,
-  // ele precisa de um `parentWindow` (a superfície pai). Quando declarado
-  // como filho QML de um PanelWindow, o Quickshell automaticamente usa
-  // aquele PanelWindow como parentWindow da superfície Wayland do popup.
+  // PopupWindow é um xdg_popup Wayland e precisa de um parentWindow.
+  // Quando declarado como filho de um PanelWindow, o Quickshell usa aquele
+  // PanelWindow automaticamente como superfície pai do popup.
   //
-  // Tentativas anteriores declaravam os popups em Variants separados:
+  // Popups em Variants separados não funcionam porque:
   //   • `screen` não pode ser setado (controlado pelo parentWindow)
-  //   • `anchor.window: this` causava o erro "transient parent cannot be
-  //     same as window" pois o popup tentava ancorar a si mesmo
-  //   • Não havia como referenciar o `bar` correto por tela
-  //
-  // Solução: popups dentro do PanelWindow onde `bar` é visível por id.
+  //   • `anchor.window: this` → "transient parent cannot be same as window"
+  //   • Não há como referenciar o `bar` correto por tela
   Variants {
     model: Quickshell.screens
 
@@ -92,6 +137,25 @@ Scope {
       required property var modelData
       screen: modelData
       color:  "transparent"
+
+      // ── Estado de painéis — isolado por monitor ────────────────────────
+      property int activePanel: barRoot.panelNone
+
+      readonly property bool anyPanelOpen: activePanel !== barRoot.panelNone
+
+      // Toggle: abre o painel pedido ou fecha se já estava aberto
+      function openPanel(panelId) {
+        activePanel = (activePanel === panelId) ? barRoot.panelNone : panelId
+      }
+      function closeAllPanels() { activePanel = barRoot.panelNone }
+
+      // Aliases booleanos para cada popup (lidos pelos popups abaixo)
+      readonly property bool sinkPanelOpen:   activePanel === barRoot.panelSink
+      readonly property bool sourcePanelOpen: activePanel === barRoot.panelSource
+      readonly property bool playerPanelOpen: activePanel === barRoot.panelPlayer
+      readonly property bool clockPanelOpen:  activePanel === barRoot.panelClock
+      readonly property bool qsPanelOpen:     activePanel === barRoot.panelQs
+      // ──────────────────────────────────────────────────────────────────
 
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
@@ -165,10 +229,92 @@ Scope {
       WlrLayershell.layer: WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
-      exclusiveZone: {
-        if (!barState.autoHide) return barSize
-        return 0
+      exclusiveZone: barState.autoHide ? 0 : barSize
+
+      // ── Helpers de anchor compartilhados pelos popups ──────────────────
+      //
+      // Todos os popups usam a mesma edge/gravity derivada da posição da barra.
+      // Centraliza aqui para não repetir o mesmo bloco 5 vezes.
+      readonly property int popupEdge: {
+        if (position === 1) return Edges.Bottom
+        if (position === 2) return Edges.Left
+        if (position === 3) return Edges.Top
+        return Edges.Right
       }
+
+      // ── Cálculo de anchor.rect ─────────────────────────────────────────
+      //
+      // anchor.rect define o "objeto" dentro da superfície da barra ao qual
+      // o popup se ancora. O Wayland então posiciona o popup fora dessa rect
+      // na direção de anchor.edges/gravity.
+      //
+      // Barra HORIZONTAL:
+      //   • A superfície cobre screen.width (ou pillWidth).
+      //   • rx centraliza (ou alinha à direita) o popup horizontalmente.
+      //   • height = implicitHeight (a barra inteira, na vertical).
+      //
+      // Barra VERTICAL:
+      //   • A superfície cobre screen.height (ou pillWidth).
+      //   • O rect deve ser a barra INTEIRA — sem offset ry.
+      //   • O Wayland usa anchor.gravity para posicionar o popup
+      //     verticalmente fora da barra; calcular ry manualmente faz o
+      //     popup ancorar no meio da superfície e abrir no lugar errado.
+
+      // rect centrado (volume, clock, media player)
+      //
+      // Barra HORIZONTAL: rx centra pw no eixo X da superfície.
+      // Barra VERTICAL:   usamos rect de 1x1 no topo da superfície.
+      //   O compositor (wlroots/Hyprland) parece ignorar o ry calculado
+      //   quando a superfície tem anchors top+bottom simultaneamente,
+      //   posicionando sempre pelo centro geométrico da janela.
+      //   Com rect 1x1 no topo + gravity Right, o popup ancora no topo
+      //   e cresce para baixo — menos errado que o centro.
+      //   TODO: investigar se PopupWindow.anchor.rect funciona corretamente
+      //   com PanelWindow full-height no Quickshell/wlroots.
+      function popupRectCentered(pw, ph) {
+        if (!isVertical) {
+          var sw = pill ? pillWidth : screen.width
+          var rx = Math.max(0, Math.floor((sw - pw) / 2))
+          return Qt.rect(rx, 0, pw, implicitHeight)
+        }
+        // Barra vertical: o anchor.rect é interpretado em coordenadas
+        // globais pelo Hyprland quando screen.x é negativo (monitor à
+        // esquerda do principal). Compensamos subtraindo screen.x do rx
+        // para que o rect fique dentro da superfície globalmente.
+        // ry centra verticalmente o popup na superfície.
+        var sh = pill ? pillWidth : screen.height
+        var ry = Math.max(0, Math.floor((sh - ph) / 2))
+        var rxAdj = -screen.x   // 0 quando screen.x=0, 1920 quando screen.x=-1920
+        console.log("[BarPopup] screen=" + screen.name
+          + " screenX=" + screen.x + " ry=" + ry + " rxAdj=" + rxAdj
+          + " → rect(" + rxAdj + "," + ry + "," + implicitWidth + "," + ph + ")")
+        return Qt.rect(rxAdj, ry, implicitWidth, ph)
+      }
+
+      function popupRectRight(pw, ph) {
+        if (!isVertical) {
+          var sw = pill ? pillWidth : screen.width
+          return Qt.rect(Math.max(0, sw - pw - 8), 0, pw, implicitHeight)
+        }
+        var sh = pill ? pillWidth : screen.height
+        var ry = Math.max(0, Math.floor((sh - ph) / 2))
+        var rxAdj = -screen.x
+        return Qt.rect(rxAdj, ry, implicitWidth, ph)
+      }
+
+      // ── Paleta dos popups — binding único, replicado para todos ────────
+      //
+      // Em vez de repetir 7 bindings de cor em cada popup, definimos aqui
+      // e cada popup lê de `bar.popup*`. Quando a paleta mudar em runtime,
+      // os popups atualizam automaticamente por binding.
+      readonly property color popupColorBg:       barState.config.palettePanelBg
+      readonly property color popupColorText:     barState.config.paletteText
+      readonly property color popupColorTextDim:  barState.config.paletteTextDim
+      readonly property color popupColorAccent:   barState.config.paletteAccent
+      readonly property color popupColorMuted:    barState.config.paletteWsDotUrgentColor
+      readonly property color popupColorProgress: barState.config.paletteProgressBg
+      readonly property color popupColorProgressFg: barState.config.paletteProgressFg
+      readonly property color popupColorDivider:  barState.config.paletteDivider
 
       // ── Loader do tema ─────────────────────────────────────────────────
       Loader {
@@ -188,14 +334,17 @@ Scope {
           if ("barPosition" in item) item.barPosition = barRoot.position
           if (item.mediaPlayer)      barRoot.barMediaPlayerRef = item.mediaPlayer
 
-          // ── Clock — injeção do clockContent e captura da referência ────
+          // Clock — injeção do clockContent e captura da referência
           if (item.clock) {
             barRoot.barClockRef = item.clock
             if ("clockContent" in item.clock)
               item.clock.clockContent = clockPopup.clockContentRef
+            // Expõe para o shell.qml repassar ao Osd
+            if (!barRoot.clockContentRef)
+              barRoot.clockContentRef = clockPopup.clockContentRef
           }
 
-          // Injeta osdService nos widgets do tema (só quando disponível)
+          // osdService — injetado quando disponível
           if (barRoot.osdService !== null) {
             if ("osdService" in item) item.osdService = barRoot.osdService
             var _vol = item.volumeWidget
@@ -204,72 +353,7 @@ Scope {
             if (_mp  && "osdService" in _mp)  _mp.osdService  = barRoot.osdService
           }
 
-          // workspaces
-          if ("cfgWsStyle"          in item) item.cfgWsStyle          = barState.config.wsStyle
-          if ("cfgWsIconsSort"      in item) item.cfgWsIconsSort      = barState.config.wsIconsSort
-          if ("cfgWsIconMonochrome" in item) item.cfgWsIconMonochrome = barState.config.wsIconMonochrome
-          if ("cfgWsIconSpacing"    in item) item.cfgWsIconSpacing    = barState.config.wsIconSpacing
-          if ("cfgWsBgOpacity"      in item) item.cfgWsBgOpacity      = barState.config.wsBgOpacity
-          if ("cfgWsBgPaddingH"     in item) item.cfgWsBgPaddingH     = barState.config.wsBgPaddingH
-          if ("cfgWsBgPaddingV"     in item) item.cfgWsBgPaddingV     = barState.config.wsBgPaddingV
-          if ("cfgWsShowAddButton"  in item) item.cfgWsShowAddButton  = barState.config.wsShowAddButton
-          // workspace ativa — fundo individual
-          if ("cfgWsBgColorActive"       in item) item.cfgWsBgColorActive       = barState.config.paletteWsBgColorActive
-          if ("cfgWsBgOpacityActive"     in item) item.cfgWsBgOpacityActive     = barState.config.wsBgOpacityActive
-          if ("cfgWsBgBorderColorActive" in item) item.cfgWsBgBorderColorActive = barState.config.paletteWsBgBorderColorActive
-          if ("cfgWsBgBorderWidthActive" in item) item.cfgWsBgBorderWidthActive = barState.config.wsBgBorderWidthActive
-          if ("cfgWsBgPaddingHActive"    in item) item.cfgWsBgPaddingHActive    = barState.config.wsBgPaddingHActive
-          if ("cfgWsBgPaddingVActive"    in item) item.cfgWsBgPaddingVActive    = barState.config.wsBgPaddingVActive
-          if ("cfgWsBgRadiusActive"      in item) item.cfgWsBgRadiusActive      = barState.config.wsBgRadiusActive
-          if ("colWsBgActive"            in item) item.colWsBgActive            = barState.config.paletteWsBgColorActive
-
-          // mediaPlayer
-          if ("cfgMpTextMode"        in item) item.cfgMpTextMode        = barState.config.mpTextMode
-          if ("cfgMpScrollSpeed"     in item) item.cfgMpScrollSpeed     = barState.config.mpScrollSpeed
-          if ("cfgMpScrollPauseMs"   in item) item.cfgMpScrollPauseMs  = barState.config.mpScrollPauseMs
-          if ("cfgMpScrollWidth"     in item) item.cfgMpScrollWidth     = barState.config.mpScrollWidth
-          if ("cfgMpBgEnabled"       in item) item.cfgMpBgEnabled       = barState.config.mpBgEnabled
-          if ("cfgMpBgOpacity"       in item) item.cfgMpBgOpacity       = barState.config.mpBgOpacity
-          if ("cfgMpBgOpacityActive" in item) item.cfgMpBgOpacityActive = barState.config.mpBgOpacityActive
-          if ("cfgMpBgPaddingH"      in item) item.cfgMpBgPaddingH      = barState.config.mpBgPaddingH
-          if ("cfgMpBgPaddingV"      in item) item.cfgMpBgPaddingV      = barState.config.mpBgPaddingV
-          if ("cfgMpBgColor"         in item) item.cfgMpBgColor         = barState.config.paletteMpBgColor
-          if ("cfgMpBgColorActive"   in item) item.cfgMpBgColorActive   = barState.config.paletteMpBgColorActive
-          if ("cfgMpTextColor"       in item) item.cfgMpTextColor       = barState.config.paletteMpTextColor
-          if ("cfgMpDimColor"        in item) item.cfgMpDimColor        = barState.config.paletteMpDimColor
-          if ("cfgMpTextColorActive" in item) item.cfgMpTextColorActive = barState.config.paletteMpTextColorActive
-          if ("cfgMpDimColorActive"  in item) item.cfgMpDimColorActive  = barState.config.paletteMpDimColorActive
-
-          // volume
-          if ("cfgVolShowSink"   in item) item.cfgVolShowSink   = barState.config.volShowSink   !== undefined ? barState.config.volShowSink   : true
-          if ("cfgVolShowSource" in item) item.cfgVolShowSource = barState.config.volShowSource !== undefined ? barState.config.volShowSource : true
-          if ("cfgVolTextColor"  in item) item.cfgVolTextColor  = barState.config.paletteText
-          if ("cfgVolDimColor"   in item) item.cfgVolDimColor   = barState.config.paletteTextDim
-          if ("cfgVolAccent"     in item) item.cfgVolAccent     = barState.config.paletteAccent
-          if ("cfgVolMuted"      in item) item.cfgVolMuted      = barState.config.paletteWsDotUrgentColor
-
-          // clock
-          if ("cfgClkTextColor"    in item) item.cfgClkTextColor    = barState.config.paletteClkTextColor
-          if ("cfgClkDimColor"     in item) item.cfgClkDimColor     = barState.config.paletteClkDimColor
-          if ("cfgClkAccent"       in item) item.cfgClkAccent       = barState.config.paletteClkAccentColor
-          if ("cfgClkDismissDelay" in item) item.cfgClkDismissDelay = barState.config.clkDismissDelayMs
-
-          // paleta
-          if ("colBarBg"          in item) item.colBarBg          = barState.config.paletteBarBg
-          if ("colBarBgPill"      in item) item.colBarBgPill      = barState.config.paletteBarBgPill
-          if ("colText"           in item) item.colText           = barState.config.paletteText
-          if ("colTextDim"        in item) item.colTextDim        = barState.config.paletteTextDim
-          if ("colAccent"         in item) item.colAccent         = barState.config.paletteAccent
-          if ("colAccentBg"       in item) item.colAccentBg       = barState.config.paletteAccentBg
-          if ("colAccentText"     in item) item.colAccentText     = barState.config.paletteAccentText
-          if ("colWsDot"          in item) item.colWsDot          = barState.config.paletteWsDotColor
-          if ("colWsDotActive"    in item) item.colWsDotActive    = barState.config.paletteWsDotActiveColor
-          if ("colWsDotOccupied"  in item) item.colWsDotOccupied  = barState.config.paletteWsDotOccupiedColor
-          if ("colWsDotUrgent"    in item) item.colWsDotUrgent    = barState.config.paletteWsDotUrgentColor
-          if ("colWsBg"           in item) item.colWsBg           = barState.config.paletteWsBgColor
-          if ("colWsBorder"       in item) item.colWsBorder       = barState.config.paletteWsBgBorderColor
-          if ("colIconMono"       in item) item.colIconMono       = barState.config.paletteWsIconMonoColor
-          if ("colIconMonoActive" in item) item.colIconMonoActive = barState.config.paletteWsIconMonoColorActive
+          _applyConfig(item)
 
           bar.animating    = false
           bar.marginOffset = bar.barShow ? 0 : bar.barSize + bar.barMargin + 1
@@ -277,125 +361,195 @@ Scope {
         }
       }
 
+      // ── Aplicação de config ao tema ────────────────────────────────────
+      // Centraliza o bloco de injeção de props para não duplicar entre
+      // onLoaded e os Connections de runtime.
+      function _set(prop, value) {
+        if (loader.item && prop in loader.item) loader.item[prop] = value
+      }
+
+      function _applyConfig(item) {
+        // workspaces
+        _set("cfgWsStyle",          barState.config.wsStyle)
+        _set("cfgWsIconsSort",      barState.config.wsIconsSort)
+        _set("cfgWsIconMonochrome", barState.config.wsIconMonochrome)
+        _set("cfgWsIconSpacing",    barState.config.wsIconSpacing)
+        _set("cfgWsBgOpacity",      barState.config.wsBgOpacity)
+        _set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)
+        _set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)
+        _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
+        // workspace ativa
+        _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
+        _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)
+        _set("cfgWsBgBorderColorActive", barState.config.paletteWsBgBorderColorActive)
+        _set("cfgWsBgBorderWidthActive", barState.config.wsBgBorderWidthActive)
+        _set("cfgWsBgPaddingHActive",    barState.config.wsBgPaddingHActive)
+        _set("cfgWsBgPaddingVActive",    barState.config.wsBgPaddingVActive)
+        _set("cfgWsBgRadiusActive",      barState.config.wsBgRadiusActive)
+        _set("colWsBgActive",            barState.config.paletteWsBgColorActive)
+        // mediaPlayer
+        _set("cfgMpTextMode",        barState.config.mpTextMode)
+        _set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)
+        _set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)
+        _set("cfgMpScrollWidth",     barState.config.mpScrollWidth)
+        _set("cfgMpBgEnabled",       barState.config.mpBgEnabled)
+        _set("cfgMpBgOpacity",       barState.config.mpBgOpacity)
+        _set("cfgMpBgOpacityActive", barState.config.mpBgOpacityActive)
+        _set("cfgMpBgPaddingH",      barState.config.mpBgPaddingH)
+        _set("cfgMpBgPaddingV",      barState.config.mpBgPaddingV)
+        _set("cfgMpBgColor",         barState.config.paletteMpBgColor)
+        _set("cfgMpBgColorActive",   barState.config.paletteMpBgColorActive)
+        _set("cfgMpTextColor",       barState.config.paletteMpTextColor)
+        _set("cfgMpDimColor",        barState.config.paletteMpDimColor)
+        _set("cfgMpTextColorActive", barState.config.paletteMpTextColorActive)
+        _set("cfgMpDimColorActive",  barState.config.paletteMpDimColorActive)
+        // volume
+        _set("cfgVolShowSink",   barState.config.volShowSink   !== undefined ? barState.config.volShowSink   : true)
+        _set("cfgVolShowSource", barState.config.volShowSource !== undefined ? barState.config.volShowSource : true)
+        _set("cfgVolTextColor",  barState.config.paletteText)
+        _set("cfgVolDimColor",   barState.config.paletteTextDim)
+        _set("cfgVolAccent",     barState.config.paletteAccent)
+        _set("cfgVolMuted",      barState.config.paletteWsDotUrgentColor)
+        // clock
+        _set("cfgClkTextColor",    barState.config.paletteClkTextColor)
+        _set("cfgClkDimColor",     barState.config.paletteClkDimColor)
+        _set("cfgClkAccent",       barState.config.paletteClkAccentColor)
+        _set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)
+        // paleta
+        _set("colBarBg",          barState.config.paletteBarBg)
+        _set("colBarBgPill",      barState.config.paletteBarBgPill)
+        _set("colText",           barState.config.paletteText)
+        _set("colTextDim",        barState.config.paletteTextDim)
+        _set("colAccent",         barState.config.paletteAccent)
+        _set("colAccentBg",       barState.config.paletteAccentBg)
+        _set("colAccentText",     barState.config.paletteAccentText)
+        _set("colWsDot",          barState.config.paletteWsDotColor)
+        _set("colWsDotActive",    barState.config.paletteWsDotActiveColor)
+        _set("colWsDotOccupied",  barState.config.paletteWsDotOccupiedColor)
+        _set("colWsDotUrgent",    barState.config.paletteWsDotUrgentColor)
+        _set("colWsBg",           barState.config.paletteWsBgColor)
+        _set("colWsBorder",       barState.config.paletteWsBgBorderColor)
+        _set("colIconMono",       barState.config.paletteWsIconMonoColor)
+        _set("colIconMonoActive", barState.config.paletteWsIconMonoColorActive)
+      }
+
       // ── Propagação runtime → tema ──────────────────────────────────────
       Connections {
         target: barState.config
 
-        function onPaletteBarBgChanged()                { _set("colBarBg",           barState.config.paletteBarBg)                 }
-        function onPaletteBarBgPillChanged()            { _set("colBarBgPill",       barState.config.paletteBarBgPill)             }
-        function onPaletteTextChanged()                 { _set("colText",            barState.config.paletteText)
-                                                          _set("cfgVolTextColor",    barState.config.paletteText)                  }
-        function onPaletteTextDimChanged()              { _set("colTextDim",         barState.config.paletteTextDim)
-                                                          _set("cfgVolDimColor",     barState.config.paletteTextDim)               }
-        function onPaletteAccentChanged()               { _set("colAccent",          barState.config.paletteAccent)
-                                                          _set("cfgVolAccent",       barState.config.paletteAccent)                }
-        function onPaletteAccentBgChanged()             { _set("colAccentBg",        barState.config.paletteAccentBg)              }
-        function onPaletteAccentTextChanged()           { _set("colAccentText",      barState.config.paletteAccentText)            }
-        function onPaletteWsBgColorChanged()            { _set("colWsBg",            barState.config.paletteWsBgColor)             }
-        function onPaletteWsBgBorderColorChanged()      { _set("colWsBorder",        barState.config.paletteWsBgBorderColor)       }
-        function onPaletteWsDotColorChanged()           { _set("colWsDot",           barState.config.paletteWsDotColor)            }
-        function onPaletteWsDotActiveColorChanged()     { _set("colWsDotActive",     barState.config.paletteWsDotActiveColor)      }
-        function onPaletteWsDotOccupiedColorChanged()   { _set("colWsDotOccupied",   barState.config.paletteWsDotOccupiedColor)    }
-        function onPaletteWsDotUrgentColorChanged()     { _set("colWsDotUrgent",     barState.config.paletteWsDotUrgentColor)
-                                                          _set("cfgVolMuted",        barState.config.paletteWsDotUrgentColor)      }
-        function onPaletteWsIconMonoColorChanged()      { _set("colIconMono",        barState.config.paletteWsIconMonoColor)       }
-        function onPaletteWsIconMonoColorActiveChanged(){ _set("colIconMonoActive",  barState.config.paletteWsIconMonoColorActive) }
-        function onWsStyleChanged()          { _set("cfgWsStyle",          barState.config.wsStyle)          }
-        function onWsIconsSortChanged()      { _set("cfgWsIconsSort",      barState.config.wsIconsSort)      }
-        function onWsIconMonochromeChanged() { _set("cfgWsIconMonochrome", barState.config.wsIconMonochrome) }
-        function onWsIconSpacingChanged()    { _set("cfgWsIconSpacing",    barState.config.wsIconSpacing)    }
-        function onWsBgOpacityChanged()      { _set("cfgWsBgOpacity",      barState.config.wsBgOpacity)      }
-        function onWsBgPaddingHChanged()     { _set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)     }
-        function onWsBgPaddingVChanged()     { _set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)     }
-        function onWsShowAddButtonChanged()  { _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)  }
-        // workspace ativa — runtime
-        function onPaletteWsBgColorActiveChanged()       { _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
-                                                           _set("colWsBgActive",             barState.config.paletteWsBgColorActive)       }
-        function onWsBgOpacityActiveChanged()            { _set("cfgWsBgOpacityActive",      barState.config.wsBgOpacityActive)            }
-        function onPaletteWsBgBorderColorActiveChanged() { _set("cfgWsBgBorderColorActive",  barState.config.paletteWsBgBorderColorActive) }
-        function onWsBgBorderWidthActiveChanged()        { _set("cfgWsBgBorderWidthActive",  barState.config.wsBgBorderWidthActive)        }
-        function onWsBgPaddingHActiveChanged()           { _set("cfgWsBgPaddingHActive",     barState.config.wsBgPaddingHActive)           }
-        function onWsBgPaddingVActiveChanged()           { _set("cfgWsBgPaddingVActive",     barState.config.wsBgPaddingVActive)           }
-        function onWsBgRadiusActiveChanged()             { _set("cfgWsBgRadiusActive",       barState.config.wsBgRadiusActive)             }
-        function onMpTextModeChanged()            { _set("cfgMpTextMode",        barState.config.mpTextMode)            }
-        function onMpScrollSpeedChanged()         { _set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)         }
-        function onMpScrollPauseMsChanged()       { _set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)       }
-        function onMpScrollWidthChanged()         { _set("cfgMpScrollWidth",     barState.config.mpScrollWidth)         }
-        function onMpBgEnabledChanged()           { _set("cfgMpBgEnabled",       barState.config.mpBgEnabled)           }
-        function onMpBgOpacityChanged()           { _set("cfgMpBgOpacity",       barState.config.mpBgOpacity)           }
-        function onMpBgOpacityActiveChanged()     { _set("cfgMpBgOpacityActive", barState.config.mpBgOpacityActive)     }
-        function onMpBgPaddingHChanged()          { _set("cfgMpBgPaddingH",      barState.config.mpBgPaddingH)          }
-        function onMpBgPaddingVChanged()          { _set("cfgMpBgPaddingV",      barState.config.mpBgPaddingV)          }
-        function onPaletteMpBgColorChanged()         { _set("cfgMpBgColor",         barState.config.paletteMpBgColor)         }
-        function onPaletteMpBgColorActiveChanged()   { _set("cfgMpBgColorActive",   barState.config.paletteMpBgColorActive)   }
-        function onPaletteMpTextColorChanged()       { _set("cfgMpTextColor",       barState.config.paletteMpTextColor)       }
-        function onPaletteMpDimColorChanged()        { _set("cfgMpDimColor",        barState.config.paletteMpDimColor)        }
-        function onPaletteMpTextColorActiveChanged() { _set("cfgMpTextColorActive", barState.config.paletteMpTextColorActive) }
-        function onPaletteMpDimColorActiveChanged()  { _set("cfgMpDimColorActive",  barState.config.paletteMpDimColorActive)  }
-
+        // paleta
+        function onPaletteBarBgChanged()                { bar._set("colBarBg",          barState.config.paletteBarBg)                 }
+        function onPaletteBarBgPillChanged()            { bar._set("colBarBgPill",      barState.config.paletteBarBgPill)             }
+        function onPaletteTextChanged()                 { bar._set("colText",           barState.config.paletteText)
+                                                          bar._set("cfgVolTextColor",   barState.config.paletteText)                  }
+        function onPaletteTextDimChanged()              { bar._set("colTextDim",        barState.config.paletteTextDim)
+                                                          bar._set("cfgVolDimColor",    barState.config.paletteTextDim)               }
+        function onPaletteAccentChanged()               { bar._set("colAccent",         barState.config.paletteAccent)
+                                                          bar._set("cfgVolAccent",      barState.config.paletteAccent)                }
+        function onPaletteAccentBgChanged()             { bar._set("colAccentBg",       barState.config.paletteAccentBg)              }
+        function onPaletteAccentTextChanged()           { bar._set("colAccentText",     barState.config.paletteAccentText)            }
+        function onPaletteWsBgColorChanged()            { bar._set("colWsBg",           barState.config.paletteWsBgColor)             }
+        function onPaletteWsBgBorderColorChanged()      { bar._set("colWsBorder",       barState.config.paletteWsBgBorderColor)       }
+        function onPaletteWsDotColorChanged()           { bar._set("colWsDot",          barState.config.paletteWsDotColor)            }
+        function onPaletteWsDotActiveColorChanged()     { bar._set("colWsDotActive",    barState.config.paletteWsDotActiveColor)      }
+        function onPaletteWsDotOccupiedColorChanged()   { bar._set("colWsDotOccupied",  barState.config.paletteWsDotOccupiedColor)    }
+        function onPaletteWsDotUrgentColorChanged()     { bar._set("colWsDotUrgent",    barState.config.paletteWsDotUrgentColor)
+                                                          bar._set("cfgVolMuted",       barState.config.paletteWsDotUrgentColor)      }
+        function onPaletteWsIconMonoColorChanged()      { bar._set("colIconMono",       barState.config.paletteWsIconMonoColor)       }
+        function onPaletteWsIconMonoColorActiveChanged(){ bar._set("colIconMonoActive", barState.config.paletteWsIconMonoColorActive) }
+        // workspaces
+        function onWsStyleChanged()          { bar._set("cfgWsStyle",          barState.config.wsStyle)          }
+        function onWsIconsSortChanged()      { bar._set("cfgWsIconsSort",      barState.config.wsIconsSort)      }
+        function onWsIconMonochromeChanged() { bar._set("cfgWsIconMonochrome", barState.config.wsIconMonochrome) }
+        function onWsIconSpacingChanged()    { bar._set("cfgWsIconSpacing",    barState.config.wsIconSpacing)    }
+        function onWsBgOpacityChanged()      { bar._set("cfgWsBgOpacity",      barState.config.wsBgOpacity)      }
+        function onWsBgPaddingHChanged()     { bar._set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)     }
+        function onWsBgPaddingVChanged()     { bar._set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)     }
+        function onWsShowAddButtonChanged()  { bar._set("cfgWsShowAddButton",  barState.config.wsShowAddButton)  }
+        // workspace ativa
+        function onPaletteWsBgColorActiveChanged()       { bar._set("cfgWsBgColorActive",      barState.config.paletteWsBgColorActive)
+                                                           bar._set("colWsBgActive",            barState.config.paletteWsBgColorActive)       }
+        function onWsBgOpacityActiveChanged()            { bar._set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)            }
+        function onPaletteWsBgBorderColorActiveChanged() { bar._set("cfgWsBgBorderColorActive", barState.config.paletteWsBgBorderColorActive) }
+        function onWsBgBorderWidthActiveChanged()        { bar._set("cfgWsBgBorderWidthActive", barState.config.wsBgBorderWidthActive)        }
+        function onWsBgPaddingHActiveChanged()           { bar._set("cfgWsBgPaddingHActive",    barState.config.wsBgPaddingHActive)           }
+        function onWsBgPaddingVActiveChanged()           { bar._set("cfgWsBgPaddingVActive",    barState.config.wsBgPaddingVActive)           }
+        function onWsBgRadiusActiveChanged()             { bar._set("cfgWsBgRadiusActive",      barState.config.wsBgRadiusActive)             }
+        // mediaPlayer
+        function onMpTextModeChanged()               { bar._set("cfgMpTextMode",        barState.config.mpTextMode)            }
+        function onMpScrollSpeedChanged()            { bar._set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)         }
+        function onMpScrollPauseMsChanged()          { bar._set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)       }
+        function onMpScrollWidthChanged()            { bar._set("cfgMpScrollWidth",     barState.config.mpScrollWidth)         }
+        function onMpBgEnabledChanged()              { bar._set("cfgMpBgEnabled",       barState.config.mpBgEnabled)           }
+        function onMpBgOpacityChanged()              { bar._set("cfgMpBgOpacity",       barState.config.mpBgOpacity)           }
+        function onMpBgOpacityActiveChanged()        { bar._set("cfgMpBgOpacityActive", barState.config.mpBgOpacityActive)     }
+        function onMpBgPaddingHChanged()             { bar._set("cfgMpBgPaddingH",      barState.config.mpBgPaddingH)          }
+        function onMpBgPaddingVChanged()             { bar._set("cfgMpBgPaddingV",      barState.config.mpBgPaddingV)          }
+        function onPaletteMpBgColorChanged()         { bar._set("cfgMpBgColor",         barState.config.paletteMpBgColor)         }
+        function onPaletteMpBgColorActiveChanged()   { bar._set("cfgMpBgColorActive",   barState.config.paletteMpBgColorActive)   }
+        function onPaletteMpTextColorChanged()       { bar._set("cfgMpTextColor",       barState.config.paletteMpTextColor)       }
+        function onPaletteMpDimColorChanged()        { bar._set("cfgMpDimColor",        barState.config.paletteMpDimColor)        }
+        function onPaletteMpTextColorActiveChanged() { bar._set("cfgMpTextColorActive", barState.config.paletteMpTextColorActive) }
+        function onPaletteMpDimColorActiveChanged()  { bar._set("cfgMpDimColorActive",  barState.config.paletteMpDimColorActive)  }
         // clock
-        function onPaletteClkTextColorChanged()   { _set("cfgClkTextColor",    barState.config.paletteClkTextColor)   }
-        function onPaletteClkDimColorChanged()    { _set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }
-        function onPaletteClkAccentColorChanged() { _set("cfgClkAccent",       barState.config.paletteClkAccentColor) }
-        function onClkDismissDelayMsChanged()     { _set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)     }
-
-        function _set(prop, value) {
-          if (loader.item && prop in loader.item) loader.item[prop] = value
-        }
+        function onPaletteClkTextColorChanged()   { bar._set("cfgClkTextColor",    barState.config.paletteClkTextColor)   }
+        function onPaletteClkDimColorChanged()     { bar._set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }
+        function onPaletteClkAccentColorChanged()  { bar._set("cfgClkAccent",       barState.config.paletteClkAccentColor) }
+        function onClkDismissDelayMsChanged()      { bar._set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)     }
       }
 
       Connections {
         target: barRoot
         function onPositionChanged() {
-          if (loader.item && "barPosition" in loader.item)
-            loader.item.barPosition = barRoot.position
+          bar._set("barPosition", barRoot.position)
         }
         function onOsdServiceChanged() {
           if (!loader.item) return
           if ("osdService" in loader.item) loader.item.osdService = barRoot.osdService
           var vol = loader.item.volumeWidget
           if (vol && "osdService" in vol) vol.osdService = barRoot.osdService
-          var mp = loader.item.mediaPlayer
+          var mp  = loader.item.mediaPlayer
           if (mp  && "osdService" in mp)  mp.osdService  = barRoot.osdService
         }
-        // Re-injeta clockContent quando barClockRef muda (hot-reload do tema)
+        // Re-injeta clockContent ao recarregar tema (hot-reload)
         function onBarClockRefChanged() {
           var ck = barRoot.barClockRef
           if (ck && "clockContent" in ck)
             ck.clockContent = clockPopup.clockContentRef
+          // Mantém clockContentRef atualizado após hot-reload
+          barRoot.clockContentRef = clockPopup.clockContentRef
         }
       }
 
       // ── Sinais do tema → abertura de painéis ───────────────────────────
+      // Um único Timer de cooldown compartilhado — 100 ms é suficiente
+      // para debounce de clique em qualquer painel.
+      Timer { id: panelCooldown; interval: 100; repeat: false }
+
       Connections {
         target: loader.item
         ignoreUnknownSignals: true
         function onSinkPanelRequested() {
-          if (!volCooldown.running) { barRoot.openPanel("sink"); volCooldown.restart() }
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelSink);   panelCooldown.restart() }
         }
         function onSourcePanelRequested() {
-          if (!volCooldown.running) { barRoot.openPanel("source"); volCooldown.restart() }
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelSource); panelCooldown.restart() }
         }
         function onClockPanelRequested() {
-          if (!clockCooldown.running) { barRoot.openPanel("clock"); clockCooldown.restart() }
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelClock);  panelCooldown.restart() }
         }
-        // ── QuickSettings ────────────────────────────────────────────────
         function onQuickSettingsPanelRequested() {
-          if (!qsCooldown.running) { barRoot.openPanel("quicksettings"); qsCooldown.restart() }
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelQs);     panelCooldown.restart() }
         }
       }
-      Timer { id: volCooldown;   interval: 100; repeat: false }
-      Timer { id: clockCooldown; interval: 100; repeat: false }
-      Timer { id: qsCooldown;    interval: 100; repeat: false }
 
       Connections {
         target: loader.item && loader.item.mediaPlayer ? loader.item.mediaPlayer : null
         ignoreUnknownSignals: true
         function onClicked() {
-          if (!toggleCooldown.running) { barRoot.openPanel("player"); toggleCooldown.restart() }
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelPlayer); panelCooldown.restart() }
         }
       }
-      Timer { id: toggleCooldown; interval: 100; repeat: false }
 
       // ── Hot-reload do tema ─────────────────────────────────────────────
       FileView {
@@ -475,9 +629,7 @@ Scope {
       }
 
       property bool barVisible: {
-        if (barRoot.playerPanelOpen) return true
-        if (barRoot.sinkPanelOpen || barRoot.sourcePanelOpen) return true
-        if (barRoot.clockPanelOpen) return true
+        if (anyPanelOpen) return true
         if (!barState.autoHide) return true
         var near = pill ? cursorAtEdge : cursorNearBar
         return near || !hasWindows
@@ -505,221 +657,139 @@ Scope {
         if (!barVisible) marginOffset = barSize + barMargin + 1
       }
 
-      // ───────────────────────────────────────────────────────────────────
-      // Popups declarados como filhos QML do PanelWindow.
-      // ───────────────────────────────────────────────────────────────────
+      // ═══════════════════════════════════════════════════════════════════
+      // Popups — filhos QML do PanelWindow (ver comentário no topo)
+      //
+      // Padrão de anchor compartilhado:
+      //   anchor.window:  bar
+      //   anchor.edges:   bar.popupEdge        (derivado da posição)
+      //   anchor.gravity: bar.popupEdge        (idem)
+      //   anchor.rect:    bar.popupRectCentered(pw, ph)  ou  popupRectRight
+      //
+      // Paleta:           bar.popupColor*      (binding único, sem repetição)
+      // Dimensões:        barRoot.popupH*      (fonte de verdade única)
+      // ═══════════════════════════════════════════════════════════════════
 
-      // ── Popup Volume — Sink ────────────────────────────────────────────
+      // ── Volume — Sink ──────────────────────────────────────────────────
       VolumeModule.VolumePopup {
         id: volSinkPopup
-
-        anchor.window: bar
-        anchor.rect: {
-          var bw = bar.implicitWidth
-          var bh = bar.implicitHeight
-          var pw = barRoot.themePanelWidth
-          var ph = 380
-          if (!bar.isVertical)
-            return Qt.rect(Math.max(0, (bw - pw) / 2), 0, pw, bh)
-          return Qt.rect(0, Math.max(0, (bh - ph) / 2), bw, ph)
-        }
-        anchor.edges: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
-        anchor.gravity: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHVolume)
 
         popupW: barRoot.themePanelWidth
-        popupH: 380
+        popupH: barRoot.popupHVolume
 
         showOnlySink: true
-        panelOpen:    barRoot.sinkPanelOpen
+        panelOpen:    bar.sinkPanelOpen
 
-        colorPanelBg:    barState.config.palettePanelBg
-        colorText:       barState.config.paletteText
-        colorTextDim:    barState.config.paletteTextDim
-        colorAccent:     barState.config.paletteAccent
-        colorProgressBg: barState.config.paletteProgressBg
-        colorDivider:    barState.config.paletteDivider
-        colorMuted:      barState.config.paletteWsDotUrgentColor
+        colorPanelBg:    bar.popupColorBg
+        colorText:       bar.popupColorText
+        colorTextDim:    bar.popupColorTextDim
+        colorAccent:     bar.popupColorAccent
+        colorProgressBg: bar.popupColorProgress
+        colorDivider:    bar.popupColorDivider
+        colorMuted:      bar.popupColorMuted
 
-        onCloseRequested: barRoot.closeAllPanels()
+        onCloseRequested: bar.closeAllPanels()
       }
 
-      // ── Popup Volume — Source ──────────────────────────────────────────
+      // ── Volume — Source ────────────────────────────────────────────────
       VolumeModule.VolumePopup {
         id: volSourcePopup
-
-        anchor.window: bar
-        anchor.rect: {
-          var bw = bar.implicitWidth
-          var bh = bar.implicitHeight
-          var pw = barRoot.themePanelWidth
-          var ph = 380
-          if (!bar.isVertical)
-            return Qt.rect(Math.max(0, (bw - pw) / 2), 0, pw, bh)
-          return Qt.rect(0, Math.max(0, (bh - ph) / 2), bw, ph)
-        }
-        anchor.edges: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
-        anchor.gravity: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHVolume)
 
         popupW: barRoot.themePanelWidth
-        popupH: 380
+        popupH: barRoot.popupHVolume
 
         showOnlySource: true
-        panelOpen:      barRoot.sourcePanelOpen
+        panelOpen:      bar.sourcePanelOpen
 
-        colorPanelBg:    barState.config.palettePanelBg
-        colorText:       barState.config.paletteText
-        colorTextDim:    barState.config.paletteTextDim
-        colorAccent:     barState.config.paletteAccent
-        colorProgressBg: barState.config.paletteProgressBg
-        colorDivider:    barState.config.paletteDivider
-        colorMuted:      barState.config.paletteWsDotUrgentColor
+        colorPanelBg:    bar.popupColorBg
+        colorText:       bar.popupColorText
+        colorTextDim:    bar.popupColorTextDim
+        colorAccent:     bar.popupColorAccent
+        colorProgressBg: bar.popupColorProgress
+        colorDivider:    bar.popupColorDivider
+        colorMuted:      bar.popupColorMuted
 
-        onCloseRequested: barRoot.closeAllPanels()
+        onCloseRequested: bar.closeAllPanels()
       }
 
-      // ── Popup Media Player ─────────────────────────────────────────────
+      // ── Media Player ───────────────────────────────────────────────────
       MediaPanel.MediaPlayerPopup {
         id: mediaPopup
-
-        anchor.window: bar
-        anchor.rect: {
-          var bw = bar.implicitWidth
-          var bh = bar.implicitHeight
-          var pw = barRoot.themePanelWidth
-          var ph = 420
-          if (!bar.isVertical)
-            return Qt.rect(Math.max(0, (bw - pw) / 2), 0, pw, bh)
-          return Qt.rect(0, Math.max(0, (bh - ph) / 2), bw, ph)
-        }
-        anchor.edges: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
-        anchor.gravity: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHPlayer)
 
         popupW: barRoot.themePanelWidth
-        popupH: 420
+        popupH: barRoot.popupHPlayer
 
-        panelOpen:      barRoot.playerPanelOpen && barRoot.themeHasPanel
+        panelOpen:      bar.playerPanelOpen && barRoot.themeHasPanel
         barMediaPlayer: barRoot.barMediaPlayerRef
 
-        colorPanelBg:    barState.config.palettePanelBg
-        colorText:       barState.config.paletteText
-        colorTextDim:    barState.config.paletteTextDim
-        colorAccent:     barState.config.paletteAccent
-        colorProgressBg: barState.config.paletteProgressBg
-        colorProgressFg: barState.config.paletteProgressFg
+        colorPanelBg:    bar.popupColorBg
+        colorText:       bar.popupColorText
+        colorTextDim:    bar.popupColorTextDim
+        colorAccent:     bar.popupColorAccent
+        colorProgressBg: bar.popupColorProgress
+        colorProgressFg: bar.popupColorProgressFg
 
-        onCloseRequested: barRoot.closeAllPanels()
+        onCloseRequested: bar.closeAllPanels()
       }
 
-      // ── Popup Clock ────────────────────────────────────────────────────
+      // ── Clock ──────────────────────────────────────────────────────────
       ClockModule.ClockPopup {
         id: clockPopup
-
-        anchor.window: bar
-        anchor.rect: {
-          var bw = bar.implicitWidth
-          var bh = bar.implicitHeight
-          var pw = barRoot.themePanelWidth
-          var ph = 480
-          if (!bar.isVertical)
-            return Qt.rect(Math.max(0, (bw - pw) / 2), 0, pw, bh)
-          return Qt.rect(0, Math.max(0, (bh - ph) / 2), bw, ph)
-        }
-        anchor.edges: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
-        anchor.gravity: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHClock)
 
         popupW: barRoot.themePanelWidth
-        popupH: 480
+        popupH: barRoot.popupHClock
 
-        panelOpen: barRoot.clockPanelOpen
+        panelOpen: bar.clockPanelOpen
 
-        colorPanelBg:    barState.config.palettePanelBg
-        colorText:       barState.config.paletteText
-        colorTextDim:    barState.config.paletteTextDim
-        colorAccent:     barState.config.paletteAccent
-        colorProgressBg: barState.config.paletteProgressBg
-        colorDivider:    barState.config.paletteDivider
+        colorPanelBg:    bar.popupColorBg
+        colorText:       bar.popupColorText
+        colorTextDim:    bar.popupColorTextDim
+        colorAccent:     bar.popupColorAccent
+        colorProgressBg: bar.popupColorProgress
+        colorDivider:    bar.popupColorDivider
 
-        onCloseRequested: barRoot.closeAllPanels()
+        onCloseRequested: bar.closeAllPanels()
       }
 
-      // ── Popup QuickSettings ────────────────────────────────────────────
+      // ── Quick Settings ─────────────────────────────────────────────────
+      // Alinhado à direita — usa popupRectRight em vez de popupRectCentered
       QsModule.QuickSettingsPopup {
         id: qsPopup
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectRight(barRoot.popupWQs, barRoot.popupHQs)
 
-        anchor.window: bar
-        anchor.rect: {
-          var bw = bar.implicitWidth
-          var bh = bar.implicitHeight
-          var pw = 320
-          var ph = 540
-          if (!bar.isVertical)
-            return Qt.rect(Math.max(0, bw - pw - 8), 0, pw, bh)
-          return Qt.rect(0, Math.max(0, (bh - ph) / 2), bw, ph)
-        }
-        anchor.edges: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
-        anchor.gravity: {
-          if (bar.position === 1) return Edges.Bottom
-          if (bar.position === 2) return Edges.Left
-          if (bar.position === 3) return Edges.Top
-          return Edges.Right
-        }
+        popupW: barRoot.popupWQs
+        popupH: barRoot.popupHQs
 
-        panelOpen: barRoot.qsPanelOpen
+        panelOpen: bar.qsPanelOpen
 
-        colorPanelBg:    barState.config.palettePanelBg
-        colorText:       barState.config.paletteText
-        colorTextDim:    barState.config.paletteTextDim
-        colorAccent:     barState.config.paletteAccent
-        colorMuted:      barState.config.paletteWsDotUrgentColor
-        colorProgressBg: barState.config.paletteProgressBg
-        colorDivider:    barState.config.paletteDivider
+        colorPanelBg:    bar.popupColorBg
+        colorText:       bar.popupColorText
+        colorTextDim:    bar.popupColorTextDim
+        colorAccent:     bar.popupColorAccent
+        colorMuted:      bar.popupColorMuted
+        colorProgressBg: bar.popupColorProgress
+        colorDivider:    bar.popupColorDivider
 
-        onCloseRequested: barRoot.closeAllPanels()
+        onCloseRequested: bar.closeAllPanels()
       }
 
     } // PanelWindow bar

@@ -3,11 +3,16 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 
-// ── Aba: Redes ────────────────────────────────────────────────────────────────
-// LC_ALL=C em todos os nmcli para evitar locale PT que troca "connected" por "conectado"
-// WiFi: scan + list; conexão: connection up (salvas) → device wifi connect
-// Ethernet: lista todos os dispositivos ethernet via nmcli device status
-// Correção: guard signal||0 e undefined check em todos os campos
+// ── QsTabNetworks ─────────────────────────────────────────────────────────────
+// Exibe lista de redes WiFi/Ethernet e gerencia connect/disconnect individuais.
+// NÃO faz toggle de interface — isso é responsabilidade dos tiles (toggle-network.sh).
+//
+// REGRA: Process.stdout só existe dentro de onRunningChanged: { if (!running) }
+// Todos os buffers de saída são strings locais atualizadas nesse handler.
+//
+// Props de entrada:  wifiEnabled, wifiListRaw, wifiScanning, ethListRaw
+// Signals de saída:  requestWifiScan, requestRefreshWifi, requestRefreshEth
+// ─────────────────────────────────────────────────────────────────────────────
 Item {
     id: root
 
@@ -16,217 +21,276 @@ Item {
     property color colorTextDim: "#c6c6c6"
     property color colorMuted:   "#cf6679"
 
-    property string netMode:  "wifi"
-    property bool   scanning: false
-    property string feedback: ""
+    // ── Props do pai ───────────────────────────────────────────────────────
+    property bool   wifiEnabled:  false
+    property string wifiListRaw:  ""
+    property bool   wifiScanning: false
+    property string ethListRaw:   ""
 
-    // ── Processos WiFi ─────────────────────────────────────────────────────
-    Process {
-        id: wifiListProc
-        // LC_ALL=C força inglês; --rescan no usa cache
-        command: [ "bash", "-c",
-            "LC_ALL=C nmcli --escape no -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list --rescan no 2>/dev/null" ]
-    }
+    // ── Signals para o pai ─────────────────────────────────────────────────
+    signal requestWifiScan()
+    signal requestRefreshWifi()
+    signal requestRefreshEth()
 
-    Process {
-        id: rescanProc
-        command: [ "bash", "-c",
-            "LC_ALL=C nmcli device wifi rescan 2>/dev/null; sleep 1; " +
-            "LC_ALL=C nmcli --escape no -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list 2>/dev/null" ]
-        onRunningChanged: {
-            if (!running) {
-                root.scanning   = false
-                root.rescanData = rescanProc.stdout || ""
-            }
-        }
-    }
-    property string rescanData: ""
-    readonly property string rawWifi: rescanData !== "" ? rescanData : (wifiListProc.stdout || "")
+    // ── Estado local ───────────────────────────────────────────────────────
+    property string netMode:    "wifi"
+    property string filterText: ""
+    property string feedback:   ""
+    property string pendingSsid:    ""
+    property bool   showPassDialog: false
 
+    // ── Processos de connect/disconnect ────────────────────────────────────
     Process {
         id: connectProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => connectProc._buf += l + "\n" }
         onRunningChanged: {
             if (!running) {
-                var ok = (connectProc.stdout || "").indexOf("successfully") >= 0
-                         || (connectProc.exitCode !== undefined && connectProc.exitCode === 0)
-                root.feedback = ok ? "Conectado!" : "Falha — verifique a senha"
-                feedbackTimer.restart()
-                Qt.callLater(function() { if (!wifiListProc.running) wifiListProc.running = true })
+                var out  = connectProc._buf
+                var code = connectProc.exitCode !== undefined ? connectProc.exitCode : -1
+                connectProc._buf = ""
+                if (out.indexOf("NEED_PASS") >= 0) {
+                    root.feedback = ""
+                    root.showPassDialog = true
+                    Qt.callLater(function() { passInput.forceActiveFocus() })
+                } else if (code === 0 || out.indexOf("successfully") >= 0) {
+                    root.feedback = "Conectado!"
+                    feedbackTimer.restart()
+                    root.requestRefreshWifi()
+                } else {
+                    root.feedback = "Falha — verifique a senha"
+                    feedbackTimer.restart()
+                }
             }
         }
     }
+
+    Process {
+        id: passConnectProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => passConnectProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                passConnectProc._buf = ""
+                var code = passConnectProc.exitCode !== undefined ? passConnectProc.exitCode : -1
+                root.feedback = (code === 0) ? "Conectado!" : "Senha incorreta"
+                feedbackTimer.restart()
+                root.requestRefreshWifi()
+            }
+        }
+    }
+
     Process {
         id: disconnectProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => disconnectProc._buf += l + "\n" }
         onRunningChanged: {
-            if (!running) Qt.callLater(function() { if (!wifiListProc.running) wifiListProc.running = true })
+            if (!running) { disconnectProc._buf = ""; root.requestRefreshWifi() }
         }
     }
+
+    Process {
+        id: ethConnectProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => ethConnectProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) { ethConnectProc._buf = ""; root.requestRefreshEth() }
+        }
+    }
+
+    Process {
+        id: ethDisconnectProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => ethDisconnectProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) { ethDisconnectProc._buf = ""; root.requestRefreshEth() }
+        }
+    }
+
+    Process {
+        id: editProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => editProc._buf += l + "\n" }
+        onRunningChanged: { if (!running) editProc._buf = "" }
+    }
+
     Timer { id: feedbackTimer; interval: 4000; onTriggered: root.feedback = "" }
 
-    // ── Processos Ethernet ─────────────────────────────────────────────────
-    Process {
-        id: ethListProc
-        // LC_ALL=C: estados ficam em inglês (connected, disconnected, unavailable...)
-        command: [ "bash", "-c",
-            "LC_ALL=C nmcli --escape no -t -f DEVICE,TYPE,STATE,CONNECTION device status 2>/dev/null | grep ':ethernet:'" ]
+    // ── Animação de scan ───────────────────────────────────────────────────
+    property int scanDot: 0
+    Timer {
+        id: dotTimer; interval: 300; repeat: true; running: root.wifiScanning
+        onTriggered: root.scanDot = (root.scanDot + 1) % 4
     }
-    Process { id: ethConnectProc }
-    Process { id: ethDisconnectProc
-        onRunningChanged: {
-            if (!running) Qt.callLater(function() { if (!ethListProc.running) ethListProc.running = true })
-        }
-    }
-
-    Component.onCompleted: Qt.callLater(function() {
-        wifiListProc.running = true
-        ethListProc.running  = true
-    })
+    readonly property string scanLabel:
+        "Procurando" + ["   ", ".  ", ".. ", "..."][root.scanDot]
 
     // ── Parsing WiFi ───────────────────────────────────────────────────────
-    // Linha: "INUSE:SSID:SIGNAL:SECURITY"  (INUSE = "*" ou " ")
-    // Estratégia: divide da direita para não quebrar em SSIDs com ":"
+    // Formato network-ctl.sh wifi list: "<*ou ' '>|SSID|SIGNAL|SECURITY"
+    // Separador "|" — sem problemas de locale ou nomes com ":"
     readonly property var wifiNetworks: {
-        var lines  = root.rawWifi.split("\n")
+        var lines = root.wifiListRaw.split("\n")
         var result = []; var seen = {}
         for (var i = 0; i < lines.length; i++) {
-            var ln = lines[i]
-            if (ln.trim() === "") continue
-            var inUse = ln.charAt(0) === "*"
-            var rest  = ln.length > 2 ? ln.substring(2) : ""  // remove "X:"
-            // Último campo: SECURITY
-            var li3 = rest.lastIndexOf(":")
-            if (li3 < 0) continue
-            var security = rest.substring(li3 + 1).trim()
-            rest = rest.substring(0, li3)
-            // Penúltimo: SIGNAL
-            var li2 = rest.lastIndexOf(":")
-            if (li2 < 0) continue
-            var signalStr = rest.substring(li2 + 1).trim()
-            var signal    = signalStr !== "" ? (parseInt(signalStr) || 0) : 0
-            var ssid      = rest.substring(0, li2).trim()
-            if (ssid === "" || seen[ssid]) continue
+            var ln = lines[i].trim()
+            if (ln === "") continue
+            var p = ln.split("|")
+            if (p.length < 4) continue
+            var inUse    = p[0].trim() === "*"
+            var ssid     = p[1].trim()
+            var signal   = parseInt(p[2]) || 0
+            var security = p[3].trim()
+            if (ssid === "" || ssid === "--" || seen[ssid]) continue
             seen[ssid] = true
             result.push({ ssid: ssid, signal: signal, active: inUse,
-                          secured: security !== "" && security !== "--" })
+                          secured: security !== "" })
         }
-        result.sort(function(a,b) {
+        result.sort(function(a, b) {
             if (a.active !== b.active) return a.active ? -1 : 1
             return (b.signal || 0) - (a.signal || 0)
         })
         return result
     }
 
+    readonly property var wifiFiltered: {
+        var f = root.filterText.toLowerCase().trim()
+        if (f === "") return root.wifiNetworks
+        return root.wifiNetworks.filter(function(n) {
+            return n.ssid.toLowerCase().indexOf(f) >= 0
+        })
+    }
+
     // ── Parsing Ethernet ───────────────────────────────────────────────────
-    // Com LC_ALL=C: STATE é "connected", "disconnected", "unavailable", etc.
+    // Formato network-ctl.sh eth list: "DEVICE|CONNECTED|CONNECTION"
+    // CONNECTED = "true" ou "false" — locale-invariante.
     readonly property var ethConnections: {
-        var lines  = (ethListProc.stdout || "").split("\n")
+        var lines = root.ethListRaw.split("\n")
         var result = []
         for (var i = 0; i < lines.length; i++) {
             var ln = lines[i].trim()
             if (ln === "") continue
-            var parts = ln.split(":")
-            if (parts.length < 4) continue
-            var dev   = parts[0]
-            var state = parts[2]   // "connected", "disconnected", "unavailable"
-            var conn  = parts[3] || dev
-            result.push({
-                device:     dev,
-                connection: conn,
-                connected:  state === "connected",
-                state:      state
-            })
+            var p = ln.split("|")
+            if (p.length < 3) continue
+            var dev  = p[0].trim()
+            var ok   = p[1].trim() === "true"
+            var conn = p[2].trim()
+            if (conn === "" || conn === "--") conn = dev
+            result.push({ device: dev, connection: conn, connected: ok,
+                          state: ok ? "connected" : "disconnected" })
         }
         return result
     }
 
-    // ── Animação de scan ───────────────────────────────────────────────────
-    property int scanDot: 0
-    Timer { id: dotTimer; interval: 300; repeat: true; running: root.scanning
-        onTriggered: root.scanDot = (root.scanDot + 1) % 4 }
-    readonly property string scanLabel: {
-        return "Procurando" + ["   ", ".  ", ".. ", "..."][root.scanDot]
+    // ── Dialog de senha ────────────────────────────────────────────────────
+    function passDialogConnect() {
+        var ssid = root.pendingSsid
+        var pass = passInput.text.trim()
+        if (ssid === "" || pass === "") return
+        root.feedback = "Conectando…"
+        feedbackTimer.restart()
+        passConnectProc.command = [
+            "bash", Quickshell.shellDir + "/scripts/network-ctl.sh",
+            "wifi", "connect", ssid, pass
+        ]
+        passConnectProc.running = true
+        root.showPassDialog = false
+        passInput.text = ""
     }
 
     // ── UI ─────────────────────────────────────────────────────────────────
     ColumnLayout {
-        anchors.fill: parent; spacing: 5
+        anchors.fill: parent; spacing: 4
 
-        // Tabs WiFi / Cabo
+        // Cabeçalho: tabs + scan
         RowLayout {
             Layout.fillWidth: true; spacing: 4
 
             Repeater {
-                model: [{ id: "wifi", label: "\uf1eb  WiFi" },
-                        { id: "eth",  label: "\uf6ff  Cabo" }]
+                model: [ { id: "wifi", label: "\uf1eb  WiFi" },
+                          { id: "eth",  label: "\uf6ff  Cabo" } ]
                 delegate: Rectangle {
                     id: tabBtn; required property var modelData
-                    readonly property bool active: root.netMode === tabBtn.modelData.id
+                    readonly property bool sel: root.netMode === tabBtn.modelData.id
                     Layout.preferredHeight: 22
                     Layout.preferredWidth:  tabLbl.implicitWidth + 16
-                    radius: height/2
-                    color: tabBtn.active
+                    radius: height / 2
+                    color: sel
                         ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
                         : Qt.rgba(1,1,1,0.05)
-                    border.color: tabBtn.active ? root.colorAccent : "transparent"; border.width: 1
+                    border.color: sel ? root.colorAccent : "transparent"; border.width: 1
                     Behavior on color { ColorAnimation { duration: 150 } }
-                    Text { id: tabLbl; anchors.centerIn: parent; text: tabBtn.modelData.label
-                        color: tabBtn.active ? root.colorAccent : root.colorTextDim
-                        font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font" }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            root.netMode = tabBtn.modelData.id
-                            if (root.netMode === "eth") { if (!ethListProc.running) ethListProc.running = true }
-                            else                        { if (!wifiListProc.running) wifiListProc.running = true }
-                        }
+                    Text {
+                        id: tabLbl; anchors.centerIn: parent; text: tabBtn.modelData.label
+                        color: tabBtn.sel ? root.colorAccent : root.colorTextDim
+                        font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font"
                     }
+                    MouseArea { anchors.fill: parent; onClicked: root.netMode = tabBtn.modelData.id }
                 }
             }
 
             Item { Layout.fillWidth: true }
 
-            // Status
             Text {
-                visible:        root.feedback !== "" || root.scanning
-                text:           root.scanning ? root.scanLabel : root.feedback
-                color:          root.feedback === "Conectado!" ? root.colorAccent
-                              : root.feedback !== ""            ? root.colorMuted
-                              : root.colorTextDim
-                font.pixelSize: 9
+                visible: root.feedback !== "" || root.wifiScanning
+                text:    root.wifiScanning ? root.scanLabel : root.feedback
+                color:   root.feedback === "Conectado!" ? root.colorAccent
+                       : root.feedback !== ""           ? root.colorMuted
+                       : root.colorTextDim
+                font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font"
             }
 
-            // Scan button (WiFi)
+            // Botão scan
             Rectangle {
                 visible: root.netMode === "wifi"
                 width: 22; height: 22; radius: 11
-                color: root.scanning
+                color: root.wifiScanning
                     ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
                     : Qt.rgba(1,1,1,0.07)
-                border.color: root.scanning ? root.colorAccent : "transparent"; border.width: 1
+                border.color: root.wifiScanning ? root.colorAccent : "transparent"; border.width: 1
                 Behavior on color { ColorAnimation { duration: 200 } }
-
                 Text {
-                    id: scanIcon
-                    anchors.centerIn: parent; text: "\uf021"
-                    color: root.scanning ? root.colorAccent : root.colorTextDim
+                    id: scanIcon; anchors.centerIn: parent; text: "\uf021"
+                    color: root.wifiScanning ? root.colorAccent : root.colorTextDim
                     font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"
-
                     property real spinA: 0
-                    Timer { interval: 80; repeat: true; running: root.scanning
+                    Timer { interval: 80; repeat: true; running: root.wifiScanning
                         onTriggered: scanIcon.spinA = (scanIcon.spinA + 15) % 360 }
-                    // Rotação usando id explícito (não parent) — corrige o erro de antes
-                    transform: Rotation { angle: scanIcon.spinA; origin.x: scanIcon.width/2; origin.y: scanIcon.height/2 }
+                    transform: Rotation { angle: scanIcon.spinA
+                        origin.x: scanIcon.width/2; origin.y: scanIcon.height/2 }
                 }
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: {
-                        if (!root.scanning && !rescanProc.running) {
-                            root.scanning   = true
-                            root.rescanData = ""
-                            rescanProc.running = true
-                        }
-                    }
+                    onClicked: { if (!root.wifiScanning) root.requestWifiScan() }
                 }
+            }
+        }
+
+        // Campo de busca (só WiFi)
+        Rectangle {
+            Layout.fillWidth: true; height: 22; radius: 11
+            visible: root.netMode === "wifi"
+            color: Qt.rgba(1,1,1,0.06)
+            border.color: searchInput.activeFocus
+                ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.5)
+                : "transparent"
+            border.width: 1
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 6; spacing: 5
+                Text { text: "\uf002"; color: root.colorTextDim; font.pixelSize: 9
+                    font.family: "JetBrainsMono Nerd Font"; opacity: 0.7 }
+                TextInput {
+                    id: searchInput; Layout.fillWidth: true
+                    color: root.colorText; font.pixelSize: 9
+                    selectionColor: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.35)
+                    onTextChanged: root.filterText = text
+                    Text { anchors.fill: parent; text: "Buscar rede…"; color: root.colorTextDim
+                        font.pixelSize: 9; visible: searchInput.text === ""; opacity: 0.45 }
+                }
+                Text { visible: root.filterText !== ""; text: "\uf00d"
+                    color: root.colorTextDim; font.pixelSize: 8
+                    font.family: "JetBrainsMono Nerd Font"
+                    MouseArea { anchors.fill: parent
+                        onClicked: { root.filterText = ""; searchInput.text = "" } } }
             }
         }
 
@@ -234,7 +298,7 @@ Item {
         ListView {
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true; boundsMovement: Flickable.StopAtBounds
-            model: root.netMode === "wifi" ? root.wifiNetworks : root.ethConnections
+            model: root.netMode === "wifi" ? root.wifiFiltered : root.ethConnections
             spacing: 3
 
             delegate: Item {
@@ -247,13 +311,10 @@ Item {
                 readonly property bool isActive: netItem.isWifi
                     ? (netItem.modelData.active === true)
                     : (netItem.modelData.connected === true)
-                // Guard contra undefined: signal pode não existir
                 readonly property real strength: netItem.isWifi
-                    ? Math.max(0, Math.min(1, ((netItem.modelData.signal !== undefined ? netItem.modelData.signal : 0)) / 100))
-                    : 1.0
+                    ? Math.max(0, Math.min(1, (netItem.modelData.signal || 0) / 100)) : 1.0
                 readonly property int sigPct: netItem.isWifi
-                    ? (netItem.modelData.signal !== undefined ? Math.round(netItem.modelData.signal) : 0)
-                    : 0
+                    ? Math.round(netItem.modelData.signal || 0) : 0
 
                 Rectangle {
                     anchors.fill: parent; radius: 8
@@ -264,77 +325,100 @@ Item {
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     RowLayout {
-                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
+                        anchors.fill: parent
+                        anchors.leftMargin: 10; anchors.rightMargin: 6; spacing: 8
 
                         Text {
-                            text:           netItem.isWifi ? "\uf1eb" : "\uf6ff"
+                            text: netItem.isWifi ? "\uf1eb" : "\uf6ff"
                             font.pixelSize: 12; font.family: "JetBrainsMono Nerd Font"
-                            opacity:        netItem.isWifi ? 0.15 + 0.85 * netItem.strength : 1.0
-                            color:          netItem.isActive ? root.colorAccent : root.colorText
+                            opacity: netItem.isWifi ? 0.15 + 0.85 * netItem.strength : 1.0
+                            color:   netItem.isActive ? root.colorAccent : root.colorText
                         }
                         Text {
-                            text:  netItem.isWifi
-                                   ? ((netItem.modelData.ssid && netItem.modelData.ssid !== "") ? netItem.modelData.ssid : "(oculto)")
-                                   : (netItem.modelData.connection || netItem.modelData.device || "")
+                            text: netItem.isWifi
+                                  ? (netItem.modelData.ssid || "(oculto)")
+                                  : (netItem.modelData.connection || netItem.modelData.device || "")
                             color: netItem.isActive ? root.colorAccent : root.colorText
                             font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true
                         }
                         Text {
-                            visible:        netItem.isWifi && netItem.modelData.secured === true
-                            text:           "\uf023"
-                            color:          root.colorTextDim; font.pixelSize: 9
-                            font.family:    "JetBrainsMono Nerd Font"
+                            visible: netItem.isWifi && netItem.modelData.secured === true
+                            text: "\uf023"; color: root.colorTextDim
+                            font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font"
                         }
                         Text {
-                            visible:        netItem.isActive
-                            text:           "conectado"; color: root.colorAccent; font.pixelSize: 8
+                            visible: netItem.isActive
+                            text: "conectado"; color: root.colorAccent; font.pixelSize: 8
                         }
                         Text {
-                            visible:        !netItem.isActive && netItem.isWifi && netItem.sigPct > 0
-                            text:           netItem.sigPct + "%"
-                            color:          root.colorTextDim; font.pixelSize: 8
+                            visible: !netItem.isActive && netItem.isWifi && netItem.sigPct > 0
+                            text: netItem.sigPct + "%"; color: root.colorTextDim; font.pixelSize: 8
                         }
-                        // Estado da ethernet (disconnected, unavailable)
                         Text {
-                            visible:        !netItem.isWifi && !netItem.isActive
-                            text:           netItem.isWifi ? "" : (netItem.modelData.state || "")
-                            color:          root.colorTextDim; font.pixelSize: 8; opacity: 0.6
+                            visible: !netItem.isWifi && !netItem.isActive
+                            text: netItem.modelData.state || ""
+                            color: root.colorTextDim; font.pixelSize: 8; opacity: 0.6
+                        }
+
+                        // Botão editar
+                        Rectangle {
+                            width: 18; height: 18; radius: 9
+                            color: editMA.containsMouse ? Qt.rgba(1,1,1,0.12) : "transparent"
+                            Behavior on color { ColorAnimation { duration: 120 } }
+                            Text { anchors.centerIn: parent; text: "\uf040"
+                                font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font"
+                                color: root.colorTextDim }
+                            MouseArea {
+                                id: editMA; anchors.fill: parent; hoverEnabled: true
+                                onClicked: {
+                                    var nm = netItem.isWifi
+                                        ? netItem.modelData.ssid
+                                        : (netItem.modelData.connection || netItem.modelData.device)
+                                    editProc.command = [ "bash", "-c",
+                                        "nm-connection-editor --edit " +
+                                        JSON.stringify(nm) + " 2>/dev/null &" ]
+                                    editProc.running = true
+                                }
+                            }
                         }
                     }
 
+                    // Clique na linha: connect/disconnect
+                    // rightMargin: 26 para não sobrepor o botão de editar
                     MouseArea {
                         id: itemMA; anchors.fill: parent; hoverEnabled: true
+                        anchors.rightMargin: 26
                         onClicked: {
+                            var script = Quickshell.shellDir + "/scripts/network-ctl.sh"
                             if (netItem.isWifi) {
                                 if (netItem.modelData.active) {
-                                    // Desconectar: desativa o dispositivo wifi
-                                    disconnectProc.command = [ "bash", "-c",
-                                        "LC_ALL=C nmcli device disconnect $(LC_ALL=C nmcli -t -f DEVICE,TYPE d status | grep ':wifi' | head -1 | cut -d: -f1) 2>/dev/null" ]
+                                    disconnectProc.command = [ "bash", script, "wifi", "disconnect" ]
                                     disconnectProc.running = true
                                 } else {
-                                    root.feedback = "Conectando\u2026"
-                                    feedbackTimer.restart()
                                     var ssid = netItem.modelData.ssid
-                                    // Tenta connection salva → connection por senha (sem senha = redes abertas)
-                                    connectProc.command = [ "bash", "-c",
-                                        "LC_ALL=C nmcli connection up \"" + ssid + "\" 2>/dev/null || " +
-                                        "LC_ALL=C nmcli device wifi connect \"" + ssid + "\" 2>/dev/null" ]
+                                    root.pendingSsid = ssid
+                                    root.feedback = "Conectando…"
+                                    feedbackTimer.restart()
+                                    if (netItem.modelData.secured) {
+                                        // Tenta perfil salvo; se falhar pede senha
+                                        connectProc.command = [ "bash", "-c",
+                                            "export LANG=C LC_ALL=C; " +
+                                            "nmcli connection up " + JSON.stringify(ssid) +
+                                            " 2>/dev/null || echo NEED_PASS" ]
+                                    } else {
+                                        connectProc.command = [ "bash", script,
+                                            "wifi", "connect", ssid ]
+                                    }
                                     connectProc.running = true
                                 }
                             } else {
-                                // Ethernet: usa a connection salva para o device
-                                var dev  = netItem.modelData.device
-                                var conn = netItem.modelData.connection
+                                var dev = netItem.modelData.device
                                 if (netItem.modelData.connected) {
-                                    ethDisconnectProc.command = [ "bash", "-c",
-                                        "LC_ALL=C nmcli connection down \"" + conn + "\" 2>/dev/null" ]
+                                    ethDisconnectProc.command = [ "bash", script, "eth", "off", dev ]
                                     ethDisconnectProc.running = true
                                 } else {
-                                    ethConnectProc.command = [ "bash", "-c",
-                                        "LC_ALL=C nmcli connection up \"" + conn + "\" 2>/dev/null || " +
-                                        "LC_ALL=C nmcli device connect \"" + dev + "\" 2>/dev/null" ]
+                                    ethConnectProc.command = [ "bash", script, "eth", "on", dev ]
                                     ethConnectProc.running = true
-                                    Qt.callLater(function() { if (!ethListProc.running) ethListProc.running = true })
                                 }
                             }
                         }
@@ -342,19 +426,93 @@ Item {
                 }
             }
 
+            // Lista vazia
             Item {
                 anchors.fill: parent
-                visible: (root.netMode === "wifi" ? root.wifiNetworks : root.ethConnections).length === 0
-                          && !root.scanning
+                visible: (root.netMode === "wifi" ? root.wifiFiltered : root.ethConnections).length === 0
+                         && !root.wifiScanning
                 Text {
                     anchors.centerIn: parent
-                    text: root.netMode === "wifi"
-                          ? "\uf1eb  Sem redes — clique \uf021 para buscar"
-                          : "\uf6ff  Sem dispositivos Ethernet"
+                    text: {
+                        if (root.netMode === "wifi") {
+                            if (!root.wifiEnabled)      return "\uf1eb  Wi-Fi desligado"
+                            if (root.filterText !== "") return "\uf002  Sem resultados para \"" +
+                                                               root.filterText + "\""
+                            return "\uf1eb  Sem redes — clique \uf021 para buscar"
+                        }
+                        return "\uf6ff  Sem dispositivos Ethernet"
+                    }
                     color: root.colorTextDim; font.pixelSize: 9
                     font.family: "JetBrainsMono Nerd Font"; opacity: 0.6
-                    horizontalAlignment: Text.AlignHCenter; width: parent.width - 20
-                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                    width: parent.width - 20; wrapMode: Text.WordWrap
+                }
+            }
+        }
+    }
+
+    // ── Dialog de senha ────────────────────────────────────────────────────
+    Rectangle {
+        anchors.fill: parent; visible: root.showPassDialog
+        color: Qt.rgba(0, 0, 0, 0.78); radius: 12; z: 10
+        MouseArea { anchors.fill: parent }
+
+        ColumnLayout {
+            anchors.centerIn: parent; width: parent.width - 32; spacing: 10
+
+            Text {
+                Layout.fillWidth: true
+                text: "\uf023  " + root.pendingSsid
+                color: root.colorText; font.pixelSize: 11
+                font.family: "JetBrainsMono Nerd Font"; elide: Text.ElideRight
+            }
+
+            Rectangle {
+                Layout.fillWidth: true; height: 26; radius: 8
+                color: Qt.rgba(1,1,1,0.08)
+                border.color: passInput.activeFocus
+                    ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.6)
+                    : Qt.rgba(1,1,1,0.15)
+                border.width: 1
+                RowLayout {
+                    anchors.fill: parent; anchors.margins: 8; spacing: 6
+                    TextInput {
+                        id: passInput; Layout.fillWidth: true
+                        color: root.colorText; font.pixelSize: 10
+                        echoMode: showPassBtn.show ? TextInput.Normal : TextInput.Password
+                        selectionColor: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.35)
+                        Text { anchors.fill: parent; text: "Senha…"; color: root.colorTextDim
+                            font.pixelSize: 10; visible: passInput.text === ""; opacity: 0.5 }
+                        Keys.onReturnPressed: root.passDialogConnect()
+                        Keys.onEscapePressed: { root.showPassDialog = false; passInput.text = "" }
+                    }
+                    Text {
+                        id: showPassBtn; property bool show: false
+                        text: show ? "\uf070" : "\uf06e"
+                        color: root.colorTextDim; font.pixelSize: 9
+                        font.family: "JetBrainsMono Nerd Font"
+                        MouseArea { anchors.fill: parent; onClicked: showPassBtn.show = !showPassBtn.show }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                Rectangle {
+                    Layout.fillWidth: true; height: 24; radius: 8
+                    color: Qt.rgba(1,1,1,0.07)
+                    Text { anchors.centerIn: parent; text: "Cancelar"
+                        color: root.colorTextDim; font.pixelSize: 9 }
+                    MouseArea { anchors.fill: parent
+                        onClicked: { root.showPassDialog = false; passInput.text = "" } }
+                }
+                Rectangle {
+                    Layout.fillWidth: true; height: 24; radius: 8
+                    color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+                    border.color: root.colorAccent; border.width: 1
+                    Text { anchors.centerIn: parent; text: "Conectar"
+                        color: root.colorAccent; font.pixelSize: 9 }
+                    MouseArea { anchors.fill: parent; onClicked: root.passDialogConnect() }
                 }
             }
         }

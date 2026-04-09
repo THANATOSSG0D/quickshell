@@ -55,12 +55,12 @@ Item {
   readonly property color effectiveTextColor: isActive ? textColorActive : textColor
   readonly property color effectiveDimColor:  isActive ? dimColorActive  : dimColor
 
-  implicitWidth:  isHorizontal
+  implicitWidth:  player === null ? 0 : (isHorizontal
     ? (bgEnabled ? hRow.implicitWidth  + bgPaddingH * 2 : hRow.implicitWidth  + 16)
-    : 30
-  implicitHeight: isHorizontal
+    : 30)
+  implicitHeight: player === null ? 0 : (isHorizontal
     ? (bgEnabled ? hRow.implicitHeight + bgPaddingV * 2 : hRow.implicitHeight + 8)
-    : vCol.implicitHeight + 16
+    : vCol.implicitHeight + 16)
 
   signal clicked()
 

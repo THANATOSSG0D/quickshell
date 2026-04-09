@@ -4,8 +4,6 @@ import QtQuick
 import QtQuick.Layouts
 
 // ── QuickSettings (trigger da barra) ─────────────────────────────────────────
-// Ícone de hambúrguer na barra que emite panelRequested() ao clicar.
-// Indicador de rede via `nmcli networking` — sem NetworkManager service.
 Item {
     id: root
 
@@ -20,25 +18,24 @@ Item {
     implicitWidth:  isHorizontal ? row.implicitWidth  + 10 : 28
     implicitHeight: isHorizontal ? row.implicitHeight + 4  : row.implicitHeight + 10
 
-    // ── Estado de rede via nmcli ───────────────────────────────────────────
+    // ── Estado de rede ─────────────────────────────────────────────────────
+    // CORRIGIDO: lê stdout em onRunningChanged, não como binding reativo
     property bool hasNetwork: false
 
     Process {
         id: netCheckProc
-        command: [ "nmcli", "networking" ]
+        command: [ "bash", "-c", "nmcli networking 2>/dev/null" ]
+        onRunningChanged: {
+            if (!running)
+                root.hasNetwork = (netCheckProc.stdout || "").trim() === "enabled"
+        }
     }
-
-    readonly property bool netDetected: (netCheckProc.stdout || "").trim() === "enabled"
-    onNetDetectedChanged: hasNetwork = netDetected
 
     Component.onCompleted: netCheckProc.running = true
 
-    // Atualiza a cada 30s para manter o indicador correto
     Timer {
-        interval: 30000
-        repeat:   true
-        running:  true
-        onTriggered: netCheckProc.running = true
+        interval: 30000; repeat: true; running: true
+        onTriggered: { if (!netCheckProc.running) netCheckProc.running = true }
     }
 
     Row {
@@ -46,19 +43,6 @@ Item {
         anchors.centerIn: parent
         spacing: 5
 
-        // // ── Indicador de rede ──────────────────────────────────────────
-        // Text {
-        //     text:           "\uf1eb"
-        //     color:          root.hasNetwork ? root.accentColor : root.dimColor
-        //     opacity:        root.hasNetwork ? 1.0 : 0.4
-        //     font.pixelSize: 12
-        //     font.family:    "JetBrainsMono Nerd Font"
-        //     anchors.verticalCenter: parent.verticalCenter
-        //     Behavior on opacity { NumberAnimation { duration: 200 } }
-        //     Behavior on color   { ColorAnimation  { duration: 200 } }
-        // }
-        //
-        // ── Ícone principal ────────────────────────────────────────────
         Text {
             text:           "\uf0c9"
             color:          root.textColor

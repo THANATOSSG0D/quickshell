@@ -40,6 +40,33 @@ Item {
     property bool   shaderDropOpen:   false
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Modo do shader: "auto" | "manual:<shader>" | "off"
+    // Salvo em ~/.cache/hyprnight/shader-mode para persistência entre reloads
+    // ─────────────────────────────────────────────────────────────────────────
+
+    readonly property string shaderMode: {
+        if (shaderAutoActive || shaderDaemonOn) return "auto"
+        if (shaderCurrent.length > 0)          return "manual:" + shaderCurrent
+        return "off"
+    }
+
+    Process {
+        id: procSaveShaderMode
+        // command é setado dinamicamente antes de rodar
+    }
+
+    function saveShaderMode() {
+        var mode = root.shaderMode
+        procSaveShaderMode.command = ["bash", "-c",
+            "mkdir -p ~/.cache/hyprnight" +
+            " && echo '" + mode + "' > ~/.cache/hyprnight/shader-mode"]
+        if (!procSaveShaderMode.running) procSaveShaderMode.running = true
+    }
+
+    // Dispara save sempre que o modo efetivo mudar
+    onShaderModeChanged: Qt.callLater(saveShaderMode)
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Processo de status único — checa tudo num único bash para evitar
     // condição de corrida entre múltiplos processos paralelos
     // Formato de saída (uma linha cada):

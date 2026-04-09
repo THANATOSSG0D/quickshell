@@ -29,20 +29,24 @@ Scope {
 
   OsdService { id: osdService }
 
-  // Conecta o sinal timerElapsed do ClockContent ao OsdService
-  Connections {
-    target: osdRoot.clockContent
-    ignoreUnknownSignals: true
-    function onTimerElapsed(mode, phaseLabel) {
-      var cc = osdRoot.clockContent
-      if (!cc) return
-      osdService.timerOsd(
-        phaseLabel,
-        cc.barRemaining,
-        mode === "pomodoro",
-        false
-      )
+  // Conexão manual timerElapsed → OSD.
+  // A CONEXÃO PRIMÁRIA acontece em Bar.qml (onClockContentRefChanged), que tem
+  // acesso direto ao clockPopup e ao osdService sem depender de timing do shell.qml.
+  // Esta aqui é a conexão secundária: garante funcionamento caso shell.qml injete
+  // clockContent depois que Bar.qml já processou o timerElapsed.
+  property var _prevCC: null
+  onClockContentChanged: {
+    if (_prevCC) {
+      try { _prevCC.timerElapsed.disconnect(osdRoot._ccTimerElapsed) } catch(e) {}
     }
+    _prevCC = clockContent
+    if (clockContent)
+      clockContent.timerElapsed.connect(osdRoot._ccTimerElapsed)
+  }
+  function _ccTimerElapsed(mode, phaseLabel) {
+    var cc = osdRoot.clockContent
+    if (!cc) return
+    osdService.timerOsd(phaseLabel, cc.barRemaining, mode === "pomodoro", cc.barRunning)
   }
 
   IpcHandler {
@@ -147,7 +151,12 @@ Scope {
         windows: [ osdWin ]
         active:  osdWin.osdVisible && osdWin.osdType === "timer"
         onCleared: {
-          if (osdWin.osdType === "timer") osdWin.osdVisible = false
+          if (osdWin.osdType === "timer") {
+            // Usuário clicou fora do OSD — para o som e fecha
+            var cc = osdRoot.clockContent
+            if (cc) cc.stopSound()
+            osdWin.osdVisible = false
+          }
         }
       }
 
@@ -171,7 +180,10 @@ Scope {
           }
 
           osdWin.osdVisible = true
-          hideTimer.restart()
+          // Timer: fica visível até o usuário clicar em dispensar
+          // (ou sair da área — HyprlandFocusGrab cuida disso).
+          // Volume/media: fecha automaticamente após o delay.
+          if (data.type !== "timer") hideTimer.restart()
         }
       }
 
@@ -212,10 +224,12 @@ Scope {
 
           // Botões do timer — chamam o ClockContent via osdRoot.clockContent
           onTimerToggle: {
+            // Para o som e reinicia/pausa o timer
             var cc = osdRoot.clockContent; if (!cc) return
             cc.toggleRunning()
             osdWin.osdTimerRunning = cc.barRunning
-            hideTimer.restart()
+            // Fecha o OSD — usuário tomou uma ação consciente
+            osdWin.osdVisible = false
           }
           onTimerAddMin: {
             var cc = osdRoot.clockContent; if (!cc) return
@@ -223,14 +237,17 @@ Scope {
             var r = cc.barRemaining
             var mm = Math.floor(r/60); var ss = r%60
             osdWin.osdTimerLabel = (mm<10?"0":"")+mm+":"+(ss<10?"0":"")+ss
-            hideTimer.restart()
+            // Mantém o OSD aberto para o usuário continuar ajustando;
+            // o som continua até ele escolher toggle/next/dismiss.
           }
           onTimerNext: {
             var cc = osdRoot.clockContent; if (!cc) return
-            cc.pomodoroNext()
+            cc.pomodoroNext()   // stopSound() já é chamado internamente
             osdWin.osdVisible = false
           }
           onTimerDismiss: {
+            var cc = osdRoot.clockContent
+            if (cc) cc.stopSound()
             osdWin.osdVisible = false
           }
         }

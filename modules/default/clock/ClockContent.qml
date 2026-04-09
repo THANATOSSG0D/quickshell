@@ -216,14 +216,47 @@ Item {
   onTimerDismissedChanged:    _scheduleSave()
 
   // ── Som ───────────────────────────────────────────────────────────────
+  // O alerta toca em loop até stopSound() ser chamado (dismiss/reinício).
+  // Tenta vários backends — paplay (PulseAudio/Pipewire-pulse), pw-play
+  // (Pipewire nativo) e pactl play-sample como fallback legacy.
   Process {
     id: soundProc
-    command: ["sh", "-c", "pactl play-sample bell 2>/dev/null || true"]
+    command: [
+      "sh", "-c",
+      "paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null"
+      + " || pw-play /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null"
+      + " || paplay /usr/share/sounds/freedesktop/stereo/bell.oga 2>/dev/null"
+      + " || pactl play-sample bell 2>/dev/null"
+      + " || true"
+    ]
     running: false
   }
-  function _playSound() {
-    soundProc.running = false
+
+  // Loop de alerta: dispara a cada 3 s enquanto soundLooping for true.
+  // Cada iteração inicia um novo processo de som (o anterior já terminou).
+  property bool soundLooping: false
+  Timer {
+    id: soundLoopTimer
+    interval: 3000
+    repeat:   true
+    running:  root.soundLooping
+    onTriggered: root._playOnce()
+  }
+
+  function _playOnce() {
+    if (soundProc.running) return   // ainda tocando — aguarda
     soundProc.running = true
+  }
+
+  // Inicia o loop: toca imediatamente e depois a cada 3 s
+  function _playSound() {
+    soundLooping = true
+    _playOnce()
+  }
+
+  // Para o loop — chamado pelo OSD (dismiss/next) ou pelo IPC
+  function stopSound() {
+    soundLooping = false
   }
 
   // ── Countdown ─────────────────────────────────────────────────────────
@@ -244,17 +277,18 @@ Item {
   }
 
   function _onExpired() {
-    var label = root.phaseLabel
+    var label = root.phaseLabel   // label da fase que ACABOU
     _playSound()
-    root.timerElapsed(root.activeMode, label)
 
     if (root.activeMode === "free") {
-      // Modo livre: agenda auto-dismiss da barra
+      // Modo livre: emite sinal (remaining=0) e agenda auto-dismiss da barra
+      root.timerElapsed(root.activeMode, label)
       dismissTimer.restart()
       return
     }
 
-    // Pomodoro: avança fase automaticamente
+    // Pomodoro: avança a fase ANTES de emitir o sinal.
+    // Assim o OSD lê barRemaining já com o tempo da nova fase.
     if (pomodoroInWork) {
       pomodoroCount++
       pomodoroInWork = false
@@ -267,10 +301,13 @@ Item {
     expired = false
     running = false
     // Pomodoro nunca some da barra automaticamente
+
+    root.timerElapsed(root.activeMode, label)
   }
 
   // ── API pública ────────────────────────────────────────────────────────
   function startFree(seconds) {
+    stopSound()
     dismissTimer.stop()
     activeMode      = "free"
     remaining       = seconds > 0 ? seconds : freeTimerDuration
@@ -280,6 +317,7 @@ Item {
   }
 
   function startPomodoro() {
+    stopSound()
     dismissTimer.stop()
     activeMode      = "pomodoro"
     pomodoroInWork  = true
@@ -291,6 +329,7 @@ Item {
   }
 
   function toggleRunning() {
+    stopSound()
     if (expired) {
       dismissTimer.stop()
       expired        = false
@@ -311,6 +350,7 @@ Item {
   }
 
   function pomodoroNext() {
+    stopSound()
     if (activeMode !== "pomodoro") return
     dismissTimer.stop()
     expired = false
@@ -328,6 +368,7 @@ Item {
   }
 
   function resetTimer() {
+    stopSound()
     dismissTimer.stop()
     running        = false
     expired        = false

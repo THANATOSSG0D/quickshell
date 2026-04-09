@@ -7,10 +7,18 @@ import QtQuick.Layouts
 import "./components" as Qs
 
 // ── QuickSettingsContent ─────────────────────────────────────────────────────
-// Toggles: WiFi (radio) | Ethernet (connection up/down) | Bluetooth | Caffeine
-// Bluetooth: alinhado com toggle-bluetooth.sh (systemctl bluetooth.service)
-// Thermal: sudo -n sem pkexec
-// LC_ALL=C em todos os processos nmcli
+// API CORRETA do Quickshell para ler stdout de processos:
+//   Process.stdout NÃO é uma string — é um DataStream.
+//   Para ler o output, OBRIGATORIAMENTE anexe um SplitParser:
+//
+//   Process {
+//       property string _buf: ""
+//       stdout: SplitParser {
+//           onRead: (line) => parent._buf += line + "\n"
+//       }
+//       onRunningChanged: if (!running) { var txt = _buf; _buf = ""; /* usa txt */ }
+//   }
+// ─────────────────────────────────────────────────────────────────────────────
 Item {
     id: root
 
@@ -26,146 +34,256 @@ Item {
     property bool   panelOpen: false
     property string activeTab: "networks"
 
-    // ── WiFi: toggle do rádio (nmcli radio wifi) ───────────────────────────
-    property bool   wifiEnabled: false
-    property string wifiBadge:   ""
+    readonly property string ctl: Quickshell.shellDir + "/scripts/network-ctl.sh"
 
-    Process { id: wifiRadioProc;  command: [ "bash", "-c", "LC_ALL=C nmcli radio wifi 2>/dev/null" ] }
-    Process { id: wifiActiveProc; command: [ "bash", "-c",
-        "LC_ALL=C nmcli --escape no -t -f NAME,TYPE,DEVICE conn show --active 2>/dev/null" ] }
-    Process { id: wifiToggleProc }
+    // ═══════════════════════════════════════════════════════════════════════
+    // Estado de rede — lido via "network-ctl.sh status"
+    // ═══════════════════════════════════════════════════════════════════════
+    property bool   wifiEnabled:  false
+    property string wifiBadge:    ""
+    property bool   ethConnected: false
+    property string ethDevice:    ""
+    property string ethConnName:  ""
 
-    readonly property bool wifiOn: (wifiRadioProc.stdout || "").trim() === "enabled"
-    onWifiOnChanged: wifiEnabled = wifiOn
+    Process {
+        id: statusProc
+        command: ["bash", root.ctl, "status"]
+        property string _buf: ""
 
-    readonly property string wifiBadgeRaw: {
-        var lines = (wifiActiveProc.stdout || "").split("\n")
-        for (var i = 0; i < lines.length; i++) {
-            var p = lines[i].split(":")
-            if (p.length >= 3 && p[1] === "802-11-wireless" && p[2].trim() !== "") return p[0]
+        stdout: SplitParser {
+            onRead: (line) => statusProc._buf += line + "\n"
         }
-        return ""
-    }
-    onWifiBadgeRawChanged: wifiBadge = wifiBadgeRaw
 
-    function _refreshWifi() {
-        if (!wifiRadioProc.running)  wifiRadioProc.running  = true
-        if (!wifiActiveProc.running) wifiActiveProc.running = true
+        onRunningChanged: {
+            if (!running) {
+                var text = statusProc._buf
+                statusProc._buf = ""
+                var lines = text.split("\n")
+                for (var i = 0; i < lines.length; i++) {
+                    var ln = lines[i].trim()
+                    if (ln === "") continue
+                    var eq = ln.indexOf("=")
+                    if (eq < 0) continue
+                    var key = ln.slice(0, eq).trim()
+                    var val = ln.slice(eq + 1).trim()
+                    if      (key === "WIFI_RADIO")    root.wifiEnabled  = (val === "on")
+                    else if (key === "WIFI_SSID")     root.wifiBadge    = val
+                    else if (key === "ETH_CONNECTED") root.ethConnected = (val === "true")
+                    else if (key === "ETH_DEV")       root.ethDevice    = val
+                    else if (key === "ETH_CONN")      root.ethConnName  = val
+                }
+            }
+        }
     }
+
+    function _refreshStatus() {
+        if (!statusProc.running) statusProc.running = true
+    }
+
+    // ── WiFi toggle ────────────────────────────────────────────────────────
+    Process {
+        id: wifiToggleProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => wifiToggleProc._buf += l + "\n" }
+        onRunningChanged: { if (!running) wifiToggleProc._buf = "" }
+    }
+    Timer { id: wifiRefreshTimer; interval: 1800; onTriggered: _refreshStatus() }
+
     function _toggleWifi() {
-        wifiToggleProc.command = [ "bash", "-c",
-            "LC_ALL=C nmcli radio wifi " + (root.wifiEnabled ? "off" : "on") ]
+        wifiToggleProc.command = ["bash", root.ctl,
+            "wifi", root.wifiEnabled ? "off" : "on"]
         wifiToggleProc.running = true
         root.wifiEnabled = !root.wifiEnabled
+        wifiRefreshTimer.restart()
     }
 
-    // ── Ethernet: connection up/down (LC_ALL=C para estados em inglês) ─────
-    property bool   ethConnected: false
-    property string ethConnName:  ""    // nome da connection (ex.: "Conexão cabeada 1")
-    property string ethDevice:    ""
-
-    Process { id: ethStatusProc; command: [ "bash", "-c",
-        "LC_ALL=C nmcli --escape no -t -f DEVICE,TYPE,STATE,CONNECTION device status 2>/dev/null | grep ':ethernet:' | head -1" ] }
-    Process { id: ethToggleProc }
-
-    readonly property string ethRaw: (ethStatusProc.stdout || "").trim()
-    onEthRawChanged: {
-        var p = ethRaw.split(":")
-        if (p.length >= 4) {
-            ethDevice    = p[0]
-            ethConnected = p[2] === "connected"
-            ethConnName  = p[3] || p[0]
-        }
+    // ── Ethernet toggle ────────────────────────────────────────────────────
+    Process {
+        id: ethToggleProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => ethToggleProc._buf += l + "\n" }
+        onRunningChanged: { if (!running) ethToggleProc._buf = "" }
     }
+    Timer { id: ethRefreshTimer; interval: 1800; onTriggered: _refreshStatus() }
 
-    function _refreshEth() { if (!ethStatusProc.running) ethStatusProc.running = true }
     function _toggleEth() {
-        if (ethDevice === "") return
-        if (ethConnected) {
-            // Down na connection — igual ao hábito do usuário
-            ethToggleProc.command = [ "bash", "-c",
-                "LC_ALL=C nmcli connection down \"" + root.ethConnName + "\" 2>/dev/null" ]
-        } else {
-            ethToggleProc.command = [ "bash", "-c",
-                "LC_ALL=C nmcli connection up \"" + root.ethConnName + "\" 2>/dev/null || " +
-                "LC_ALL=C nmcli device connect \"" + root.ethDevice + "\" 2>/dev/null" ]
-        }
+        if (root.ethDevice === "") return
+        ethToggleProc.command = ["bash", root.ctl,
+            "eth", root.ethConnected ? "off" : "on", root.ethDevice]
         ethToggleProc.running = true
         root.ethConnected = !root.ethConnected
-        // Atualiza estado real após 1.5s
         ethRefreshTimer.restart()
     }
-    Timer { id: ethRefreshTimer; interval: 1500; onTriggered: _refreshEth() }
 
-    // ── Bluetooth: alinhado com toggle-bluetooth.sh ────────────────────────
-    // Usa systemctl start/stop bluetooth.service (igual ao script)
-    // bluetoothctl show ainda serve para ler o estado atual
+    // ═══════════════════════════════════════════════════════════════════════
+    // WiFi — lista de redes
+    // ═══════════════════════════════════════════════════════════════════════
+    property string wifiListRaw:  ""
+    property bool   wifiScanning: false
+
+    Process {
+        id: wifiListProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => wifiListProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                root.wifiListRaw  = wifiListProc._buf
+                root.wifiScanning = false
+                wifiListProc._buf = ""
+            }
+        }
+    }
+
+    Process {
+        id: wifiScanProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => wifiScanProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                wifiScanProc._buf = ""
+                _refreshWifiList()
+            }
+        }
+    }
+
+    function _refreshWifiList() {
+        wifiListProc.command = ["bash", root.ctl, "wifi", "list"]
+        if (!wifiListProc.running) wifiListProc.running = true
+    }
+
+    function _requestWifiScan() {
+        if (root.wifiScanning) return
+        root.wifiScanning = true
+        wifiScanProc.command = ["bash", root.ctl, "wifi", "scan"]
+        if (!wifiScanProc.running) wifiScanProc.running = true
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Ethernet — lista (aba QsTabNetworks)
+    // ═══════════════════════════════════════════════════════════════════════
+    property string ethListRaw: ""
+
+    Process {
+        id: ethListProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => ethListProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                root.ethListRaw  = ethListProc._buf
+                ethListProc._buf = ""
+            }
+        }
+    }
+
+    function _refreshEthList() {
+        ethListProc.command = ["bash", root.ctl, "eth", "list"]
+        if (!ethListProc.running) ethListProc.running = true
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Bluetooth
+    // ═══════════════════════════════════════════════════════════════════════
     property bool btEnabled: false
 
-    Process { id: btStatusProc; command: [ "bash", "-c",
-        "systemctl is-active bluetooth.service 2>/dev/null" ] }
-    Process { id: btToggleProc }
+    Process {
+        id: btStatusProc
+        command: ["bash", "-c", "systemctl is-active bluetooth.service 2>/dev/null"]
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => btStatusProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                root.btEnabled    = btStatusProc._buf.trim() === "active"
+                btStatusProc._buf = ""
+            }
+        }
+    }
 
-    readonly property bool btOn: (btStatusProc.stdout || "").trim() === "active"
-    onBtOnChanged: btEnabled = btOn
+    Process {
+        id: btToggleProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => btToggleProc._buf += l + "\n" }
+        onRunningChanged: { if (!running) btToggleProc._buf = "" }
+    }
 
     function _refreshBt() { if (!btStatusProc.running) btStatusProc.running = true }
     function _toggleBluetooth() {
         btToggleProc.command = root.btEnabled
-            ? [ "bash", "-c", "systemctl stop bluetooth.service 2>/dev/null" ]
-            : [ "bash", "-c", "systemctl start bluetooth.service 2>/dev/null" ]
+            ? ["bash", "-c", "systemctl stop bluetooth.service 2>/dev/null"]
+            : ["bash", "-c", "systemctl start bluetooth.service 2>/dev/null"]
         btToggleProc.running = true
         root.btEnabled = !root.btEnabled
     }
 
-    // ── DND (local) ────────────────────────────────────────────────────────
-    property bool dndEnabled: false
-
-    // ── Caffeine ───────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // Caffeine
+    // ═══════════════════════════════════════════════════════════════════════
+    property bool dndEnabled:     false
     property bool caffeineActive: false
 
-    Process { id: caffeineStatusProc; command: [ "bash", "-c",
-        "systemctl --user is-active hypridle 2>/dev/null" ] }
-    Process { id: caffeineToggleProc }
+    Process {
+        id: caffeineStatusProc
+        command: ["bash", "-c", "systemctl --user is-active hypridle 2>/dev/null"]
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => caffeineStatusProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                root.caffeineActive        = caffeineStatusProc._buf.trim() !== "active"
+                caffeineStatusProc._buf    = ""
+            }
+        }
+    }
 
-    readonly property bool caffeineOn: (caffeineStatusProc.stdout || "").trim() === "active"
-    // hypridle active = suspensão habilitada = caffeine OFF
-    onCaffeineOnChanged: caffeineActive = !caffeineOn
+    Process {
+        id: caffeineToggleProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => caffeineToggleProc._buf += l + "\n" }
+        onRunningChanged: { if (!running) caffeineToggleProc._buf = "" }
+    }
 
     function _toggleCaffeine() {
-        caffeineToggleProc.command = [ "bash", "-c",
+        caffeineToggleProc.command = ["bash", "-c",
             "$HOME/.config/hypr/scripts/caffeine-toggle.sh --quiet 2>/dev/null || " +
             (root.caffeineActive
                 ? "systemctl --user start hypridle 2>/dev/null"
-                : "systemctl --user stop hypridle 2>/dev/null") ]
+                : "systemctl --user stop hypridle 2>/dev/null")]
         caffeineToggleProc.running = true
         root.caffeineActive = !root.caffeineActive
     }
 
-    // ── Volume Pipewire ────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // Volume Pipewire
+    // ═══════════════════════════════════════════════════════════════════════
     PwObjectTracker { objects: [ Pipewire.defaultAudioSink ] }
     readonly property var  sink:  Pipewire.defaultAudioSink
     readonly property real vol:   sink && sink.audio ? sink.audio.volume : 0
     readonly property bool muted: sink && sink.audio ? sink.audio.muted  : false
-    readonly property string volIcon: muted || vol <= 0 ? "\uf026" : vol <= 0.33 ? "\uf027" : "\uf028"
+    readonly property string volIcon:
+        muted || vol <= 0 ? "\uf026" : vol <= 0.33 ? "\uf027" : "\uf028"
 
-    // ── Inicialização ──────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // Inicialização
+    // ═══════════════════════════════════════════════════════════════════════
     Component.onCompleted: Qt.callLater(function() {
+        statusProc.running         = true
         btStatusProc.running       = true
         caffeineStatusProc.running = true
-        _refreshWifi()
-        _refreshEth()
+        _refreshWifiList()
+        _refreshEthList()
     })
+
     onPanelOpenChanged: {
         if (panelOpen) {
+            _refreshStatus()
             if (!btStatusProc.running)       btStatusProc.running       = true
             if (!caffeineStatusProc.running) caffeineStatusProc.running = true
-            _refreshWifi()
-            _refreshEth()
+            _refreshWifiList()
+            _refreshEthList()
         }
     }
 
-    // ── Flickable ─────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // UI
+    // ═══════════════════════════════════════════════════════════════════════
     Flickable {
         anchors.fill: parent; clip: true
         contentWidth:  width
@@ -176,14 +294,14 @@ Item {
             id: mainCol; x: 14; y: 14
             width: parent.width - 28; spacing: 10
 
-            // ── Grade 2×2 ──────────────────────────────────────────────
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2; rowSpacing: 8; columnSpacing: 8
 
                 Qs.QsToggleTile {
                     Layout.fillWidth: true; Layout.preferredHeight: 60
-                    icon: "\uf1eb"; label: "Wi-Fi"; badge: root.wifiBadge
+                    icon: "\uf1eb"; label: "Wi-Fi"
+                    badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
                     active: root.wifiEnabled
                     colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                     onToggled: root._toggleWifi()
@@ -191,7 +309,9 @@ Item {
                 Qs.QsToggleTile {
                     Layout.fillWidth: true; Layout.preferredHeight: 60
                     icon: "\uf6ff"; label: "Ethernet"
-                    badge: root.ethConnected ? root.ethDevice : "desconectado"
+                    badge: root.ethConnected
+                        ? (root.ethDevice || "cabo")
+                        : (root.ethDevice ? "desconectado" : "indisponível")
                     active: root.ethConnected
                     colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                     onToggled: root._toggleEth()
@@ -217,7 +337,6 @@ Item {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
 
-            // ── Volume inline ──────────────────────────────────────────
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text {
@@ -242,8 +361,7 @@ Item {
                 Rectangle { anchors.verticalCenter: parent.verticalCenter
                     x: parent.width*(1.0/parent.maxV)-1; width:1; height:6; radius:1; color:Qt.rgba(1,1,1,0.2) }
                 Rectangle {
-                    id: volThumb
-                    anchors.verticalCenter: parent.verticalCenter
+                    id: volThumb; anchors.verticalCenter: parent.verticalCenter
                     x: Math.min(parent.width-width, Math.max(0, (root.vol/parent.maxV)*parent.width - width/2))
                     width:12; height:12; radius:6
                     color: root.muted ? root.colorMuted : root.colorAccent
@@ -260,7 +378,6 @@ Item {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
 
-            // ── Modo Noturno ───────────────────────────────────────────
             Qs.QsNightMode {
                 Layout.fillWidth: true; panelOpen: root.panelOpen
                 colorAccent: root.colorAccent; colorText: root.colorText
@@ -269,7 +386,6 @@ Item {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
 
-            // ── Perfil Térmico ─────────────────────────────────────────
             Qs.QsThermalSection {
                 Layout.fillWidth: true; panelOpen: root.panelOpen
                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
@@ -277,7 +393,6 @@ Item {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
 
-            // ── Abas ───────────────────────────────────────────────────
             Qs.QsTabBar {
                 Layout.fillWidth: true; activeTab: root.activeTab
                 colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -292,16 +407,35 @@ Item {
 
             Item {
                 Layout.fillWidth: true; height: 165; clip: true
-                Qs.QsTabNetworks  { anchors.fill: parent; visible: root.activeTab === "networks"
+
+                Qs.QsTabNetworks {
+                    anchors.fill: parent
+                    visible: root.activeTab === "networks"
+                    colorAccent:  root.colorAccent
+                    colorText:    root.colorText
+                    colorTextDim: root.colorTextDim
+                    colorMuted:   root.colorMuted
+                    wifiEnabled:  root.wifiEnabled
+                    wifiListRaw:  root.wifiListRaw
+                    wifiScanning: root.wifiScanning
+                    ethListRaw:   root.ethListRaw
+                    onRequestWifiScan:    root._requestWifiScan()
+                    onRequestRefreshWifi: root._refreshWifiList()
+                    onRequestRefreshEth:  root._refreshEthList()
+                }
+                Qs.QsTabBluetooth {
+                    anchors.fill: parent; visible: root.activeTab === "bluetooth"
                     colorAccent: root.colorAccent; colorText: root.colorText
-                    colorTextDim: root.colorTextDim; colorMuted: root.colorMuted }
-                Qs.QsTabBluetooth { anchors.fill: parent; visible: root.activeTab === "bluetooth"
-                    colorAccent: root.colorAccent; colorText: root.colorText
-                    colorTextDim: root.colorTextDim; colorMuted: root.colorMuted }
-                Qs.QsTabSystem    { anchors.fill: parent; visible: root.activeTab === "system"
-                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim }
-                Qs.QsTabTray      { anchors.fill: parent; visible: root.activeTab === "tray"
-                    colorText: root.colorText; colorTextDim: root.colorTextDim }
+                    colorTextDim: root.colorTextDim; colorMuted: root.colorMuted
+                }
+                Qs.QsTabSystem {
+                    anchors.fill: parent; visible: root.activeTab === "system"
+                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                }
+                Qs.QsTabTray {
+                    anchors.fill: parent; visible: root.activeTab === "tray"
+                    colorText: root.colorText; colorTextDim: root.colorTextDim
+                }
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }

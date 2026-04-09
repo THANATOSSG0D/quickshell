@@ -11,6 +11,9 @@ Scope {
   // MediaPlayer.qml possam notificar o OSD diretamente, sem IPC externo.
   OsdModule.Osd {
     id: osd
+    // clockContent é preenchido assim que o Bar carrega o tema e instancia
+    // o ClockPopup — Bar.qml expõe clockContentRef para esse fim.
+    clockContent: bar.clockContentRef
   }
 
   Bar {
