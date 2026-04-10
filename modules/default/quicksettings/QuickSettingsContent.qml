@@ -202,8 +202,14 @@ Item {
         id: btToggleProc
         property string _buf: ""
         stdout: SplitParser { onRead: (l) => btToggleProc._buf += l + "\n" }
-        onRunningChanged: { if (!running) btToggleProc._buf = "" }
+        onRunningChanged: {
+            if (!running) {
+                btToggleProc._buf = ""
+                btRefreshTimer.restart()   // confirma estado real após systemctl
+            }
+        }
     }
+    Timer { id: btRefreshTimer; interval: 1800; onTriggered: _refreshBt() }
 
     function _refreshBt() { if (!btStatusProc.running) btStatusProc.running = true }
     function _toggleBluetooth() {
@@ -211,7 +217,7 @@ Item {
             ? ["bash", "-c", "systemctl stop bluetooth.service 2>/dev/null"]
             : ["bash", "-c", "systemctl start bluetooth.service 2>/dev/null"]
         btToggleProc.running = true
-        root.btEnabled = !root.btEnabled
+        root.btEnabled = !root.btEnabled   // optimistic
     }
 
     // ═══════════════════════════════════════════════════════════════════════
