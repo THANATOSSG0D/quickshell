@@ -371,12 +371,21 @@ Item {
                             MouseArea {
                                 id: editMA; anchors.fill: parent; hoverEnabled: true
                                 onClicked: {
-                                    var nm = netItem.isWifi
+                                    // nm-connection-editor --edit aceita UUID ou nome da conexão,
+                                    // MAS quando passado por nome pode falhar se o nome tiver
+                                    // caracteres especiais. Busca o UUID via nmcli e usa ele.
+                                    var connName = netItem.isWifi
                                         ? netItem.modelData.ssid
                                         : (netItem.modelData.connection || netItem.modelData.device)
                                     editProc.command = [ "bash", "-c",
-                                        "nm-connection-editor --edit " +
-                                        JSON.stringify(nm) + " 2>/dev/null &" ]
+                                        "uuid=$(nmcli -g UUID,NAME conn show 2>/dev/null" +
+                                        " | awk -F: -v n=" + JSON.stringify(connName) +
+                                        " '$0 ~ \":\"n\"$\" { print $1; exit }');" +
+                                        " if [ -n \"$uuid\" ]; then" +
+                                        "   nm-connection-editor --edit \"$uuid\" 2>/dev/null &" +
+                                        " else" +
+                                        "   nm-connection-editor --edit " + JSON.stringify(connName) + " 2>/dev/null &" +
+                                        " fi" ]
                                     editProc.running = true
                                 }
                             }
