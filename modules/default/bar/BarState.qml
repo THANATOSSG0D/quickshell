@@ -76,4 +76,13 @@ QtObject {
       state.position = positions[(idx + 1) % positions.length]
     }
   }
+
+  // Sinal para abrir o editor — escutado pelo Bar.qml via Connections
+  signal editorRequested()
+
+  property var _editorShortcut: GlobalShortcut {
+    name:        "openBarEditor"
+    description: "Abrir editor visual da barra"
+    onPressed:   state.editorRequested()
+  }
 }

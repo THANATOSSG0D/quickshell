@@ -7,6 +7,7 @@ import '../mediaPlayer' as MediaPanel
 import '../volume'      as VolumeModule
 import '../clock'       as ClockModule
 import '../quicksettings' as QsModule
+import './themes' as BarThemes
 
 Scope {
   id: barRoot
@@ -32,10 +33,6 @@ Scope {
   property var clockContentRef: null
 
   // ── Conexão primária: timerElapsed → osdService ────────────────────────
-  // Esta conexão vive aqui no Scope porque Bar.qml tem acesso direto tanto
-  // ao clockContentRef quanto ao osdService, sem depender do timing do shell.qml.
-  // Mesmo que shell.qml também conecte via osd.clockContent, o OsdService é
-  // idempotente — receber a mesma chamada duas vezes só gera um OSD.
   property var _barCcConnected: null
 
   function _barOnTimerElapsed(mode, phaseLabel) {
@@ -54,45 +51,20 @@ Scope {
   }
 
   // ── IPC do timer ──────────────────────────────────────────────────────
-  // Uso: qs ipc call timer <comando> [arg]
-  //
-  //   toggle          → play/pause
-  //   start           → inicia com a duração configurada
-  //   reset           → para e reseta
-  //   addMin          → +1 minuto
-  //   subMin          → -1 minuto
-  //   setTimer <min>  → define duração em minutos e inicia
-  //   pomodoro        → inicia sessão Pomodoro
-  //   pomodoroNext    → avança para a próxima fase do Pomodoro
-  //   dismiss         → para o alerta sonoro e reseta
   IpcHandler {
     target: "timer"
-    function toggle()   {
-      var cc = barRoot.clockContentRef; if (cc) cc.toggleRunning()
-    }
-    function start()    {
-      var cc = barRoot.clockContentRef; if (cc) cc.startFree(cc.freeTimerDuration)
-    }
-    function reset()    {
-      var cc = barRoot.clockContentRef; if (cc) cc.resetTimer()
-    }
-    function addMin()   {
-      var cc = barRoot.clockContentRef; if (cc) cc.adjustTimer(60)
-    }
-    function subMin()   {
-      var cc = barRoot.clockContentRef; if (cc) cc.adjustTimer(-60)
-    }
+    function toggle()   { var cc = barRoot.clockContentRef; if (cc) cc.toggleRunning() }
+    function start()    { var cc = barRoot.clockContentRef; if (cc) cc.startFree(cc.freeTimerDuration) }
+    function reset()    { var cc = barRoot.clockContentRef; if (cc) cc.resetTimer() }
+    function addMin()   { var cc = barRoot.clockContentRef; if (cc) cc.adjustTimer(60) }
+    function subMin()   { var cc = barRoot.clockContentRef; if (cc) cc.adjustTimer(-60) }
     function setTimer(arg: double) {
       var cc = barRoot.clockContentRef
       if (cc) cc.startFree(Math.max(1, Math.round(arg)) * 60)
     }
-    function pomodoro() {
-      var cc = barRoot.clockContentRef; if (cc) cc.startPomodoro()
-    }
-    function pomodoroNext() {
-      var cc = barRoot.clockContentRef; if (cc) cc.pomodoroNext()
-    }
-    function dismiss()  {
+    function pomodoro()     { var cc = barRoot.clockContentRef; if (cc) cc.startPomodoro() }
+    function pomodoroNext() { var cc = barRoot.clockContentRef; if (cc) cc.pomodoroNext() }
+    function dismiss() {
       var cc = barRoot.clockContentRef
       if (cc) { cc.stopSound(); cc.resetTimer() }
     }
@@ -107,28 +79,18 @@ Scope {
   readonly property int panelPlayer: 3
   readonly property int panelClock:  4
   readonly property int panelQs:     5
+  readonly property int panelEditor: 6
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
-  // Todos os popups usam themePanelWidth como largura.
-  // Alturas fixas por módulo — ajuste aqui para mudar todos de uma vez.
   readonly property int popupHVolume: 380
   readonly property int popupHPlayer: 420
   readonly property int popupHClock:  480
   readonly property int popupHQs:     540
-  readonly property int popupWQs:     320   // QS tem largura própria (mais estreito)
+  readonly property int popupWQs:     320
+  readonly property int popupWEditor: 440
+  readonly property int popupHEditor: 560
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
-  //
-  // IMPORTANTE — os popups devem ser filhos QML do PanelWindow:
-  //
-  // PopupWindow é um xdg_popup Wayland e precisa de um parentWindow.
-  // Quando declarado como filho de um PanelWindow, o Quickshell usa aquele
-  // PanelWindow automaticamente como superfície pai do popup.
-  //
-  // Popups em Variants separados não funcionam porque:
-  //   • `screen` não pode ser setado (controlado pelo parentWindow)
-  //   • `anchor.window: this` → "transient parent cannot be same as window"
-  //   • Não há como referenciar o `bar` correto por tela
   Variants {
     model: Quickshell.screens
 
@@ -143,19 +105,17 @@ Scope {
 
       readonly property bool anyPanelOpen: activePanel !== barRoot.panelNone
 
-      // Toggle: abre o painel pedido ou fecha se já estava aberto
       function openPanel(panelId) {
         activePanel = (activePanel === panelId) ? barRoot.panelNone : panelId
       }
       function closeAllPanels() { activePanel = barRoot.panelNone }
 
-      // Aliases booleanos para cada popup (lidos pelos popups abaixo)
       readonly property bool sinkPanelOpen:   activePanel === barRoot.panelSink
       readonly property bool sourcePanelOpen: activePanel === barRoot.panelSource
       readonly property bool playerPanelOpen: activePanel === barRoot.panelPlayer
       readonly property bool clockPanelOpen:  activePanel === barRoot.panelClock
       readonly property bool qsPanelOpen:     activePanel === barRoot.panelQs
-      // ──────────────────────────────────────────────────────────────────
+      readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
 
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
@@ -171,6 +131,10 @@ Scope {
           return Math.max(0, Math.floor((screen.height - pillWidth) / 2))
         return Math.max(0, Math.floor((screen.width - pillWidth) / 2))
       }
+
+      // Valor estável de pillSideMargin para uso em cursorAtEdge.
+      // Não depende do _computedPillWidth dinâmico do tema — quebra binding loop.
+      readonly property int _frozenPillSideMargin: pillSideMargin
 
       property bool themeLoaded: barRoot.themeBarSize > 0
 
@@ -232,9 +196,6 @@ Scope {
       exclusiveZone: barState.autoHide ? 0 : barSize
 
       // ── Helpers de anchor compartilhados pelos popups ──────────────────
-      //
-      // Todos os popups usam a mesma edge/gravity derivada da posição da barra.
-      // Centraliza aqui para não repetir o mesmo bloco 5 vezes.
       readonly property int popupEdge: {
         if (position === 1) return Edges.Bottom
         if (position === 2) return Edges.Left
@@ -242,52 +203,15 @@ Scope {
         return Edges.Right
       }
 
-      // ── Cálculo de anchor.rect ─────────────────────────────────────────
-      //
-      // anchor.rect define o "objeto" dentro da superfície da barra ao qual
-      // o popup se ancora. O Wayland então posiciona o popup fora dessa rect
-      // na direção de anchor.edges/gravity.
-      //
-      // Barra HORIZONTAL:
-      //   • A superfície cobre screen.width (ou pillWidth).
-      //   • rx centraliza (ou alinha à direita) o popup horizontalmente.
-      //   • height = implicitHeight (a barra inteira, na vertical).
-      //
-      // Barra VERTICAL:
-      //   • A superfície cobre screen.height (ou pillWidth).
-      //   • O rect deve ser a barra INTEIRA — sem offset ry.
-      //   • O Wayland usa anchor.gravity para posicionar o popup
-      //     verticalmente fora da barra; calcular ry manualmente faz o
-      //     popup ancorar no meio da superfície e abrir no lugar errado.
-
-      // rect centrado (volume, clock, media player)
-      //
-      // Barra HORIZONTAL: rx centra pw no eixo X da superfície.
-      // Barra VERTICAL:   usamos rect de 1x1 no topo da superfície.
-      //   O compositor (wlroots/Hyprland) parece ignorar o ry calculado
-      //   quando a superfície tem anchors top+bottom simultaneamente,
-      //   posicionando sempre pelo centro geométrico da janela.
-      //   Com rect 1x1 no topo + gravity Right, o popup ancora no topo
-      //   e cresce para baixo — menos errado que o centro.
-      //   TODO: investigar se PopupWindow.anchor.rect funciona corretamente
-      //   com PanelWindow full-height no Quickshell/wlroots.
       function popupRectCentered(pw, ph) {
         if (!isVertical) {
           var sw = pill ? pillWidth : screen.width
           var rx = Math.max(0, Math.floor((sw - pw) / 2))
           return Qt.rect(rx, 0, pw, implicitHeight)
         }
-        // Barra vertical: o anchor.rect é interpretado em coordenadas
-        // globais pelo Hyprland quando screen.x é negativo (monitor à
-        // esquerda do principal). Compensamos subtraindo screen.x do rx
-        // para que o rect fique dentro da superfície globalmente.
-        // ry centra verticalmente o popup na superfície.
         var sh = pill ? pillWidth : screen.height
         var ry = Math.max(0, Math.floor((sh - ph) / 2))
-        var rxAdj = -screen.x   // 0 quando screen.x=0, 1920 quando screen.x=-1920
-        console.log("[BarPopup] screen=" + screen.name
-          + " screenX=" + screen.x + " ry=" + ry + " rxAdj=" + rxAdj
-          + " → rect(" + rxAdj + "," + ry + "," + implicitWidth + "," + ph + ")")
+        var rxAdj = -screen.x
         return Qt.rect(rxAdj, ry, implicitWidth, ph)
       }
 
@@ -302,19 +226,15 @@ Scope {
         return Qt.rect(rxAdj, ry, implicitWidth, ph)
       }
 
-      // ── Paleta dos popups — binding único, replicado para todos ────────
-      //
-      // Em vez de repetir 7 bindings de cor em cada popup, definimos aqui
-      // e cada popup lê de `bar.popup*`. Quando a paleta mudar em runtime,
-      // os popups atualizam automaticamente por binding.
-      readonly property color popupColorBg:       barState.config.palettePanelBg
-      readonly property color popupColorText:     barState.config.paletteText
-      readonly property color popupColorTextDim:  barState.config.paletteTextDim
-      readonly property color popupColorAccent:   barState.config.paletteAccent
-      readonly property color popupColorMuted:    barState.config.paletteWsDotUrgentColor
-      readonly property color popupColorProgress: barState.config.paletteProgressBg
+      // ── Paleta dos popups ──────────────────────────────────────────────
+      readonly property color popupColorBg:         barState.config.palettePanelBg
+      readonly property color popupColorText:       barState.config.paletteText
+      readonly property color popupColorTextDim:    barState.config.paletteTextDim
+      readonly property color popupColorAccent:     barState.config.paletteAccent
+      readonly property color popupColorMuted:      barState.config.paletteWsDotUrgentColor
+      readonly property color popupColorProgress:   barState.config.paletteProgressBg
       readonly property color popupColorProgressFg: barState.config.paletteProgressFg
-      readonly property color popupColorDivider:  barState.config.paletteDivider
+      readonly property color popupColorDivider:    barState.config.paletteDivider
 
       // ── Loader do tema ─────────────────────────────────────────────────
       Loader {
@@ -323,8 +243,13 @@ Scope {
         source: Quickshell.shellDir + "/modules/default/bar/themes/" + barState.currentTheme + ".qml"
 
         onLoaded: {
+          // Lê tamanho base do tema
           barRoot.themeBarSize    = item.barSize       !== undefined ? item.barSize       : 30
           barRoot.themeBarMargin  = item.barMargin     !== undefined ? item.barMargin     : 0
+          // Sobrescreve com valores do editor (se configurados)
+          if (barState.config.barSize   > 0)  barRoot.themeBarSize   = barState.config.barSize
+          if (barState.config.barMargin >= 0)  barRoot.themeBarMargin = barState.config.barMargin
+
           barRoot.themePill       = item.pill          !== undefined ? item.pill          : false
           barRoot.themePillWidth  = item.pillWidth     !== undefined ? item.pillWidth     : 600
           barRoot.themeHasPanel   = item.hasMediaPanel !== undefined ? item.hasMediaPanel : false
@@ -334,17 +259,16 @@ Scope {
           if ("barPosition" in item) item.barPosition = barRoot.position
           if (item.mediaPlayer)      barRoot.barMediaPlayerRef = item.mediaPlayer
 
-          // Clock — injeção do clockContent e captura da referência
+          // Clock
           if (item.clock) {
             barRoot.barClockRef = item.clock
             if ("clockContent" in item.clock)
               item.clock.clockContent = clockPopup.clockContentRef
-            // Expõe para o shell.qml repassar ao Osd
             if (!barRoot.clockContentRef)
               barRoot.clockContentRef = clockPopup.clockContentRef
           }
 
-          // osdService — injetado quando disponível
+          // osdService
           if (barRoot.osdService !== null) {
             if ("osdService" in item) item.osdService = barRoot.osdService
             var _vol = item.volumeWidget
@@ -352,6 +276,17 @@ Scope {
             var _mp  = item.mediaPlayer
             if (_mp  && "osdService" in _mp)  _mp.osdService  = barRoot.osdService
           }
+
+          // Módulos declarativos
+          if ("cfgModulesLeft"   in item) item.cfgModulesLeft   = barState.config.modulesLeft
+          if ("cfgModulesCenter" in item) item.cfgModulesCenter = barState.config.modulesCenter
+          if ("cfgModulesRight"  in item) item.cfgModulesRight  = barState.config.modulesRight
+          if ("cfgModulesTop"    in item) item.cfgModulesTop    = barState.config.modulesTop
+          if ("cfgModulesMiddle" in item) item.cfgModulesMiddle = barState.config.modulesMiddle
+          if ("cfgModulesBottom" in item) item.cfgModulesBottom = barState.config.modulesBottom
+
+          // pillWidth configurado pelo editor
+          if ("minPillWidth" in item) item.minPillWidth = barState.config.pillWidth
 
           _applyConfig(item)
 
@@ -361,9 +296,19 @@ Scope {
         }
       }
 
+      // ── Propaga pillWidth dinâmico do tema → PanelWindow ─────────────────
+      // Pill.qml expõe pillWidth como _computedPillWidth (dinâmico).
+      // Quando muda (ex: mais workspaces abertas), atualiza barRoot.themePillWidth.
+      Connections {
+        target: loader.item
+        ignoreUnknownSignals: true
+        function onPillWidthChanged() {
+          if (loader.item && loader.item.pillWidth > 0)
+            barRoot.themePillWidth = loader.item.pillWidth
+        }
+      }
+
       // ── Aplicação de config ao tema ────────────────────────────────────
-      // Centraliza o bloco de injeção de props para não duplicar entre
-      // onLoaded e os Connections de runtime.
       function _set(prop, value) {
         if (loader.item && prop in loader.item) loader.item[prop] = value
       }
@@ -437,6 +382,9 @@ Scope {
       Connections {
         target: barState.config
 
+        // barSize/barMargin — afetam o PanelWindow diretamente
+        function onBarSizeChanged()   { barRoot.themeBarSize   = barState.config.barSize   }
+        function onBarMarginChanged() { barRoot.themeBarMargin = barState.config.barMargin }
         // paleta
         function onPaletteBarBgChanged()                { bar._set("colBarBg",          barState.config.paletteBarBg)                 }
         function onPaletteBarBgPillChanged()            { bar._set("colBarBgPill",      barState.config.paletteBarBgPill)             }
@@ -496,12 +444,36 @@ Scope {
         function onPaletteClkDimColorChanged()     { bar._set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }
         function onPaletteClkAccentColorChanged()  { bar._set("cfgClkAccent",       barState.config.paletteClkAccentColor) }
         function onClkDismissDelayMsChanged()      { bar._set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)     }
+        // módulos declarativos — runtime
+        function onModulesLeftChanged()   { bar._set("cfgModulesLeft",   barState.config.modulesLeft)   }
+        function onModulesCenterChanged() { bar._set("cfgModulesCenter", barState.config.modulesCenter) }
+        function onModulesRightChanged()  { bar._set("cfgModulesRight",  barState.config.modulesRight)  }
+        function onModulesTopChanged()    { bar._set("cfgModulesTop",    barState.config.modulesTop)    }
+        function onModulesMiddleChanged() { bar._set("cfgModulesMiddle", barState.config.modulesMiddle) }
+        function onModulesBottomChanged() { bar._set("cfgModulesBottom", barState.config.modulesBottom) }
+        // pillWidth configurado pelo editor
+        function onPillWidthChanged() {
+          if ("minPillWidth" in loader.item) loader.item.minPillWidth = barState.config.pillWidth
+        }
+      }
+
+      Connections {
+        target: barState
+        ignoreUnknownSignals: true
+        // Atalho global abre o editor
+        function onEditorRequested() {
+          if (!editorCooldown.running) { bar.openPanel(barRoot.panelEditor); editorCooldown.restart() }
+        }
       }
 
       Connections {
         target: barRoot
         function onPositionChanged() {
           bar._set("barPosition", barRoot.position)
+        }
+        function onThemePillWidthChanged() {
+          if (loader.item && "minPillWidth" in loader.item)
+            loader.item.minPillWidth = barState.config.pillWidth
         }
         function onOsdServiceChanged() {
           if (!loader.item) return
@@ -511,20 +483,17 @@ Scope {
           var mp  = loader.item.mediaPlayer
           if (mp  && "osdService" in mp)  mp.osdService  = barRoot.osdService
         }
-        // Re-injeta clockContent ao recarregar tema (hot-reload)
         function onBarClockRefChanged() {
           var ck = barRoot.barClockRef
           if (ck && "clockContent" in ck)
             ck.clockContent = clockPopup.clockContentRef
-          // Mantém clockContentRef atualizado após hot-reload
           barRoot.clockContentRef = clockPopup.clockContentRef
         }
       }
 
       // ── Sinais do tema → abertura de painéis ───────────────────────────
-      // Um único Timer de cooldown compartilhado — 100 ms é suficiente
-      // para debounce de clique em qualquer painel.
       Timer { id: panelCooldown; interval: 100; repeat: false }
+      Timer { id: editorCooldown; interval: 100; repeat: false }
 
       Connections {
         target: loader.item
@@ -540,6 +509,10 @@ Scope {
         }
         function onQuickSettingsPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelQs);     panelCooldown.restart() }
+        }
+        // O tema também pode pedir o editor directamente
+        function onEditorRequested() {
+          if (!editorCooldown.running) { bar.openPanel(barRoot.panelEditor); editorCooldown.restart() }
         }
       }
 
@@ -616,13 +589,14 @@ Scope {
         if (position === 1 || position === 3) {
           var atV = position === 1 ? ly <= threshold : ly >= screen.height - threshold
           if (!atV) return false
-          if (pill) return lx >= pillSideMargin - tolerance && lx <= screen.width - pillSideMargin + tolerance
+          // _frozenPillSideMargin evita binding loop com pillWidth dinâmico
+          if (pill) return lx >= _frozenPillSideMargin - tolerance && lx <= screen.width - _frozenPillSideMargin + tolerance
           return true
         }
         if (position === 2 || position === 4) {
           var atH = position === 4 ? lx <= threshold : lx >= screen.width - threshold
           if (!atH) return false
-          if (pill) return ly >= pillSideMargin - tolerance && ly <= screen.height - pillSideMargin + tolerance
+          if (pill) return ly >= _frozenPillSideMargin - tolerance && ly <= screen.height - _frozenPillSideMargin + tolerance
           return true
         }
         return false
@@ -658,16 +632,7 @@ Scope {
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // Popups — filhos QML do PanelWindow (ver comentário no topo)
-      //
-      // Padrão de anchor compartilhado:
-      //   anchor.window:  bar
-      //   anchor.edges:   bar.popupEdge        (derivado da posição)
-      //   anchor.gravity: bar.popupEdge        (idem)
-      //   anchor.rect:    bar.popupRectCentered(pw, ph)  ou  popupRectRight
-      //
-      // Paleta:           bar.popupColor*      (binding único, sem repetição)
-      // Dimensões:        barRoot.popupH*      (fonte de verdade única)
+      // Popups — filhos QML do PanelWindow
       // ═══════════════════════════════════════════════════════════════════
 
       // ── Volume — Sink ──────────────────────────────────────────────────
@@ -768,7 +733,6 @@ Scope {
       }
 
       // ── Quick Settings ─────────────────────────────────────────────────
-      // Alinhado à direita — usa popupRectRight em vez de popupRectCentered
       QsModule.QuickSettingsPopup {
         id: qsPopup
         anchor.window:  bar
@@ -786,6 +750,30 @@ Scope {
         colorTextDim:    bar.popupColorTextDim
         colorAccent:     bar.popupColorAccent
         colorMuted:      bar.popupColorMuted
+        colorProgressBg: bar.popupColorProgress
+        colorDivider:    bar.popupColorDivider
+
+        onCloseRequested: bar.closeAllPanels()
+      }
+
+      // ── Editor da Barra ────────────────────────────────────────────────
+      BarThemes.BarEditorPopup {
+        id: editorPopup
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectCentered(barRoot.popupWEditor, barRoot.popupHEditor)
+
+        popupW: barRoot.popupWEditor
+        popupH: barRoot.popupHEditor
+
+        panelOpen: bar.editorPanelOpen
+        config:    barState.config
+
+        colorPanelBg:    bar.popupColorBg
+        colorText:       bar.popupColorText
+        colorTextDim:    bar.popupColorTextDim
+        colorAccent:     bar.popupColorAccent
         colorProgressBg: bar.popupColorProgress
         colorDivider:    bar.popupColorDivider
 

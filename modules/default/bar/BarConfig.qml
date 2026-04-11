@@ -22,9 +22,20 @@ Item {
   visible: false
 
   // ── bar.* ──────────────────────────────────────────────────────────────
-  property string theme:    "Pill"
-  property bool   autoHide: true
-  property int    position: -2
+  property string theme:     "Pill"
+  property bool   autoHide:  true
+  property int    position:  -2
+  property int    barSize:   0    // 0 = usa padrão do tema
+  property int    barMargin: -1   // -1 = usa padrão do tema
+  property int    pillWidth: 800
+
+  // ── modules — listas de módulos por slot ───────────────────────────────
+  property var modulesLeft:   ["mediaplayer"]
+  property var modulesCenter: ["workspaces"]
+  property var modulesRight:  ["clock", "separator", "volume"]
+  property var modulesTop:    ["mediaplayer"]
+  property var modulesMiddle: ["workspaces"]
+  property var modulesBottom: ["clock", "separator", "volume"]
 
   // ── workspaces.* — genérico ────────────────────────────────────────────
   property string wsStyle:          "icons"
@@ -151,6 +162,7 @@ Item {
       id: adapter
 
       property var bar:         ({})
+      property var modules:     ({})
       property var workspaces:  ({})
       property var mediaPlayer: ({})
       property var themes:      ({})
@@ -158,9 +170,23 @@ Item {
       onBarChanged: {
         var b = bar
         if (!b) return
-        if (b.theme    !== undefined) { root.theme    = b.theme;    applyTheme(b.theme) }
-        if (b.autoHide !== undefined)   root.autoHide = b.autoHide
-        if (b.position !== undefined)   root.position = b.position
+        if (b.theme     !== undefined) { root.theme     = b.theme; applyTheme(b.theme) }
+        if (b.autoHide  !== undefined)   root.autoHide  = b.autoHide
+        if (b.position  !== undefined)   root.position  = b.position
+        if (b.barSize   !== undefined)   root.barSize   = b.barSize
+        if (b.barMargin !== undefined)   root.barMargin = b.barMargin
+        if (b.pillWidth !== undefined)   root.pillWidth = b.pillWidth
+      }
+
+      onModulesChanged: {
+        var m = modules
+        if (!m) return
+        if (Array.isArray(m.left))   root.modulesLeft   = m.left
+        if (Array.isArray(m.center)) root.modulesCenter = m.center
+        if (Array.isArray(m.right))  root.modulesRight  = m.right
+        if (Array.isArray(m.top))    root.modulesTop    = m.top
+        if (Array.isArray(m.middle)) root.modulesMiddle = m.middle
+        if (Array.isArray(m.bottom)) root.modulesBottom = m.bottom
       }
 
       onWorkspacesChanged: {
@@ -258,11 +284,38 @@ Item {
   }
 
   function _syncBarToAdapter() {
-    adapter.bar = { theme: root.theme, autoHide: root.autoHide, position: root.position }
+    adapter.bar = {
+      theme:     root.theme,
+      autoHide:  root.autoHide,
+      position:  root.position,
+      barSize:   root.barSize,
+      barMargin: root.barMargin,
+      pillWidth: root.pillWidth
+    }
   }
-  onThemeChanged:    _syncBarToAdapter()
-  onAutoHideChanged: _syncBarToAdapter()
-  onPositionChanged: _syncBarToAdapter()
+  onThemeChanged:     _syncBarToAdapter()
+  onAutoHideChanged:  _syncBarToAdapter()
+  onPositionChanged:  _syncBarToAdapter()
+  onBarSizeChanged:   _syncBarToAdapter()
+  onBarMarginChanged: _syncBarToAdapter()
+  onPillWidthChanged: _syncBarToAdapter()
+
+  function _syncModulesToAdapter() {
+    adapter.modules = {
+      left:   root.modulesLeft,
+      center: root.modulesCenter,
+      right:  root.modulesRight,
+      top:    root.modulesTop,
+      middle: root.modulesMiddle,
+      bottom: root.modulesBottom
+    }
+  }
+  onModulesLeftChanged:   _syncModulesToAdapter()
+  onModulesCenterChanged: _syncModulesToAdapter()
+  onModulesRightChanged:  _syncModulesToAdapter()
+  onModulesTopChanged:    _syncModulesToAdapter()
+  onModulesMiddleChanged: _syncModulesToAdapter()
+  onModulesBottomChanged: _syncModulesToAdapter()
 
   Process {
     id: mkdirProc

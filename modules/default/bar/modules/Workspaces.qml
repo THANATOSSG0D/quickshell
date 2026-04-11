@@ -128,22 +128,22 @@ Item {
                        : root.style === "icons"  ? iconsComp
                        : numberComp
 
-        onLoaded: {
-          // modelData — necessário para todos os delegates
-          if ("modelData"       in item) item.modelData       = wrapper.modelData
-          // cores — Dot / Number / Hybrid
-          if ("dotColor"         in item) item.dotColor         = root.dotColor
-          if ("dotActiveColor"   in item) item.dotActiveColor   = root.dotActiveColor
-          if ("dotOccupiedColor" in item) item.dotOccupiedColor = root.dotOccupiedColor
-          if ("dotUrgentColor"   in item) item.dotUrgentColor   = root.dotUrgentColor
-          // Icons
-          if ("sortOrder"       in item) item.sortOrder       = root.iconsSort
-          if ("isHorizontal"    in item) item.isHorizontal    = root.isHorizontal
-          if ("monochrome"      in item) item.monochrome      = root.iconMonochrome
-          if ("monoColor"       in item) item.monoColor       = root.iconMonoColor
-          if ("monoColorActive" in item) item.monoColorActive = root.iconMonoColorActive
-          if ("iconSpacing"     in item) item.iconSpacing     = root.iconSpacing
-        }
+        // ── modelData (todos) ────────────────────────────────────────────
+        Binding { target: delegateLoader.item; property: "modelData"; value: wrapper.modelData; when: delegateLoader.item !== null }
+
+        // ── cores Dot / Number / Hybrid (não existem em Icons) ───────────
+        Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && root.style !== "icons" }
+        Binding { target: delegateLoader.item; property: "dotActiveColor";   value: root.dotActiveColor;   when: delegateLoader.item !== null && root.style !== "icons" }
+        Binding { target: delegateLoader.item; property: "dotOccupiedColor"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && root.style !== "icons" }
+        Binding { target: delegateLoader.item; property: "dotUrgentColor";   value: root.dotUrgentColor;   when: delegateLoader.item !== null && root.style !== "icons" }
+
+        // ── props Icons (só existem em Icons) ────────────────────────────
+        Binding { target: delegateLoader.item; property: "sortOrder";       value: root.iconsSort;          when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "isHorizontal";    value: root.isHorizontal;       when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "monochrome";      value: root.iconMonochrome;     when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "monoColor";       value: root.iconMonoColor;      when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "monoColorActive"; value: root.iconMonoColorActive; when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "iconSpacing";     value: root.iconSpacing;        when: delegateLoader.item !== null && root.style === "icons" }
       }
 
       // Anima a transição de tamanho ativo ↔ inativo
