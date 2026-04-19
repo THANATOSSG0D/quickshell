@@ -7,6 +7,7 @@ import '../mediaPlayer' as MediaPanel
 import '../volume'      as VolumeModule
 import '../clock'       as ClockModule
 import '../quicksettings' as QsModule
+import '../notifications' as NotifModule
 import './themes' as BarThemes
 
 Scope {
@@ -27,6 +28,7 @@ Scope {
 
   // Referência ao OsdService injetada pelo shell.qml
   property var osdService: null
+  property var notifService: null
 
   // Referência ao ClockContent (dentro do clockPopup) — exposta para que
   // shell.qml possa injetar em osd.clockContent e conectar timerElapsed.
@@ -80,6 +82,7 @@ Scope {
   readonly property int panelClock:  4
   readonly property int panelQs:     5
   readonly property int panelEditor: 6
+  readonly property int panelNotif:  7
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
   readonly property int popupHVolume: 380
@@ -89,6 +92,8 @@ Scope {
   readonly property int popupWQs:     320
   readonly property int popupWEditor: 440
   readonly property int popupHEditor: 560
+  readonly property int popupWNotif:  360
+  readonly property int popupHNotif:  560
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
   Variants {
@@ -116,6 +121,7 @@ Scope {
       readonly property bool clockPanelOpen:  activePanel === barRoot.panelClock
       readonly property bool qsPanelOpen:     activePanel === barRoot.panelQs
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
+      readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
 
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
@@ -240,7 +246,21 @@ Scope {
       Loader {
         id: loader
         anchors.fill: parent
-        source: Quickshell.shellDir + "/modules/default/bar/themes/" + barState.currentTheme + ".qml"
+        source: barState.config.configLoaded
+          ? (Quickshell.shellDir + "/modules/default/bar/themes/" + barState.currentTheme + ".qml")
+          : ""
+
+        // ── Bindings reativos de módulos ──────────────────────────────────
+        // Usam barState.modulesLeft (propriedade direta) em vez de
+        // barState.config.modulesLeft (property var chain não rastreável).
+        // Atualizam automaticamente quando o JSON muda — startup, reload,
+        // editor — sem timers, sem _set() imperativo.
+        Binding { target: loader.item; property: "cfgModulesLeft";   value: barState.modulesLeft;   when: loader.item !== null; restoreMode: Binding.RestoreNone }
+        Binding { target: loader.item; property: "cfgModulesCenter"; value: barState.modulesCenter; when: loader.item !== null; restoreMode: Binding.RestoreNone }
+        Binding { target: loader.item; property: "cfgModulesRight";  value: barState.modulesRight;  when: loader.item !== null; restoreMode: Binding.RestoreNone }
+        Binding { target: loader.item; property: "cfgModulesTop";    value: barState.modulesTop;    when: loader.item !== null; restoreMode: Binding.RestoreNone }
+        Binding { target: loader.item; property: "cfgModulesMiddle"; value: barState.modulesMiddle; when: loader.item !== null; restoreMode: Binding.RestoreNone }
+        Binding { target: loader.item; property: "cfgModulesBottom"; value: barState.modulesBottom; when: loader.item !== null; restoreMode: Binding.RestoreNone }
 
         onLoaded: {
           // Lê tamanho base do tema
@@ -277,13 +297,14 @@ Scope {
             if (_mp  && "osdService" in _mp)  _mp.osdService  = barRoot.osdService
           }
 
-          // Módulos declarativos
-          if ("cfgModulesLeft"   in item) item.cfgModulesLeft   = barState.config.modulesLeft
-          if ("cfgModulesCenter" in item) item.cfgModulesCenter = barState.config.modulesCenter
-          if ("cfgModulesRight"  in item) item.cfgModulesRight  = barState.config.modulesRight
-          if ("cfgModulesTop"    in item) item.cfgModulesTop    = barState.config.modulesTop
-          if ("cfgModulesMiddle" in item) item.cfgModulesMiddle = barState.config.modulesMiddle
-          if ("cfgModulesBottom" in item) item.cfgModulesBottom = barState.config.modulesBottom
+          // notifService
+          if (barRoot.notifService !== null) {
+            if ("notifService" in item) item.notifService = barRoot.notifService
+            var _nf = item.notifWidget
+            if (_nf && "service" in _nf) _nf.service = barRoot.notifService
+          }
+
+          // Módulos são gerenciados pelos Binding declarativos acima.
 
           // pillWidth configurado pelo editor
           if ("minPillWidth" in item) item.minPillWidth = barState.config.pillWidth
@@ -444,26 +465,24 @@ Scope {
         function onPaletteClkDimColorChanged()     { bar._set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }
         function onPaletteClkAccentColorChanged()  { bar._set("cfgClkAccent",       barState.config.paletteClkAccentColor) }
         function onClkDismissDelayMsChanged()      { bar._set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)     }
-        // módulos declarativos — runtime
-        function onModulesLeftChanged()   { bar._set("cfgModulesLeft",   barState.config.modulesLeft)   }
-        function onModulesCenterChanged() { bar._set("cfgModulesCenter", barState.config.modulesCenter) }
-        function onModulesRightChanged()  { bar._set("cfgModulesRight",  barState.config.modulesRight)  }
-        function onModulesTopChanged()    { bar._set("cfgModulesTop",    barState.config.modulesTop)    }
-        function onModulesMiddleChanged() { bar._set("cfgModulesMiddle", barState.config.modulesMiddle) }
-        function onModulesBottomChanged() { bar._set("cfgModulesBottom", barState.config.modulesBottom) }
+        // onModules*Changed — removidos. Os Binding declarativos
+        // no Loader são reativos via barState.modules* e atualizam
+        // automaticamente sem handlers explícitos.
         // pillWidth configurado pelo editor
         function onPillWidthChanged() {
           if ("minPillWidth" in loader.item) loader.item.minPillWidth = barState.config.pillWidth
         }
+
       }
 
       Connections {
         target: barState
         ignoreUnknownSignals: true
-        // Atalho global abre o editor
         function onEditorRequested() {
           if (!editorCooldown.running) { bar.openPanel(barRoot.panelEditor); editorCooldown.restart() }
         }
+        // onModulesUpdated — os Bindings declarativos cuidam da propagação.
+        function onModulesUpdated() {}
       }
 
       Connections {
@@ -482,6 +501,12 @@ Scope {
           if (vol && "osdService" in vol) vol.osdService = barRoot.osdService
           var mp  = loader.item.mediaPlayer
           if (mp  && "osdService" in mp)  mp.osdService  = barRoot.osdService
+        }
+        function onNotifServiceChanged() {
+          if (!loader.item) return
+          if ("notifService" in loader.item) loader.item.notifService = barRoot.notifService
+          var nf = loader.item.notifWidget
+          if (nf && "service" in nf) nf.service = barRoot.notifService
         }
         function onBarClockRefChanged() {
           var ck = barRoot.barClockRef
@@ -509,6 +534,9 @@ Scope {
         }
         function onQuickSettingsPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelQs);     panelCooldown.restart() }
+        }
+        function onNotificationsPanelRequested() {
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelNotif);  panelCooldown.restart() }
         }
         // O tema também pode pedir o editor directamente
         function onEditorRequested() {
@@ -608,7 +636,7 @@ Scope {
         var near = pill ? cursorAtEdge : cursorNearBar
         return near || !hasWindows
       }
-      property bool barShow: true
+      property bool barShow:             true
 
       onBarVisibleChanged: {
         if (barVisible) { hideTimer.stop(); barShow = true }
@@ -776,6 +804,35 @@ Scope {
         colorAccent:     bar.popupColorAccent
         colorProgressBg: bar.popupColorProgress
         colorDivider:    bar.popupColorDivider
+
+        onCloseRequested: bar.closeAllPanels()
+
+        Connections {
+          target: editorPopup
+          ignoreUnknownSignals: true
+          function onSaveRequested(opts) { barState.config.saveAll(opts) }
+        }
+      }
+
+      // ── Notificações ───────────────────────────────────────────────────
+      NotifModule.NotificationsPopup {
+        id: notifPopup
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectRight(barRoot.popupWNotif, barRoot.popupHNotif)
+
+        popupW:    barRoot.popupWNotif
+        popupH:    barRoot.popupHNotif
+        service:   barRoot.notifService
+        panelOpen: bar.notifPanelOpen
+
+        colorPanelBg:  bar.popupColorBg
+        colorText:     bar.popupColorText
+        colorTextDim:  bar.popupColorTextDim
+        colorAccent:   bar.popupColorAccent
+        colorMuted:    bar.popupColorMuted
+        colorDivider:  bar.popupColorDivider
 
         onCloseRequested: bar.closeAllPanels()
       }

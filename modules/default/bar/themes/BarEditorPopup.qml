@@ -94,23 +94,30 @@ PopupWindow {
 
   function _save() {
     if (!config) return
-    config.modulesLeft      = slotLeft.slice()
-    config.modulesCenter    = slotCenter.slice()
-    config.modulesRight     = slotRight.slice()
-    config.modulesTop       = slotTop.slice()
-    config.modulesMiddle    = slotMiddle.slice()
-    config.modulesBottom    = slotBottom.slice()
-    config.autoHide         = localAutoHide
-    config.position         = localPosition
-    config.pillWidth        = localPillWidth
-    config.barSize          = localBarSize
-    config.barMargin        = localBarMargin
-    config.wsStyle          = localWsStyle
-    config.wsIconsSort      = localWsSort
-    config.wsIconMonochrome = localWsMono
-    config.wsIconSpacing    = localWsSpacing
-    config.wsShowAddButton  = localWsAddBtn
-    config.theme            = localTheme
+    // Usa saveAll() em vez de atribuição direta prop a prop.
+    // Atribuição direta dispara on*Changed → _syncModulesToAdapter() →
+    // file.writeAdapter() → onFileChanged → file.reload() a cada prop,
+    // recarregando o arquivo com valores parciais antes de todas as props
+    // serem atualizadas. saveAll() escreve tudo de uma vez atomicamente.
+    config.saveAll({
+      modulesLeft:      slotLeft.slice(),
+      modulesCenter:    slotCenter.slice(),
+      modulesRight:     slotRight.slice(),
+      modulesTop:       slotTop.slice(),
+      modulesMiddle:    slotMiddle.slice(),
+      modulesBottom:    slotBottom.slice(),
+      autoHide:         localAutoHide,
+      position:         localPosition,
+      pillWidth:        localPillWidth,
+      barSize:          localBarSize,
+      barMargin:        localBarMargin,
+      wsStyle:          localWsStyle,
+      wsIconsSort:      localWsSort,
+      wsIconMonochrome: localWsMono,
+      wsIconSpacing:    localWsSpacing,
+      wsShowAddButton:  localWsAddBtn,
+      theme:            localTheme
+    })
   }
 
   function _resetToDefaults() {
@@ -181,6 +188,7 @@ PopupWindow {
       volume:        { icon: "\ufa7d", label: "Volume"     },
       mediaplayer:   { icon: "\uf001", label: "Midia"      },
       quicksettings: { icon: "\uf013", label: "Config"     },
+      notifications: { icon: "\uf0f3", label: "Notificações" },
       separator:     { icon: "\uf07e", label: "Sep"        },
       spacer:        { icon: "\uf047", label: "Espaco"     },
     }
@@ -589,6 +597,7 @@ PopupWindow {
               { id: "volume",        icon: "\ufa7d", label: "Volume"     },
               { id: "mediaplayer",   icon: "\uf001", label: "Midia"      },
               { id: "quicksettings", icon: "\uf013", label: "Config"     },
+              { id: "notifications", icon: "\uf0f3", label: "Notificações" },
               { id: "separator",     icon: "\uf07e", label: "Separador"  },
               { id: "spacer",        icon: "\uf047", label: "Espaco"     },
             ]

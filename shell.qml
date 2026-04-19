@@ -1,24 +1,36 @@
 import Quickshell
 import "modules/widgets/clock"
 import "modules/default/bar"
-import './modules/default/osd' as OsdModule
+import './modules/default/osd'        as OsdModule
+import './modules/default/notifications' as NotifModule
 
 Scope {
   ClockWidget {}
 
-  // OsdModule.Osd instancia o OsdService internamente (id: osdService).
-  // Precisamos passar essa referência ao Bar para que Volume.qml e
-  // MediaPlayer.qml possam notificar o OSD diretamente, sem IPC externo.
   OsdModule.Osd {
     id: osd
-    // clockContent é preenchido assim que o Bar carrega o tema e instancia
-    // o ClockPopup — Bar.qml expõe clockContentRef para esse fim.
     clockContent: bar.clockContentRef
+  }
+
+  // ── Serviço de notificações (singleton) ──────────────────────────────
+  NotifModule.NotificationService {
+    id: notifService
+  }
+
+  // ── Toasts flutuantes — um PanelWindow por monitor ───────────────────
+  Variants {
+    model: Quickshell.screens
+
+    NotifModule.NotificationToast {
+      required property var modelData
+      screen:  modelData
+      service: notifService
+    }
   }
 
   Bar {
     id: bar
-    // Injeta o OsdService assim que ambos estiverem prontos
-    osdService: osd.osdService
+    osdService:   osd.osdService
+    notifService: notifService
   }
 }

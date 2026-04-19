@@ -18,11 +18,33 @@ QtObject {
 
   property var config: BarConfig { id: barConfig }
 
+  // ── Módulos re-expostos como propriedades diretas ────────────────────
+  // Bindings em Bar.qml usam barState.modulesLeft etc. em vez de
+  // barState.config.modulesLeft porque o QML NÃO rastreia mudanças em
+  // propriedades acessadas através de uma property var (barState.config é
+  // property var). Expor via propriedades diretas do BarState torna os
+  // Bindings completamente reativos: quando barConfig.modulesLeft muda
+  // (JSON carregado, editor salvo), barState.modulesLeft atualiza,
+  // e o Binding no Bar.qml propaga para o Pill automaticamente.
+  property var modulesLeft:   barConfig.modulesLeft
+  property var modulesCenter: barConfig.modulesCenter
+  property var modulesRight:  barConfig.modulesRight
+  property var modulesTop:    barConfig.modulesTop
+  property var modulesMiddle: barConfig.modulesMiddle
+  property var modulesBottom: barConfig.modulesBottom
+
+  // Relay de modulesUpdated: BarConfig.modulesUpdated() não pode ser escutado
+  // via Connections{target:barState.config} em contextos filhos (PopupWindow,
+  // Variants) porque BarConfig é Item filho de QtObject passado como property var.
+  // BarState re-emite o signal — barState é QtObject direto, sempre acessível.
+  signal modulesUpdated()
+
   property var _configConn: Connections {
     target: barConfig
     function onThemeChanged()    { state.currentTheme = barConfig.theme    }
     function onAutoHideChanged() { state.autoHide     = barConfig.autoHide }
     function onPositionChanged() { state.position     = barConfig.position }
+    function onModulesUpdated()  { state.modulesUpdated()                  }
   }
 
   onCurrentThemeChanged: barConfig.theme    = currentTheme

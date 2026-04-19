@@ -5,6 +5,7 @@ import "../../volume" as Vol
 import "../../mediaPlayer/" as Media
 import "../../clock" as ClockModule
 import "../../quicksettings" as QsModule
+import "../../notifications" as NotifModule
 
 Item {
   id: root
@@ -23,22 +24,32 @@ Item {
   signal sourcePanelRequested()
   signal clockPanelRequested()
   signal quickSettingsPanelRequested()
+  signal notificationsPanelRequested()
 
   // Refs coletadas do layout carregado — Bar.qml lê estas props
-  property var mediaPlayer:  null
-  property var volumeWidget: null
-  property var clock:        null
+  property var mediaPlayer:   null
+  property var volumeWidget:  null
+  property var clock:         null
+  property var notifWidget:   null
+
+  // Injetado pelo Bar.qml após o onLoaded
+  property var notifService: null
 
   readonly property bool isHorizontal: barPosition === 1 || barPosition === 3
 
   // ── Listas de módulos por slot ─────────────────────────────────────────
-  // Defaults espelham o layout original: MP esquerda, WS centro, QS+Sep+Clock+Sep+Vol direita
-  property var cfgModulesLeft:   ["mediaplayer"]
-  property var cfgModulesCenter: ["workspaces"]
-  property var cfgModulesRight:  ["quicksettings", "separator", "clock", "separator", "volume"]
-  property var cfgModulesTop:    ["mediaplayer"]
-  property var cfgModulesMiddle: ["workspaces"]
-  property var cfgModulesBottom: ["quicksettings", "separator", "clock", "separator", "volume"]
+  // Iniciam VAZIAS — o Bar.qml injeta os valores do JSON via _set() logo após
+  // ── Módulos por slot ──────────────────────────────────────────────────
+  // Mantidos em sincronia pelos Binding declarativos em Bar.qml via
+  // barState.modules* (propriedades diretas, rastreáveis pelo QML).
+  // O layoutLoader é sempre ativo — os Repeaters reagem às mudanças
+  // nestas props diretamente, sem _reloadLayout() ou timers.
+  property var cfgModulesLeft:   []
+  property var cfgModulesCenter: []
+  property var cfgModulesRight:  []
+  property var cfgModulesTop:    []
+  property var cfgModulesMiddle: []
+  property var cfgModulesBottom: []
 
   // ── Configs workspaces ─────────────────────────────────────────────────
   property string cfgWsStyle:               "icons"
@@ -114,6 +125,8 @@ Item {
   }
 
   // ── Loader do layout ───────────────────────────────────────────────────
+  // Sempre ativo. Os Repeaters dentro usam cfgModules* como model diretamente
+  // — quando os Bindings em Bar.qml atualizam as props, os Repeaters reagem.
   Loader {
     id: layoutLoader
     anchors.fill:    parent
@@ -121,29 +134,37 @@ Item {
 
     onLoaded: {
       item.monitorName = root.monitorName
-      // Expõe refs para Bar.qml assim que o layout carrega
       root._updateRefs()
     }
   }
 
-  // Atualiza refs vindas do layout (chamada no onLoaded e quando módulos mudam)
   function _updateRefs() {
     var lay = layoutLoader.item
     if (!lay) return
     root.mediaPlayer  = lay.mediaPlayer  || null
     root.volumeWidget = lay.volumeWidget || null
     root.clock        = lay.clock        || null
+    root.notifWidget  = lay.notifWidget  || null
   }
 
+  // isHorizontal muda quando a posição da barra muda (h↔v).
+  // O binding sourceComponent já troca o componente; só propaga monitorName.
   onIsHorizontalChanged: {
-    var name = monitorName
-    layoutLoader.sourceComponent = null
-    layoutLoader.sourceComponent = isHorizontal ? horizontalComp : verticalComp
-    if (layoutLoader.item) layoutLoader.item.monitorName = name
+    Qt.callLater(function() {
+      if (layoutLoader.item) layoutLoader.item.monitorName = root.monitorName
+    })
   }
   onMonitorNameChanged: {
     if (layoutLoader.item) layoutLoader.item.monitorName = monitorName
   }
+
+  // Quando módulos mudam, atualiza refs de clock/mediaPlayer/volume.
+  onCfgModulesLeftChanged:   Qt.callLater(_updateRefs)
+  onCfgModulesCenterChanged: Qt.callLater(_updateRefs)
+  onCfgModulesRightChanged:  Qt.callLater(_updateRefs)
+  onCfgModulesTopChanged:    Qt.callLater(_updateRefs)
+  onCfgModulesMiddleChanged: Qt.callLater(_updateRefs)
+  onCfgModulesBottomChanged: Qt.callLater(_updateRefs)
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual
@@ -165,6 +186,7 @@ Item {
       readonly property var mediaPlayer:  mpLoader.active  && mpLoader.item  ? mpLoader.item  : null
       readonly property var volumeWidget: volLoader.active && volLoader.item ? volLoader.item : null
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
+      readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
 
       // Dimensões: lê do loader ativo ou usa tamanhos fixos para sep/spacer
       implicitWidth: {
@@ -181,11 +203,12 @@ Item {
       }
 
       readonly property var _activeLoader: {
-        if (modId === "mediaplayer")   return mpLoader
-        if (modId === "volume")        return volLoader
-        if (modId === "clock")         return ckLoader
-        if (modId === "quicksettings") return qsLoader
-        if (modId === "workspaces")    return wsLoader
+        if (modId === "mediaplayer")    return mpLoader
+        if (modId === "volume")         return volLoader
+        if (modId === "clock")          return ckLoader
+        if (modId === "quicksettings")  return qsLoader
+        if (modId === "workspaces")     return wsLoader
+        if (modId === "notifications")  return nfLoader
         return null
       }
 
@@ -292,6 +315,25 @@ Item {
       }
 
       Loader {
+        id: nfLoader
+        active:           modId === "notifications"
+        anchors.centerIn: parent
+        sourceComponent: Component {
+          NotifModule.Notifications {
+            isHorizontal: modItem.isH
+            barPosition:  root.barPosition
+            textColor:    root.colText
+            dimColor:     root.colTextDim
+            accentColor:  root.colAccent
+            mutedColor:   root.colWsDotUrgent
+            service:      root.notifService
+            onPanelRequested: root.notificationsPanelRequested()
+          }
+        }
+        onItemChanged: if (item) root._updateRefs()
+      }
+
+      Loader {
         id: wsLoader
         active:           modId === "workspaces"
         anchors.centerIn: parent
@@ -368,6 +410,9 @@ Item {
       property var clock:        root._findRef(leftRep,   "clock")
                                || root._findRef(centerRep, "clock")
                                || root._findRef(rightRep,  "clock")
+      property var notifWidget:  root._findRef(leftRep,   "notifWidget")
+                               || root._findRef(centerRep, "notifWidget")
+                               || root._findRef(rightRep,  "notifWidget")
 
       // ── Slot Esquerda ──────────────────────────────────────────────────
       Row {
@@ -491,6 +536,9 @@ Item {
       property var clock:        root._findRef(topRep,    "clock")
                                || root._findRef(middleRep, "clock")
                                || root._findRef(bottomRep, "clock")
+      property var notifWidget:  root._findRef(topRep,    "notifWidget")
+                               || root._findRef(middleRep, "notifWidget")
+                               || root._findRef(bottomRep, "notifWidget")
 
       // ── Slot Topo ──────────────────────────────────────────────────────
       Column {

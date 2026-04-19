@@ -1,0 +1,8 @@
+module notifications
+
+NotificationService    1.0 NotificationService.qml
+NotificationItem       1.0 NotificationItem.qml
+NotificationToast      1.0 NotificationToast.qml
+NotificationsContent   1.0 NotificationsContent.qml
+NotificationsPopup     1.0 NotificationsPopup.qml
+Notifications          1.0 Notifications.qml

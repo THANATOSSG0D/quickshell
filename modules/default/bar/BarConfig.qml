@@ -16,6 +16,10 @@ import qs
 //
 // Ao trocar de tema (bar.theme), o bloco themes.<NovoTema> é relido
 // e sobrescreve os valores visuais.
+//
+// NOTA: onAdapterUpdated não existe na API do Quickshell — foi removido.
+// file.writeAdapter() é chamado explicitamente em _syncBarToAdapter() e
+// _syncModulesToAdapter(), garantindo persistência real no disco.
 
 Item {
   id: root
@@ -30,12 +34,14 @@ Item {
   property int    pillWidth: 800
 
   // ── modules — listas de módulos por slot ───────────────────────────────
+  // Defaults usados quando o JSON não tem a seção modules.
+  // O tema Pill usa estes valores como layout padrão.
   property var modulesLeft:   ["mediaplayer"]
   property var modulesCenter: ["workspaces"]
-  property var modulesRight:  ["clock", "separator", "volume"]
+  property var modulesRight:  ["quicksettings", "separator", "clock", "separator", "volume"]
   property var modulesTop:    ["mediaplayer"]
   property var modulesMiddle: ["workspaces"]
-  property var modulesBottom: ["clock", "separator", "volume"]
+  property var modulesBottom: ["quicksettings", "separator", "clock", "separator", "volume"]
 
   // ── workspaces.* — genérico ────────────────────────────────────────────
   property string wsStyle:          "icons"
@@ -153,10 +159,57 @@ Item {
   // ── I/O ────────────────────────────────────────────────────────────────
   FileView {
     id: file
-    path:             Quickshell.shellDir + "/state/Bar.json"
-    watchChanges:     true
-    onFileChanged:    reload()
-    onAdapterUpdated: writeAdapter()
+    path:         Quickshell.shellDir + "/state/Bar.json"
+    watchChanges: true
+    // onAdapterUpdated não existe na API do Quickshell — removido.
+    // writeAdapter() é chamado explicitamente em _syncBarToAdapter() e
+    // _syncModulesToAdapter() para garantir escrita real no disco.
+
+    onFileChanged: {
+      root._parsing = true
+      reload()
+      // Garante que seções novas existam no adapter
+      // modulesUpdated() é emitido pelo onModulesChanged após os dados serem lidos
+      Qt.callLater(function() {
+        var needsWrite = false
+
+        // Seção modules — inexistente em JSONs muito antigos.
+        // Verifica TODOS os slots (h e v) — não só left/center/right,
+        // senão barra vertical (top/middle/bottom) sempre parece vazia.
+        var m = adapter.modules
+        var hasModules = m && (
+          Array.isArray(m.left)   || Array.isArray(m.center) || Array.isArray(m.right) ||
+          Array.isArray(m.top)    || Array.isArray(m.middle) || Array.isArray(m.bottom)
+        )
+        if (!hasModules) {
+          adapter.modules = {
+            left:   root.modulesLeft,
+            center: root.modulesCenter,
+            right:  root.modulesRight,
+            top:    root.modulesTop,
+            middle: root.modulesMiddle,
+            bottom: root.modulesBottom
+          }
+          needsWrite = true
+        }
+
+        // barSize/barMargin/pillWidth — inexistentes em JSONs antigos
+        var b = adapter.bar
+        if (b && (b.barSize === undefined || b.barMargin === undefined || b.pillWidth === undefined)) {
+          adapter.bar = {
+            theme:     root.theme,
+            autoHide:  root.autoHide,
+            position:  root.position,
+            barSize:   root.barSize,
+            barMargin: root.barMargin,
+            pillWidth: root.pillWidth
+          }
+          needsWrite = true
+        }
+
+        if (needsWrite) file.writeAdapter()
+      })
+    }
 
     JsonAdapter {
       id: adapter
@@ -187,6 +240,9 @@ Item {
         if (Array.isArray(m.top))    root.modulesTop    = m.top
         if (Array.isArray(m.middle)) root.modulesMiddle = m.middle
         if (Array.isArray(m.bottom)) root.modulesBottom = m.bottom
+        root._parsing     = false
+        root.configLoaded = true
+        Qt.callLater(function() { root.modulesUpdated() })
       }
 
       onWorkspacesChanged: {
@@ -283,7 +339,26 @@ Item {
     }
   }
 
+  // ── Guard: só persiste após o componente estar pronto ─────────────────
+  // Os handlers on*Changed disparam durante a inicialização das propriedades,
+  // antes de Component.onCompleted — nesse momento FileView.path ainda não
+  // foi resolvido e writeAdapter() falha com "no path has been specified".
+  property bool _ready:       false
+  property bool configLoaded: false
+  // Verdadeiro enquanto JSON está sendo parseado ou saveAll() está rodando.
+  // Impede que _syncModulesToAdapter escreva no disco com valores parciais.
+  property bool _parsing:     false
+
+  // ── Sync interno — disparado por on*Changed das próprias propriedades ──
+  //
+  // IMPORTANTE: ambas as funções têm guard `_ready` no início.
+  // O QML engine dispara on*Changed para CADA propriedade durante a
+  // inicialização do componente (atribuição de valor default já emite o signal).
+  // Sem o guard, adapter.bar/modules seria escrito com defaults ANTES do JSON
+  // ser lido, causando onBarChanged/onModulesChanged prematuros que setariam
+  // configLoaded=true com os valores errados e o Loader carregaria com defaults.
   function _syncBarToAdapter() {
+    if (!root._ready) return
     adapter.bar = {
       theme:     root.theme,
       autoHide:  root.autoHide,
@@ -292,6 +367,7 @@ Item {
       barMargin: root.barMargin,
       pillWidth: root.pillWidth
     }
+    file.writeAdapter()
   }
   onThemeChanged:     _syncBarToAdapter()
   onAutoHideChanged:  _syncBarToAdapter()
@@ -301,6 +377,8 @@ Item {
   onPillWidthChanged: _syncBarToAdapter()
 
   function _syncModulesToAdapter() {
+    if (!root._ready) return
+    if (root._parsing) return
     adapter.modules = {
       left:   root.modulesLeft,
       center: root.modulesCenter,
@@ -309,6 +387,7 @@ Item {
       middle: root.modulesMiddle,
       bottom: root.modulesBottom
     }
+    file.writeAdapter()
   }
   onModulesLeftChanged:   _syncModulesToAdapter()
   onModulesCenterChanged: _syncModulesToAdapter()
@@ -317,10 +396,102 @@ Item {
   onModulesMiddleChanged: _syncModulesToAdapter()
   onModulesBottomChanged: _syncModulesToAdapter()
 
+  // ── saveAll() — API pública para o BarEditorPopup ──────────────────────
+  //
+  // O editor NÃO deve atribuir config.modulesLeft = [...] diretamente:
+  // atribuições de array JS via referência externa em property var não
+  // garantem que on*Changed dispare de forma confiável no QML engine.
+  //
+  // Em vez disso, o editor chama config.saveAll({...}) com todos os valores
+  // de uma vez. saveAll() atualiza as propriedades, sincroniza o adapter e
+  // chama writeAdapter() explicitamente — sem depender de signal propagation.
+  // Emitido por saveAll() e após reload do JSON — garante que Bar.qml
+  // propague os valores corretos para Pill.qml independente de on*Changed.
+  signal modulesUpdated()
+
+  function saveAll(opts) {
+    // Bloqueia writes parciais durante as atribuições de props.
+    // O único write real é o file.writeAdapter() ao final.
+    root._parsing = true
+
+    // bar.*
+    if (opts.theme     !== undefined) root.theme     = opts.theme
+    if (opts.autoHide  !== undefined) root.autoHide  = opts.autoHide
+    if (opts.position  !== undefined) root.position  = opts.position
+    if (opts.barSize   !== undefined) root.barSize   = opts.barSize
+    if (opts.barMargin !== undefined) root.barMargin = opts.barMargin
+    if (opts.pillWidth !== undefined) root.pillWidth = opts.pillWidth
+
+    // modules — .slice() força nova referência JS para maximizar chance
+    // de on*Changed disparar no engine QML
+    if (opts.modulesLeft   !== undefined) root.modulesLeft   = opts.modulesLeft.slice()
+    if (opts.modulesCenter !== undefined) root.modulesCenter = opts.modulesCenter.slice()
+    if (opts.modulesRight  !== undefined) root.modulesRight  = opts.modulesRight.slice()
+    if (opts.modulesTop    !== undefined) root.modulesTop    = opts.modulesTop.slice()
+    if (opts.modulesMiddle !== undefined) root.modulesMiddle = opts.modulesMiddle.slice()
+    if (opts.modulesBottom !== undefined) root.modulesBottom = opts.modulesBottom.slice()
+
+    // workspaces genérico
+    if (opts.wsStyle          !== undefined) root.wsStyle          = opts.wsStyle
+    if (opts.wsIconsSort      !== undefined) root.wsIconsSort      = opts.wsIconsSort
+    if (opts.wsIconMonochrome !== undefined) root.wsIconMonochrome = opts.wsIconMonochrome
+    if (opts.wsIconSpacing    !== undefined) root.wsIconSpacing    = opts.wsIconSpacing
+    if (opts.wsShowAddButton  !== undefined) root.wsShowAddButton  = opts.wsShowAddButton
+
+    // Escreve tudo no disco de uma vez
+    adapter.bar = {
+      theme:     root.theme,
+      autoHide:  root.autoHide,
+      position:  root.position,
+      barSize:   root.barSize,
+      barMargin: root.barMargin,
+      pillWidth: root.pillWidth
+    }
+    adapter.modules = {
+      left:   root.modulesLeft,
+      center: root.modulesCenter,
+      right:  root.modulesRight,
+      top:    root.modulesTop,
+      middle: root.modulesMiddle,
+      bottom: root.modulesBottom
+    }
+    adapter.workspaces = {
+      style:          root.wsStyle,
+      iconsSort:      root.wsIconsSort,
+      iconMonochrome: root.wsIconMonochrome,
+      iconSpacing:    root.wsIconSpacing,
+      showAddButton:  root.wsShowAddButton
+    }
+    file.writeAdapter()
+    root._parsing = false
+    root.modulesUpdated()
+  }
+
   Process {
     id: mkdirProc
     command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: file.reload()
+    onExited: {
+      root._ready   = true
+      root._parsing = true
+      file.reload()
+      Qt.callLater(function() {
+        Qt.callLater(function() {
+          root._parsing = false
+          if (root.configLoaded) return
+          // JSON sem modules — gravar defaults e ativar
+          adapter.modules = {
+            left:   root.modulesLeft,
+            center: root.modulesCenter,
+            right:  root.modulesRight,
+            top:    root.modulesTop,
+            middle: root.modulesMiddle,
+            bottom: root.modulesBottom
+          }
+          file.writeAdapter()
+          root.configLoaded = true
+        })
+      })
+    }
   }
   Component.onCompleted: mkdirProc.running = true
 }

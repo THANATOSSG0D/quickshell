@@ -17,9 +17,7 @@
         "bottom": [
             "clock",
             "separator",
-            "volume",
-            "separator",
-            "notifications"
+            "volume"
         ],
         "center": [
             "workspaces"
@@ -31,8 +29,6 @@
             "workspaces"
         ],
         "right": [
-            "quicksettings",
-            "separator",
             "clock",
             "separator",
             "volume"
@@ -106,7 +102,7 @@
         }
     },
     "workspaces": {
-        "iconMonochrome": false,
+        "iconMonochrome": true,
         "iconSpacing": 4,
         "iconsSort": "position",
         "showAddButton": true,
