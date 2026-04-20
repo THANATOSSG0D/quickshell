@@ -9,6 +9,8 @@ import '../clock'       as ClockModule
 import '../quicksettings' as QsModule
 import '../notifications' as NotifModule
 import './themes' as BarThemes
+import '../dmenu'  as DmenuModule
+import '../dmenu'  as DmenuModule
 
 Scope {
   id: barRoot
@@ -109,6 +111,24 @@ Scope {
     }
   }
 
+  // ── IPC do dmenu ─────────────────────────────────────────────────────────
+  // qs ipc call dmenu drun | run | window
+  IpcHandler {
+    target: "dmenu"
+    function drun() {
+      var b = barRoot._activeBar()
+      if (b) { b.dmenuMode = "drun"; b.openPanel(barRoot.panelDmenu) }
+    }
+    function run() {
+      var b = barRoot._activeBar()
+      if (b) { b.dmenuMode = "run"; b.openPanel(barRoot.panelDmenu) }
+    }
+    function window() {
+      var b = barRoot._activeBar()
+      if (b) { b.dmenuMode = "window"; b.openPanel(barRoot.panelDmenu) }
+    }
+  }
+
   property int position: barState.position
 
   // ── IDs de painel — evita strings mágicas espalhadas pelo código ───────
@@ -120,7 +140,8 @@ Scope {
   readonly property int panelQs:     5
   readonly property int panelEditor: 6
   readonly property int panelNotif:  7
-  readonly property int panelVolume: 8  // sink + source em abas (VolumePopupTabbed)
+  readonly property int panelVolume: 8
+  readonly property int panelDmenu:  9
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
   readonly property int popupHVolume: 380
@@ -132,6 +153,7 @@ Scope {
   readonly property int popupHEditor: 560
   readonly property int popupWNotif:  360
   readonly property int popupHNotif:  560
+  readonly property int popupHDmenu:  420
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
   Variants {
@@ -161,6 +183,9 @@ Scope {
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
       readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
       readonly property bool volumePanelOpen: activePanel === barRoot.panelVolume
+      readonly property bool dmenuPanelOpen:  activePanel === barRoot.panelDmenu
+      property string dmenuMode: "drun"
+   // atualizado pelo IpcHandler antes de openPanel
 
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
@@ -902,6 +927,31 @@ Scope {
         colorAccent:   bar.popupColorAccent
         colorMuted:    bar.popupColorMuted
         colorDivider:  bar.popupColorDivider
+
+        onCloseRequested: bar.closeAllPanels()
+      }
+
+      // ── Dmenu ──────────────────────────────────────────────────────────────
+      // ── Dmenu ──────────────────────────────────────────────────────────────
+      DmenuModule.DmenuPopup {
+        id: dmenuPopup
+        anchor.window:  bar
+        anchor.edges:   bar.popupEdge
+        anchor.gravity: bar.popupEdge
+        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHDmenu)
+
+        popupW: barRoot.themePanelWidth
+        popupH: barRoot.popupHDmenu
+
+        mode:      bar.dmenuMode
+        panelOpen: bar.dmenuPanelOpen
+
+        colorPanelBg:  bar.popupColorBg
+        colorText:     bar.popupColorText
+        colorTextDim:  bar.popupColorTextDim
+        colorAccent:   bar.popupColorAccent
+        colorDivider:  bar.popupColorDivider
+        colorInputBg:  bar.popupColorBg
 
         onCloseRequested: bar.closeAllPanels()
       }

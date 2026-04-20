@@ -1,7 +1,9 @@
 import Quickshell
+import Quickshell.Io
+import Quickshell.Hyprland
 import "modules/widgets/clock"
 import "modules/default/bar"
-import './modules/default/osd'        as OsdModule
+import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
 
 Scope {
@@ -12,12 +14,10 @@ Scope {
     clockContent: bar.clockContentRef
   }
 
-  // ── Serviço de notificações (singleton) ──────────────────────────────
   NotifModule.NotificationService {
     id: notifService
   }
 
-  // ── Toasts flutuantes — um PanelWindow por monitor ───────────────────
   Variants {
     model: Quickshell.screens
 
