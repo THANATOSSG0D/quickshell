@@ -243,8 +243,7 @@ Item {
                     height:  visible ? item.implicitHeight + 2 : 0
 
                     width: notifList.width - 16
-
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    x:     8
 
                     NotificationItem {
                         id: item

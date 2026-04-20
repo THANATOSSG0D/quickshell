@@ -160,28 +160,34 @@ Item {
   FileView {
     id: file
     path:         Quickshell.shellDir + "/state/Bar.json"
-    watchChanges: true
-    // onAdapterUpdated não existe na API do Quickshell — removido.
-    // writeAdapter() é chamado explicitamente em _syncBarToAdapter() e
-    // _syncModulesToAdapter() para garantir escrita real no disco.
+    // watchChanges: false evita o loop escrita→leitura:
+    // writeAdapter() modificaria o arquivo → onFileChanged dispararia →
+    // reload() leria com adapter ainda vazio → hasModules=false →
+    // sobrescreveria modules com defaults. O arquivo só é relido via
+    // file.reload() chamado explicitamente (startup e reloadConfig).
+    watchChanges: false
 
     onFileChanged: {
+      // Guard: ignora notificações causadas pelo próprio writeAdapter().
+      if (root._parsing) {
+        console.log("[BarConfig] onFileChanged ignorado (_parsing=true)")
+        return
+      }
+      console.log("[BarConfig] onFileChanged → reload()")
       root._parsing = true
       reload()
-      // Garante que seções novas existam no adapter
-      // modulesUpdated() é emitido pelo onModulesChanged após os dados serem lidos
       Qt.callLater(function() {
         var needsWrite = false
 
-        // Seção modules — inexistente em JSONs muito antigos.
-        // Verifica TODOS os slots (h e v) — não só left/center/right,
-        // senão barra vertical (top/middle/bottom) sempre parece vazia.
         var m = adapter.modules
+        console.log("[BarConfig] onFileChanged callLater: adapter.modules =", JSON.stringify(m))
         var hasModules = m && (
           Array.isArray(m.left)   || Array.isArray(m.center) || Array.isArray(m.right) ||
           Array.isArray(m.top)    || Array.isArray(m.middle) || Array.isArray(m.bottom)
         )
+        console.log("[BarConfig] hasModules =", hasModules)
         if (!hasModules) {
+          console.log("[BarConfig] AVISO: modules ausente no JSON — gravando defaults!")
           adapter.modules = {
             left:   root.modulesLeft,
             center: root.modulesCenter,
@@ -193,9 +199,9 @@ Item {
           needsWrite = true
         }
 
-        // barSize/barMargin/pillWidth — inexistentes em JSONs antigos
         var b = adapter.bar
         if (b && (b.barSize === undefined || b.barMargin === undefined || b.pillWidth === undefined)) {
+          console.log("[BarConfig] bar incompleto — completando campos faltantes")
           adapter.bar = {
             theme:     root.theme,
             autoHide:  root.autoHide,
@@ -207,7 +213,10 @@ Item {
           needsWrite = true
         }
 
-        if (needsWrite) file.writeAdapter()
+        if (needsWrite) {
+          console.log("[BarConfig] onFileChanged → writeAdapter() (migração)")
+          file.writeAdapter()
+        }
       })
     }
 
@@ -223,25 +232,79 @@ Item {
       onBarChanged: {
         var b = bar
         if (!b) return
+        if (b.theme === undefined && b.autoHide === undefined && b.position === undefined) {
+          console.log("[BarConfig] onBarChanged ignorado (objeto vazio)")
+          return
+        }
+        console.log("[BarConfig] onBarChanged:", JSON.stringify(b))
         if (b.theme     !== undefined) { root.theme     = b.theme; applyTheme(b.theme) }
         if (b.autoHide  !== undefined)   root.autoHide  = b.autoHide
         if (b.position  !== undefined)   root.position  = b.position
         if (b.barSize   !== undefined)   root.barSize   = b.barSize
         if (b.barMargin !== undefined)   root.barMargin = b.barMargin
         if (b.pillWidth !== undefined)   root.pillWidth = b.pillWidth
+        // Lê modules via callLater — o JsonAdapter popula as propriedades
+        // em ordem não garantida; modules chega um tick depois de bar.
+        // Usamos JSON.parse(JSON.stringify()) para forçar objeto JS puro,
+        // já que o objeto retornado pelo adapter é um proxy QML e
+        // Array.isArray() falha em suas propriedades dentro de closures.
+        Qt.callLater(function() {
+          var raw = JSON.stringify(adapter.modules)
+          console.log("[BarConfig] onBarChanged callLater → adapter.modules:", raw)
+          var m = JSON.parse(raw)
+          var hasAny = (m.left   && m.left.length   > 0) ||
+                       (m.center && m.center.length  > 0) ||
+                       (m.right  && m.right.length   > 0) ||
+                       (m.top    && m.top.length     > 0) ||
+                       (m.middle && m.middle.length  > 0) ||
+                       (m.bottom && m.bottom.length  > 0)
+          if (!hasAny) {
+            console.log("[BarConfig] onBarChanged callLater: modules vazio — aguardando startupTimer")
+            return
+          }
+          if (m.left   && m.left.length   > 0) root.modulesLeft   = m.left
+          if (m.center && m.center.length  > 0) root.modulesCenter = m.center
+          if (m.right  && m.right.length   > 0) root.modulesRight  = m.right
+          if (m.top    && m.top.length     > 0) root.modulesTop    = m.top
+          if (m.middle && m.middle.length  > 0) root.modulesMiddle = m.middle
+          if (m.bottom && m.bottom.length  > 0) root.modulesBottom = m.bottom
+          root.configLoaded = true
+          startupTimer.stop()
+          console.log("[BarConfig] configLoaded=true (via onBarChanged) | left:", JSON.stringify(root.modulesLeft),
+                      "| right:", JSON.stringify(root.modulesRight),
+                      "| top:", JSON.stringify(root.modulesTop),
+                      "| bottom:", JSON.stringify(root.modulesBottom))
+          Qt.callLater(function() { root.modulesUpdated() })
+        })
       }
 
       onModulesChanged: {
-        var m = modules
+        var m = JSON.parse(JSON.stringify(modules))
         if (!m) return
-        if (Array.isArray(m.left))   root.modulesLeft   = m.left
-        if (Array.isArray(m.center)) root.modulesCenter = m.center
-        if (Array.isArray(m.right))  root.modulesRight  = m.right
-        if (Array.isArray(m.top))    root.modulesTop    = m.top
-        if (Array.isArray(m.middle)) root.modulesMiddle = m.middle
-        if (Array.isArray(m.bottom)) root.modulesBottom = m.bottom
+        var hasAny = (m.left   && m.left.length   > 0) ||
+                     (m.center && m.center.length  > 0) ||
+                     (m.right  && m.right.length   > 0) ||
+                     (m.top    && m.top.length     > 0) ||
+                     (m.middle && m.middle.length  > 0) ||
+                     (m.bottom && m.bottom.length  > 0)
+        if (!hasAny) {
+          console.log("[BarConfig] onModulesChanged ignorado (objeto vazio)")
+          return
+        }
+        console.log("[BarConfig] onModulesChanged:", JSON.stringify(m))
+        if (m.left   && m.left.length   > 0) root.modulesLeft   = m.left
+        if (m.center && m.center.length  > 0) root.modulesCenter = m.center
+        if (m.right  && m.right.length   > 0) root.modulesRight  = m.right
+        if (m.top    && m.top.length     > 0) root.modulesTop    = m.top
+        if (m.middle && m.middle.length  > 0) root.modulesMiddle = m.middle
+        if (m.bottom && m.bottom.length  > 0) root.modulesBottom = m.bottom
         root._parsing     = false
         root.configLoaded = true
+        startupTimer.stop()
+        console.log("[BarConfig] configLoaded=true (via onModulesChanged) | left:", JSON.stringify(root.modulesLeft),
+                    "| right:", JSON.stringify(root.modulesRight),
+                    "| top:", JSON.stringify(root.modulesTop),
+                    "| bottom:", JSON.stringify(root.modulesBottom))
         Qt.callLater(function() { root.modulesUpdated() })
       }
 
@@ -359,6 +422,9 @@ Item {
   // configLoaded=true com os valores errados e o Loader carregaria com defaults.
   function _syncBarToAdapter() {
     if (!root._ready) return
+    if (root._parsing) { console.log("[BarConfig] _syncBarToAdapter ignorado (_parsing)"); return }
+    console.log("[BarConfig] _syncBarToAdapter → writeAdapter()")
+    root._parsing = true
     adapter.bar = {
       theme:     root.theme,
       autoHide:  root.autoHide,
@@ -368,6 +434,7 @@ Item {
       pillWidth: root.pillWidth
     }
     file.writeAdapter()
+    root._parsing = false
   }
   onThemeChanged:     _syncBarToAdapter()
   onAutoHideChanged:  _syncBarToAdapter()
@@ -378,7 +445,9 @@ Item {
 
   function _syncModulesToAdapter() {
     if (!root._ready) return
-    if (root._parsing) return
+    if (root._parsing) { console.log("[BarConfig] _syncModulesToAdapter ignorado (_parsing)"); return }
+    console.log("[BarConfig] _syncModulesToAdapter → writeAdapter()")
+    root._parsing = true
     adapter.modules = {
       left:   root.modulesLeft,
       center: root.modulesCenter,
@@ -388,6 +457,7 @@ Item {
       bottom: root.modulesBottom
     }
     file.writeAdapter()
+    root._parsing = false
   }
   onModulesLeftChanged:   _syncModulesToAdapter()
   onModulesCenterChanged: _syncModulesToAdapter()
@@ -410,8 +480,10 @@ Item {
   signal modulesUpdated()
 
   function saveAll(opts) {
-    // Bloqueia writes parciais durante as atribuições de props.
-    // O único write real é o file.writeAdapter() ao final.
+    console.log("[BarConfig] saveAll() chamado | left:", JSON.stringify(opts.modulesLeft),
+                "| right:", JSON.stringify(opts.modulesRight),
+                "| top:", JSON.stringify(opts.modulesTop),
+                "| bottom:", JSON.stringify(opts.modulesBottom))
     root._parsing = true
 
     // bar.*
@@ -462,36 +534,93 @@ Item {
       iconSpacing:    root.wsIconSpacing,
       showAddButton:  root.wsShowAddButton
     }
+    console.log("[BarConfig] saveAll → writeAdapter() | modules no adapter:",
+                JSON.stringify(adapter.modules))
     file.writeAdapter()
     root._parsing = false
     root.modulesUpdated()
+    console.log("[BarConfig] saveAll concluído")
   }
 
+  // ── Startup ────────────────────────────────────────────────────────────
+  // O FileView lê o JSON automaticamente ao inicializar — NÃO chamamos
+  // file.reload() explicitamente. O mkdirProc só garante que o diretório
+  // existe e seta _ready=true para liberar os guards de escrita.
+  //
+  // Fluxo real observado nos logs:
+  //   1. FileView inicializa → lê Bar.json → onBarChanged + onModulesChanged
+  //   2. mkdirProc termina  → _ready=true
+  //   3. startupTimer (600ms após _ready) verifica se configLoaded=true
+  //      · true  → JSON foi lido OK, não faz nada
+  //      · false → JSON não existe ou não tem modules → grava defaults
+  //
+  // NÃO chamar file.reload() no onExited: isso reseta o adapter para {}
+  // e dispara onModulesChanged vazio, que nosso guard ignora — mas também
+  // impede que o _parsing seja limpo, travando todas as escritas futuras.
   Process {
     id: mkdirProc
     command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
     onExited: {
-      root._ready   = true
-      root._parsing = true
-      file.reload()
-      Qt.callLater(function() {
-        Qt.callLater(function() {
-          root._parsing = false
-          if (root.configLoaded) return
-          // JSON sem modules — gravar defaults e ativar
-          adapter.modules = {
-            left:   root.modulesLeft,
-            center: root.modulesCenter,
-            right:  root.modulesRight,
-            top:    root.modulesTop,
-            middle: root.modulesMiddle,
-            bottom: root.modulesBottom
-          }
-          file.writeAdapter()
-          root.configLoaded = true
-        })
-      })
+      console.log("[BarConfig] mkdirProc exited → _ready=true")
+      root._ready = true
+      startupTimer.start()
     }
   }
+
+  Timer {
+    id: startupTimer
+    interval: 600
+    repeat:   false
+    onTriggered: {
+      console.log("[BarConfig] startupTimer: configLoaded =", root.configLoaded,
+                  "| _parsing =", root._parsing)
+      // Limpa _parsing travado (pode ter ficado true de um reload vazio)
+      if (root._parsing) {
+        console.log("[BarConfig] startupTimer: limpando _parsing travado")
+        root._parsing = false
+      }
+      if (root.configLoaded) {
+        console.log("[BarConfig] startupTimer: JSON carregado OK")
+        return
+      }
+      // Última tentativa antes de gravar defaults: lê adapter.modules direto
+      // com JSON.parse round-trip para contornar proxy QML no closure
+      var raw = JSON.stringify(adapter.modules)
+      var m   = JSON.parse(raw)
+      var hasAny = (m.left   && m.left.length   > 0) ||
+                   (m.center && m.center.length  > 0) ||
+                   (m.right  && m.right.length   > 0) ||
+                   (m.top    && m.top.length     > 0) ||
+                   (m.middle && m.middle.length  > 0) ||
+                   (m.bottom && m.bottom.length  > 0)
+      if (hasAny) {
+        console.log("[BarConfig] startupTimer: modules encontrado no adapter — usando JSON salvo:", raw)
+        if (m.left   && m.left.length   > 0) root.modulesLeft   = m.left
+        if (m.center && m.center.length  > 0) root.modulesCenter = m.center
+        if (m.right  && m.right.length   > 0) root.modulesRight  = m.right
+        if (m.top    && m.top.length     > 0) root.modulesTop    = m.top
+        if (m.middle && m.middle.length  > 0) root.modulesMiddle = m.middle
+        if (m.bottom && m.bottom.length  > 0) root.modulesBottom = m.bottom
+        root.configLoaded = true
+        Qt.callLater(function() { root.modulesUpdated() })
+        return
+      }
+      // JSON realmente não existe ou não tem modules — gravar defaults
+      console.log("[BarConfig] AVISO: adapter.modules vazio após 600ms — gravando defaults")
+      root._parsing = true
+      adapter.modules = {
+        left:   root.modulesLeft,
+        center: root.modulesCenter,
+        right:  root.modulesRight,
+        top:    root.modulesTop,
+        middle: root.modulesMiddle,
+        bottom: root.modulesBottom
+      }
+      file.writeAdapter()
+      root._parsing = false
+      root.configLoaded = true
+    }
+  }
+
   Component.onCompleted: mkdirProc.running = true
 }

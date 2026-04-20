@@ -72,43 +72,6 @@ Scope {
     }
   }
 
-  // ── Lista de instâncias do PanelWindow (um por monitor) ──────────────────
-  property var _barInstances: []
-
-  function _activeBar() {
-    for (var i = 0; i < Hyprland.monitors.values.length; i++) {
-      if (Hyprland.monitors.values[i].focused) {
-        var name = Hyprland.monitors.values[i].name
-        for (var j = 0; j < _barInstances.length; j++) {
-          if (_barInstances[j] && _barInstances[j].screen &&
-              _barInstances[j].screen.name === name)
-            return _barInstances[j]
-        }
-      }
-    }
-    return _barInstances.length > 0 ? _barInstances[0] : null
-  }
-
-  // ── IPC dos painéis ───────────────────────────────────────────────────────
-  // Uso: qs ipc call bar toggleVolume | toggleSource | togglePlayer |
-  //           toggleClock | toggleQs | toggleNotif | toggleEditor | closeAll
-  IpcHandler {
-    target: "bar"
-    function toggleVolume()     { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelSink)   }
-    function toggleSource()     { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelSource) }
-    function toggleVolumeFull() { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelVolume) }
-    function togglePlayer()  { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelPlayer) }
-    function toggleClock()   { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelClock)  }
-    function toggleQs()      { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelQs)     }
-    function toggleNotif()   { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelNotif)  }
-    function toggleEditor()  { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelEditor) }
-    function closeAll() {
-      for (var i = 0; i < barRoot._barInstances.length; i++) {
-        if (barRoot._barInstances[i]) barRoot._barInstances[i].closeAllPanels()
-      }
-    }
-  }
-
   property int position: barState.position
 
   // ── IDs de painel — evita strings mágicas espalhadas pelo código ───────
@@ -120,7 +83,6 @@ Scope {
   readonly property int panelQs:     5
   readonly property int panelEditor: 6
   readonly property int panelNotif:  7
-  readonly property int panelVolume: 8  // sink + source em abas (VolumePopupTabbed)
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
   readonly property int popupHVolume: 380
@@ -160,7 +122,6 @@ Scope {
       readonly property bool qsPanelOpen:     activePanel === barRoot.panelQs
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
       readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
-      readonly property bool volumePanelOpen: activePanel === barRoot.panelVolume
 
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
@@ -694,13 +655,8 @@ Scope {
           var m = Hyprland.monitors.values[i]
           if (m.name === bar.screen.name) { bar.hyprMonitor = m; break }
         }
-        barRoot._barInstances = barRoot._barInstances.concat([bar])
         barShow = barVisible
         if (!barVisible) marginOffset = barSize + barMargin + 1
-      }
-
-      Component.onDestruction: {
-        barRoot._barInstances = barRoot._barInstances.filter(function(b) { return b !== bar })
       }
 
       // ═══════════════════════════════════════════════════════════════════
@@ -745,31 +701,6 @@ Scope {
 
         showOnlySource: true
         panelOpen:      bar.sourcePanelOpen
-
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
-        colorMuted:      bar.popupColorMuted
-
-        onCloseRequested: bar.closeAllPanels()
-      }
-
-      // ── Volume — Saída + Microfone em abas (painel unificado) ─────────────
-      VolumeModule.VolumePopupTabbed {
-        id: volTabbedPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHVolume)
-
-        popupW: barRoot.themePanelWidth
-        popupH: barRoot.popupHVolume
-
-        panelOpen:  bar.volumePanelOpen
-        openSource: false                // sempre abre na aba Saída; muda clicando nas abas
 
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText

@@ -208,7 +208,7 @@ Item {
 
             // ── Ações ──────────────────────────────────────────────────────
             Row {
-                visible:    root.actions.length > 0 && mode === "panel"
+                visible:    root.actions && root.actions.length > 0 && mode === "panel"
                 spacing:    6
                 topPadding: 2
 

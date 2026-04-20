@@ -73,6 +73,10 @@ PopupWindow {
   // ── Helpers ───────────────────────────────────────────────────────────
   function _reload() {
     if (!config) return
+    console.log("[BarEditor] _reload() | config.modulesLeft:", JSON.stringify(config.modulesLeft),
+                "| config.modulesRight:", JSON.stringify(config.modulesRight),
+                "| config.modulesTop:", JSON.stringify(config.modulesTop),
+                "| config.modulesBottom:", JSON.stringify(config.modulesBottom))
     slotLeft   = (config.modulesLeft   || []).slice()
     slotCenter = (config.modulesCenter || []).slice()
     slotRight  = (config.modulesRight  || []).slice()
@@ -94,11 +98,12 @@ PopupWindow {
 
   function _save() {
     if (!config) return
-    // Usa saveAll() em vez de atribuição direta prop a prop.
-    // Atribuição direta dispara on*Changed → _syncModulesToAdapter() →
-    // file.writeAdapter() → onFileChanged → file.reload() a cada prop,
-    // recarregando o arquivo com valores parciais antes de todas as props
-    // serem atualizadas. saveAll() escreve tudo de uma vez atomicamente.
+    console.log("[BarEditor] _save() | left:", JSON.stringify(slotLeft),
+                "| center:", JSON.stringify(slotCenter),
+                "| right:", JSON.stringify(slotRight),
+                "| top:", JSON.stringify(slotTop),
+                "| middle:", JSON.stringify(slotMiddle),
+                "| bottom:", JSON.stringify(slotBottom))
     config.saveAll({
       modulesLeft:      slotLeft.slice(),
       modulesCenter:    slotCenter.slice(),
