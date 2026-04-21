@@ -34,16 +34,28 @@ Item {
   property var pinnedPlayer: null
 
   readonly property var player: {
+    var all = Mpris.players.values
+    // pinnedPlayer ainda na lista e não é playerctld?
     if (pinnedPlayer) {
-      for (var i = 0; i < Mpris.players.values.length; i++) {
-        if (Mpris.players.values[i] === pinnedPlayer) return pinnedPlayer
+      for (var i = 0; i < all.length; i++) {
+        if (all[i] === pinnedPlayer) {
+          var pe = (all[i].desktopEntry || all[i].identity || "").toLowerCase()
+          if (!pe.startsWith("playerctld")) return pinnedPlayer
+        }
       }
       Qt.callLater(function() { root.pinnedPlayer = null })
     }
-    for (var j = 0; j < Mpris.players.values.length; j++) {
-      if (Mpris.players.values[j].isPlaying) return Mpris.players.values[j]
+    // primeiro não-playerctld que esteja tocando
+    for (var j = 0; j < all.length; j++) {
+      var je = (all[j].desktopEntry || all[j].identity || "").toLowerCase()
+      if (!je.startsWith("playerctld") && all[j].isPlaying) return all[j]
     }
-    return Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+    // primeiro não-playerctld disponível
+    for (var k = 0; k < all.length; k++) {
+      var ke = (all[k].desktopEntry || all[k].identity || "").toLowerCase()
+      if (!ke.startsWith("playerctld")) return all[k]
+    }
+    return null
   }
 
   visible: player !== null
@@ -55,12 +67,12 @@ Item {
   readonly property color effectiveTextColor: isActive ? textColorActive : textColor
   readonly property color effectiveDimColor:  isActive ? dimColorActive  : dimColor
 
-  implicitWidth:  player === null ? 0 : (isHorizontal
+  implicitWidth:  isHorizontal
     ? (bgEnabled ? hRow.implicitWidth  + bgPaddingH * 2 : hRow.implicitWidth  + 16)
-    : 30)
-  implicitHeight: player === null ? 0 : (isHorizontal
+    : 30
+  implicitHeight: isHorizontal
     ? (bgEnabled ? hRow.implicitHeight + bgPaddingV * 2 : hRow.implicitHeight + 8)
-    : vCol.implicitHeight + 16)
+    : vCol.implicitHeight + 16
 
   signal clicked()
 

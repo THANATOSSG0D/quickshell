@@ -82,6 +82,17 @@ PanelWindow {
   // ── Player ativo (syncado com barMediaPlayer.player + permite pin local) ─
   readonly property var activePlayer: barMediaPlayer ? barMediaPlayer.player : null
 
+  // Conta players reais (sem playerctld) — controla visibilidade do seletor
+  readonly property int realPlayerCount: {
+    var c = 0
+    var all = Mpris.players.values
+    for (var i = 0; i < all.length; i++) {
+      var e = (all[i].desktopEntry || all[i].identity || "").toLowerCase()
+      if (!e.startsWith("playerctld")) c++
+    }
+    return c
+  }
+
   // Timer para atualizar position (MPRIS não notifica em tempo real)
   Timer {
     interval: 500
@@ -143,17 +154,21 @@ PanelWindow {
       spacing: 10
 
       // ── Seletor de player ──────────────────────────────────────────────
-      // Só aparece quando há mais de 1 player conectado
+      // Só aparece quando há mais de 1 player real conectado
       RowLayout {
         Layout.fillWidth: true
-        visible: Mpris.players.values.length > 1
+        visible: panel.realPlayerCount > 1
         spacing: 6
 
         Repeater {
+          // Model nativo do Mpris: reatividade automática e identidade de objeto
+          // preservada — isActive (===) só funciona com o objeto original.
           model: Mpris.players.values
 
           Rectangle {
             required property var modelData
+            // playerctld é proxy — oculta visualmente, não remove do model
+            visible: !(modelData.desktopEntry || modelData.identity || "").toLowerCase().startsWith("playerctld")
             property bool isActive: panel.activePlayer === modelData
 
             Layout.preferredHeight: 24

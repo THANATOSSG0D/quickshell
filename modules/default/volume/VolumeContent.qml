@@ -77,15 +77,17 @@ Item {
     return list
   }
 
-  // Streams de aplicativos separados por tipo:
-  //   appSinkStreams   → apps reproduzindo áudio   (isSink=true,  isStream=true)
-  //   appSourceStreams → apps capturando áudio      (isSink=false, isStream=true)
+  // ── Streams de aplicativos ─────────────────────────────────────────────
+  // Com EasyEffects, o Spotify cria "Stream/Output/Audio" mas tem isSink=false
+  // no grafo PipeWire (flui para easyeffects_sink). Usar media.class evita
+  // a confusão — Output = reprodução, Input = captura de microfone.
   readonly property var appSinkStreams: {
     var list = []
     for (var i = 0; i < Pipewire.nodes.values.length; i++) {
       var n = Pipewire.nodes.values[i]
-      if (!n.audio || !n.isStream || !n.isSink) continue
-      list.push(n)
+      if (!n.audio || !n.isStream) continue
+      var cls = (n.properties["media.class"] || "").toLowerCase()
+      if (cls.includes("output")) list.push(n)
     }
     return list
   }
@@ -94,8 +96,9 @@ Item {
     var list = []
     for (var i = 0; i < Pipewire.nodes.values.length; i++) {
       var n = Pipewire.nodes.values[i]
-      if (!n.audio || !n.isStream || n.isSink) continue
-      list.push(n)
+      if (!n.audio || !n.isStream) continue
+      var cls = (n.properties["media.class"] || "").toLowerCase()
+      if (cls.includes("input")) list.push(n)
     }
     return list
   }
@@ -112,14 +115,10 @@ Item {
 
   PwObjectTracker {
     id: tracker
-    objects: {
-      var all = [root.sink, root.source]
-      for (var i = 0; i < root.sinkDevices.length;    i++) all.push(root.sinkDevices[i])
-      for (var j = 0; j < root.sourceDevices.length;  j++) all.push(root.sourceDevices[j])
-      for (var k = 0; k < root.appSinkStreams.length;  k++) all.push(root.appSinkStreams[k])
-      for (var l = 0; l < root.appSourceStreams.length; l++) all.push(root.appSourceStreams[l])
-      return all
-    }
+    // Rastreia todos os nós do PipeWire diretamente.
+    // Arrays JS derivados (appSinkStreams, etc.) não são reativos —
+    // o tracker não detectaria streams novos se usássemos essas listas.
+    objects: Pipewire.nodes.values
   }
 
   // ── Resolução de nome de dispositivo ──────────────────────────────────
@@ -187,14 +186,15 @@ Item {
       spacing: 6
 
       Repeater {
+        // "id" é palavra reservada em QML — modelData.id retorna undefined.
         model: [
-          { id: "devices", label: "\uf028  Dispositivos" },
-          { id: "apps",    label: "\uf001  Aplicativos"  }
+          { tabId: "devices", label: "\uf028  Dispositivos" },
+          { tabId: "apps",    label: "\uf001  Aplicativos"  }
         ]
 
         Rectangle {
           required property var modelData
-          readonly property bool active: root.activeTab === modelData.id
+          readonly property bool active: root.activeTab === modelData.tabId
 
           Layout.preferredHeight: 22
           Layout.preferredWidth:  tabLabel.implicitWidth + 14
@@ -215,7 +215,7 @@ Item {
           }
           MouseArea {
             anchors.fill: parent
-            onClicked:    root.activeTab = parent.modelData.id
+            onClicked:    root.activeTab = parent.modelData.tabId
           }
         }
       }
@@ -441,11 +441,21 @@ Item {
               Layout.fillWidth: true; Layout.leftMargin: 4
               text: {
                 var props = modelData.properties
-                return props["application.name"]
-                    || props["node.nick"]
-                    || modelData.nickname
-                    || modelData.name
-                    || "App"
+                var name  = props["application.name"]
+                         || props["node.nick"]
+                         || props["media.name"]
+                         || props["application.process.binary"]
+                         || modelData.nickname
+                         || modelData.name
+                         || ""
+                // "audio-src" e "audio-sink" são nomes genéricos do PipeWire
+                // usados pelo Spotify e outros apps que não exportam application.name.
+                // Tenta recuperar o nome pelo binário do processo.
+                if (!name || name === "audio-src" || name === "audio-sink") {
+                  var bin = props["application.process.binary"] || ""
+                  if (bin) name = bin.charAt(0).toUpperCase() + bin.slice(1)
+                }
+                return name || "App"
               }
               color:          root.colorText
               font.pixelSize: 11

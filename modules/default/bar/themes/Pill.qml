@@ -4,8 +4,6 @@ import "../modules" as Modules
 import "../../volume" as Vol
 import "../../mediaPlayer/" as Media
 import "../../clock" as ClockModule
-import "../../quicksettings" as QsModule
-import "../../notifications" as NotifModule
 
 Item {
   id: root
@@ -23,50 +21,29 @@ Item {
   signal sinkPanelRequested()
   signal sourcePanelRequested()
   signal clockPanelRequested()
-  signal quickSettingsPanelRequested()
-  signal notificationsPanelRequested()
 
-  // Refs coletadas do layout carregado — Bar.qml lê estas props
-  property var mediaPlayer:   null
-  property var volumeWidget:  null
-  property var clock:         null
-  property var notifWidget:   null
-
-  // Injetado pelo Bar.qml após o onLoaded
-  property var notifService: null
+  property var mediaPlayer:  layoutLoader.item ? layoutLoader.item.mediaPlayer  : null
+  property var volumeWidget: layoutLoader.item ? layoutLoader.item.volumeWidget : null
+  property var clock:        layoutLoader.item ? layoutLoader.item.clock        : null
 
   readonly property bool isHorizontal: barPosition === 1 || barPosition === 3
 
-  // ── Listas de módulos por slot ─────────────────────────────────────────
-  // Iniciam VAZIAS — o Bar.qml injeta os valores do JSON via _set() logo após
-  // ── Módulos por slot ──────────────────────────────────────────────────
-  // Mantidos em sincronia pelos Binding declarativos em Bar.qml via
-  // barState.modules* (propriedades diretas, rastreáveis pelo QML).
-  // O layoutLoader é sempre ativo — os Repeaters reagem às mudanças
-  // nestas props diretamente, sem _reloadLayout() ou timers.
-  property var cfgModulesLeft:   []
-  property var cfgModulesCenter: []
-  property var cfgModulesRight:  []
-  property var cfgModulesTop:    []
-  property var cfgModulesMiddle: []
-  property var cfgModulesBottom: []
-
   // ── Configs workspaces ─────────────────────────────────────────────────
-  property string cfgWsStyle:               "icons"
-  property string cfgWsIconsSort:           "position"
-  property bool   cfgWsIconMonochrome:      true
-  property int    cfgWsIconSpacing:         4
-  property real   cfgWsBgOpacity:           0.0
-  property real   cfgWsBgPaddingH:          8
-  property real   cfgWsBgPaddingV:          2
-  property bool   cfgWsShowAddButton:       true
-  property color  cfgWsBgColorActive:        Qt.rgba(1,1,1,0.12)
-  property real   cfgWsBgOpacityActive:      0.85
-  property color  cfgWsBgBorderColorActive:  "transparent"
-  property real   cfgWsBgBorderWidthActive:  0
-  property real   cfgWsBgPaddingHActive:     6
-  property real   cfgWsBgPaddingVActive:     2
-  property real   cfgWsBgRadiusActive:       99
+  property string cfgWsStyle:              "icons"
+  property string cfgWsIconsSort:          "position"
+  property bool   cfgWsIconMonochrome:     true
+  property int    cfgWsIconSpacing:        4
+  property real   cfgWsBgOpacity:          0.0
+  property real   cfgWsBgPaddingH:         8
+  property real   cfgWsBgPaddingV:         2
+  property bool   cfgWsShowAddButton:      true
+  property color  cfgWsBgColorActive:       Qt.rgba(1,1,1,0.12)
+  property real   cfgWsBgOpacityActive:     0.85
+  property color  cfgWsBgBorderColorActive: "transparent"
+  property real   cfgWsBgBorderWidthActive: 0
+  property real   cfgWsBgPaddingHActive:    6
+  property real   cfgWsBgPaddingVActive:    2
+  property real   cfgWsBgRadiusActive:      99
 
   // ── Configs MediaPlayer ────────────────────────────────────────────────
   property string cfgMpTextMode:        "artistAndTitle"
@@ -124,271 +101,39 @@ Item {
     radius:       root.barSize / 2
   }
 
-  // ── Loader do layout ───────────────────────────────────────────────────
-  // Sempre ativo. Os Repeaters dentro usam cfgModules* como model diretamente
-  // — quando os Bindings em Bar.qml atualizam as props, os Repeaters reagem.
   Loader {
     id: layoutLoader
     anchors.fill:    parent
     sourceComponent: root.isHorizontal ? horizontalComp : verticalComp
-
     onLoaded: {
       item.monitorName = root.monitorName
-      root._updateRefs()
+      // Força reavaliação das refs após o item estar completamente carregado.
+      // O binding `layoutLoader.item.mediaPlayer` pode não reavaliar
+      // automaticamente porque o item é criado de um Component inline.
+      root.mediaPlayer  = Qt.binding(function() { return layoutLoader.item ? layoutLoader.item.mediaPlayer  : null })
+      root.volumeWidget = Qt.binding(function() { return layoutLoader.item ? layoutLoader.item.volumeWidget : null })
+      root.clock        = Qt.binding(function() { return layoutLoader.item ? layoutLoader.item.clock        : null })
     }
   }
 
-  function _updateRefs() {
-    var lay = layoutLoader.item
-    if (!lay) return
-    root.mediaPlayer  = lay.mediaPlayer  || null
-    root.volumeWidget = lay.volumeWidget || null
-    root.clock        = lay.clock        || null
-    root.notifWidget  = lay.notifWidget  || null
-  }
-
-  // isHorizontal muda quando a posição da barra muda (h↔v).
-  // O binding sourceComponent já troca o componente; só propaga monitorName.
   onIsHorizontalChanged: {
-    Qt.callLater(function() {
-      if (layoutLoader.item) layoutLoader.item.monitorName = root.monitorName
-    })
+    var name = monitorName
+    layoutLoader.sourceComponent = null
+    layoutLoader.sourceComponent = isHorizontal ? horizontalComp : verticalComp
+    if (layoutLoader.item) layoutLoader.item.monitorName = name
   }
   onMonitorNameChanged: {
     if (layoutLoader.item) layoutLoader.item.monitorName = monitorName
   }
 
-  // Quando módulos mudam, atualiza refs de clock/mediaPlayer/volume.
-  onCfgModulesLeftChanged:   Qt.callLater(_updateRefs)
-  onCfgModulesCenterChanged: Qt.callLater(_updateRefs)
-  onCfgModulesRightChanged:  Qt.callLater(_updateRefs)
-  onCfgModulesTopChanged:    Qt.callLater(_updateRefs)
-  onCfgModulesMiddleChanged: Qt.callLater(_updateRefs)
-  onCfgModulesBottomChanged: Qt.callLater(_updateRefs)
-
   // ══════════════════════════════════════════════════════════════════════
-  // Componente de módulo individual
+  // HORIZONTAL
   //
-  // Instanciado por cada Repeater de cada slot. Dado um modId (string),
-  // ativa o Loader correto. Expõe mediaPlayer/volumeWidget/clock para
-  // o layout pai coletar.
-  // ══════════════════════════════════════════════════════════════════════
-  Component {
-    id: moduleItemComp
-
-    Item {
-      id: modItem
-      property string modId:   ""
-      property bool   isH:     true
-      property string monName: ""
-
-      // Refs expostas — só uma será não-nula por instância
-      readonly property var mediaPlayer:  mpLoader.active  && mpLoader.item  ? mpLoader.item  : null
-      readonly property var volumeWidget: volLoader.active && volLoader.item ? volLoader.item : null
-      readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
-      readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
-
-      // Dimensões: lê do loader ativo ou usa tamanhos fixos para sep/spacer
-      implicitWidth: {
-        if (modId === "separator") return isH ? 1  : 16
-        if (modId === "spacer")    return isH ? 12 : 1
-        var l = _activeLoader
-        return (l && l.item) ? l.item.implicitWidth : 0
-      }
-      implicitHeight: {
-        if (modId === "separator") return isH ? 14 : 1
-        if (modId === "spacer")    return isH ? 1  : 12
-        var l = _activeLoader
-        return (l && l.item) ? l.item.implicitHeight : 0
-      }
-
-      readonly property var _activeLoader: {
-        if (modId === "mediaplayer")    return mpLoader
-        if (modId === "volume")         return volLoader
-        if (modId === "clock")          return ckLoader
-        if (modId === "quicksettings")  return qsLoader
-        if (modId === "workspaces")     return wsLoader
-        if (modId === "notifications")  return nfLoader
-        return null
-      }
-
-      // Separador visual
-      Rectangle {
-        visible:          modId === "separator"
-        anchors.centerIn: parent
-        width:   isH ? 1  : 16
-        height:  isH ? 14 : 1
-        radius:  1
-        color:   root.cfgClkDimColor
-        opacity: 0.3
-      }
-
-      // ── Loaders de módulo ──────────────────────────────────────────────
-      //
-      // Cada módulo usa Component {} interno para que os bindings QML
-      // sejam declarativos (ligados directamente a root.cfg*).
-      // Isso garante que mudanças em runtime propagam automaticamente
-      // sem precisar de Connections ou onLoaded.
-
-      Loader {
-        id: mpLoader
-        active:           modId === "mediaplayer"
-        anchors.centerIn: parent
-        sourceComponent: Component {
-          Media.MediaPlayer {
-            isHorizontal:    modItem.isH
-            textColor:       root.cfgMpTextColor
-            dimColor:        root.cfgMpDimColor
-            accentColor:     root.colAccent
-            textMode:        root.cfgMpTextMode
-            scrollSpeed:     root.cfgMpScrollSpeed
-            scrollPauseMs:   root.cfgMpScrollPauseMs
-            scrollWidth:     root.cfgMpScrollWidth
-            bgEnabled:       root.cfgMpBgEnabled
-            bgOpacity:       root.cfgMpBgOpacity
-            bgOpacityActive: root.cfgMpBgOpacityActive
-            bgPaddingH:      root.cfgMpBgPaddingH
-            bgPaddingV:      root.cfgMpBgPaddingV
-            bgColor:         root.cfgMpBgColor
-            bgColorActive:   root.cfgMpBgColorActive
-            textColorActive: root.cfgMpTextColorActive
-            dimColorActive:  root.cfgMpDimColorActive
-          }
-        }
-        // Notifica o layout pai quando o item aparece (para coletar a ref)
-        onItemChanged: if (item) root._updateRefs()
-      }
-
-      Loader {
-        id: volLoader
-        active:           modId === "volume"
-        anchors.centerIn: parent
-        sourceComponent: Component {
-          Vol.Volume {
-            isHorizontal:           modItem.isH
-            textColor:              root.cfgVolTextColor
-            dimColor:               root.cfgVolDimColor
-            accentColor:            root.cfgVolAccent
-            mutedColor:             root.cfgVolMuted
-            showSink:               root.cfgVolShowSink
-            showSource:             root.cfgVolShowSource
-            barPosition:            root.barPosition
-            onSinkPanelRequested:   root.sinkPanelRequested()
-            onSourcePanelRequested: root.sourcePanelRequested()
-          }
-        }
-        onItemChanged: if (item) root._updateRefs()
-      }
-
-      Loader {
-        id: ckLoader
-        active:           modId === "clock"
-        anchors.centerIn: parent
-        sourceComponent: Component {
-          ClockModule.Clock {
-            isHorizontal:     modItem.isH
-            barPosition:      root.barPosition
-            textColor:        root.cfgClkTextColor
-            dimColor:         root.cfgClkDimColor
-            accentColor:      root.cfgClkAccent
-            dismissDelay:     root.cfgClkDismissDelay
-            onPanelRequested: root.clockPanelRequested()
-          }
-        }
-        onItemChanged: if (item) root._updateRefs()
-      }
-
-      Loader {
-        id: qsLoader
-        active:           modId === "quicksettings"
-        anchors.centerIn: parent
-        sourceComponent: Component {
-          QsModule.QuickSettings {
-            isHorizontal:     modItem.isH
-            barPosition:      root.barPosition
-            textColor:        root.cfgVolTextColor
-            dimColor:         root.cfgVolDimColor
-            accentColor:      root.colAccent
-            onPanelRequested: root.quickSettingsPanelRequested()
-          }
-        }
-      }
-
-      Loader {
-        id: nfLoader
-        active:           modId === "notifications"
-        anchors.centerIn: parent
-        sourceComponent: Component {
-          NotifModule.Notifications {
-            isHorizontal: modItem.isH
-            barPosition:  root.barPosition
-            textColor:    root.colText
-            dimColor:     root.colTextDim
-            accentColor:  root.colAccent
-            mutedColor:   root.colWsDotUrgent
-            service:      root.notifService
-            onPanelRequested: root.notificationsPanelRequested()
-          }
-        }
-        onItemChanged: if (item) root._updateRefs()
-      }
-
-      Loader {
-        id: wsLoader
-        active:           modId === "workspaces"
-        anchors.centerIn: parent
-        sourceComponent: Component {
-          Modules.Workspaces {
-            monitorName:         modItem.monName
-            orientation:         modItem.isH ? "horizontal" : "vertical"
-            style:               root.cfgWsStyle
-            iconsSort:           root.cfgWsIconsSort
-            iconMonochrome:      root.cfgWsIconMonochrome
-            iconSpacing:         root.cfgWsIconSpacing
-            bgOpacity:           root.cfgWsBgOpacity
-            bgOpacityActive:     root.cfgWsBgOpacityActive
-            bgPaddingH:          root.cfgWsBgPaddingH
-            bgPaddingV:          root.cfgWsBgPaddingV
-            showAddButton:       root.cfgWsShowAddButton
-            bgColor:             root.colWsBg
-            bgColorActive:       root.colWsBgActive
-            bgBorderColor:       Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)
-            bgBorderWidth:       1
-            bgBorderColorActive: root.cfgWsBgBorderColorActive
-            bgBorderWidthActive: root.cfgWsBgBorderWidthActive
-            bgPaddingHActive:    root.cfgWsBgPaddingHActive
-            bgPaddingVActive:    root.cfgWsBgPaddingVActive
-            bgRadiusActive:      root.cfgWsBgRadiusActive
-            iconMonoColor:       root.colIconMono
-            iconMonoColorActive: root.colIconMonoActive
-            dotColor:            root.colWsDot
-            dotActiveColor:      root.colWsDotActive
-            dotOccupiedColor:    root.colWsDotOccupied
-            dotUrgentColor:      root.colWsDotUrgent
-          }
-        }
-      }
-    }
-  }
-
-  // ── Helper: varre um Repeater buscando a primeira ref não-nula ─────────
-  function _findRef(repeater, prop) {
-    for (var i = 0; i < repeater.count; i++) {
-      var loaderItem = repeater.itemAt(i)        // este é o Loader do delegate
-      var mod = loaderItem ? loaderItem.item : null  // este é o moduleItemComp
-      if (mod && mod[prop]) return mod[prop]
-    }
-    return null
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // HORIZONTAL — left | center | right
+  // Layout: [ MediaPlayer ] -------- [ Workspaces ] [ Clock | Volume ]
   //
-  // • left  ancora-se à esquerda
-  // • right ancora-se à direita
-  // • center fica num Item que ocupa o espaço entre os dois lados com
-  //   clip:true, e o Row interno fica anchors.centerIn: parent →
-  //   SEMPRE centrado na pill inteira, independente do tamanho dos lados
+  // Workspaces fica centralizado no espaço total da pill.
+  // Clock e Volume ficam agrupados à direita (sem conflito de anchors).
+  // MediaPlayer fica à esquerda.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: horizontalComp
@@ -399,123 +144,123 @@ Item {
       anchors.leftMargin:  10
       anchors.rightMargin: 10
       property string monitorName: ""
+      property alias  mediaPlayer:  mp
+      property alias  volumeWidget: volH
+      property alias  clock:        ckH
 
-      // Refs coletadas pelos Repeaters — usadas por root._updateRefs()
-      property var mediaPlayer:  root._findRef(leftRep,   "mediaPlayer")
-                               || root._findRef(centerRep, "mediaPlayer")
-                               || root._findRef(rightRep,  "mediaPlayer")
-      property var volumeWidget: root._findRef(leftRep,   "volumeWidget")
-                               || root._findRef(centerRep, "volumeWidget")
-                               || root._findRef(rightRep,  "volumeWidget")
-      property var clock:        root._findRef(leftRep,   "clock")
-                               || root._findRef(centerRep, "clock")
-                               || root._findRef(rightRep,  "clock")
-      property var notifWidget:  root._findRef(leftRep,   "notifWidget")
-                               || root._findRef(centerRep, "notifWidget")
-                               || root._findRef(rightRep,  "notifWidget")
-
-      // ── Slot Esquerda ──────────────────────────────────────────────────
-      Row {
-        id: leftRow
+      // Esquerda: MediaPlayer
+      Media.MediaPlayer {
+        id: mp
         anchors.left:           parent.left
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 6
-        z: 1   // fica acima do slot central (que tem z:0)
-
-        Repeater {
-          id: leftRep
-          model: root.cfgModulesLeft
-          delegate: Loader {
-            required property string modelData
-            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = true
-              item.monName = hRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
-        }
+        isHorizontal:           true
+        textColor:              root.cfgMpTextColor
+        dimColor:               root.cfgMpDimColor
+        accentColor:            root.colAccent
+        textMode:               root.cfgMpTextMode
+        scrollSpeed:            root.cfgMpScrollSpeed
+        scrollPauseMs:          root.cfgMpScrollPauseMs
+        scrollWidth:            root.cfgMpScrollWidth
+        bgEnabled:              root.cfgMpBgEnabled
+        bgOpacity:              root.cfgMpBgOpacity
+        bgOpacityActive:        root.cfgMpBgOpacityActive
+        bgPaddingH:             root.cfgMpBgPaddingH
+        bgPaddingV:             root.cfgMpBgPaddingV
+        bgColor:                root.cfgMpBgColor
+        bgColorActive:          root.cfgMpBgColorActive
+        textColorActive:        root.cfgMpTextColorActive
+        dimColorActive:         root.cfgMpDimColorActive
       }
 
-      // ── Slot Direita ───────────────────────────────────────────────────
+      // Direita: Clock + separador + Volume, agrupados num Row
       Row {
         id: rightRow
         anchors.right:          parent.right
         anchors.verticalCenter: parent.verticalCenter
         spacing: 6
-        z: 1   // fica acima do slot central
 
-        Repeater {
-          id: rightRep
-          model: root.cfgModulesRight
-          delegate: Loader {
-            required property string modelData
-            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = true
-              item.monName = hRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
+        ClockModule.Clock {
+          id: ckH
+          anchors.verticalCenter: parent.verticalCenter
+          isHorizontal:           true
+          barPosition:            root.barPosition
+          textColor:              root.cfgClkTextColor
+          dimColor:               root.cfgClkDimColor
+          accentColor:            root.cfgClkAccent
+          dismissDelay:           root.cfgClkDismissDelay
+          onPanelRequested:       root.clockPanelRequested()
+        }
+
+        Rectangle {
+          anchors.verticalCenter: parent.verticalCenter
+          width:   1; height: 14; radius: 1
+          color:   root.cfgClkDimColor
+          opacity: 0.3
+        }
+
+        Vol.Volume {
+          id: volH
+          anchors.verticalCenter: parent.verticalCenter
+          isHorizontal:           true
+          textColor:              root.cfgVolTextColor
+          dimColor:               root.cfgVolDimColor
+          accentColor:            root.cfgVolAccent
+          mutedColor:             root.cfgVolMuted
+          showSink:               root.cfgVolShowSink
+          showSource:             root.cfgVolShowSource
+          barPosition:            root.barPosition
+          onSinkPanelRequested:   root.sinkPanelRequested()
+          onSourcePanelRequested: root.sourcePanelRequested()
         }
       }
 
-      // ── Slot Centro ────────────────────────────────────────────────────
-      // Usa anchors.left/right delimitados pelos laterais para NUNCA sobrepor.
-      // O Row interno usa anchors.centerIn do container — com 1 modulo fica
-      // no centro absoluto da area disponivel; com N modulos ficam agrupados
-      // no centro (identico ao Waybar).
-      // Nota: o container nao e anchors.fill para nao cobrir os laterais.
-      Item {
-        anchors.left:           leftRow.right
-        anchors.right:          rightRow.left
-        anchors.leftMargin:     4
-        anchors.rightMargin:    4
-        anchors.top:            parent.top
-        anchors.bottom:         parent.bottom
-        z: 0   // abaixo dos laterais
-
-        Row {
-          // anchors.centerIn centraliza no espaco disponivel entre left e right.
-          // Com 1 modulo: centro absoluto da area.
-          // Com N modulos: agrupados e centralizados juntos.
-          anchors.centerIn: parent
-          spacing: 6
-
-          Repeater {
-            id: centerRep
-            model: root.cfgModulesCenter
-            delegate: Loader {
-              required property string modelData
-              anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-              sourceComponent: moduleItemComp
-              onLoaded: {
-                item.modId   = modelData
-                item.isH     = true
-                item.monName = hRoot.monitorName
-              }
-              Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-              onItemChanged: root._updateRefs()
-            }
-          }
-        }
+      // Centro: Workspaces, ancorado entre mp e rightRow
+      Modules.Workspaces {
+        id: wsH
+        anchors.centerIn:    parent
+        anchors.leftMargin:     8
+        anchors.rightMargin:    8
+        monitorName:         hRoot.monitorName
+        orientation:         "horizontal"
+        style:               root.cfgWsStyle
+        iconsSort:           root.cfgWsIconsSort
+        iconMonochrome:      root.cfgWsIconMonochrome
+        iconSpacing:         root.cfgWsIconSpacing
+        bgOpacity:           root.cfgWsBgOpacity
+        bgOpacityActive:     root.cfgWsBgOpacityActive
+        bgPaddingH:          root.cfgWsBgPaddingH
+        bgPaddingV:          root.cfgWsBgPaddingV
+        showAddButton:       root.cfgWsShowAddButton
+        bgColor:             root.colWsBg
+        bgColorActive:       root.colWsBgActive
+        bgBorderColor:       Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)
+        bgBorderWidth:       1
+        bgBorderColorActive: root.cfgWsBgBorderColorActive
+        bgBorderWidthActive: root.cfgWsBgBorderWidthActive
+        bgPaddingHActive:    root.cfgWsBgPaddingHActive
+        bgPaddingVActive:    root.cfgWsBgPaddingVActive
+        bgRadiusActive:      root.cfgWsBgRadiusActive
+        iconMonoColor:       root.colIconMono
+        iconMonoColorActive: root.colIconMonoActive
+        dotColor:            root.colWsDot
+        dotActiveColor:      root.colWsDotActive
+        dotOccupiedColor:    root.colWsDotOccupied
+        dotUrgentColor:      root.colWsDotUrgent
       }
     }
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // VERTICAL — top | middle | bottom
+  // VERTICAL
   //
-  // • top ancora-se ao topo
-  // • bottom ancora-se ao rodapé
-  // • middle é um Item que ocupa o espaço entre os dois com clip:true,
-  //   e o Column interno fica anchors.centerIn:parent
+  // Layout (de cima pra baixo):
+  //   MediaPlayer (topo)
+  //   Workspaces  (centro — entre mp e grupo inferior)
+  //   Clock       (acima do volume, separado por linha)
+  //   Volume      (rodapé)
+  //
+  // Workspaces NÃO fica dentro de Column com Clock.
+  // Clock fica entre Workspaces e Volume, todos via anchors independentes.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: verticalComp
@@ -526,106 +271,107 @@ Item {
       anchors.topMargin:    10
       anchors.bottomMargin: 10
       property string monitorName: ""
+      property alias  mediaPlayer:  mp
+      property alias  volumeWidget: volV
+      property alias  clock:        ckV
 
-      property var mediaPlayer:  root._findRef(topRep,    "mediaPlayer")
-                               || root._findRef(middleRep, "mediaPlayer")
-                               || root._findRef(bottomRep, "mediaPlayer")
-      property var volumeWidget: root._findRef(topRep,    "volumeWidget")
-                               || root._findRef(middleRep, "volumeWidget")
-                               || root._findRef(bottomRep, "volumeWidget")
-      property var clock:        root._findRef(topRep,    "clock")
-                               || root._findRef(middleRep, "clock")
-                               || root._findRef(bottomRep, "clock")
-      property var notifWidget:  root._findRef(topRep,    "notifWidget")
-                               || root._findRef(middleRep, "notifWidget")
-                               || root._findRef(bottomRep, "notifWidget")
-
-      // ── Slot Topo ──────────────────────────────────────────────────────
-      Column {
-        id: topCol
+      // Topo: MediaPlayer
+      Media.MediaPlayer {
+        id: mp
         anchors.top:              parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 6
-        z: 1
-
-        Repeater {
-          id: topRep
-          model: root.cfgModulesTop
-          delegate: Loader {
-            required property string modelData
-            anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = false
-              item.monName = vRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
-        }
+        isHorizontal:             false
+        textColor:                root.cfgMpTextColor
+        dimColor:                 root.cfgMpDimColor
+        accentColor:              root.colAccent
+        textMode:                 root.cfgMpTextMode
+        scrollSpeed:              root.cfgMpScrollSpeed
+        scrollPauseMs:            root.cfgMpScrollPauseMs
+        scrollWidth:              root.cfgMpScrollWidth
+        bgEnabled:                root.cfgMpBgEnabled
+        bgOpacity:                root.cfgMpBgOpacity
+        bgOpacityActive:          root.cfgMpBgOpacityActive
+        bgPaddingH:               root.cfgMpBgPaddingH
+        bgPaddingV:               root.cfgMpBgPaddingV
+        bgColor:                  root.cfgMpBgColor
+        bgColorActive:            root.cfgMpBgColorActive
+        textColorActive:          root.cfgMpTextColorActive
+        dimColorActive:           root.cfgMpDimColorActive
       }
 
-      // ── Slot Rodape ────────────────────────────────────────────────────
-      Column {
-        id: bottomCol
+      // Rodapé: Volume
+      Vol.Volume {
+        id: volV
         anchors.bottom:           parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 6
-        z: 1
-
-        Repeater {
-          id: bottomRep
-          model: root.cfgModulesBottom
-          delegate: Loader {
-            required property string modelData
-            anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = false
-              item.monName = vRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
-        }
+        isHorizontal:             false
+        textColor:                root.cfgVolTextColor
+        dimColor:                 root.cfgVolDimColor
+        accentColor:              root.cfgVolAccent
+        mutedColor:               root.cfgVolMuted
+        showSink:                 root.cfgVolShowSink
+        showSource:               root.cfgVolShowSource
+        barPosition:              root.barPosition
+        onSinkPanelRequested:     root.sinkPanelRequested()
+        onSourcePanelRequested:   root.sourcePanelRequested()
       }
 
-      // ── Slot Centro ────────────────────────────────────────────────────
-      // Delimitado entre topCol.bottom e bottomCol.top para nao sobrepor.
-      // Column interno centralizado: 1 modulo = centro absoluto da area,
-      // N modulos = agrupados e centralizados juntos (estilo Waybar).
-      Item {
-        anchors.top:              topCol.bottom
-        anchors.bottom:           bottomCol.top
-        anchors.topMargin:        4
-        anchors.bottomMargin:     4
+      // Clock — acima do Volume, ancorado a ele
+      ClockModule.Clock {
+        id: ckV
+        anchors.bottom:           volV.top
+        anchors.bottomMargin:     8
         anchors.horizontalCenter: parent.horizontalCenter
-        width:                    parent.width
-        z: 0
+        isHorizontal:             false
+        barPosition:              root.barPosition
+        textColor:                root.cfgClkTextColor
+        dimColor:                 root.cfgClkDimColor
+        accentColor:              root.cfgClkAccent
+        dismissDelay:             root.cfgClkDismissDelay
+        onPanelRequested:         root.clockPanelRequested()
+      }
 
-        Column {
-          anchors.centerIn: parent
-          spacing: 6
+      // Separador entre Workspaces e Clock
+      Rectangle {
+        id: vSep
+        anchors.bottom:           ckV.bottom
+        anchors.topMargin:     8
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: 16; height: 1; radius: 1
+        color:   root.cfgClkDimColor
+        opacity: 0.2
+      }
 
-          Repeater {
-            id: middleRep
-            model: root.cfgModulesMiddle
-            delegate: Loader {
-              required property string modelData
-              anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-              sourceComponent: moduleItemComp
-              onLoaded: {
-                item.modId   = modelData
-                item.isH     = false
-                item.monName = vRoot.monitorName
-              }
-              Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-              onItemChanged: root._updateRefs()
-            }
-          }
-        }
+      // Workspaces — ocupa o espaço entre MediaPlayer e separador
+      Modules.Workspaces {
+        id: wsV
+        anchors.centerIn: parent
+        monitorName:         vRoot.monitorName
+        orientation:         "vertical"
+        style:               root.cfgWsStyle
+        iconsSort:           root.cfgWsIconsSort
+        iconMonochrome:      root.cfgWsIconMonochrome
+        iconSpacing:         root.cfgWsIconSpacing
+        bgOpacity:           root.cfgWsBgOpacity
+        bgOpacityActive:     root.cfgWsBgOpacityActive
+        bgPaddingH:          root.cfgWsBgPaddingH
+        bgPaddingV:          root.cfgWsBgPaddingV
+        showAddButton:       root.cfgWsShowAddButton
+        bgColor:             root.colWsBg
+        bgColorActive:       root.colWsBgActive
+        bgBorderColor:       Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)
+        bgBorderWidth:       1
+        bgBorderColorActive: root.cfgWsBgBorderColorActive
+        bgBorderWidthActive: root.cfgWsBgBorderWidthActive
+        bgPaddingHActive:    root.cfgWsBgPaddingHActive
+        bgPaddingVActive:    root.cfgWsBgPaddingVActive
+        bgRadiusActive:      root.cfgWsBgRadiusActive
+        iconMonoColor:       root.colIconMono
+        iconMonoColorActive: root.colIconMonoActive
+        dotColor:            root.colWsDot
+        dotActiveColor:      root.colWsDotActive
+        dotOccupiedColor:    root.colWsDotOccupied
+        dotUrgentColor:      root.colWsDotUrgent
       }
     }
   }
