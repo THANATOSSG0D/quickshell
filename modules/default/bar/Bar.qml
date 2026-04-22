@@ -109,6 +109,9 @@ Scope {
         if (barRoot._barInstances[i]) barRoot._barInstances[i].closeAllPanels()
       }
     }
+    function disableFullscreenPeek() { barState.fullscreenPeekEnabled = false }
+    function enableFullscreenPeek()  { barState.fullscreenPeekEnabled = true  }
+    function toggleFullscreenPeek()  { barState.fullscreenPeekEnabled = !barState.fullscreenPeekEnabled }
   }
 
   // ── IPC do dmenu ─────────────────────────────────────────────────────────
@@ -253,17 +256,20 @@ Scope {
         return barMargin
       }
 
-      property real _edgeThreshold: barState.edgeThreshold
+      // ── Thresholds de cursor ───────────────────────────────────────────
+      // _showThreshold: pixels da borda para MOSTRAR a barra (fixo, pequeno).
+      // _hideThreshold: pixels da borda para MANTER visível (maior, hysteresis).
+      // Separados para evitar loop: cursorAtEdge → barVisible → barShow → threshold → cursorAtEdge.
+      readonly property real _showThreshold: barState.edgeThreshold
 
       onBarShowChanged: {
-        _edgeThreshold = barShow ? (barSize + barMargin + 4) : barState.edgeThreshold
-        marginOffset   = barShow ? 0 : barSize + barMargin + 1
+        marginOffset = barShow ? 0 : barSize + barMargin + 1
       }
 
-      WlrLayershell.layer: WlrLayershell.Top
+      WlrLayershell.layer: bar.effectiveAutoHide ? WlrLayershell.Overlay : WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
-      exclusiveZone: barState.autoHide ? 0 : barSize
+      exclusiveZone: bar.effectiveAutoHide ? 0 : barSize
 
       // ── Helpers de anchor compartilhados pelos popups ──────────────────
       readonly property int popupEdge: {
@@ -341,6 +347,7 @@ Scope {
 
           if ("monitorName" in item) item.monitorName = bar.screen.name
           if ("barPosition" in item) item.barPosition = barRoot.position
+          // Para temas estáticos (Pill antigo): mediaPlayer já existe no onLoaded
           if (item.mediaPlayer)      barRoot.barMediaPlayerRef = item.mediaPlayer
 
           // Clock
@@ -608,6 +615,47 @@ Scope {
         }
       }
 
+      // ── Abertura do painel MediaPlayer ────────────────────────────────
+      // Abordagem dupla para compatibilidade com temas estáticos e dinâmicos:
+      //
+      // 1. Temas dinâmicos (Pill novo): emitem mediaPlayerClicked() no root
+      //    do tema — escutado aqui via ignoreUnknownSignals.
+      //    Também emitem refsUpdated() quando mediaPlayer ref fica disponível.
+      // 2. Temas estáticos (Pill antigo, Default, Minimal): expõem
+      //    item.mediaPlayer com signal clicked() — escutado via target dinâmico.
+
+      Connections {
+        target: loader.item
+        ignoreUnknownSignals: true
+        // Temas dinâmicos: click bubblado do mpLoader via root.mediaPlayerClicked()
+        function onMediaPlayerClicked() {
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelPlayer); panelCooldown.restart() }
+        }
+        // Temas dinâmicos: refs prontas — atualiza barMediaPlayerRef e barClockRef
+        function onRefsUpdated() {
+          if (!loader.item) return
+          if (loader.item.mediaPlayer) barRoot.barMediaPlayerRef = loader.item.mediaPlayer
+          if (loader.item.clock) {
+            barRoot.barClockRef = loader.item.clock
+            if ("clockContent" in loader.item.clock)
+              loader.item.clock.clockContent = clockPopup.clockContentRef
+            if (!barRoot.clockContentRef)
+              barRoot.clockContentRef = clockPopup.clockContentRef
+          }
+          // osdService
+          if (barRoot.osdService !== null) {
+            var mp = loader.item.mediaPlayer
+            if (mp && "osdService" in mp) mp.osdService = barRoot.osdService
+          }
+          // notifService
+          if (barRoot.notifService !== null) {
+            var nf = loader.item.notifWidget
+            if (nf && "service" in nf) nf.service = barRoot.notifService
+          }
+        }
+      }
+
+      // Fallback: temas estáticos com mediaPlayer.clicked
       Connections {
         target: loader.item && loader.item.mediaPlayer ? loader.item.mediaPlayer : null
         ignoreUnknownSignals: true
@@ -648,8 +696,41 @@ Scope {
         return ws.toplevels.values.length > 0
       }
 
+      // ── Fullscreen detection por monitor ───────────────────────────────
+      property bool isFullscreen: false
+      property string _awBuf: ""
+
+      property var _awProc: Process {
+        command: ["hyprctl", "activewindow", "-j"]
+        stdout: SplitParser {
+          onRead: data => { bar._awBuf += data }
+        }
+        onExited: {
+          try {
+            var win = JSON.parse(bar._awBuf)
+            var onThisMonitor = bar.hyprMonitor && (win.monitor === bar.hyprMonitor.id)
+            bar.isFullscreen = onThisMonitor && (win.fullscreen > 0)
+          } catch(e) {}
+          bar._awBuf = ""
+        }
+      }
+
+      Connections {
+        target: barState
+        function onFullscreenChanged(state) {
+          if (!state) { bar.isFullscreen = false }
+          else        { bar._awProc.running = true }
+        }
+      }
+
+      property bool effectiveAutoHide: {
+        if (barState.autoHide) return true
+        if (barState.fullscreenPeekEnabled && isFullscreen) return true
+        return false
+      }
+
       property bool cursorNearBar: {
-        var threshold = _edgeThreshold
+        var threshold = _showThreshold
         var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
         var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
         var cx = barState.cursorX / scaleX
@@ -667,7 +748,7 @@ Scope {
       }
 
       property bool cursorAtEdge: {
-        var threshold = _edgeThreshold
+        var threshold = _showThreshold
         var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
         var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
         var cx = barState.cursorX / scaleX
@@ -681,7 +762,6 @@ Scope {
         if (position === 1 || position === 3) {
           var atV = position === 1 ? ly <= threshold : ly >= screen.height - threshold
           if (!atV) return false
-          // _frozenPillSideMargin evita binding loop com pillWidth dinâmico
           if (pill) return lx >= _frozenPillSideMargin - tolerance && lx <= screen.width - _frozenPillSideMargin + tolerance
           return true
         }
@@ -696,7 +776,7 @@ Scope {
 
       property bool barVisible: {
         if (anyPanelOpen) return true
-        if (!barState.autoHide) return true
+        if (!bar.effectiveAutoHide) return true
         var near = pill ? cursorAtEdge : cursorNearBar
         return near || !hasWindows
       }

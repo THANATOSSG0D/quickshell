@@ -14,7 +14,19 @@ QtObject {
 
   property bool   autoHide:     true
   property string currentTheme: "Pill"
-  property int    position:     2 
+  property int    position:     2
+
+  // ── Fullscreen peek ──────────────────────────────────────────────────
+  property bool fullscreenPeekEnabled: true
+  signal fullscreenChanged(bool state)
+
+  property var _fsConn: Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (event.name === "fullscreen")
+        state.fullscreenChanged(event.data === "1")
+    }
+  }
 
   property var config: BarConfig { id: barConfig }
 

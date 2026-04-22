@@ -41,7 +41,16 @@ PopupWindow {
 
   onPanelOpenChanged: {
     slideProgress = panelOpen ? 1.0 : 0.0
-    if (panelOpen && config) _reload()
+    if (panelOpen && config && config.configLoaded) _reload()
+  }
+
+  // Re-carrega quando o config termina de carregar (caso o painel já estivesse aberto)
+  Connections {
+    target: popup.config
+    ignoreUnknownSignals: true
+    function onConfigLoadedChanged() {
+      if (popup.panelOpen && popup.config && popup.config.configLoaded) popup._reload()
+    }
   }
 
   // ── Estado local ──────────────────────────────────────────────────────
@@ -98,19 +107,27 @@ PopupWindow {
 
   function _save() {
     if (!config) return
-    console.log("[BarEditor] _save() | left:", JSON.stringify(slotLeft),
-                "| center:", JSON.stringify(slotCenter),
-                "| right:", JSON.stringify(slotRight),
-                "| top:", JSON.stringify(slotTop),
-                "| middle:", JSON.stringify(slotMiddle),
-                "| bottom:", JSON.stringify(slotBottom))
+    // Preserva os slots da orientação inativa (não editada agora) com o
+    // valor do config, evitando sobrescrever com arrays vazios ou desatualizados.
+    var saveLeft   = localIsH ? slotLeft   : (config.modulesLeft   || []).slice()
+    var saveCenter = localIsH ? slotCenter : (config.modulesCenter || []).slice()
+    var saveRight  = localIsH ? slotRight  : (config.modulesRight  || []).slice()
+    var saveTop    = localIsH ? (config.modulesTop    || []).slice() : slotTop
+    var saveMiddle = localIsH ? (config.modulesMiddle || []).slice() : slotMiddle
+    var saveBottom = localIsH ? (config.modulesBottom || []).slice() : slotBottom
+    console.log("[BarEditor] _save() | left:", JSON.stringify(saveLeft),
+                "| center:", JSON.stringify(saveCenter),
+                "| right:", JSON.stringify(saveRight),
+                "| top:", JSON.stringify(saveTop),
+                "| middle:", JSON.stringify(saveMiddle),
+                "| bottom:", JSON.stringify(saveBottom))
     config.saveAll({
-      modulesLeft:      slotLeft.slice(),
-      modulesCenter:    slotCenter.slice(),
-      modulesRight:     slotRight.slice(),
-      modulesTop:       slotTop.slice(),
-      modulesMiddle:    slotMiddle.slice(),
-      modulesBottom:    slotBottom.slice(),
+      modulesLeft:      saveLeft.slice(),
+      modulesCenter:    saveCenter.slice(),
+      modulesRight:     saveRight.slice(),
+      modulesTop:       saveTop.slice(),
+      modulesMiddle:    saveMiddle.slice(),
+      modulesBottom:    saveBottom.slice(),
       autoHide:         localAutoHide,
       position:         localPosition,
       pillWidth:        localPillWidth,
