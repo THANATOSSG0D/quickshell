@@ -697,59 +697,108 @@ Scope {
       }
 
       // ── Fullscreen detection por monitor ───────────────────────────────
-      // Usa hyprctl monitors -j para verificar hasfullscreenwindow por monitor.
-      // Mais confiável que activewindow (funciona sem janela focada) e mais
-      // simples que clients (não precisa filtrar por monitor manualmente).
+      // Verifica se há janela fullscreen VISÍVEL (no workspace ativo do monitor).
+      // Filtra por workspace ativo para não confundir abas de browser em background
+      // (ex: aba do YouTube em fullscreen em outro workspace/aba inativa).
+      // Usa activewindow para eventos (rápido) e clients filtrado para startup.
       property bool isFullscreen: false
-      property string _fsBuf: ""
+      property string _monBuf: ""
+      property int _activeWsId: hyprMonitor ? hyprMonitor.activeWorkspace.id : -1
 
-      property var _fsCheckProc: Process {
-        command: ["hyprctl", "monitors", "-j"]
+      Timer {
+        id: fsQueryTimer
+        interval: 150
+        repeat:   false
+        onTriggered: bar._monProc.running = true
+      }
+
+      Timer {
+        id: fsInitTimer
+        interval: 600
+        repeat:   false
+        onTriggered: bar._monProc.running = true
+      }
+
+      property var _monProc: Process {
+        command: ["hyprctl", "activewindow", "-j"]
         stdout: SplitParser {
-          onRead: data => { bar._fsBuf += data }
+          onRead: data => { bar._monBuf += data }
         }
         onExited: {
           try {
-            var monitors = JSON.parse(bar._fsBuf)
-            var found = false
-            for (var i = 0; i < monitors.length; i++) {
-              var m = monitors[i]
-              if (bar.hyprMonitor && m.id === bar.hyprMonitor.id) {
-                found = !!(m.activeWorkspace && m.activeWorkspace.hasfullscreenwindow)
-                break
-              }
-            }
+            var win = JSON.parse(bar._monBuf)
+            // Janela ativa no monitor desta barra, com fullscreen real (bit cliente)
+            var onThisMonitor = bar.hyprMonitor && (win.monitor === bar.hyprMonitor.id)
+            var isRealFs = win.fullscreen !== undefined && (win.fullscreen & 2) !== 0
+            var found = onThisMonitor && isRealFs
+            if (found)
+              console.log("[FS] activewindow fullscreen:", win.class, "fs:", win.fullscreen)
+            console.log("[FS] [" + bar.screen.name + "] →", found)
             bar.isFullscreen = found
-          } catch(e) {}
-          bar._fsBuf = ""
+          } catch(e) {
+            // activewindow pode retornar {} quando não há janela focada (startup)
+            // nesse caso consulta clients filtrado pelo workspace ativo
+            bar._monBuf = ""
+            bar._fallbackProc.running = true
+            return
+          }
+          bar._monBuf = ""
         }
       }
 
-      // Escuta eventos que podem mudar o estado fullscreen visível:
-      // - "fullscreen"   : janela entrou/saiu de fullscreen
-      // - "workspace"    : workspace ativa mudou (pode ter/não ter fullscreen)
-      // - "focusedmon"   : monitor focado mudou
-      // - "movewindow"   : janela fullscreen pode ter mudado de workspace
-      Connections {
-        target: barState
-        function onFullscreenChanged(state) { bar._fsCheckProc.running = true }
-        function onWorkspaceOrFocusChanged() { bar._fsCheckProc.running = true }
+      // Fallback para startup/reload: sem janela ativa, varre clients pelo workspace ativo
+      property string _fbBuf: ""
+      property var _fallbackProc: Process {
+        command: ["hyprctl", "clients", "-j"]
+        stdout: SplitParser {
+          onRead: data => { bar._fbBuf += data }
+        }
+        onExited: {
+          try {
+            var clients = JSON.parse(bar._fbBuf)
+            var wsId = bar.hyprMonitor ? bar.hyprMonitor.activeWorkspace.id : -1
+            var found = false
+            for (var i = 0; i < clients.length; i++) {
+              var c = clients[i]
+              var inActiveWs = (c.workspace && c.workspace.id === wsId)
+              var isRealFs   = c.fullscreen !== undefined && (c.fullscreen & 2) !== 0
+              if (inActiveWs && isRealFs) {
+                console.log("[FS] fallback fullscreen:", c.class, "ws:", wsId)
+                found = true; break
+              }
+            }
+            console.log("[FS] [" + bar.screen.name + "] fallback →", found)
+            bar.isFullscreen = found
+          } catch(e) {
+            console.log("[FS] fallback ERRO:", e.toString())
+          }
+          bar._fbBuf = ""
+        }
       }
 
-      // Timer para verificação inicial — delay garante que o Hyprland
-      // finalizou o estado após startup ou reload antes de consultarmos.
-      Timer {
-        id: fsStartupTimer
-        interval: 800
-        repeat:   false
-        running:  false
-        onTriggered: bar._fsCheckProc.running = true
+      Connections {
+        target: barState
+        function onFullscreenChanged(state) {
+          console.log("[FS] fullscreenChanged:", state, "→ delay 150ms")
+          fsQueryTimer.restart()
+        }
+        function onWorkspaceOrFocusChanged() {
+          bar._monProc.running = true
+        }
       }
 
       property bool effectiveAutoHide: {
         if (barState.autoHide) return true
         if (barState.fullscreenPeekEnabled && isFullscreen) return true
         return false
+      }
+
+      onEffectiveAutoHideChanged: {
+        console.log("[FS] [" + bar.screen.name + "] effectiveAutoHide:", effectiveAutoHide)
+      }
+
+      onIsFullscreenChanged: {
+        console.log("[FS] [" + bar.screen.name + "] isFullscreen →", isFullscreen)
       }
 
       property bool cursorNearBar: {
@@ -825,9 +874,7 @@ Scope {
         barRoot._barInstances = barRoot._barInstances.concat([bar])
         barShow = barVisible
         if (!barVisible) marginOffset = barSize + barMargin + 1
-        // Verifica fullscreen inicial após delay — Hyprland precisa estabilizar
-        // após startup/reload antes de hyprctl monitors -j refletir o estado real.
-        fsStartupTimer.start()
+        fsInitTimer.start()
       }
 
       Component.onDestruction: {
