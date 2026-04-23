@@ -697,30 +697,53 @@ Scope {
       }
 
       // ── Fullscreen detection por monitor ───────────────────────────────
+      // Usa hyprctl monitors -j para verificar hasfullscreenwindow por monitor.
+      // Mais confiável que activewindow (funciona sem janela focada) e mais
+      // simples que clients (não precisa filtrar por monitor manualmente).
       property bool isFullscreen: false
-      property string _awBuf: ""
+      property string _fsBuf: ""
 
-      property var _awProc: Process {
-        command: ["hyprctl", "activewindow", "-j"]
+      property var _fsCheckProc: Process {
+        command: ["hyprctl", "monitors", "-j"]
         stdout: SplitParser {
-          onRead: data => { bar._awBuf += data }
+          onRead: data => { bar._fsBuf += data }
         }
         onExited: {
           try {
-            var win = JSON.parse(bar._awBuf)
-            var onThisMonitor = bar.hyprMonitor && (win.monitor === bar.hyprMonitor.id)
-            bar.isFullscreen = onThisMonitor && (win.fullscreen > 0)
+            var monitors = JSON.parse(bar._fsBuf)
+            var found = false
+            for (var i = 0; i < monitors.length; i++) {
+              var m = monitors[i]
+              if (bar.hyprMonitor && m.id === bar.hyprMonitor.id) {
+                found = !!(m.activeWorkspace && m.activeWorkspace.hasfullscreenwindow)
+                break
+              }
+            }
+            bar.isFullscreen = found
           } catch(e) {}
-          bar._awBuf = ""
+          bar._fsBuf = ""
         }
       }
 
+      // Escuta eventos que podem mudar o estado fullscreen visível:
+      // - "fullscreen"   : janela entrou/saiu de fullscreen
+      // - "workspace"    : workspace ativa mudou (pode ter/não ter fullscreen)
+      // - "focusedmon"   : monitor focado mudou
+      // - "movewindow"   : janela fullscreen pode ter mudado de workspace
       Connections {
         target: barState
-        function onFullscreenChanged(state) {
-          if (!state) { bar.isFullscreen = false }
-          else        { bar._awProc.running = true }
-        }
+        function onFullscreenChanged(state) { bar._fsCheckProc.running = true }
+        function onWorkspaceOrFocusChanged() { bar._fsCheckProc.running = true }
+      }
+
+      // Timer para verificação inicial — delay garante que o Hyprland
+      // finalizou o estado após startup ou reload antes de consultarmos.
+      Timer {
+        id: fsStartupTimer
+        interval: 800
+        repeat:   false
+        running:  false
+        onTriggered: bar._fsCheckProc.running = true
       }
 
       property bool effectiveAutoHide: {
@@ -802,6 +825,9 @@ Scope {
         barRoot._barInstances = barRoot._barInstances.concat([bar])
         barShow = barVisible
         if (!barVisible) marginOffset = barSize + barMargin + 1
+        // Verifica fullscreen inicial após delay — Hyprland precisa estabilizar
+        // após startup/reload antes de hyprctl monitors -j refletir o estado real.
+        fsStartupTimer.start()
       }
 
       Component.onDestruction: {

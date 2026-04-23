@@ -18,13 +18,24 @@ QtObject {
 
   // ── Fullscreen peek ──────────────────────────────────────────────────
   property bool fullscreenPeekEnabled: true
+
+  // Emitido quando fullscreen>>N chega — cada barra re-verifica monitors -j
   signal fullscreenChanged(bool state)
+
+  // Emitido quando workspace/foco muda — a janela fullscreen visível pode
+  // ter mudado mesmo sem evento fullscreen (ex: troca de workspace)
+  signal workspaceOrFocusChanged()
 
   property var _fsConn: Connections {
     target: Hyprland
     function onRawEvent(event) {
       if (event.name === "fullscreen")
         state.fullscreenChanged(event.data === "1")
+      else if (event.name === "workspace"   ||
+               event.name === "focusedmon"  ||
+               event.name === "movewindow"  ||
+               event.name === "moveworkspace")
+        state.workspaceOrFocusChanged()
     }
   }
 
