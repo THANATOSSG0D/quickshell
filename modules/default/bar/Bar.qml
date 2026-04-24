@@ -846,9 +846,32 @@ Scope {
         return false
       }
 
+      // cursorOverBar: true quando o cursor está dentro da área física da barra
+      // (não apenas na borda). Usado para não esconder a barra quando o cursor
+      // já está sobre ela ao entrar em fullscreen.
+      property bool cursorOverBar: {
+        var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
+        var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
+        var cx = barState.cursorX / scaleX
+        var cy = barState.cursorY / scaleY
+        var inScreen = cx >= screen.x && cx <= screen.x + screen.width
+                    && cy >= screen.y && cy <= screen.y + screen.height
+        if (!inScreen) return false
+        var lx = cx - screen.x
+        var ly = cy - screen.y
+        var size = barSize + barMargin + 4
+        if (position === 1) return ly <= size
+        if (position === 2) return lx >= screen.width  - size
+        if (position === 3) return ly >= screen.height - size
+        if (position === 4) return lx <= size
+        return false
+      }
+
       property bool barVisible: {
         if (anyPanelOpen) return true
         if (!bar.effectiveAutoHide) return true
+        // Se o cursor já está sobre a barra, manter visível independente do threshold
+        if (cursorOverBar) return true
         var near = pill ? cursorAtEdge : cursorNearBar
         return near || !hasWindows
       }
