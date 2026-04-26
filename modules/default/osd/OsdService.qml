@@ -12,6 +12,14 @@ QtObject {
   // type: "volume" | "source" | "media" | "timer"
   signal showRequested(var data)
 
+  // ── Referência ao ClockContent ────────────────────────────────────────
+  // Injetada por Bar.qml via onClockContentRefChanged / onOsdServiceChanged.
+  property var clockContentRef: null
+
+  function stopTimerSound() {
+    if (clockContentRef) clockContentRef.stopSound()
+  }
+
   // ── Pipewire ──────────────────────────────────────────────────────────
   readonly property var sink:   Pipewire.defaultAudioSink
   readonly property var source: Pipewire.defaultAudioSource
@@ -44,20 +52,21 @@ QtObject {
   // remaining: segundos restantes já na nova fase (para mostrar no OSD)
   // isPomodoro: true → mostra botão "próxima fase"
   // isRunning:  estado de play/pause atual
-  function timerOsd(phaseLabel, remaining, isPomodoro, isRunning) {
+  function timerOsd(phaseLabel, remaining, isPomodoro, isRunning, phaseDuration) {
     var mm = Math.floor(remaining / 60)
     var ss = remaining % 60
     var label = (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss
     showRequested({
-      type:        "timer",
-      timerLabel:  label,
-      timerPhase:  phaseLabel,
-      isPomodoro:  isPomodoro,
-      isRunning:   isRunning,
-      value:       -2,    // distingue de media (< 0) e volume (>= 0)
-      icon:        "\uf017",
-      label:       label,
-      muted:       false
+      type:          "timer",
+      timerLabel:    label,
+      timerPhase:    phaseLabel,
+      isPomodoro:    isPomodoro,
+      isRunning:     isRunning,
+      phaseDuration: phaseDuration || 0,
+      value:         -2,
+      icon:          "\uf017",
+      label:         label,
+      muted:         false
     })
   }
 

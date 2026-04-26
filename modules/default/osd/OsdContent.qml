@@ -10,7 +10,7 @@ import QtQuick.Layouts
 //  timerMode  → modo timer   (horizontal 320×96) — label + botões ação
 //
 // Sinais emitidos no modo timer (conectados pelo Osd.qml ao ClockContent):
-//   timerToggle, timerAddMin, timerNext (pomodoro), timerDismiss
+//   timerToggle, timerAddMin, timerAddInterval, timerNext (pomodoro), timerDismiss
 
 Item {
   id: root
@@ -27,9 +27,11 @@ Item {
   property string timerPhase:      ""     // ex: "Foco · 1º ciclo"
   property bool   timerIsPomodoro: false  // mostra botão "próxima fase"
   property bool   timerRunning:    false
+  property int    timerPhaseDuration: 0  // segundos — usado no label do botão +intervalo
 
   signal timerToggle()
   signal timerAddMin()
+  signal timerAddInterval()
   signal timerNext()
   signal timerDismiss()
 
@@ -45,7 +47,7 @@ Item {
 
   // Tamanhos por modo
   implicitWidth: {
-    if (timerMode)  return 320
+    if (timerMode)  return 380
     if (mediaMode)  return 280
     return 72
   }
@@ -229,6 +231,14 @@ Item {
         icon: "+1"
         isText: true
         onActivated: root.timerAddMin()
+      }
+
+      // +intervalo completo (ex: "+25m", "+5m")
+      OsdButton {
+        visible: root.timerPhaseDuration > 0
+        icon:    "+" + Math.round(root.timerPhaseDuration / 60) + "m"
+        isText:  true
+        onActivated: root.timerAddInterval()
       }
 
       // Próxima fase (pomodoro)

@@ -11,7 +11,6 @@ Scope {
 
   OsdModule.Osd {
     id: osd
-    clockContent: bar.clockContentRef
   }
 
   NotifModule.NotificationService {

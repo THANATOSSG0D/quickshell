@@ -42,7 +42,7 @@ Scope {
   function _barOnTimerElapsed(mode, phaseLabel) {
     if (!barRoot.osdService || !barRoot.clockContentRef) return
     var cc = barRoot.clockContentRef
-    barRoot.osdService.timerOsd(phaseLabel, cc.barRemaining, mode === "pomodoro", cc.barRunning)
+    barRoot.osdService.timerOsd(phaseLabel, cc.barRemaining, mode === "pomodoro", cc.barRunning, cc.phaseDuration)
   }
 
   onClockContentRefChanged: {
@@ -52,6 +52,10 @@ Scope {
     _barCcConnected = clockContentRef
     if (clockContentRef)
       clockContentRef.timerElapsed.connect(barRoot._barOnTimerElapsed)
+
+    // Propaga para OsdService — garante que os botões do OSD timer funcionem
+    if (barRoot.osdService)
+      barRoot.osdService.clockContentRef = clockContentRef
   }
 
   // ── IPC do timer ──────────────────────────────────────────────────────
@@ -572,6 +576,9 @@ Scope {
           if (vol && "osdService" in vol) vol.osdService = barRoot.osdService
           var mp  = loader.item.mediaPlayer
           if (mp  && "osdService" in mp)  mp.osdService  = barRoot.osdService
+          // Sincroniza clockContentRef que pode ter chegado antes do osdService
+          if (barRoot.osdService && barRoot.clockContentRef)
+            barRoot.osdService.clockContentRef = barRoot.clockContentRef
         }
         function onNotifServiceChanged() {
           if (!loader.item) return
@@ -583,6 +590,10 @@ Scope {
           var ck = barRoot.barClockRef
           if (ck && "clockContent" in ck)
             ck.clockContent = clockPopup.clockContentRef
+          // Sem guard: ck.clockContent e clockContentRef precisam sempre apontar
+          // para o mesmo ClockContent. Se houver guard aqui, após um reload do
+          // tema clockContentRef fica apontando para uma instância destruída e
+          // o IPC passa a chamar funções em um objeto morto silenciosamente.
           barRoot.clockContentRef = clockPopup.clockContentRef
         }
       }

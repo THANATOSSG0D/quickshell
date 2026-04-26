@@ -108,6 +108,16 @@ Item {
     return isLongBreak ? "Descanso longo" : "Descanso curto"
   }
 
+  // Duração completa da fase atual — usada pelo OSD para o botão "+intervalo"
+  readonly property int phaseDuration: {
+    if (activeMode === "pomodoro") {
+      if (pomodoroInWork) return pomodoroWork
+      var isLong = (pomodoroCount % pomodoroInterval === 0) && pomodoroCount > 0
+      return isLong ? pomodoroLong : pomodoroShort
+    }
+    return freeTimerDuration
+  }
+
   // ── Persistência ──────────────────────────────────────────────────────
   property bool _stateLoaded: false
 
@@ -230,25 +240,37 @@ Item {
       + " || true"
     ]
     running: false
+    // Quando o processo termina, agenda o próximo play imediatamente (sem esperar o timer).
+    // soundRepeatTimer adiciona uma pequena pausa entre repetições para não soar como
+    // um som contínuo sem respiração.
+    onExited: { if (root.soundLooping) soundRepeatTimer.restart() }
   }
 
-  // Loop de alerta: dispara a cada 3 s enquanto soundLooping for true.
-  // Cada iteração inicia um novo processo de som (o anterior já terminou).
+  // Pausa mínima entre repetições (ms). Reduzir para 0 toca sem gap.
   property bool soundLooping: false
   Timer {
-    id: soundLoopTimer
-    interval: 3000
-    repeat:   true
-    running:  root.soundLooping
+    id: soundRepeatTimer
+    interval: 600
+    repeat:   false
     onTriggered: root._playOnce()
   }
 
+  // Timer de heartbeat: garante que o loop retoma mesmo se onExited falhar
+  // (ex: processo morto externamente sem disparar o sinal).
+  Timer {
+    id: soundHeartbeat
+    interval: 5000
+    repeat:   true
+    running:  root.soundLooping
+    onTriggered: { if (!soundProc.running && !soundRepeatTimer.running) root._playOnce() }
+  }
+
   function _playOnce() {
-    if (soundProc.running) return   // ainda tocando — aguarda
+    if (soundProc.running) return   // ainda tocando — aguarda onExited
     soundProc.running = true
   }
 
-  // Inicia o loop: toca imediatamente e depois a cada 3 s
+  // Inicia o loop: toca imediatamente
   function _playSound() {
     soundLooping = true
     _playOnce()
@@ -257,6 +279,7 @@ Item {
   // Para o loop — chamado pelo OSD (dismiss/next) ou pelo IPC
   function stopSound() {
     soundLooping = false
+    soundRepeatTimer.stop()
   }
 
   // ── Countdown ─────────────────────────────────────────────────────────
@@ -388,6 +411,66 @@ Item {
     timerDismissed = false
     remaining      = Math.max(0, Math.min(99 * 60 + 59, remaining + delta))
     if (activeMode === "free" && !running) freeTimerDuration = remaining
+  }
+
+  // ── API chamada pelo OSD (não para o som) ─────────────────────────────
+  // toggleRunning para o som; estas versões mantêm o alerta até o dismiss.
+
+  function toggleRunningKeepSound() {
+    if (expired) {
+      dismissTimer.stop()
+      expired        = false
+      remaining      = activeMode === "pomodoro" ? pomodoroWork : freeTimerDuration
+      running        = true
+      timerDismissed = false
+      return
+    }
+    if (remaining === 0 && !running) {
+      remaining      = activeMode === "pomodoro" ? pomodoroWork : freeTimerDuration
+      timerDismissed = false
+    }
+    if (!running) {
+      dismissTimer.stop()
+      timerDismissed = false
+    }
+    running = !running
+  }
+
+  // Adiciona delta segundos e inicia imediatamente
+  function adjustTimerAndStart(delta) {
+    dismissTimer.stop()
+    expired        = false
+    timerDismissed = false
+    remaining      = Math.max(0, Math.min(99 * 60 + 59, remaining + delta))
+    if (activeMode === "free") freeTimerDuration = remaining
+    running = true
+  }
+
+  // Adiciona uma fase completa (freeTimerDuration ou fase pomodoro atual) e inicia
+  function addInterval() {
+    dismissTimer.stop()
+    expired        = false
+    timerDismissed = false
+    remaining      = Math.max(0, Math.min(99 * 60 + 59, remaining + phaseDuration))
+    running        = true
+  }
+
+  // Avança fase pomodoro sem parar o som
+  function pomodoroNextKeepSound() {
+    if (activeMode !== "pomodoro") return
+    dismissTimer.stop()
+    expired = false
+    if (pomodoroInWork) {
+      pomodoroCount++
+      pomodoroInWork = false
+      var isLong = (pomodoroCount % pomodoroInterval === 0)
+      remaining = isLong ? pomodoroLong : pomodoroShort
+    } else {
+      pomodoroInWork = true
+      remaining      = pomodoroWork
+    }
+    running        = true
+    timerDismissed = false
   }
 
   function fmtSec(s) {
