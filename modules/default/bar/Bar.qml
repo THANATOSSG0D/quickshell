@@ -123,16 +123,16 @@ Scope {
   IpcHandler {
     target: "dmenu"
     function drun() {
-      var b = barRoot._activeBar()
-      if (b) { b.dmenuMode = "drun"; b.openPanel(barRoot.panelDmenu) }
+      var b = barRoot._activeBar(); if (!b) return
+      b.dmenuMode = "drun"; b.openPanel(barRoot.panelDmenu)
     }
     function run() {
-      var b = barRoot._activeBar()
-      if (b) { b.dmenuMode = "run"; b.openPanel(barRoot.panelDmenu) }
+      var b = barRoot._activeBar(); if (!b) return
+      b.dmenuMode = "run"; b.openPanel(barRoot.panelDmenu)
     }
     function window() {
-      var b = barRoot._activeBar()
-      if (b) { b.dmenuMode = "window"; b.openPanel(barRoot.panelDmenu) }
+      var b = barRoot._activeBar(); if (!b) return
+      b.dmenuMode = "window"; b.openPanel(barRoot.panelDmenu)
     }
   }
 
@@ -160,7 +160,24 @@ Scope {
   readonly property int popupHEditor: 560
   readonly property int popupWNotif:  360
   readonly property int popupHNotif:  560
-  readonly property int popupHDmenu:  420
+  readonly property int popupHDmenu:  460
+
+  // ── Configuração do dmenu — lida de state/dmenu-config.json ─────────────
+  property string _dmenuLaunchCmd: "uwsm app -- {exec}"
+  property bool   _dmenuShowIcons: false
+
+  FileView {
+    id: dmenuConfigFile
+    path:        Qt.resolvedUrl("../../state/dmenu-config.json")
+    watchChanges: true
+    onTextChanged: {
+      try {
+        var cfg = JSON.parse(dmenuConfigFile.text)
+        if ("launchCmd" in cfg) barRoot._dmenuLaunchCmd = cfg.launchCmd
+        if ("showIcons"  in cfg) barRoot._dmenuShowIcons = cfg.showIcons
+      } catch(e) {}
+    }
+  }
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
   Variants {
@@ -1119,7 +1136,6 @@ Scope {
       }
 
       // ── Dmenu ──────────────────────────────────────────────────────────────
-      // ── Dmenu ──────────────────────────────────────────────────────────────
       DmenuModule.DmenuPopup {
         id: dmenuPopup
         anchor.window:  bar
@@ -1127,10 +1143,11 @@ Scope {
         anchor.gravity: bar.popupEdge
         anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHDmenu)
 
-        popupW: barRoot.themePanelWidth
-        popupH: barRoot.popupHDmenu
-
+        popupW:    barRoot.themePanelWidth
+        popupH:    barRoot.popupHDmenu
         mode:      bar.dmenuMode
+        launchCmd: barRoot._dmenuLaunchCmd
+        showIcons: barRoot._dmenuShowIcons
         panelOpen: bar.dmenuPanelOpen
 
         colorPanelBg:  bar.popupColorBg

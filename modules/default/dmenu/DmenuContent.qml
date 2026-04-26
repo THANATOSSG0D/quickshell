@@ -1,12 +1,16 @@
 import Quickshell
 import Quickshell.Io
+import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 
 Item {
   id: root
 
-  property string mode: "drun"
+  // ── API pública ────────────────────────────────────────────────────────────
+  property string mode:      "drun"    // "drun" | "run" | "window"
+  property string launchCmd: "uwsm app -- {exec}"  // {exec} = Exec do .desktop
+  property bool   showIcons: true
 
   property color colorPanelBg: "#1f1f1f"
   property color colorText:    "#e2e2e2"
@@ -17,102 +21,109 @@ Item {
 
   signal closeRequested()
 
+  // ── Estado ─────────────────────────────────────────────────────────────────
   property string _query:       ""
   property int    _selectedIdx: 0
   property var    _dynamicList: []
   property bool   _loading:     false
 
+  // ── Apps via DesktopEntries ────────────────────────────────────────────────
   readonly property var _allApps: {
     var apps = DesktopEntries.applications.values
     var list = []
     for (var i = 0; i < apps.length; i++) {
       var a = apps[i]
-      if (!a) continue
-      var name = (a.name || "").trim()
+      if (!a || !a.name) continue
+      var name = a.name.trim()
       if (name === "") continue
-      list.push({ name: name, app: a })
+      // Limpa placeholders do Exec (%f %u %F %U etc.)
+      var exec = (a.execString || "").replace(/%[uUfFdDnNickvm]/g, "").trim()
+      list.push({
+        name:    name,
+        comment: (a.comment || "").trim(),
+        icon:    a.icon || "",
+        exec:    exec,
+        app:     a
+      })
     }
     list.sort(function(a, b) { return a.name.localeCompare(b.name) })
-    console.log("[Dmenu] _allApps rebuilt:", list.length, "apps")
     return list
   }
 
+  // ── Processo: window / run ─────────────────────────────────────────────────
   Process {
     id: loader
     running: false
-
-    onRunningChanged: console.log("[Dmenu] loader.running →", running, "| cmd:", JSON.stringify(command))
-
     stdout: StdioCollector {
       onStreamFinished: {
-        console.log("[Dmenu] StdioCollector finished, text length:", this.text.length)
-        console.log("[Dmenu] raw output (first 300):", this.text.substring(0, 300))
         var lines = this.text.split("\n")
         var list = []
         for (var i = 0; i < lines.length; i++) {
           var t = lines[i].trim()
           if (t !== "") list.push({ display: t })
         }
-        console.log("[Dmenu] parsed", list.length, "items")
         root._dynamicList = list
         root._loading = false
       }
     }
-
-    onExited: (code, status) => {
-      console.log("[Dmenu] loader exited code:", code, "status:", status)
-    }
   }
 
   function _load() {
-    console.log("[Dmenu] _load() called, mode:", mode)
     root._dynamicList = []
     root._loading = true
-
     if (mode === "window") {
       loader.command = ["bash", "-c",
         "hyprctl clients -j 2>/dev/null | python3 -c \"" +
         "import sys,json;" +
         "data=json.load(sys.stdin);" +
-        "[print(c['class']+'  ->  '+c['title']+'\\t'+c['address'])" +
+        "[print(c['class']+'\t'+c['title']+'\t'+c['address'])" +
         " for c in data if c.get('class')]\""]
     } else if (mode === "run") {
       loader.command = ["bash", "-c",
-        "grep '^- cmd:' ~/.local/share/fish/fish_history" +
+        "grep '^- cmd:' ~/.local/share/fish/fish_history 2>/dev/null" +
         " | sed 's/^- cmd: //'" +
         " | awk '!seen[$0]++'" +
-        " | tac 2>/dev/null || " +
-        "grep '^- cmd:' ~/.local/share/fish/fish_history" +
+        " | tac 2>/dev/null" +
+        " || grep '^- cmd:' ~/.local/share/fish/fish_history 2>/dev/null" +
         " | sed 's/^- cmd: //'" +
         " | awk '!seen[$0]++'" +
-        " | tail -r"]
+        " | tail -r 2>/dev/null"]
     }
-
-    console.log("[Dmenu] command set:", JSON.stringify(loader.command))
     loader.running = false
     loader.running = true
-    console.log("[Dmenu] loader.running set to true")
   }
 
-  Process { id: runProc; running: false }
+  Process { id: execProc; running: false }
 
+  // ── Launch ─────────────────────────────────────────────────────────────────
   function _launch() {
     var items = _displayList
-    var sel = items[_selectedIdx]
+    var sel   = items[_selectedIdx]
 
     if (mode === "drun") {
       if (!sel) return
-      sel.app.execute()
+      var finalCmd = ""
+      if (sel.exec !== "" && launchCmd !== "") {
+        finalCmd = launchCmd.replace("{exec}", sel.exec)
+      }
+      if (finalCmd !== "") {
+        execProc.command = ["bash", "-c", finalCmd + " &"]
+        execProc.running = true
+      } else {
+        sel.app.execute()
+      }
       root.closeRequested()
       return
     }
 
     if (mode === "run") {
-      var cmd = _query.trim() !== "" ? _query.trim()
-              : (sel ? sel.display : "")
+      // Se digitou algo diferente do item selecionado, usa o texto digitado
+      var typed = _query.trim()
+      var cmd   = (typed !== "" && (!sel || sel.display !== typed))
+        ? typed : (sel ? sel.display : typed)
       if (cmd === "") return
-      runProc.command = ["bash", "-c", cmd + " &"]
-      runProc.running = true
+      execProc.command = ["bash", "-c", cmd + " &"]
+      execProc.running = true
       root.closeRequested()
       return
     }
@@ -120,26 +131,27 @@ Item {
     if (mode === "window") {
       if (!sel) return
       var parts = sel.display.split("\t")
-      var addr  = parts.length > 1 ? parts[1].trim() : ""
+      var addr  = parts.length > 2 ? parts[2].trim() : ""
       if (addr === "") return
-      runProc.command = ["bash", "-c", "hyprctl dispatch focuswindow address:" + addr]
-      runProc.running = true
+      execProc.command = ["bash", "-c", "hyprctl dispatch focuswindow address:" + addr]
+      execProc.running = true
       root.closeRequested()
       return
     }
   }
 
-  readonly property var _sourceList: {
-    if (mode === "drun") return _allApps
-    return _dynamicList
-  }
+  // ── Listas ─────────────────────────────────────────────────────────────────
+  readonly property var _sourceList: mode === "drun" ? _allApps : _dynamicList
 
   readonly property var _displayList: {
     if (_query === "") return _sourceList
     var q = _query.toLowerCase()
     return _sourceList.filter(function(item) {
-      var label = mode === "drun" ? item.name : item.display
-      return label.toLowerCase().indexOf(q) !== -1
+      if (mode === "drun") {
+        return item.name.toLowerCase().indexOf(q) !== -1
+          || (item.comment && item.comment.toLowerCase().indexOf(q) !== -1)
+      }
+      return item.display.toLowerCase().indexOf(q) !== -1
     })
   }
 
@@ -148,14 +160,19 @@ Item {
     listView.positionViewAtIndex(0, ListView.Beginning)
   }
 
-  function _visibleLabel(item) {
+  function _label(item) {
     if (mode === "drun")   return item.name
-    if (mode === "window") return item.display.split("\t")[0]
+    if (mode === "window") return item.display.split("\t")[0] + "  →  " + (item.display.split("\t")[1] || "")
     return item.display
   }
 
+  function _sub(item) {
+    if (mode === "drun") return item.comment || ""
+    return ""
+  }
+
+  // ── Activate (chamado pelo DmenuPopup) ─────────────────────────────────────
   function activate() {
-    console.log("[Dmenu] activate(), mode:", mode)
     _query = ""
     inputField.text = ""
     _selectedIdx = 0
@@ -163,14 +180,15 @@ Item {
     Qt.callLater(function() { inputField.forceActiveFocus() })
   }
 
-  // activate() é chamado pelo DmenuPopup via onPanelOpenChanged
-
+  // ── Teclado ────────────────────────────────────────────────────────────────
   focus: true
   Keys.onPressed: function(ev) {
     if (ev.key === Qt.Key_Escape) {
       root.closeRequested(); ev.accepted = true
+
     } else if (ev.key === Qt.Key_Return || ev.key === Qt.Key_Enter) {
       _launch(); ev.accepted = true
+
     } else if (ev.key === Qt.Key_Down ||
                (ev.key === Qt.Key_N && (ev.modifiers & Qt.ControlModifier))) {
       if (_selectedIdx < _displayList.length - 1) {
@@ -178,6 +196,7 @@ Item {
         listView.positionViewAtIndex(_selectedIdx, ListView.Contain)
       }
       ev.accepted = true
+
     } else if (ev.key === Qt.Key_Up ||
                (ev.key === Qt.Key_P && (ev.modifiers & Qt.ControlModifier))) {
       if (_selectedIdx > 0) {
@@ -185,55 +204,75 @@ Item {
         listView.positionViewAtIndex(_selectedIdx, ListView.Contain)
       }
       ev.accepted = true
+
     } else if (ev.key === Qt.Key_Tab) {
       if (_displayList.length > 0) {
-        var label = _visibleLabel(_displayList[_selectedIdx])
-        inputField.text = label
-        _query = label
-        inputField.cursorPosition = label.length
+        var lbl = mode === "drun"
+          ? _displayList[_selectedIdx].name
+          : _displayList[_selectedIdx].display.split("\t")[0]
+        inputField.text = lbl
+        _query = lbl
+        inputField.cursorPosition = lbl.length
       }
       ev.accepted = true
     }
   }
 
+  // ── UI ─────────────────────────────────────────────────────────────────────
   ColumnLayout {
     anchors.fill:    parent
     anchors.margins: 10
-    spacing:         6
+    spacing:         8
 
+    // ── Searchbar ─────────────────────────────────────────────────────────
     Rectangle {
       Layout.fillWidth: true
-      height: 36; radius: 7
-      color:  Qt.rgba(root.colorInputBg.r, root.colorInputBg.g, root.colorInputBg.b, 0.85)
+      height: 42
+      radius: 10
+      color:  Qt.rgba(root.colorInputBg.r, root.colorInputBg.g, root.colorInputBg.b, 0.95)
+      border.width: 1
+      border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.12)
 
       RowLayout {
-        anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-        spacing: 8
+        anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
+        spacing: 10
 
+        // Ícone do modo
         Text {
-          text:  mode === "drun" ? "APPS" : mode === "run" ? "RUN" : "WIN"
-          color: root.colorAccent
-          font { family: "JetBrainsMono Nerd Font"; pixelSize: 10; bold: true }
+          text: mode === "drun" ? "󰀻" : mode === "run" ? "󰆍" : "󱂬"
+          color:   root.colorAccent
+          font   { family: "JetBrainsMono Nerd Font"; pixelSize: 16 }
           verticalAlignment: Text.AlignVCenter
         }
 
-        Rectangle { width: 1; height: 14; color: root.colorDivider }
+        // Divisor
+        Rectangle {
+          width: 1; height: 18
+          color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.4)
+        }
 
+        // Input
         TextInput {
           id:               inputField
           Layout.fillWidth: true
           color:            root.colorText
           selectionColor:   Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.3)
           selectedTextColor: root.colorText
-          font { family: "Fira Sans"; pixelSize: 12 }
+          font { family: "Fira Sans"; pixelSize: 13 }
           verticalAlignment: TextInput.AlignVCenter
           height: parent.height
 
           Text {
             anchors.fill: parent
-            text: mode === "run" ? "comando ou histórico..." : mode === "window" ? "pesquisar janela..." : "pesquisar app..."
-            color: root.colorTextDim; font: inputField.font
-            opacity: 0.4; verticalAlignment: Text.AlignVCenter
+            text: {
+              if (mode === "run")    return "comando ou pesquise no histórico..."
+              if (mode === "window") return "pesquisar janela..."
+              return "pesquisar aplicativo..."
+            }
+            color:   root.colorTextDim
+            font:    inputField.font
+            opacity: 0.35
+            verticalAlignment: Text.AlignVCenter
             visible: inputField.text === ""
           }
 
@@ -241,24 +280,60 @@ Item {
           Keys.forwardTo: [root]
         }
 
+        // Loading / contador
         Text {
           visible: root._loading
-          text: "..."
-          color: root.colorTextDim
-          font { pixelSize: 14 }
-          opacity: 0.5
+          text:    "󰑓"
+          color:   root.colorTextDim
+          font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
+          opacity: 0.6
+
+          RotationAnimator on rotation {
+            running: root._loading
+            from: 0; to: 360; duration: 900
+            loops: Animation.Infinite
+          }
         }
 
         Text {
           visible: !root._loading && _displayList.length > 0
-          text:    (_selectedIdx + 1) + "/" + _displayList.length
+          text:    (_selectedIdx + 1) + " / " + _displayList.length
           color:   root.colorTextDim
           font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 }
-          opacity: 0.45
+          opacity: 0.38
         }
       }
     }
 
+    // ── Label de seção ────────────────────────────────────────────────────
+    Item {
+      Layout.fillWidth: true
+      height: 14
+
+      Rectangle {
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left; anchors.right: sectionLabel.left
+        anchors.rightMargin: 8
+        height: 1
+        color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.18)
+      }
+
+      Text {
+        id: sectionLabel
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        text: {
+          if (mode === "drun")   return "APLICATIVOS"
+          if (mode === "run")    return "HISTÓRICO"
+          return "JANELAS"
+        }
+        color:   root.colorTextDim
+        font { family: "JetBrainsMono Nerd Font"; pixelSize: 8; letterSpacing: 1.5 }
+        opacity: 0.3
+      }
+    }
+
+    // ── Lista ──────────────────────────────────────────────────────────────
     ListView {
       id:               listView
       Layout.fillWidth: true
@@ -267,80 +342,163 @@ Item {
       model:            root._displayList
       currentIndex:     root._selectedIdx
       boundsBehavior:   Flickable.StopAtBounds
+      spacing:          1
 
       delegate: Item {
         id:     dlg
         width:  listView.width
-        height: 28
+        // altura maior quando tem subtítulo
+        readonly property string subText: root._sub(modelData)
+        height: (mode === "drun" && subText !== "") ? 46 : 32
 
         required property var modelData
         required property int index
 
-        readonly property bool   isSelected: index === root._selectedIdx
-        readonly property string label: root._visibleLabel(modelData)
+        readonly property bool isSelected: index === root._selectedIdx
 
+        // Fundo do item
         Rectangle {
-          anchors.fill: parent; radius: 5
+          anchors.fill: parent
+          radius: 7
           color: dlg.isSelected
-            ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.14)
+            ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.13)
             : "transparent"
-          Behavior on color { ColorAnimation { duration: 70 } }
+          Behavior on color { ColorAnimation { duration: 80 } }
 
+          // Barra lateral esquerda
           Rectangle {
-            width: 3; height: 16; radius: 2
+            width: 3; radius: 2
+            height: dlg.isSelected ? 22 : 0
             anchors { left: parent.left; leftMargin: 3; verticalCenter: parent.verticalCenter }
             color: root.colorAccent
-            opacity: dlg.isSelected ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 70 } }
+            Behavior on height { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
           }
 
-          Text {
+          RowLayout {
             anchors {
-              left: parent.left; leftMargin: dlg.isSelected ? 14 : 9
-              right: parent.right; rightMargin: 6
-              verticalCenter: parent.verticalCenter
+              fill:        parent
+              leftMargin:  dlg.isSelected ? 16 : 10
+              rightMargin: 10
+              topMargin:   2
+              bottomMargin: 2
             }
-            text:  dlg.label
-            color: dlg.isSelected ? root.colorAccent : root.colorText
-            elide: Text.ElideRight
-            font { family: "Fira Sans"; pixelSize: 12 }
-            Behavior on anchors.leftMargin { NumberAnimation { duration: 70 } }
-            Behavior on color              { ColorAnimation  { duration: 70 } }
+            spacing: 10
+
+            Behavior on anchors.leftMargin { NumberAnimation { duration: 80 } }
+
+            // Ícone (só no modo drun e se showIcons=true)
+            Item {
+              visible: root.showIcons && mode === "drun"
+              width:   visible ? 24 : 0
+              height:  24
+              Layout.alignment: Qt.AlignVCenter
+
+              IconImage {
+                anchors.centerIn: parent
+                source: {
+                  var ico = dlg.modelData.icon || ""
+                  if (ico === "") return ""
+                  if (ico.startsWith("/") || ico.startsWith("file://")) return ico
+                  return "image://icon/" + ico
+                }
+                width:  20; height: 20
+                smooth: true
+                // fallback invisível se ícone não carrega
+                opacity: status === Image.Ready ? 1.0 : 0.0
+              }
+
+              // Fallback: inicial do app
+              Text {
+                anchors.centerIn: parent
+                text: (dlg.modelData.name || "?").charAt(0).toUpperCase()
+                color:   root.colorAccent
+                font { family: "Fira Sans"; pixelSize: 13; bold: true }
+                opacity: 0.6
+                visible: {
+                  var ico = dlg.modelData.icon || ""
+                  return ico === ""
+                }
+              }
+            }
+
+            // Textos
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.alignment: Qt.AlignVCenter
+              spacing: 1
+
+              Text {
+                Layout.fillWidth: true
+                text:  root._label(dlg.modelData)
+                color: dlg.isSelected ? root.colorAccent : root.colorText
+                elide: Text.ElideRight
+                font { family: "Fira Sans"; pixelSize: 12 }
+                Behavior on color { ColorAnimation { duration: 80 } }
+              }
+
+              Text {
+                Layout.fillWidth: true
+                visible: dlg.subText !== ""
+                text:    dlg.subText
+                color:   root.colorTextDim
+                elide:   Text.ElideRight
+                font { family: "Fira Sans"; pixelSize: 10 }
+                opacity: 0.55
+              }
+            }
           }
         }
 
         MouseArea {
-          anchors.fill: parent; hoverEnabled: true
+          anchors.fill: parent
+          hoverEnabled: true
           onEntered:  root._selectedIdx = index
           onClicked:  { root._selectedIdx = index; root._launch() }
           cursorShape: Qt.PointingHandCursor
         }
       }
 
-      Text {
+      // ── Estados vazios ─────────────────────────────────────────────────
+      Item {
         anchors.centerIn: parent
-        visible: !root._loading && root._displayList.length === 0 && root._query !== ""
-        text: "nenhum resultado"
-        color: root.colorTextDim
-        font { family: "Fira Sans"; pixelSize: 11; italic: true }
-        opacity: 0.38
+        visible: root._displayList.length === 0 && !root._loading
+        width: listView.width
+        height: 60
+
+        ColumnLayout {
+          anchors.centerIn: parent
+          spacing: 6
+
+          Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: root._query !== "" ? "󰍉" : (mode === "window" ? "󱂬" : "󰋗")
+            color:   root.colorTextDim
+            font { family: "JetBrainsMono Nerd Font"; pixelSize: 22 }
+            opacity: 0.25
+          }
+
+          Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: {
+              if (root._query !== "") return "nenhum resultado para \"" + root._query + "\""
+              if (mode === "window")  return "nenhuma janela aberta"
+              if (mode === "run")     return "histórico vazio"
+              return "carregando..."
+            }
+            color:   root.colorTextDim
+            font { family: "Fira Sans"; pixelSize: 11; italic: true }
+            opacity: 0.35
+          }
+        }
       }
-      Text {
-        anchors.centerIn: parent
-        visible: !root._loading && root._displayList.length === 0
-                 && root._query === "" && mode !== "drun"
-        text: mode === "window" ? "nenhuma janela" : "histórico vazio"
-        color: root.colorTextDim
-        font { family: "Fira Sans"; pixelSize: 11; italic: true }
-        opacity: 0.38
-      }
+
       Text {
         anchors.centerIn: parent
         visible: root._loading
-        text: "carregando..."
-        color: root.colorTextDim
+        text:    "carregando..."
+        color:   root.colorTextDim
         font { family: "Fira Sans"; pixelSize: 11; italic: true }
-        opacity: 0.38
+        opacity: 0.35
       }
     }
   }

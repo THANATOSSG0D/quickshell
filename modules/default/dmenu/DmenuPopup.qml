@@ -5,10 +5,12 @@ import "../bar" as Bar
 Bar.BarPopup {
   id: popup
 
-  property string mode: "drun"
+  property string mode:      "drun"
+  property string launchCmd: "uwsm app -- {exec}"
+  property bool   showIcons: true
 
-  popupW: 300
-  popupH: 420
+  popupW: 320
+  popupH: 460
 
   property color colorText:    "#e2e2e2"
   property color colorTextDim: "#c6c6c6"
@@ -24,6 +26,8 @@ Bar.BarPopup {
     id:           content
     anchors.fill: parent
     mode:         popup.mode
+    launchCmd:    popup.launchCmd
+    showIcons:    popup.showIcons
     colorPanelBg: popup.colorPanelBg
     colorText:    popup.colorText
     colorTextDim: popup.colorTextDim
