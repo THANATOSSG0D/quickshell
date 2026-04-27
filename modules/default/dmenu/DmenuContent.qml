@@ -143,16 +143,42 @@ Item {
   // ── Listas ─────────────────────────────────────────────────────────────────
   readonly property var _sourceList: mode === "drun" ? _allApps : _dynamicList
 
+  // ── Busca com ranking de relevância ───────────────────────────────────────
+  // Prioridade (menor = melhor):
+  //   0 — correspondência exata do nome
+  //   1 — nome começa com a query
+  //   2 — palavra do nome começa com a query
+  //   3 — nome contém a query
+  //   4 — comment contém a query (só drun)
+  function _score(item, q) {
+    var name = (mode === "drun" ? item.name : item.display).toLowerCase()
+    if (name === q)              return 0
+    if (name.startsWith(q))     return 1
+    var words = name.split(/[\s\-_]+/)
+    for (var i = 1; i < words.length; i++)
+      if (words[i].startsWith(q)) return 2
+    if (name.indexOf(q) !== -1)  return 3
+    if (mode === "drun" && item.comment &&
+        item.comment.toLowerCase().indexOf(q) !== -1) return 4
+    return 99
+  }
+
   readonly property var _displayList: {
     if (_query === "") return _sourceList
     var q = _query.toLowerCase()
-    return _sourceList.filter(function(item) {
-      if (mode === "drun") {
-        return item.name.toLowerCase().indexOf(q) !== -1
-          || (item.comment && item.comment.toLowerCase().indexOf(q) !== -1)
-      }
-      return item.display.toLowerCase().indexOf(q) !== -1
+    var scored = []
+    for (var i = 0; i < _sourceList.length; i++) {
+      var s = _score(_sourceList[i], q)
+      if (s < 99) scored.push({ item: _sourceList[i], score: s })
+    }
+    scored.sort(function(a, b) {
+      if (a.score !== b.score) return a.score - b.score
+      // desempate alfabético
+      var na = mode === "drun" ? a.item.name : a.item.display
+      var nb = mode === "drun" ? b.item.name : b.item.display
+      return na.localeCompare(nb)
     })
+    return scored.map(function(s) { return s.item })
   }
 
   on_DisplayListChanged: {
