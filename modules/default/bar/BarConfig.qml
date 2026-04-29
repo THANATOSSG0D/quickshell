@@ -26,9 +26,10 @@ Item {
   visible: false
 
   // ── bar.* ──────────────────────────────────────────────────────────────
-  property string theme:     "Pill"
-  property bool   autoHide:  true
-  property int    position:  -2
+  property string theme:       "Pill"
+  property bool   autoHide:    true
+  property bool   silenceMode: false   // persiste no Bar.json
+  property int    position:    -2
   property int    barSize:   0    // 0 = usa padrão do tema
   property int    barMargin: -1   // -1 = usa padrão do tema
   property int    pillWidth: 800
@@ -239,6 +240,7 @@ Item {
         console.log("[BarConfig] onBarChanged:", JSON.stringify(b))
         if (b.theme     !== undefined) { root.theme     = b.theme; applyTheme(b.theme) }
         if (b.autoHide  !== undefined)   root.autoHide  = b.autoHide
+        if (b.silence   !== undefined)   root.silenceMode = b.silence
         if (b.position  !== undefined)   root.position  = b.position
         if (b.barSize   !== undefined)   root.barSize   = b.barSize
         if (b.barMargin !== undefined)   root.barMargin = b.barMargin
@@ -428,6 +430,7 @@ Item {
     adapter.bar = {
       theme:     root.theme,
       autoHide:  root.autoHide,
+      silence:   root.silenceMode,
       position:  root.position,
       barSize:   root.barSize,
       barMargin: root.barMargin,
@@ -436,9 +439,10 @@ Item {
     file.writeAdapter()
     root._parsing = false
   }
-  onThemeChanged:     _syncBarToAdapter()
-  onAutoHideChanged:  _syncBarToAdapter()
-  onPositionChanged:  _syncBarToAdapter()
+  onThemeChanged:       _syncBarToAdapter()
+  onAutoHideChanged:    _syncBarToAdapter()
+  onSilenceModeChanged: _syncBarToAdapter()
+  onPositionChanged:    _syncBarToAdapter()
   onBarSizeChanged:   _syncBarToAdapter()
   onBarMarginChanged: _syncBarToAdapter()
   onPillWidthChanged: _syncBarToAdapter()
@@ -489,6 +493,7 @@ Item {
     // bar.*
     if (opts.theme     !== undefined) root.theme     = opts.theme
     if (opts.autoHide  !== undefined) root.autoHide  = opts.autoHide
+    if (opts.silence   !== undefined) root.silenceMode = opts.silence
     if (opts.position  !== undefined) root.position  = opts.position
     if (opts.barSize   !== undefined) root.barSize   = opts.barSize
     if (opts.barMargin !== undefined) root.barMargin = opts.barMargin
@@ -514,6 +519,7 @@ Item {
     adapter.bar = {
       theme:     root.theme,
       autoHide:  root.autoHide,
+      silence:   root.silenceMode,
       position:  root.position,
       barSize:   root.barSize,
       barMargin: root.barMargin,

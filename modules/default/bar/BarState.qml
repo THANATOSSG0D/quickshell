@@ -13,6 +13,7 @@ QtObject {
   property int cursorY: 0
 
   property bool   autoHide:     true
+  property bool   silenceMode:  false   // suprime OSD, toasts e autohide fullscreen
   property string currentTheme: "Pill"
   property int    position:     2
 
@@ -64,13 +65,15 @@ QtObject {
     target: barConfig
     function onThemeChanged()    { state.currentTheme = barConfig.theme    }
     function onAutoHideChanged() { state.autoHide     = barConfig.autoHide }
+    function onSilenceModeChanged() { state.silenceMode = barConfig.silenceMode }
     function onPositionChanged() { state.position     = barConfig.position }
     function onModulesUpdated()  { state.modulesUpdated()                  }
   }
 
-  onCurrentThemeChanged: barConfig.theme    = currentTheme
-  onAutoHideChanged:     barConfig.autoHide = autoHide
-  onPositionChanged:     barConfig.position = position
+  onCurrentThemeChanged: barConfig.theme       = currentTheme
+  onAutoHideChanged:     barConfig.autoHide    = autoHide
+  onSilenceModeChanged:  barConfig.silenceMode = silenceMode
+  onPositionChanged:     barConfig.position    = position
 
   property var _proc: Process {
     id: cursorProc
@@ -127,5 +130,11 @@ QtObject {
     name:        "openBarEditor"
     description: "Abrir editor visual da barra"
     onPressed:   state.editorRequested()
+  }
+
+  property var _silenceShortcut: GlobalShortcut {
+    name:        "toggleSilence"
+    description: "Ativar/desativar modo Silence (sem OSD, sem toasts, sem autohide fullscreen)"
+    onPressed:   state.silenceMode = !state.silenceMode
   }
 }

@@ -66,7 +66,7 @@ PanelWindow {
     implicitHeight: Math.min(Math.round(screen.height * 0.4),
                              toastList.contentHeight + 2)
 
-    visible: service.toasts.count > 0
+    visible: service.toasts.count > 0 && !service.silenceMode
 
     // ── Lista de toasts via ListView (suporta verticalLayoutDirection) ─────
     ListView {

@@ -20,6 +20,9 @@ Scope {
 
   readonly property alias osdService: osdService
 
+  // silenceMode — bindado pelo shell.qml: osd.silenceMode: bar.silenceMode
+  property bool silenceMode: false
+
   PwObjectTracker {
     objects: [ Pipewire.defaultAudioSink, Pipewire.defaultAudioSource ]
   }
@@ -140,6 +143,9 @@ Scope {
       Connections {
         target: osdService
         function onShowRequested(data) {
+          // silenceMode suprime todo OSD
+          if (osdRoot.silenceMode) return
+
           osdWin.osdType    = data.type  || "volume"
           osdWin.osdIcon    = data.icon  || ""
           osdWin.osdLabel   = data.label || ""

@@ -34,6 +34,10 @@ Scope {
     property bool doNotDisturb:    false
     property bool dndAllowCritical: true    // crítico sempre aparece mesmo com DND ativo
 
+    // ── Modo Silence ───────────────────────────────────────────────────────
+    // Bindado pelo shell.qml. Suprime TODOS os toasts (incluindo críticos).
+    property bool silenceMode: false
+
     // ── Models expostos ────────────────────────────────────────────────────
     // `notifications` — histórico completo (painel de notificações)
     // `toasts`        — notificações ativamente visíveis como toasts
@@ -123,8 +127,9 @@ Scope {
         var urgency    = notif.urgency ?? 1
         var isCritical = urgency >= 2
 
-        // DND: bloquear toasts de não-críticos
-        var showToast = !root.doNotDisturb || (root.dndAllowCritical && isCritical)
+        // Silence suprime tudo; DND suprime não-críticos
+        var showToast = !root.silenceMode &&
+                        (!root.doNotDisturb || (root.dndAllowCritical && isCritical))
 
         // Timeout baseado na urgência
         var timeout = isCritical          ? root.toastTimeoutCrit

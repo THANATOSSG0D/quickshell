@@ -32,6 +32,9 @@ Scope {
   property var osdService: null
   property var notifService: null
 
+  // silenceMode — lido pelo shell.qml para propagar ao osd e notifService
+  readonly property bool silenceMode: barState.silenceMode
+
   // Referência ao ClockContent (dentro do clockPopup) — exposta para que
   // shell.qml possa injetar em osd.clockContent e conectar timerElapsed.
   property var clockContentRef: null
@@ -116,6 +119,9 @@ Scope {
     function disableFullscreenPeek() { barState.fullscreenPeekEnabled = false }
     function enableFullscreenPeek()  { barState.fullscreenPeekEnabled = true  }
     function toggleFullscreenPeek()  { barState.fullscreenPeekEnabled = !barState.fullscreenPeekEnabled }
+    function silenceOn()     { barState.silenceMode = true  }
+    function silenceOff()    { barState.silenceMode = false }
+    function silenceToggle() { barState.silenceMode = !barState.silenceMode }
   }
 
   // ── IPC do dmenu ─────────────────────────────────────────────────────────
@@ -575,6 +581,7 @@ Scope {
         }
         // onModulesUpdated — os Bindings declarativos cuidam da propagação.
         function onModulesUpdated() {}
+        function onSilenceModeChanged() {} // propagação feita pelo shell.qml
       }
 
       Connections {
@@ -817,7 +824,8 @@ Scope {
 
       property bool effectiveAutoHide: {
         if (barState.autoHide) return true
-        if (barState.fullscreenPeekEnabled && isFullscreen) return true
+        // silenceMode suprime o peek de fullscreen — barra fica escondida durante fullscreen
+        if (!barState.silenceMode && barState.fullscreenPeekEnabled && isFullscreen) return true
         return false
       }
 

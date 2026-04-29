@@ -62,6 +62,7 @@ PopupWindow {
   property var  slotBottom: []
 
   property bool   localAutoHide:  false
+  property bool   localSilence:   false
   property int    localPosition:  4
   property int    localPillWidth: 800
   property int    localBarSize:   30
@@ -93,6 +94,7 @@ PopupWindow {
     slotMiddle = (config.modulesMiddle || []).slice()
     slotBottom = (config.modulesBottom || []).slice()
     localAutoHide  = config.autoHide  || false
+    localSilence   = config.silenceMode || false
     localPosition  = config.position  || 4
     localPillWidth = config.pillWidth || 800
     localBarSize   = config.barSize   || 30
@@ -129,6 +131,7 @@ PopupWindow {
       modulesMiddle:    saveMiddle.slice(),
       modulesBottom:    saveBottom.slice(),
       autoHide:         localAutoHide,
+      silence:          localSilence,
       position:         localPosition,
       pillWidth:        localPillWidth,
       barSize:          localBarSize,
@@ -326,6 +329,7 @@ PopupWindow {
         Repeater {
           model: [
             { label: "Auto-ocultar",          prop: "localAutoHide" },
+            { label: "Silence (sem OSD/toasts)", prop: "localSilence"   },
             { label: "Botao + workspaces",     prop: "localWsAddBtn" },
             { label: "Icones monocromaticos",  prop: "localWsMono"   },
           ]

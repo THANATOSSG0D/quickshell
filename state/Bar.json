@@ -5,6 +5,7 @@
         "barSize": 30,
         "pillWidth": 800,
         "position": 4,
+        "silence": true,
         "theme": "Pill"
     },
     "mediaPlayer": {

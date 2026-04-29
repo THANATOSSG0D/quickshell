@@ -11,10 +11,12 @@ Scope {
 
   OsdModule.Osd {
     id: osd
+    silenceMode: bar.silenceMode
   }
 
   NotifModule.NotificationService {
     id: notifService
+    silenceMode: bar.silenceMode
   }
 
   Variants {
