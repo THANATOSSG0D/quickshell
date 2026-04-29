@@ -18,6 +18,9 @@ Item {
   property color iconMonoColorActive: "red"
   property int   iconSpacing:         3
 
+  // espaçamento entre workspaces no GridLayout
+  property int wsSpacing: 2
+
   // fundo global (container de todos os workspaces)
   property color bgColor:       "transparent"
   property real  bgOpacity:     0.0
@@ -63,19 +66,6 @@ Item {
   }
 
   // ── Wrapper por workspace ─────────────────────────────────────────────
-  //
-  // Cada workspace é envolvida por um Item que:
-  //  • renderiza o fundo da workspace ativa (pill destacado)
-  //  • dimensiona-se ao delegate + padding conforme estado ativo/inativo
-  //  • carrega o delegate correto via Loader
-  //
-  // IMPORTANTE — modelData e required:
-  //  O Repeater instancia o wsWrapper Component e seta 'required property var modelData'
-  //  automaticamente via contexto. O Loader dentro do wrapper instancia o delegate
-  //  (Dot/Number/Hybrid/Icons) e injeta modelData + cores no onLoaded, pois o contexto
-  //  do Repeater não é propagado automaticamente pelo Loader.
-  //  Os delegates têm 'property var modelData: null' (sem required) para permitir
-  //  esse assignment pós-criação.
   Component {
     id: wsWrapper
 
@@ -85,14 +75,9 @@ Item {
 
       readonly property bool isActive: modelData.active
 
-      // pH/pV: padding extra quando ativa (animado via Behavior abaixo)
       readonly property real pH: isActive ? root.bgPaddingHActive : 0
       readonly property real pV: isActive ? root.bgPaddingVActive : 0
 
-      // Dimensões reativas ao delegate E ao estado ativo.
-      // Usa delegateLoader.item diretamente (prop do Loader com notify)
-      // para que mudanças em implicitWidth do delegate (ex: Icons add/remove)
-      // disparem reavaliação.
       implicitWidth: {
         var dw = delegateLoader.item ? delegateLoader.item.implicitWidth  : 0
         return isHorizontal ? dw + pH * 2 : dw
@@ -131,36 +116,35 @@ Item {
         // ── modelData (todos) ────────────────────────────────────────────
         Binding { target: delegateLoader.item; property: "modelData"; value: wrapper.modelData; when: delegateLoader.item !== null }
 
-        // ── cores Dot / Number / Hybrid (não existem em Icons) ───────────
+        // ── cores Dot / Number / Hybrid ─────────────────────────────────
         Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && root.style !== "icons" }
         Binding { target: delegateLoader.item; property: "dotActiveColor";   value: root.dotActiveColor;   when: delegateLoader.item !== null && root.style !== "icons" }
         Binding { target: delegateLoader.item; property: "dotOccupiedColor"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && root.style !== "icons" }
         Binding { target: delegateLoader.item; property: "dotUrgentColor";   value: root.dotUrgentColor;   when: delegateLoader.item !== null && root.style !== "icons" }
 
-        // ── props Icons (só existem em Icons) ────────────────────────────
-        Binding { target: delegateLoader.item; property: "sortOrder";       value: root.iconsSort;          when: delegateLoader.item !== null && root.style === "icons" }
-        Binding { target: delegateLoader.item; property: "isHorizontal";    value: root.isHorizontal;       when: delegateLoader.item !== null && root.style === "icons" }
-        Binding { target: delegateLoader.item; property: "monochrome";      value: root.iconMonochrome;     when: delegateLoader.item !== null && root.style === "icons" }
-        Binding { target: delegateLoader.item; property: "monoColor";       value: root.iconMonoColor;      when: delegateLoader.item !== null && root.style === "icons" }
+        // ── orientação (Dot) ─────────────────────────────────────────────
+        Binding { target: delegateLoader.item; property: "isHorizontal"; value: root.isHorizontal; when: delegateLoader.item !== null && (root.style === "dots" || root.style === "hybrid") }
+
+        // ── props Icons ─────────────────────────────────────────────────
+        Binding { target: delegateLoader.item; property: "sortOrder";       value: root.iconsSort;           when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "isHorizontal";    value: root.isHorizontal;        when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "monochrome";      value: root.iconMonochrome;      when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "monoColor";       value: root.iconMonoColor;       when: delegateLoader.item !== null && root.style === "icons" }
         Binding { target: delegateLoader.item; property: "monoColorActive"; value: root.iconMonoColorActive; when: delegateLoader.item !== null && root.style === "icons" }
-        Binding { target: delegateLoader.item; property: "iconSpacing";     value: root.iconSpacing;        when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "iconSpacing";     value: root.iconSpacing;         when: delegateLoader.item !== null && root.style === "icons" }
       }
 
-      // Anima a transição de tamanho ativo ↔ inativo
       Behavior on implicitWidth  { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
       Behavior on implicitHeight { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
     }
   }
 
-  // ── Componentes de delegate ───────────────────────────────────────────
-  // Props de cor são setadas no onLoaded do Loader acima.
-  // Os Components abaixo são instanciados sem props (o Loader injeta tudo).
   Component { id: dotComp;    Comp.Dot    {} }
   Component { id: numberComp; Comp.Number {} }
   Component { id: hybridComp; Comp.Hybrid {} }
   Component { id: iconsComp;  Comp.Icons  {} }
 
-  // ── Fundo global (agrupa todos os workspaces) ─────────────────────────
+  // ── Fundo global ─────────────────────────────────────────────────────
   Rectangle {
     id: bg
     anchors.centerIn: parent
@@ -171,38 +155,55 @@ Item {
     border.color: root.bgBorderColor
     border.width: root.bgBorderWidth
 
+    Behavior on color        { ColorAnimation { duration: 150 } }
+    Behavior on border.color { ColorAnimation { duration: 150 } }
+
     GridLayout {
       id: layout
       anchors.centerIn: parent
       columns:       root.isHorizontal ? -1 : 1
       rows:          root.isHorizontal ? 1  : -1
-      columnSpacing: root.isHorizontal ? root.iconSpacing : 0
-      rowSpacing:    root.isHorizontal ? 0 : root.iconSpacing
+      // Separa workspace-spacing de icon-spacing para não confundir os dois conceitos
+      columnSpacing: root.isHorizontal ? root.wsSpacing : 0
+      rowSpacing:    root.isHorizontal ? 0 : root.wsSpacing
 
       Repeater {
         model: root.workspaces
         delegate: wsWrapper
       }
 
-      // Botão "+"
+      // ── Botão "+" ───────────────────────────────────────────────────
       Rectangle {
         visible:      root.showAddButton
-        width:        24
-        height:       24
-        radius:       width / 2
-        color:        "transparent"
-        border.color: Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, 0.4)
+        implicitWidth:  isAddHovered ? 26 : 22
+        implicitHeight: isAddHovered ? 26 : 22
+        radius:         width / 2
+        color:          isAddHovered
+          ? Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, 0.12)
+          : "transparent"
+        border.color: Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, isAddHovered ? 0.55 : 0.30)
         border.width: 1
+
+        property bool isAddHovered: false
+
+        Behavior on implicitWidth  { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+        Behavior on implicitHeight { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+        Behavior on color          { ColorAnimation  { duration: 120 } }
+        Behavior on border.color   { ColorAnimation  { duration: 120 } }
 
         Text {
           anchors.centerIn: parent
           text:           "+"
-          color:          Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, 0.4)
-          font.pixelSize: 14
+          font.pixelSize: 13
+          color:          Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, parent.isAddHovered ? 0.80 : 0.40)
+          Behavior on color { ColorAnimation { duration: 120 } }
         }
 
         MouseArea {
           anchors.fill: parent
+          hoverEnabled: true
+          onEntered:    parent.isAddHovered = true
+          onExited:     parent.isAddHovered = false
           onClicked:    Hyprland.dispatch("workspace emptynm")
         }
       }

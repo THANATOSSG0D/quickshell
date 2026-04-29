@@ -18,10 +18,7 @@ Item {
   property real  monoOpacity:     0.95
   property int   iconSpacing:     3
   property string sortOrder:      "position"
-
-  // Ícone de fallback quando nenhum path funciona.
-  // Use um nome de ícone do tema (ex: "application-x-executable") ou path absoluto.
-  property string fallbackIcon: ""   // vazio = sem fallback visível; defina ex: "application-x-executable" se tiver no seu tema
+  property string fallbackIcon:   ""
 
   implicitWidth:  isHorizontal ? layout.implicitWidth  : iconSize + 4
   implicitHeight: isHorizontal ? iconSize + 4          : layout.implicitHeight
@@ -65,22 +62,19 @@ Item {
         Layout.preferredWidth:  root.iconSize
         Layout.preferredHeight: root.iconSize
 
-        // ── Lookup do DesktopEntry ───────────────────────────────────────────
+        // ── Lookup do DesktopEntry ─────────────────────────────────────────
         property var entry: {
           var _loaded = DesktopEntries.applications.values.length
           if (_loaded === 0) return null
           if (!modelData.wayland) return null
           var appId = modelData.wayland.appId
 
-          // 1) Lookup exato
           var result = DesktopEntries.byId(appId)
                     || DesktopEntries.byId(appId.toLowerCase())
                     || null
 
-          // 2) heuristicLookup nativo
           if (!result) result = DesktopEntries.heuristicLookup(appId) || null
 
-          // 3) Fallback para webapps Vivaldi/Chrome/Brave
           if (!result) {
             var ignoreParts = ["www", "com", "org", "net", "io", "app", "web",
                                "default", "stable", "beta", "dev", "nightly"]
@@ -97,10 +91,6 @@ Item {
                             .replace(/[0-9a-f]{8,}/gi, "")
                             .toLowerCase()
 
-            // Extrai candidatos do domínio:
-            //   "claude.ai"            → ["claude", "Claude"]
-            //   "translatesubtitles.co" → ["translatesubtitles", "Translatesubtitles"]
-            //   "www.youtube.com"       → ["youtube", "Youtube"]
             var hostCandidates = []
             var domainParts = cleaned.split(".")
             for (var d = 0; d < domainParts.length; d++) {
@@ -111,15 +101,11 @@ Item {
               }
             }
 
-            // Tenta byId com candidatos exatos
             for (var c = 0; c < hostCandidates.length; c++) {
               result = DesktopEntries.byId(hostCandidates[c]) || null
               if (result) break
             }
 
-            // Fallback: iteração por name/id com match parcial
-            // Também testa o name completo reconstruído com espaços
-            // ex: "translatesubtitles" bate em entry.name "Translate Subtitle"
             if (!result) {
               var parts = cleaned
                             .replace(/\./g, " ")
@@ -130,22 +116,16 @@ Item {
 
               for (var i = 0; i < DesktopEntries.applications.values.length; i++) {
                 var app = DesktopEntries.applications.values[i]
-                // Remove espaços do name para comparar: "Translate Subtitle" → "translatesubtitle"
                 var appName        = (app.name || "").toLowerCase().replace(/\s+/g, "")
                 var appNameSpaced  = (app.name || "").toLowerCase()
                 var appIdLower     = (app.id   || "").toLowerCase().replace(/\s+/g, "")
 
                 for (var j = 0; j < parts.length; j++) {
                   var p = parts[j]
-                  // match: parte do appId está contida no name sem espaços
-                  // ex: "translatesubtitles" contém "translatesubtitle"? não...
-                  // mas "translatesubtitle" contém "translate"? sim
                   if (appName.includes(p) || appNameSpaced.includes(p) || appIdLower.includes(p)) {
                     result = app
                     break
                   }
-                  // match inverso: name sem espaço está contido na parte longa do appId
-                  // ex: appName="translatesubtitle", p="translatesubtitles" → p.includes(appName)
                   if (p.length >= 6 && (p.includes(appName) || appName.includes(p.slice(0, -1)))) {
                     result = app
                     break
@@ -159,7 +139,6 @@ Item {
           return result
         }
 
-        // ── Nome/path do ícone ───────────────────────────────────────────────
         property string iconName: {
           if (!entry) return ""
           var icon = entry.icon || ""
@@ -168,21 +147,15 @@ Item {
           return icon.replace(/-launcher$/, "").replace(/-client$/, "")
         }
 
-        // ── Converte path para URI file:// com espaços escapados ─────────────
         function toFileUri(path) {
           if (!path) return ""
-          // Escapa apenas os espaços no path (caso mais comum); outros chars raramente
-          // aparecem em paths de ícone mas encodeURIComponent quebraria as barras
           return "file://" + path.split("/").map(function(seg) {
             return seg.replace(/ /g, "%20")
           }).join("/")
         }
 
-        // ── Caminhos candidatos em ordem de prioridade ───────────────────────
         readonly property var iconPaths: {
           if (!iconName) return []
-
-          // Path absoluto (webapps com Icon=/home/...): usa direto com URI encoding
           if (iconName.startsWith("/")) return [toFileUri(iconName)]
 
           var home = root.homeDir
@@ -208,8 +181,8 @@ Item {
           ]
         }
 
-        property int  attempt:    0
-        property bool exhausted:  false  // true quando todos os paths falharam
+        property int  attempt:   0
+        property bool exhausted: false
 
         readonly property string currentSource: {
           if (exhausted) return ""
@@ -222,14 +195,17 @@ Item {
           appItem.exhausted = false
         }
 
-        // ── Imagem colorida ──────────────────────────────────────────────────
+        // ── Ícone colorido ───────────────────────────────────────────────
         Image {
           id: iconImg
           anchors.fill: parent
           fillMode: Image.PreserveAspectFit
           visible:  !root.monochrome
-          opacity:  modelData.activated ? 1.0 : 0.6
+          // Ativo = opacidade total; inativo = 55% (mais sutil que o original 0.6)
+          opacity:  modelData.activated ? 1.0 : 0.55
           source:   appItem.currentSource
+
+          Behavior on opacity { NumberAnimation { duration: 150 } }
 
           onStatusChanged: {
             if (status === Image.Error) {
@@ -242,18 +218,16 @@ Item {
           }
         }
 
-        // ── Fallback: ícone genérico quando todos os paths falharam ──────────
+        // ── Fallback genérico ────────────────────────────────────────────
         Image {
           id: fallbackImg
           anchors.fill: parent
           fillMode: Image.PreserveAspectFit
           visible:  !root.monochrome && appItem.exhausted && fallbackAttempt < fallbackPaths.length
-          opacity:  modelData.activated ? 1.0 : 0.6
+          opacity:  modelData.activated ? 1.0 : 0.55
 
           property int fallbackAttempt: 0
 
-          // Lista de caminhos candidatos para o ícone de fallback.
-          // source.toString() converte QUrl → string para poder chamar .includes().
           readonly property var fallbackPaths: {
             var fb = root.fallbackIcon
             if (!fb) return []
@@ -278,20 +252,21 @@ Item {
               if (fallbackAttempt < fallbackPaths.length - 1)
                 fallbackAttempt++
               else
-                fallbackAttempt = fallbackPaths.length  // marca esgotado → visible = false
+                fallbackAttempt = fallbackPaths.length
             }
           }
 
-          // reseta ao trocar o ícone de fallback
           onFallbackPathsChanged: fallbackAttempt = 0
         }
 
-        // ── Imagem monocromática ─────────────────────────────────────────────
+        // ── Ícone monocromático ──────────────────────────────────────────
         Item {
           id: monoContainer
           anchors.fill: parent
           visible:  root.monochrome
-          opacity:  modelData.activated ? root.monoOpacity : root.monoOpacity * 0.5
+          opacity:  modelData.activated ? root.monoOpacity : root.monoOpacity * 0.45
+
+          Behavior on opacity { NumberAnimation { duration: 150 } }
 
           Image {
             id: iconImgMono
@@ -312,22 +287,27 @@ Item {
               ? root.monoColorActive.hslHue
               : root.monoColor.hslHue
             saturation: modelData.activated
-              ? root.monoColorActive.hslSaturation * 0.5
-              : root.monoColor.hslSaturation * 0.5
+              ? root.monoColorActive.hslSaturation * 0.55
+              : root.monoColor.hslSaturation * 0.55
             lightness: 0.0
           }
         }
 
-        // ── Indicador de janela ativa ────────────────────────────────────────
+        // ── Indicador de janela ativa ────────────────────────────────────
+        // Usa monoColorActive quando monocromo, senão branco — corrige hardcode original
         Rectangle {
           anchors.bottom:           root.isHorizontal ? parent.bottom : undefined
           anchors.right:            root.isHorizontal ? undefined     : parent.right
           anchors.horizontalCenter: root.isHorizontal ? parent.horizontalCenter : undefined
           anchors.verticalCenter:   root.isHorizontal ? undefined     : parent.verticalCenter
-          width:  root.isHorizontal ? 4 : 3
-          height: root.isHorizontal ? 3 : 4
-          radius: 2
-          color:  modelData.activated ? "white" : "transparent"
+          width:   root.isHorizontal ? 4 : 3
+          height:  root.isHorizontal ? 3 : 4
+          radius:  2
+          visible: modelData.activated
+          color:   root.monochrome ? root.monoColorActive : "white"
+          opacity: modelData.activated ? 0.85 : 0.0
+
+          Behavior on opacity { NumberAnimation { duration: 150 } }
         }
 
         MouseArea {
