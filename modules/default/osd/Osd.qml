@@ -20,11 +20,26 @@ Scope {
 
   readonly property alias osdService: osdService
 
-  // silenceMode — bindado pelo shell.qml: osd.silenceMode: bar.silenceMode
+  // ── Silence mode ────────────────────────────────────────────────────────
+  // Injetado pelo shell.qml: osd.silenceMode: bar.silenceMode
   property bool silenceMode: false
+  onSilenceModeChanged: {
+    if (silenceMode) {
+      console.log("[Silence] OSD: ativado — PwObjectTracker esvaziado, showRequested bloqueado")
+      // Fecha qualquer OSD visível imediatamente
+      // (propagado via silenceMode binding nos PanelWindows)
+    } else {
+      console.log("[Silence] OSD: desativado — PwObjectTracker restaurado")
+    }
+  }
 
   PwObjectTracker {
-    objects: [ Pipewire.defaultAudioSink, Pipewire.defaultAudioSource ]
+    // Em silence esvaziamos a lista — para de rastrear PipeWire sem usar "active"
+    objects: osdRoot.silenceMode
+      ? []
+      : [ Pipewire.defaultAudioSink, Pipewire.defaultAudioSource ]
+    onObjectsChanged: console.log("[Silence] PwObjectTracker objects:", objects.length,
+                                  osdRoot.silenceMode ? "(silence ativo)" : "(normal)")
   }
 
   OsdService { id: osdService }
@@ -103,11 +118,15 @@ Scope {
       readonly property int pillW: osdContent.implicitWidth
       readonly property int pillH: osdContent.implicitHeight
 
+      // Em silence: torna a window invisível para o compositor não a processar
+      visible: !osdRoot.silenceMode && (osdWin.osdVisible || fadeItem.opacity > 0)
+
       // Centralizado horizontalmente; verticalmente a 72% do topo
-      margins.left:   Math.round((screen.width  - pillW) / 2)
-      margins.right:  Math.round((screen.width  - pillW) / 2)
-      margins.top:    Math.round((screen.height - pillH) * 0.72)
-      margins.bottom: Math.round((screen.height - pillH) * 0.28)
+      // Usa Math.max(..., 0) para evitar margens negativas em telas pequenas
+      margins.left:   Math.max(0, Math.round((screen.width  - pillW) / 2))
+      margins.right:  Math.max(0, Math.round((screen.width  - pillW) / 2))
+      margins.top:    Math.max(0, Math.round((screen.height - pillH) * 0.72))
+      margins.bottom: Math.max(0, Math.round((screen.height - pillH) * 0.28))
 
       implicitWidth:  pillW
       implicitHeight: pillH
@@ -143,8 +162,11 @@ Scope {
       Connections {
         target: osdService
         function onShowRequested(data) {
-          // silenceMode suprime todo OSD
-          if (osdRoot.silenceMode) return
+          // Silence suprime todo OSD
+          if (osdRoot.silenceMode) {
+            console.log("[Silence] OSD: showRequested bloqueado (tipo:", data.type || "volume", ")")
+            return
+          }
 
           osdWin.osdType    = data.type  || "volume"
           osdWin.osdIcon    = data.icon  || ""
@@ -178,6 +200,7 @@ Scope {
 
       // Fade
       Item {
+        id: fadeItem
         anchors.fill: parent
         opacity: osdWin.osdVisible ? 1.0 : 0.0
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }

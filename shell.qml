@@ -33,5 +33,13 @@ Scope {
     id: bar
     osdService:   osd.osdService
     notifService: notifService
+
+    // ── Log central do Silence ─────────────────────────────────────────
+    onSilenceModeChanged: {
+      if (silenceMode)
+        console.log("[Silence] *** ATIVADO *** — OSD, toasts e fullscreen-peek suprimidos")
+      else
+        console.log("[Silence] *** DESATIVADO *** — comportamento normal restaurado")
+    }
   }
 }

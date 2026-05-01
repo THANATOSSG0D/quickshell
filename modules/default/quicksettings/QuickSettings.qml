@@ -19,15 +19,20 @@ Item {
     implicitHeight: isHorizontal ? row.implicitHeight + 4  : row.implicitHeight + 10
 
     // ── Estado de rede ─────────────────────────────────────────────────────
-    // CORRIGIDO: lê stdout em onRunningChanged, não como binding reativo
     property bool hasNetwork: false
 
     Process {
         id: netCheckProc
         command: [ "bash", "-c", "nmcli networking 2>/dev/null" ]
+        property string _buf: ""
+        stdout: SplitParser {
+            onRead: (line) => netCheckProc._buf += line + "\n"
+        }
         onRunningChanged: {
-            if (!running)
-                root.hasNetwork = (netCheckProc.stdout || "").trim() === "enabled"
+            if (!running) {
+                root.hasNetwork = netCheckProc._buf.trim() === "enabled"
+                netCheckProc._buf = ""
+            }
         }
     }
 

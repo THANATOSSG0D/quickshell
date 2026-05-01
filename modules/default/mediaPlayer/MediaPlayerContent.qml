@@ -20,6 +20,9 @@ Item {
   property color colorProgressFg: "#ffb4a9"
   property color colorAccent:     "#ffb4a9"
 
+  // Injetado pelo MediaPlayerPopup — pausa o timer quando fechado
+  property bool panelOpen: false
+
   // ── Sinal para o host fechar a janela ─────────────────────────────────
   signal closeRequested()
 
@@ -37,11 +40,11 @@ Item {
     return c
   }
 
-  // Timer para atualizar position (MPRIS não notifica em tempo real)
+  // Timer para atualizar position — só roda com painel aberto e tocando
   Timer {
     interval: 500
     repeat:   true
-    running:  root.visible && root.activePlayer !== null &&
+    running:  root.panelOpen && root.activePlayer !== null &&
               root.activePlayer.playbackState === MprisPlaybackState.Playing
     onTriggered: if (root.activePlayer) root.activePlayer.positionChanged()
   }

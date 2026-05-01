@@ -43,9 +43,11 @@ Item {
   }
 
   // ── Tick ──────────────────────────────────────────────────────────────
+  // Só roda quando o widget está visível ou o timer está ativo
   property bool _tick: false
   Timer {
-    interval: 1000; repeat: true; running: true
+    interval: 1000; repeat: true
+    running: root.visible || root.timerActive
     onTriggered: root._tick = !root._tick
   }
 

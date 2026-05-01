@@ -257,9 +257,8 @@ Item {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Volume Pipewire
-    // ═══════════════════════════════════════════════════════════════════════
-    PwObjectTracker { objects: [ Pipewire.defaultAudioSink ] }
+    // Volume Pipewire — sem PwObjectTracker duplicado
+    // O tracker global já existe em Osd.qml. Aqui só lemos os valores.
     readonly property var  sink:  Pipewire.defaultAudioSink
     readonly property real vol:   sink && sink.audio ? sink.audio.volume : 0
     readonly property bool muted: sink && sink.audio ? sink.audio.muted  : false

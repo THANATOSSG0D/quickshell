@@ -24,6 +24,7 @@ Bar.BarPopup {
   MediaPlayerContent {
     anchors.fill:    parent
     barMediaPlayer:  popup.barMediaPlayer
+    panelOpen:       popup.panelOpen
     colorPanelBg:    popup.colorPanelBg
     colorText:       popup.colorText
     colorTextDim:    popup.colorTextDim
