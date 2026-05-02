@@ -17,6 +17,9 @@ Item {
     property color colorTextDim: "#c6c6c6"
     property color colorMuted:   "#cf6679"
 
+    // Injetado pelo QuickSettingsContent
+    property bool btEnabled: true
+
     // ── Estado ─────────────────────────────────────────────────────────────
     property var  pairedList:    []
     property var  connectedMacs: ({})   // { "AA:BB:...": true }
@@ -103,12 +106,13 @@ Item {
 
     // ── Funções públicas ───────────────────────────────────────────────────
     function refresh() {
+        if (!root.btEnabled) return
         if (!pairedProc.running)    pairedProc.running    = true
         if (!connectedProc.running) connectedProc.running = true
     }
 
     function startScan() {
-        if (root.scanning) return
+        if (!root.btEnabled || root.scanning) return
         root.scanning = true
         btScanProc.command = ["bluetoothctl", "scan", "on"]
         if (!btScanProc.running) btScanProc.running = true
@@ -116,6 +120,7 @@ Item {
     }
 
     Component.onCompleted: refresh()
+    onBtEnabledChanged: { if (btEnabled) refresh() }
 
     // ── UI ─────────────────────────────────────────────────────────────────
     ColumnLayout {
@@ -221,13 +226,39 @@ Item {
             // Placeholder lista vazia
             Item {
                 anchors.fill: parent
-                visible: root.pairedList.length === 0 && !root.scanning
+                visible: root.pairedList.length === 0 && !root.scanning && root.btEnabled
                 Text {
                     anchors.centerIn: parent
                     text: "\uf294  Nenhum dispositivo pareado"
                     color: root.colorTextDim; font.pixelSize: 10
                     font.family: "JetBrainsMono Nerd Font"; opacity: 0.6
                 }
+            }
+        }
+    }
+
+    // Overlay quando BT está desligado
+    Rectangle {
+        anchors.fill: parent
+        visible:      !root.btEnabled
+        color:        Qt.rgba(0, 0, 0, 0.55)
+        radius:       8; z: 99
+        Column {
+            anchors.centerIn: parent; spacing: 8
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "\uf294"; color: root.colorTextDim
+                font.pixelSize: 26; font.family: "JetBrainsMono Nerd Font"; opacity: 0.4
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Bluetooth desligado"; color: root.colorTextDim
+                font.pixelSize: 11; opacity: 0.7
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Ligue o tile para usar"; color: root.colorTextDim
+                font.pixelSize: 9; opacity: 0.45
             }
         }
     }

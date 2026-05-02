@@ -77,8 +77,8 @@ PanelWindow {
     // ── Foco Hyprland ──────────────────────────────────────────────────────
     HyprlandFocusGrab {
         windows:   [ panel ]
-        active:    panel.panelOpen
-        onCleared: panel.closeRequested()
+        active:    panel.panelOpen && !qsPanelContent.trayMenuOpen
+        onCleared: if (!qsPanelContent.trayMenuOpen) panel.closeRequested()
     }
 
     // ── Container com clip e animação de slide ─────────────────────────────
@@ -131,8 +131,10 @@ PanelWindow {
 
         // ── Conteúdo ───────────────────────────────────────────────────
         QuickSettingsContent {
+            id: qsPanelContent
             anchors.fill:    parent
             panelOpen:       panel.panelOpen
+            parentWindow:    panel
             colorPanelBg:    panel.colorPanelBg
             colorText:       panel.colorText
             colorTextDim:    panel.colorTextDim

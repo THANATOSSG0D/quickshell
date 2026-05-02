@@ -32,8 +32,10 @@ PopupWindow {
 
     HyprlandFocusGrab {
         windows:   [ popup ]
-        active:    popup.panelOpen
-        onCleared: popup.closeRequested()
+        // Suspende o grab enquanto um menu de tray estiver aberto —
+        // sem isso, o foco vai para o menu e o onCleared fecha o painel.
+        active:    popup.panelOpen && !qsContent.trayMenuOpen
+        onCleared: if (!qsContent.trayMenuOpen) popup.closeRequested()
     }
 
     Behavior on slideProgress {
@@ -49,8 +51,10 @@ PopupWindow {
         color:   Qt.rgba(popup.colorPanelBg.r, popup.colorPanelBg.g, popup.colorPanelBg.b, 0.95)
 
         QuickSettingsContent {
+            id: qsContent
             anchors.fill:    parent
             panelOpen:       popup.panelOpen
+            parentWindow:    popup
             colorPanelBg:    popup.colorPanelBg
             colorText:       popup.colorText
             colorTextDim:    popup.colorTextDim

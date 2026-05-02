@@ -12,6 +12,9 @@ Item {
     property color colorText:    "#e2e2e2"
     property color colorTextDim: "#c6c6c6"
     property color colorAccent:  "#ffb4a9"
+    property var   parentWindow: null
+    readonly property bool menuOpen: trayLoader.status === Loader.Ready
+                                     ? (trayLoader.item.menuOpen ?? false) : false
 
     Loader {
         id: trayLoader
@@ -29,6 +32,7 @@ Item {
     // Passa cores para o componente carregado
     Binding { target: trayLoader.item; property: "colorText";    value: root.colorText;    when: trayLoader.status === Loader.Ready }
     Binding { target: trayLoader.item; property: "colorTextDim"; value: root.colorTextDim; when: trayLoader.status === Loader.Ready }
+    Binding { target: trayLoader.item; property: "parentWindow"; value: root.parentWindow; when: trayLoader.status === Loader.Ready }
 
     // ── Placeholder (visível enquanto carrega ou se falhar) ────────────────
     Item {
