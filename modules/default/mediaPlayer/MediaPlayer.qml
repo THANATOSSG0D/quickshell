@@ -43,7 +43,8 @@ Item {
           if (!pe.startsWith("playerctld")) return pinnedPlayer
         }
       }
-      Qt.callLater(function() { root.pinnedPlayer = null })
+      // pinnedPlayer saiu da lista — limpa fora do binding
+      pinnedPlayer = null
     }
     // primeiro não-playerctld que esteja tocando
     for (var j = 0; j < all.length; j++) {

@@ -18,31 +18,29 @@ Item {
     height: col.implicitHeight
 
     // ── Processos de leitura ───────────────────────────────────────────────
+    property real _rawCurrent: 0
+    property real _rawMax:     100
+
     Process {
         id: getProc
         command: [ "brightnessctl", "get" ]
+        property string _val: ""
+        stdout: SplitParser { onRead: (l) => getProc._val = l.trim() }
+        onRunningChanged: { if (!running) root._rawCurrent = parseFloat(getProc._val) || 0 }
     }
     Process {
         id: maxProc
         command: [ "brightnessctl", "max" ]
+        property string _val: ""
+        stdout: SplitParser { onRead: (l) => maxProc._val = l.trim() }
+        onRunningChanged: { if (!running) root._rawMax = parseFloat(maxProc._val) || 100 }
     }
-    Process {
-        id: setProc
-        // command é definido dinamicamente antes de cada start()
-    }
+    Process { id: setProc }
 
-    Component.onCompleted: {
-        getProc.running = true
-        maxProc.running = true
-    }
+    Component.onCompleted: { getProc.running = true; maxProc.running = true }
 
-    // Bindings reativos: atualizam quando o processo termina
-    readonly property real rawCurrent: parseFloat((getProc.stdout || "").trim())  || 0
-    readonly property real rawMax:     parseFloat((maxProc.stdout || "").trim())  || 100
-
-    // Valor atual pode ser substituído otimisticamente pela interação do slider
-    property real currentVal: rawCurrent
-    readonly property real maxVal: rawMax
+    property real currentVal: _rawCurrent
+    readonly property real maxVal: _rawMax
 
     readonly property real pct: maxVal > 0 ? Math.max(0, Math.min(1, currentVal / maxVal)) : 0
 

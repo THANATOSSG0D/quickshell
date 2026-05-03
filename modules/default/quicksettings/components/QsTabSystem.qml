@@ -24,10 +24,8 @@ Item {
         onTriggered: root.spinAngle = (root.spinAngle + 20) % 360
     }
 
-    // Processo único — LC_ALL=C garante inglês; quoting simples via array
     Process {
         id: sysProc
-        // Cada linha: KEY=value  (= como separador evita conflito com : do IP/OS)
         command: [ "bash", "-c",
             "LC_ALL=C; " +
             "echo \"OS=$(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d'\"' -f2)\"; " +
@@ -39,8 +37,15 @@ Item {
             "echo \"IP=$(LC_ALL=C ip route get 1.1.1.1 2>/dev/null | awk '/src/{for(i=1;i<=NF;i++) if($i==\"src\"){print $(i+1); exit}}')\"; " +
             "echo \"UPTIME=$(LC_ALL=C uptime -p 2>/dev/null | sed 's/up //')\""
         ]
-        onRunningChanged: root.loading = running
+        property string _buf: ""
+        stdout: SplitParser { onRead: (line) => sysProc._buf += line + "\n" }
+        onRunningChanged: {
+            root.loading = running
+            if (!running) { root._sysOutput = sysProc._buf; sysProc._buf = "" }
+        }
     }
+
+    property string _sysOutput: ""
 
     function refresh() {
         if (!sysProc.running) {
@@ -52,7 +57,7 @@ Item {
 
     // Parsing: KEY=value (sep = primeiro "=")
     readonly property var parsed: {
-        var out = sysProc.stdout || ""
+        var out = root._sysOutput
         var map = { OS:"–", KERNEL:"–", HOST:"–", CPU:"–", RAM:"–", DISK:"–", IP:"–", UPTIME:"–" }
         if (out.trim() === "") return map
         var lines = out.split("\n")

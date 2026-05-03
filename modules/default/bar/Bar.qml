@@ -10,7 +10,6 @@ import '../quicksettings' as QsModule
 import '../notifications' as NotifModule
 import './themes' as BarThemes
 import '../dmenu'  as DmenuModule
-import '../dmenu'  as DmenuModule
 
 Scope {
   id: barRoot
@@ -201,6 +200,13 @@ Scope {
       readonly property bool anyPanelOpen: activePanel !== barRoot.panelNone
 
       function openPanel(panelId) {
+        // Em silence: só editor e dmenu são permitidos
+        if (barState.silenceMode) {
+          var allowed = panelId === barRoot.panelEditor ||
+                        panelId === barRoot.panelDmenu  ||
+                        panelId === barRoot.panelNone
+          if (!allowed) return
+        }
         activePanel = (activePanel === panelId) ? barRoot.panelNone : panelId
       }
       function closeAllPanels() { activePanel = barRoot.panelNone }
@@ -581,7 +587,14 @@ Scope {
         }
         // onModulesUpdated — os Bindings declarativos cuidam da propagação.
         function onModulesUpdated() {}
-        function onSilenceModeChanged() {} // propagação feita pelo shell.qml
+        function onSilenceModeChanged() {
+          // Ao ativar silence, fecha todos os painéis abertos
+          // exceto editor e dmenu (são de configuração/controle, sempre permitidos).
+          if (!barState.silenceMode) return
+          var keep = bar.activePanel === barRoot.panelEditor ||
+                     bar.activePanel === barRoot.panelDmenu
+          if (!keep) bar.closeAllPanels()
+        }
       }
 
       Connections {

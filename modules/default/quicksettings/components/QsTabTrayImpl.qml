@@ -11,6 +11,12 @@ Item {
 
     property color colorText:    "#e2e2e2"
     property color colorTextDim: "#c6c6c6"
+    property var   parentWindow: null
+
+    // Contador de menus abertos — incrementado/decrementado por cada delegate.
+    // Lido pelo QuickSettingsPopup para suspender HyprlandFocusGrab.
+    property int _openMenuCount: 0
+    readonly property bool menuOpen: _openMenuCount > 0
 
     // Filtra itens válidos (remove entradas vazias que causam "item a mais")
     readonly property var validItems: {
@@ -38,7 +44,6 @@ Item {
                 required property var modelData
                 required property int index
 
-                // Captura local para evitar bug de binding em closures
                 readonly property var trayItem: td.modelData
 
                 width: 32; height: 32; radius: 8
@@ -76,24 +81,49 @@ Item {
                     z:              10
                 }
 
+                // ── Menu SNI via QsMenuAnchor ─────────────────────────────
+                // Usado no clique direito quando o item expõe um menu DBus.
+                // anchor.window é a janela pai (resolvida via Window.window).
+                QsMenuAnchor {
+                    id: trayMenuAnchor
+                    menu: td.trayItem && td.trayItem.menu ? td.trayItem.menu : null
+                    anchor.window: root.parentWindow
+                    // mapToItem(null) converte para coordenadas de cena (relativas à janela)
+                    anchor.rect: {
+                        var p = td.mapToItem(null, 0, 0)
+                        return Qt.rect(p.x, p.y, td.width, td.height)
+                    }
+                    onOpened: root._openMenuCount++
+                    onClosed: root._openMenuCount = Math.max(0, root._openMenuCount - 1)
+                }
+
                 MouseArea {
                     id: tdMA
                     anchors.fill:    parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     hoverEnabled:    true
                     onClicked: (mouse) => {
                         var it = td.trayItem
                         if (!it) return
+
                         if (mouse.button === Qt.LeftButton) {
-                            if (typeof it.activate === "function")
-                                it.activate(td.x, td.y)
-                            else if (typeof it.trigger === "function")
-                                it.trigger()
-                        } else {
-                            if (typeof it.secondaryActivate === "function")
-                                it.secondaryActivate(td.x, td.y)
-                            else if (it.menu && typeof it.menu.open === "function")
-                                it.menu.open()
+                            // Clique esquerdo: ação primária (toggle, play/pause, etc.)
+                            it.activate()
+
+                        } else if (mouse.button === Qt.RightButton) {
+                            // Clique direito: menu de contexto
+                            // Preferência: QsMenuAnchor (menu DBus nativo)
+                            // Fallback: display() (menu de plataforma via SNI)
+                            if (it.menu) {
+                                trayMenuAnchor.open()
+                            } else if (typeof it.display === "function") {
+                                var pos = td.mapToItem(null, 0, 0)
+                                it.display(td.Window.window, pos.x, pos.y)
+                            }
+
+                        } else if (mouse.button === Qt.MiddleButton) {
+                            // Clique do meio: ação secundária
+                            it.secondaryActivate()
                         }
                     }
                 }

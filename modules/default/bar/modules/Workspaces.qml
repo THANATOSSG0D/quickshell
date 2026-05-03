@@ -134,8 +134,8 @@ Item {
         Binding { target: delegateLoader.item; property: "iconSpacing";     value: root.iconSpacing;         when: delegateLoader.item !== null && root.style === "icons" }
       }
 
-      Behavior on implicitWidth  { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
-      Behavior on implicitHeight { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+      Behavior on implicitWidth  { enabled: root.visible; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+      Behavior on implicitHeight { enabled: root.visible; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
     }
   }
 

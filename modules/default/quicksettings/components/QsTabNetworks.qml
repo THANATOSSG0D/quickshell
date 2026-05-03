@@ -33,7 +33,7 @@ Item {
     signal requestRefreshEth()
 
     // ── Estado local ───────────────────────────────────────────────────────
-    property string netMode:    "wifi"
+    property string netMode:    "eth"
     property string filterText: ""
     property string feedback:   ""
     property string pendingSsid:    ""
@@ -206,8 +206,8 @@ Item {
             Layout.fillWidth: true; spacing: 4
 
             Repeater {
-                model: [ { id: "wifi", label: "\uf1eb  WiFi" },
-                          { id: "eth",  label: "\uf6ff  Cabo" } ]
+                model: [ { id: "eth",  label: "\uf6ff  Cabo" },
+                          { id: "wifi", label: "\uf1eb  WiFi" } ]
                 delegate: Rectangle {
                     id: tabBtn; required property var modelData
                     readonly property bool sel: root.netMode === tabBtn.modelData.id
@@ -523,6 +523,32 @@ Item {
                         color: root.colorAccent; font.pixelSize: 9 }
                     MouseArea { anchors.fill: parent; onClicked: root.passDialogConnect() }
                 }
+            }
+        }
+    }
+
+    // Overlay quando WiFi está desligado (só na sub-aba wifi)
+    Rectangle {
+        anchors.fill: parent
+        visible:      !root.wifiEnabled && root.netMode === "wifi"
+        color:        Qt.rgba(0, 0, 0, 0.55)
+        radius:       8; z: 99
+        Column {
+            anchors.centerIn: parent; spacing: 8
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "\uf1eb"; color: root.colorTextDim
+                font.pixelSize: 26; font.family: "JetBrainsMono Nerd Font"; opacity: 0.4
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Wi-Fi desligado"; color: root.colorTextDim
+                font.pixelSize: 11; opacity: 0.7
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Ligue o tile para usar"; color: root.colorTextDim
+                font.pixelSize: 9; opacity: 0.45
             }
         }
     }

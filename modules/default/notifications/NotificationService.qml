@@ -35,8 +35,17 @@ Scope {
     property bool dndAllowCritical: true    // crítico sempre aparece mesmo com DND ativo
 
     // ── Modo Silence ───────────────────────────────────────────────────────
-    // Bindado pelo shell.qml. Suprime TODOS os toasts (incluindo críticos).
+    // Injetado pelo shell.qml. Suprime TODOS os toasts (incluindo críticos).
     property bool silenceMode: false
+    onSilenceModeChanged: {
+      if (silenceMode) {
+        console.log("[Silence] NotifService: ativado — toasts bloqueados, timer de expiração pausado")
+        // Limpa toasts visíveis imediatamente
+        toastModel.clear()
+      } else {
+        console.log("[Silence] NotifService: desativado — toasts restaurados")
+      }
+    }
 
     // ── Models expostos ────────────────────────────────────────────────────
     // `notifications` — histórico completo (painel de notificações)
@@ -69,11 +78,12 @@ Scope {
 
     // ── Timer de expiração de toasts ───────────────────────────────────────
     // Verifica a cada 200 ms quais toasts devem ser removidos.
+    // Pausado em silence: não há toasts para expirar.
     Timer {
         id: expireTimer
         interval: 200
         repeat:   true
-        running:  toastModel.count > 0
+        running:  toastModel.count > 0 && !root.silenceMode
 
         onTriggered: {
             var now = Date.now()
@@ -97,28 +107,29 @@ Scope {
         onLoaded: {
             try {
                 var j = JSON.parse(stateFile.text())
-                root.doNotDisturb    = j.doNotDisturb    ?? false
+                root.doNotDisturb     = j.doNotDisturb    ?? false
                 root.dndAllowCritical = j.dndAllowCritical ?? true
-                root.toastPosition   = j.toastPosition   ?? "top-right"
+                root.toastPosition    = j.toastPosition   ?? "top-right"
             } catch (_) {}
         }
     }
 
-    Process {
-        id: saveProc
-        property string _payload: ""
-        command: ["bash", "-c", "echo '" + _payload + "' > " + root._statePath]
+    // Debounce de save: agrupa mudanças rápidas em uma única escrita de arquivo
+    // sem spawnar processo bash.
+    Timer {
+        id: saveDebounce
+        interval: 300
+        repeat:   false
+        onTriggered: {
+            stateFile.setText(JSON.stringify({
+                doNotDisturb:     root.doNotDisturb,
+                dndAllowCritical: root.dndAllowCritical,
+                toastPosition:    root.toastPosition
+            }, null, 2))
+        }
     }
 
-    function _saveState() {
-        var payload = JSON.stringify({
-            doNotDisturb:     root.doNotDisturb,
-            dndAllowCritical: root.dndAllowCritical,
-            toastPosition:    root.toastPosition
-        }, null, 2)
-        saveProc._payload = payload.replace(/'/g, "'\\''")
-        saveProc.running  = true
-    }
+    function _saveState() { saveDebounce.restart() }
 
     Component.onCompleted: stateFile.reload()
 
@@ -130,6 +141,9 @@ Scope {
         // Silence suprime tudo; DND suprime não-críticos
         var showToast = !root.silenceMode &&
                         (!root.doNotDisturb || (root.dndAllowCritical && isCritical))
+
+        if (root.silenceMode)
+            console.log("[Silence] NotifService: toast bloqueado —", notif.appName, "»", notif.summary)
 
         // Timeout baseado na urgência
         var timeout = isCritical          ? root.toastTimeoutCrit

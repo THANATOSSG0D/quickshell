@@ -31,8 +31,11 @@ Item {
     property color colorDivider:    "#474747"
 
     signal closeRequested()
-    property bool   panelOpen: false
-    property string activeTab: "networks"
+    property bool   panelOpen:    false
+    property var    parentWindow: null
+    property string activeTab:    "tray"
+    // Verdadeiro enquanto um menu de tray estiver aberto — suspende FocusGrab
+    readonly property bool trayMenuOpen: tabTray.menuOpen
 
     readonly property string ctl: Quickshell.shellDir + "/scripts/network-ctl.sh"
 
@@ -439,8 +442,10 @@ Item {
                     colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                 }
                 Qs.QsTabTray {
+                    id: tabTray
                     anchors.fill: parent; visible: root.activeTab === "tray"
                     colorText: root.colorText; colorTextDim: root.colorTextDim
+                    parentWindow: root.parentWindow
                 }
             }
 
