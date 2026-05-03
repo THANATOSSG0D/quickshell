@@ -304,36 +304,7 @@ Scope {
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: bar.effectiveAutoHide ? 0 : barSize
 
-      // ── Helpers de anchor compartilhados pelos popups ──────────────────
-      readonly property int popupEdge: {
-        if (position === 1) return Edges.Bottom
-        if (position === 2) return Edges.Left
-        if (position === 3) return Edges.Top
-        return Edges.Right
-      }
-
-      function popupRectCentered(pw, ph) {
-        if (!isVertical) {
-          var sw = pill ? pillWidth : screen.width
-          var rx = Math.max(0, Math.floor((sw - pw) / 2))
-          return Qt.rect(rx, 0, pw, implicitHeight)
-        }
-        var sh = pill ? pillWidth : screen.height
-        var ry = Math.max(0, Math.floor((sh - ph) / 2))
-        var rxAdj = -screen.x
-        return Qt.rect(rxAdj, ry, implicitWidth, ph)
-      }
-
-      function popupRectRight(pw, ph) {
-        if (!isVertical) {
-          var sw = pill ? pillWidth : screen.width
-          return Qt.rect(Math.max(0, sw - pw - 8), 0, pw, implicitHeight)
-        }
-        var sh = pill ? pillWidth : screen.height
-        var ry = Math.max(0, Math.floor((sh - ph) / 2))
-        var rxAdj = -screen.x
-        return Qt.rect(rxAdj, ry, implicitWidth, ph)
-      }
+      // anchor.* removidos — popups agora usam PanelWindow com barRef: bar
 
       // ── Paleta dos popups ──────────────────────────────────────────────
       readonly property color popupColorBg:         barState.config.palettePanelBg
@@ -960,10 +931,7 @@ Scope {
       // ── Volume — Sink ──────────────────────────────────────────────────
       VolumeModule.VolumePopup {
         id: volSinkPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHVolume)
+        barRef: bar
 
         popupW: barRoot.themePanelWidth
         popupH: barRoot.popupHVolume
@@ -985,10 +953,7 @@ Scope {
       // ── Volume — Source ────────────────────────────────────────────────
       VolumeModule.VolumePopup {
         id: volSourcePopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHVolume)
+        barRef: bar
 
         popupW: barRoot.themePanelWidth
         popupH: barRoot.popupHVolume
@@ -1010,10 +975,7 @@ Scope {
       // ── Volume — Saída + Microfone em abas (painel unificado) ─────────────
       VolumeModule.VolumePopupTabbed {
         id: volTabbedPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHVolume)
+        barRef: bar
 
         popupW: barRoot.themePanelWidth
         popupH: barRoot.popupHVolume
@@ -1035,10 +997,7 @@ Scope {
       // ── Media Player ───────────────────────────────────────────────────
       MediaPanel.MediaPlayerPopup {
         id: mediaPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHPlayer)
+        barRef: bar
 
         popupW: barRoot.themePanelWidth
         popupH: barRoot.popupHPlayer
@@ -1059,10 +1018,7 @@ Scope {
       // ── Clock ──────────────────────────────────────────────────────────
       ClockModule.ClockPopup {
         id: clockPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHClock)
+        barRef: bar
 
         popupW: barRoot.themePanelWidth
         popupH: barRoot.popupHClock
@@ -1082,10 +1038,7 @@ Scope {
       // ── Quick Settings ─────────────────────────────────────────────────
       QsModule.QuickSettingsPopup {
         id: qsPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectRight(barRoot.popupWQs, barRoot.popupHQs)
+        barRef: bar
 
         popupW: barRoot.popupWQs
         popupH: barRoot.popupHQs
@@ -1106,10 +1059,7 @@ Scope {
       // ── Editor da Barra ────────────────────────────────────────────────
       BarThemes.BarEditorPopup {
         id: editorPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.popupWEditor, barRoot.popupHEditor)
+        barRef: bar
 
         popupW: barRoot.popupWEditor
         popupH: barRoot.popupHEditor
@@ -1136,10 +1086,7 @@ Scope {
       // ── Notificações ───────────────────────────────────────────────────
       NotifModule.NotificationsPopup {
         id: notifPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectRight(barRoot.popupWNotif, barRoot.popupHNotif)
+        barRef: bar
 
         popupW:    barRoot.popupWNotif
         popupH:    barRoot.popupHNotif
@@ -1159,10 +1106,7 @@ Scope {
       // ── Dmenu ──────────────────────────────────────────────────────────────
       DmenuModule.DmenuPopup {
         id: dmenuPopup
-        anchor.window:  bar
-        anchor.edges:   bar.popupEdge
-        anchor.gravity: bar.popupEdge
-        anchor.rect:    bar.popupRectCentered(barRoot.themePanelWidth, barRoot.popupHDmenu)
+        barRef: bar
 
         popupW:    barRoot.themePanelWidth
         popupH:    barRoot.popupHDmenu

@@ -1,24 +1,19 @@
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
+import ".." as Bar
 
-PopupWindow {
+// ── BarEditorPopup ────────────────────────────────────────────────────────────
+// Herda de Bar.BarPopup (PanelWindow). barRef injetado por Bar.qml.
+
+Bar.BarPopup {
   id: popup
 
-  property int popupW: 440
-  property int popupH: 560
+  popupW:      440
+  popupH:      560
+  animDuration: 220
 
-  color:          "transparent"
-  implicitWidth:  popupW
-  implicitHeight: popupH
-
-  property bool panelOpen:     false
-  property real slideProgress: 0.0
-  visible: slideProgress > 0.0
-
-  property color colorPanelBg:    "#1f1f1f"
   property color colorText:       "#e2e2e2"
   property color colorTextDim:    "#888888"
   property color colorAccent:     "#ffb4a9"
@@ -26,18 +21,6 @@ PopupWindow {
   property color colorDivider:    "#333333"
 
   property var config: null
-
-  signal closeRequested()
-
-  HyprlandFocusGrab {
-    windows: [popup]
-    active:  popup.panelOpen
-    onCleared: popup.closeRequested()
-  }
-
-  Behavior on slideProgress {
-    NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
-  }
 
   onPanelOpenChanged: {
     slideProgress = panelOpen ? 1.0 : 0.0
