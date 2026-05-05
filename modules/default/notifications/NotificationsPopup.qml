@@ -4,6 +4,7 @@ import "../bar" as Bar
 
 // ── NotificationsPopup ────────────────────────────────────────────────────────
 // Herda de Bar.BarPopup (PanelWindow). barRef injetado por Bar.qml.
+// Animação gerenciada inteiramente pelo BarPopup (_animProg).
 
 Bar.BarPopup {
     id: popup
@@ -20,7 +21,6 @@ Bar.BarPopup {
     property color colorDivider: "#313244"
 
     onPanelOpenChanged: {
-        slideProgress = panelOpen ? 1.0 : 0.0
         if (panelOpen && service) service.markAllRead()
     }
 

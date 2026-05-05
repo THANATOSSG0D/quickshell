@@ -3,61 +3,108 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import QtQuick
 
-// ── BarPopup ────────────────────────────────────────────────────────────────
-// Wrapper reutilizável para todos os popups da barra.
-// Usa PanelWindow (layer-shell) — contorna bug do Hyprland com xdg-popup
-// em monitores com offset negativo (ex: eDP-1 x=-1920).
+// ── BarPopup ───────────────────────────────────────────────────────────────
+// Base de todos os popups da barra.
 //
-// USO:
-//   SomePopup {
-//     barRef:    bar
-//     popupW:    280; popupH: 480
-//     panelOpen: bar.clockPanelOpen
-//     onCloseRequested: bar.closeAllPanels()
-//     ClockContent { anchors.fill: parent }
-//   }
+// ANIMAÇÃO:
+//   Um único _animProg (0.0 → 1.0) controla opacity + translate.
+//   Sem scale → conteúdo nunca muda de tamanho durante a transição.
+//
+//   ENTRADA (OutCubic):  slide prominent logo no início → sensação de "pop in"
+//   SAÍDA   (OutCubic):  slide prominent logo no início → sensação de "fly away"
+//   Usar OutCubic nos dois sentidos garante que o translate é sempre
+//   visível desde o primeiro quadro — sem o ghost fade do Hyprland layersOut.
+//
+//   opacity  = min(1, _animProg × 1.4)      — opacidade completa em ~70% do prog.
+//   translate = slideX/Y × (1 − _animProg)  — decresce com o progresso
+//
+//   Interrupção suave: ao abrir durante o fechamento (ou vice-versa),
+//   a animação retoma do valor atual de _animProg.
+//
+//   _unmapTimer: delay de 1 quadro entre opacity=0 e visible=false,
+//   garantindo que o compositor já processou o frame transparente antes do
+//   unmap — evita que o Hyprland layersOut capture um frame opaco.
 
 PanelWindow {
   id: popup
 
+  // Redireciona filhos declarados em Bar.BarPopup { ... } para dentro do bg,
+  // garantindo que o opacity e o transform do bg se apliquem ao conteúdo.
+  default property alias content: bg.data
+
+  // ── API pública ───────────────────────────────────────────────────────
   property var barRef: null
 
-  property int popupW: 300
-  property int popupH: 400
+  property int  popupW: 300
+  property int  popupH: 400
 
-  property bool panelOpen:     false
-  property real slideProgress: 0.0
+  property bool panelOpen: false
 
   property color colorPanelBg: "#1f1f1f"
-  property int   animDuration: 280
+  property int   animDuration: 200
   property int   bgRadius:     12
   property real  bgOpacity:    0.95
 
   signal closeRequested()
 
-  // ── Helpers internos — evitam bindings circulares ─────────────────────
-  // Lê barRef.anchors.* como bool diretamente para não criar referência
-  // circular entre PanelWindow.anchors e barRef.anchors.
-  readonly property bool _barLeft:   barRef ? barRef.anchors.left   : false
-  readonly property bool _barRight:  barRef ? barRef.anchors.right  : false
-  readonly property bool _barTop:    barRef ? barRef.anchors.top    : false
-  readonly property bool _barBottom: barRef ? barRef.anchors.bottom : false
-  readonly property bool _isVertical: _barLeft && _barTop && _barBottom ||
-                                      _barRight && _barTop && _barBottom
+  // ── Detecção da posição da barra ──────────────────────────────────────
+  readonly property bool _barLeft:    barRef ? barRef.anchors.left   : false
+  readonly property bool _barRight:   barRef ? barRef.anchors.right  : false
+  readonly property bool _barTop:     barRef ? barRef.anchors.top    : false
+  readonly property bool _barBottom:  barRef ? barRef.anchors.bottom : false
+  readonly property bool _isVertical: (_barLeft || _barRight) && _barTop && _barBottom
 
-  // ── PanelWindow config ────────────────────────────────────────────────
+  // ── Slide: direção de onde o painel "vem" / "vai" ────────────────────
+  readonly property real _slideAmt: 14
+
+  readonly property real _slideX: {
+    if (!_isVertical) return 0
+    if ( _barLeft && !_barRight) return -_slideAmt
+    if (!_barLeft &&  _barRight) return  _slideAmt
+    return 0
+  }
+  readonly property real _slideY: {
+    if (_isVertical) return 0
+    if ( _barTop && !_barBottom) return -_slideAmt
+    if (!_barTop  &&  _barBottom) return  _slideAmt
+    return -_slideAmt
+  }
+
+  // ── Estado de animação ────────────────────────────────────────────────
+  property real _animProg: 0.0
+  property bool _alive:    false
+  property bool _closing:  false
+
+  visible: _alive
+
+  onPanelOpenChanged: {
+    if (panelOpen) {
+      _closing = false
+      _alive   = true
+      _unmapTimer.stop()
+      closeAnim.stop()
+      openAnim.from = _animProg
+      openAnim.to   = 1.0
+      openAnim.start()
+    } else {
+      _closing = true
+      openAnim.stop()
+      closeAnim.from = _animProg
+      closeAnim.to   = 0.0
+      closeAnim.start()
+    }
+  }
+
+  // ── Configuração da janela ────────────────────────────────────────────
   screen:         barRef ? barRef.screen : undefined
   color:          "transparent"
   implicitWidth:  popupW
   implicitHeight: popupH
-  visible:        slideProgress > 0.0
 
   WlrLayershell.layer:         WlrLayershell.Overlay
   WlrLayershell.exclusionMode: ExclusionMode.Ignore
   WlrLayershell.exclusiveZone: 0
 
-  // Ancora apenas à borda da barra + top.
-  // Nunca top+bottom juntos — evita o PanelWindow esticar pela tela toda.
   anchors.top:    true
   anchors.bottom: false
   anchors.left:   _barLeft
@@ -66,40 +113,31 @@ PanelWindow {
   margins.left: {
     if (!barRef) return 0
     if (_isVertical && _barLeft)
-      // Popup sai pela direita da barra: margem = largura da barra + margem da barra
       return barRef.implicitWidth + (barRef.margins.left || 0)
-    // Barra horizontal: centraliza
     var sw = barRef.screen ? barRef.screen.width : 1920
     return Math.max(0, Math.floor((sw - popupW) / 2))
   }
-
   margins.right: {
     if (!barRef) return 0
     if (_isVertical && _barRight)
-      // Popup sai pela esquerda da barra
       return barRef.implicitWidth + (barRef.margins.right || 0)
     return 0
   }
-
   margins.top: {
     if (!barRef) return 0
     var sh = barRef.screen ? barRef.screen.height : 1080
-    // Barra horizontal em cima
     if (_barTop && !_barBottom)
       return (barRef.implicitHeight || 0) + (barRef.margins.top || 0)
-    // Barra horizontal em baixo
     if (_barBottom && !_barTop)
       return Math.max(0, sh - (barRef.implicitHeight || 0) - (barRef.margins.bottom || 0) - popupH)
-    // Barra vertical: centraliza verticalmente dentro da área útil da barra
-    // (desconta pillSideMargin quando pill, barMargin senão)
     var mt = barRef.margins.top    || 0
     var mb = barRef.margins.bottom || 0
     var usable = sh - mt - mb
     return Math.max(0, mt + Math.floor((usable - popupH) / 2))
   }
-
   margins.bottom: 0
 
+  // ── Focus grab ────────────────────────────────────────────────────────
   HyprlandFocusGrab {
     id: focusGrab
     windows:   [popup]
@@ -107,25 +145,67 @@ PanelWindow {
     onCleared: popup.closeRequested()
   }
 
-  // Alias para subclasses controlarem o grab (ex: QuickSettings com tray)
   property alias focusGrabActive: focusGrab.active
 
-  Behavior on slideProgress {
-    NumberAnimation { duration: popup.animDuration; easing.type: Easing.OutCubic }
+  // ── Timer de unmap ────────────────────────────────────────────────────
+  // Aguarda 1 quadro após opacity=0 antes de desmapar.
+  // Garante que o Hyprland já processou o frame transparente antes do unmap,
+  // evitando que layersOut capture um frame visível e sobreponha um fade.
+  Timer {
+    id: _unmapTimer
+    interval: 17   // ~1 quadro a 60 fps
+    repeat:   false
+    onTriggered: {
+      if (popup._closing) {
+        popup._alive   = false
+        popup._closing = false
+      }
+    }
   }
-  onPanelOpenChanged: slideProgress = panelOpen ? 1.0 : 0.0
 
+  // ── Animação de abertura ──────────────────────────────────────────────
+  NumberAnimation {
+    id: openAnim
+    target:      popup
+    property:    "_animProg"
+    duration:    popup.animDuration
+    easing.type: Easing.OutCubic
+  }
+
+  // ── Animação de fechamento ────────────────────────────────────────────
+  // OutCubic (não InCubic): slide visível desde o primeiro quadro.
+  // InCubic concentrava 80% do movimento nos últimos 20% do tempo —
+  // o olho não via o slide, só o fade do Hyprland layersOut depois.
+  NumberAnimation {
+    id: closeAnim
+    target:      popup
+    property:    "_animProg"
+    duration:    popup.animDuration
+    easing.type: Easing.OutCubic
+    onStopped: {
+      if (popup._closing) _unmapTimer.restart()
+    }
+  }
+
+  // ── Painel visual ─────────────────────────────────────────────────────
   Rectangle {
     id: bg
     anchors.fill: parent
     radius:  popup.bgRadius
-    opacity: Math.min(1.0, popup.slideProgress * 2)
-    color:   Qt.rgba(
+    clip:    true
+
+    opacity: Math.min(1.0, popup._animProg * 1.4)
+
+    transform: Translate {
+      x: popup._slideX * (1.0 - popup._animProg)
+      y: popup._slideY * (1.0 - popup._animProg)
+    }
+
+    color: Qt.rgba(
       popup.colorPanelBg.r,
       popup.colorPanelBg.g,
       popup.colorPanelBg.b,
       popup.bgOpacity
     )
-    default property alias content: bg.data
   }
 }
