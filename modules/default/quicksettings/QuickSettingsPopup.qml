@@ -19,17 +19,12 @@ Bar.BarPopup {
     property color colorProgressBg: "#474747"
     property color colorDivider:    "#474747"
 
-    // Suspende o focus grab enquanto menu de tray estiver aberto
+    // Suspende o focus grab enquanto menu de tray estiver aberto.
+    // Quando trayMenuOpen=true, focusGrabActive=false → onCleared não dispara
+    // → closeRequested não é emitido → painel permanece aberto.
+    // Não é necessário nenhum Connections adicional: o signal closeRequested
+    // já é roteado para bar.closeAllPanels() pelo Bar.qml (onCloseRequested).
     focusGrabActive: panelOpen && !qsContent.trayMenuOpen
-
-    // Sobrescreve o onCleared para ignorar enquanto tray está aberto
-    Connections {
-        target: popup
-        function onCloseRequested() {
-            if (qsContent.trayMenuOpen) return
-            popup.closeRequested()
-        }
-    }
 
     QuickSettingsContent {
         id: qsContent

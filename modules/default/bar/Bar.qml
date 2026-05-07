@@ -83,7 +83,12 @@ Scope {
   // ── Lista de instâncias do PanelWindow (um por monitor) ──────────────────
   property var _barInstances: []
 
+  // Último bar que teve um painel aberto ou que está no monitor focado.
+  // Usado como desempate quando nenhum monitor reporta focused=true (race condition).
+  property var _lastActiveBar: null
+
   function _activeBar() {
+    // Tenta pelo monitor focado (caminho normal)
     for (var i = 0; i < Hyprland.monitors.values.length; i++) {
       if (Hyprland.monitors.values[i].focused) {
         var name = Hyprland.monitors.values[i].name
@@ -94,6 +99,9 @@ Scope {
         }
       }
     }
+    // Race condition: nenhum monitor está focused ainda — usa o último ativo
+    // (evita abrir no monitor errado quando há múltiplos monitores)
+    if (_lastActiveBar) return _lastActiveBar
     return _barInstances.length > 0 ? _barInstances[0] : null
   }
 
@@ -205,8 +213,12 @@ Scope {
           var allowed = panelId === barRoot.panelEditor ||
                         panelId === barRoot.panelDmenu  ||
                         panelId === barRoot.panelNone
-          if (!allowed) return
+          if (!allowed) {
+            console.log("[Bar] openPanel bloqueado pelo silence mode — panelId:", panelId)
+            return
+          }
         }
+        barRoot._lastActiveBar = bar
         activePanel = (activePanel === panelId) ? barRoot.panelNone : panelId
       }
       function closeAllPanels() { activePanel = barRoot.panelNone }
@@ -607,8 +619,12 @@ Scope {
       }
 
       // ── Sinais do tema → abertura de painéis ───────────────────────────
-      Timer { id: panelCooldown; interval: 100; repeat: false }
-      Timer { id: editorCooldown; interval: 100; repeat: false }
+      // panelCooldown: evita duplo-disparo de clicks rápidos vindos do TEMA.
+      // Valor ≥ animDuration (200ms) para que o toggle não re-abra durante o fechamento.
+      // NÃO é usado no IpcHandler — binds do Hyprland chamam openPanel() diretamente,
+      // sem cooldown, para não ignorar acionamentos legítimos.
+      Timer { id: panelCooldown;  interval: 220; repeat: false }
+      Timer { id: editorCooldown; interval: 220; repeat: false }
 
       Connections {
         target: loader.item

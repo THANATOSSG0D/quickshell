@@ -48,11 +48,15 @@ PanelWindow {
   signal closeRequested()
 
   // ── Detecção da posição da barra ──────────────────────────────────────
-  readonly property bool _barLeft:    barRef ? barRef.anchors.left   : false
-  readonly property bool _barRight:   barRef ? barRef.anchors.right  : false
-  readonly property bool _barTop:     barRef ? barRef.anchors.top    : false
-  readonly property bool _barBottom:  barRef ? barRef.anchors.bottom : false
-  readonly property bool _isVertical: (_barLeft || _barRight) && _barTop && _barBottom
+  // Usa barRef.position (int estável: 1=top 2=right 3=bottom 4=left) em vez de
+  // barRef.anchors.* — ler anchors de um PanelWindow irmão e depois setar os
+  // próprios anchors com base nisso causava um binding loop (stack overflow).
+  readonly property int  _barPos:     barRef ? barRef.position : 2
+  readonly property bool _barLeft:    _barPos === 4
+  readonly property bool _barRight:   _barPos === 2
+  readonly property bool _barTop:     _barPos === 1
+  readonly property bool _barBottom:  _barPos === 3
+  readonly property bool _isVertical: _barPos === 2 || _barPos === 4
 
   // ── Slide: direção de onde o painel "vem" / "vai" ────────────────────
   readonly property real _slideAmt: 14
