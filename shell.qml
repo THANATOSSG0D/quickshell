@@ -6,6 +6,7 @@ import "modules/widgets/clock"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
+import './modules/default/powermenu'     as PowerModule
 
 Scope {
   ClockWidget {}
@@ -35,12 +36,20 @@ Scope {
     osdService:   osd.osdService
     notifService: notifService
 
-    // ── Log central do Silence ─────────────────────────────────────────
     onSilenceModeChanged: {
       if (silenceMode)
         console.log("[Silence] *** ATIVADO *** — OSD, toasts e fullscreen-peek suprimidos")
       else
         console.log("[Silence] *** DESATIVADO *** — comportamento normal restaurado")
     }
+  }
+
+  // ── Power Menu ────────────────────────────────────────────────────────────
+  // Abrir:   qs ipc call powerMenu open
+  //          qs ipc call powerMenu toggle
+  // Fechar:  qs ipc call powerMenu close  |  ESC  |  clique no fundo
+  // Keybind: tecla configurada em modules/default/powermenu/layout.json
+  PowerModule.PowerMenu {
+    id: powerMenu
   }
 }
