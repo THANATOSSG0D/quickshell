@@ -1,32 +1,38 @@
 [
   {
-    "label":   "lock",
-    "action":  "~/.config/hypr/scripts/power.sh lock",
-    "text":    "󰌾",
+    "label": "lock and screen",
+    "action": "~/.config/hypr/scripts/power.sh lockscreen",
+    "text": "󰌾",
     "keybind": "l"
   },
   {
-    "label":   "logout",
-    "action":  "~/.config/hypr/scripts/power.sh exit",
-    "text":    "󰍃",
+    "label": "lock",
+    "action": "~/.config/hypr/scripts/power.sh lock",
+    "text": "󰌾",
+    "keybind": "k"
+  },
+  {
+    "label": "logout",
+    "action": "~/.config/hypr/scripts/power.sh exit",
+    "text": "󰍃",
     "keybind": "e"
   },
   {
-    "label":   "suspend",
-    "action":  "~/.config/hypr/scripts/power.sh suspend",
-    "text":    "󰒲",
+    "label": "suspend",
+    "action": "~/.config/hypr/scripts/power.sh suspend",
+    "text": "󰒲",
     "keybind": "u"
   },
   {
-    "label":   "reboot",
-    "action":  "~/.config/hypr/scripts/power.sh reboot",
-    "text":    "󰜉",
+    "label": "reboot",
+    "action": "~/.config/hypr/scripts/power.sh reboot",
+    "text": "󰜉",
     "keybind": "r"
   },
   {
-    "label":   "shutdown",
-    "action":  "~/.config/hypr/scripts/power.sh shutdown",
-    "text":    "⏻",
+    "label": "shutdown",
+    "action": "~/.config/hypr/scripts/power.sh shutdown",
+    "text": "⏻",
     "keybind": "s"
   }
 ]

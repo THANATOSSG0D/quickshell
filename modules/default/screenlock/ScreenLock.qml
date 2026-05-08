@@ -9,24 +9,32 @@ WlSessionLock {
     function lock()   { root.locked = true  }
     function unlock() { root.locked = false }
 
-    // Escreve o estado em arquivo para o bash script fazer polling
-    onLockedChanged: stateWriter.running = true
+    onLockedChanged: {
+        if (root.locked) {
+            writeLocked.running = true
+        } else {
+            writeUnlocked.running = true
+        }
+    }
 
+    // Dois processos separados com comandos fixos — evita problema de
+    // string interpolation não re-avaliar quando locked muda
     Process {
-        id: stateWriter
+        id: writeLocked
         command: ["bash", "-c",
-            "echo '" + (root.locked ? "locked" : "unlocked") + "' > " +
-            Quickshell.env("HOME") + "/.cache/quickshell-lockstate"
+            "echo locked > " + Quickshell.env("HOME") + "/.cache/quickshell-lockstate"
         ]
     }
 
-    // Garante estado "unlocked" ao sair/reiniciar o QS
-    Component.onDestruction: {
-        const p = Qt.createQmlObject(
-            'import Quickshell.Io; Process { running: true; command: ["bash", "-c",' +
-            '"echo unlocked > ' + Quickshell.env("HOME") + '/.cache/quickshell-lockstate"] }',
-            root, "cleanup")
+    Process {
+        id: writeUnlocked
+        command: ["bash", "-c",
+            "echo unlocked > " + Quickshell.env("HOME") + "/.cache/quickshell-lockstate"
+        ]
     }
+
+    // Garante "unlocked" se o QS for morto/reiniciado
+    Component.onDestruction: writeUnlocked.running = true
 
     WlSessionLockSurface {
         id: surface

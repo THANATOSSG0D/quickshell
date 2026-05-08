@@ -6,22 +6,23 @@ mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock iniciado"
 
-# ================= LOCK ATÔMICO =================
+# ================= VARIÁVEIS =================
 LOCK_FILE="$HOME/.cache/screenlock-$UID.lock"
 STATE_FILE="$HOME/.cache/quickshell-lockstate"
 FULLSCREEN="$HOME/.config/hypr/scripts/fullscreen_state.sh"
+MONITOR_TOGGLE="$HOME/.config/hypr/scripts/monitor-toggle.sh"
 FONT="JetBrainsMono Nerd Font"
 LOCK_IMG="$HOME/.config/ml4w/cache/lockscreen/lock.png"
 PRE_LOCK="$HOME/.config/ml4w/scripts/pre-lock"
 FALLBACK_IMG="$HOME/Imagens/wallpaper.png"
 
+# ================= LOCK ATÔMICO =================
 cleanup_lock() {
   rm -f "$LOCK_FILE"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Lock file removido"
 }
 trap cleanup_lock EXIT
 
-# Verificação primária: QS já está bloqueado?
 state_is_locked() {
   [ -f "$STATE_FILE" ] && grep -q "^locked$" "$STATE_FILE"
 }
@@ -31,13 +32,11 @@ if state_is_locked; then
   exit 0
 fi
 
-# Verificação secundária: swaylock já está rodando?
 if pgrep -x swaylock >/dev/null 2>&1; then
   echo "swaylock já está rodando, saindo..."
   exit 0
 fi
 
-# Verificação terciária: lock file (proteção contra race conditions)
 if [ -f "$LOCK_FILE" ]; then
   PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
   if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
@@ -56,41 +55,42 @@ if [ -z "${WAYLAND_DISPLAY:-}" ]; then
   exit 1
 fi
 
-# Verifica imagem de lock — se não existir, tenta gerar via pre-lock
+# Verifica/gera imagem de lock
 if [ ! -f "$LOCK_IMG" ]; then
-  echo "Imagem de lock não encontrada — executando pre-lock para gerar..."
+  echo "Imagem de lock não encontrada — executando pre-lock..."
   if [ -x "$PRE_LOCK" ]; then
-    "$PRE_LOCK" || echo "Aviso: pre-lock falhou, tentando fallback..."
+    "$PRE_LOCK" || echo "Aviso: pre-lock falhou"
   fi
 fi
 
 if [ ! -f "$LOCK_IMG" ]; then
-  echo "Aviso: $LOCK_IMG ainda não existe após pre-lock"
   if [ -f "$FALLBACK_IMG" ]; then
     LOCK_IMG="$FALLBACK_IMG"
     echo "Usando imagem fallback: $LOCK_IMG"
   else
-    echo "Aviso: nenhuma imagem de lock disponível, continuando sem imagem"
+    echo "Aviso: nenhuma imagem de lock disponível"
   fi
 fi
 
 # ================= PRÉ-LOCK =================
-# "$FULLSCREEN" save
-pulsemixer --mute
-bwmenu-hyprland -l
+"$FULLSCREEN" save || echo "Aviso: fullscreen save falhou"
+pactl list sinks short 2>/dev/null | awk '{print $1}' | while read -r idx; do
+  pactl set-sink-mute "$idx" 1 || true
+done
+pulsemixer --mute 2>/dev/null || true
+bwmenu-hyprland -l 2>/dev/null || true
 
-DUAL_ACTIVE=$(hyprctl monitors -j | jq -r '[.[] | select(.name | test("HEADLESS"; "i") | not) | .name] | length')
+DUAL_ACTIVE=$(hyprctl monitors -j \
+  | jq -r '[.[] | select(.name | test("HEADLESS"; "i") | not) | .name] | length' \
+  || echo "1")
 
 if [ "$DUAL_ACTIVE" -eq 2 ]; then
-  "$HOME/.config/hypr/scripts/monitor-toggle.sh" --quiet --no-waybar laptop off || true
+  "$MONITOR_TOGGLE" --quiet --no-waybar laptop off || true
 fi
 
-# ================= PREPARAÇÃO =================
 if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
-  if command -v swaync-client >/dev/null 2>&1; then
-    swaync-client -dn >/dev/null 2>&1 || true
-    echo "Notificações pausadas (swaync)"
-  fi
+  swaync-client -dn >/dev/null 2>&1 || true
+  echo "Notificações pausadas (swaync)"
 else
   echo "swaync não está ativo, pulando..."
 fi
@@ -100,7 +100,7 @@ if command -v playerctl >/dev/null 2>&1; then
   echo "Mídia pausada"
 fi
 
-# ================= LOCK: QUICKSHELL OU SWAYLOCK =================
+# ================= LOCK =================
 echo "Executando lock..."
 sleep 0.2
 
@@ -111,13 +111,12 @@ if pgrep -x qs >/dev/null 2>&1; then
     USE_QS=true
     echo "QS lock ativado — aguardando desbloqueio..."
 
-    TIMEOUT=7200
-    COUNT=0
+    TIMEOUT=7200; COUNT=0
     while true; do
       sleep 0.5
       COUNT=$((COUNT + 1))
       if ! state_is_locked; then
-        echo "QS desbloqueado (state: $(cat "$STATE_FILE" 2>/dev/null || echo 'ausente'))"
+        echo "QS desbloqueado após $((COUNT / 2))s"
         break
       fi
       if [ "$COUNT" -ge "$TIMEOUT" ]; then
@@ -143,23 +142,16 @@ if [ "$USE_QS" = "false" ]; then
   echo "Executando swaylock..."
 
   run_swaylock() {
-    local args=(
-      --font "$FONT"
-      -e
-      --ring-color 00000000
-      --line-color 00000000
-    )
-    # Aplica imagem por monitor se disponível
+    local args=(--font "$FONT" -e --ring-color 00000000 --line-color 00000000)
+
     if [ -f "$LOCK_IMG" ]; then
       while IFS= read -r mon; do
         args+=(--image "${mon}:${LOCK_IMG}")
-      done < <(hyprctl monitors -j 2>/dev/null |
-        jq -r '.[] | select(.name | test("HEADLESS";"i") | not) | .name' || true)
-      # fallback se não leu monitores
-      if [ "${#args[@]}" -eq 4 ]; then
-        args+=(--image "$LOCK_IMG")
-      fi
+      done < <(hyprctl monitors -j 2>/dev/null \
+        | jq -r '.[] | select(.name | test("HEADLESS";"i") | not) | .name' || true)
+      [ "${#args[@]}" -eq 4 ] && args+=(--image "$LOCK_IMG")
     fi
+
     swaylock "${args[@]}" 2>&1 | tee -a "$LOG"
     return "${PIPESTATUS[0]}"
   }
@@ -167,46 +159,76 @@ if [ "$USE_QS" = "false" ]; then
   STATUS=0
   if ! run_swaylock; then
     STATUS=$?
-    echo "swaylock falhou com status $STATUS, tentando novamente em 1s..."
+    echo "swaylock falhou (status $STATUS), tentando novamente em 1s..."
     sleep 1
     if ! run_swaylock; then
       STATUS=$?
-      echo "swaylock falhou novamente com status $STATUS"
+      echo "swaylock falhou novamente (status $STATUS)"
     else
       STATUS=0
-      echo "swaylock executado com sucesso na segunda tentativa"
+      echo "swaylock OK na segunda tentativa"
     fi
   else
-    echo "swaylock executado com sucesso"
+    echo "swaylock OK"
   fi
 fi
 
 # ================= RESTAURAÇÃO =================
+echo "Restaurando sessão..."
+
 if [ "$DUAL_ACTIVE" -eq 2 ]; then
   hyprctl dispatch dpms on || true
   sleep 0.5
 
-  CURRENTLY_ON=$(hyprctl monitors -j | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))')
+  CURRENTLY_ON=$(hyprctl monitors -j \
+    | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))' \
+    || echo "true")
+
   if [[ "$CURRENTLY_ON" == "false" ]]; then
-    "$HOME/.config/hypr/scripts/monitor-toggle.sh" --quiet --no-waybar laptop on || true
+    "$MONITOR_TOGGLE" --quiet --no-waybar laptop on || true
     sleep 0.3
   fi
 
   hyprctl dispatch dpms on || true
 fi
 
-pulsemixer --unmute
-# "$FULLSCREEN" restore
+unmute_audio() {
+  # Após dpms off/on o pulsemixer pode perder referência do sink correto.
+  # Desmuta todos os sinks via pactl para garantir.
+  local ok=false
 
-if systemctl --user is-active --quiet wallpaper-schedule.timer; then
+  # Tenta até 5x com backoff — PipeWire pode demorar a responder após dpms
+  for i in 1 2 3 4 5; do
+    if pactl list sinks short 2>/dev/null | awk '{print $1}' | while read -r idx; do
+        pactl set-sink-mute "$idx" 0 || true
+      done; then
+      ok=true
+      echo "Audio desmutado (pactl all-sinks, tentativa $i)"
+      break
+    fi
+    sleep 0.3
+  done
+
+  # Fallback: pulsemixer e wpctl
+  if [ "$ok" = "false" ]; then
+    pulsemixer --unmute 2>/dev/null \
+      && echo "Audio desmutado (pulsemixer fallback)" \
+      || true
+    wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null \
+      && echo "Audio desmutado (wpctl fallback)" \
+      || echo "Aviso: todos os métodos de unmute falharam"
+  fi
+}
+unmute_audio
+"$FULLSCREEN" restore || echo "Aviso: fullscreen restore falhou"
+
+if systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null; then
   systemctl --user start wallpaper-schedule.timer || true
 fi
 
 if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
-  if command -v swaync-client >/dev/null 2>&1; then
-    swaync-client -dn >/dev/null 2>&1 || true
-    echo "Notificações retomadas (swaync)"
-  fi
+  swaync-client -dn >/dev/null 2>&1 || true
+  echo "Notificações retomadas (swaync)"
 else
   echo "swaync não está ativo, pulando..."
 fi
