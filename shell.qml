@@ -46,21 +46,21 @@ Scope {
     }
   }
 
-  // ── Power Menu ────────────────────────────────────────────────────────────
   PowerModule.PowerMenu {
     id: powerMenu
   }
 
   // ── Screen Lock ───────────────────────────────────────────────────────────
-  // Ativar:      qs ipc call screenLock lock
-  // Desbloquear: senha correta via PAM (automático)
+  // qs ipc call screenLock lock      → ativa
+  // qs ipc call screenLock isLocked  → retorna "true" ou "false" (usado pelo script bash)
   LockModule.ScreenLock {
     id: screenLock
   }
 
   IpcHandler {
     target: "screenLock"
-    function lock()   { screenLock.lock()   }
-    function unlock() { screenLock.unlock() }
+    function lock()     { screenLock.lock()                          }
+    function unlock()   { screenLock.unlock()                        }
+    function isLocked() { return screenLock.locked ? "true" : "false" }
   }
 }

@@ -1,138 +1,149 @@
 #!/usr/bin/env bash
-# ================= CONFIGURAÇÃO BÁSICA =================
+# ================= CONFIGURAÇÃO =================
 set -euo pipefail
-LOG="$HOME/.local/state/screenlock-qs.log"
+LOG="$HOME/.local/state/screenlock.log"
 mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock iniciado"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] ========== Screenlock iniciado =========="
 
-# ================= LOCK ATÔMICO =================
-LOCK_FILE="$HOME/.cache/screenlock-qs-$UID.lock"
+LOCK_FILE="$HOME/.cache/screenlock-$UID.lock"
+STATE_FILE="$HOME/.cache/quickshell-lockstate"
 FULLSCREEN="$HOME/.config/hypr/scripts/fullscreen_state.sh"
+MONITOR_TOGGLE="$HOME/.config/hypr/scripts/monitor-toggle.sh"
 
-# trap garante remoção do lock file mesmo em saída abrupta
+# ================= FUNÇÕES =================
 cleanup_lock() {
   rm -f "$LOCK_FILE"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Lock file removido"
 }
 trap cleanup_lock EXIT
 
-# Verificação primária: Quickshell já está com lock ativo?
-is_locked() {
-  qs ipc call screenLock isLocked 2>/dev/null | grep -qi "true"
+state_is_locked() {
+  [ -f "$STATE_FILE" ] && grep -q "^locked$" "$STATE_FILE"
 }
 
-if is_locked; then
-  echo "Quickshell já está bloqueado, saindo..."
-  exit 0
-fi
-
-# Verificação secundária: race condition via lock file
+# ================= LOCK ATÔMICO =================
 if [ -f "$LOCK_FILE" ]; then
   PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
   if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-    echo "Lock file válido encontrado (PID: $PID), saindo..."
+    echo "Screenlock já ativo (PID: $PID), saindo..."
     exit 0
   fi
-  echo "Lock file órfão detectado, removendo..."
   rm -f "$LOCK_FILE"
 fi
-
 echo $$ >"$LOCK_FILE"
 
-# ================= VERIFICAÇÕES =================
-if [ -z "${WAYLAND_DISPLAY:-}" ]; then
-  echo "ERRO: Wayland não está disponível"
-  exit 1
-fi
-
-if ! command -v qs >/dev/null 2>&1; then
-  echo "ERRO: Quickshell (qs) não está instalado ou não está no PATH"
-  exit 1
-fi
-
-if ! qs ipc list 2>/dev/null | grep -q "screenLock"; then
-  echo "ERRO: IPC target 'screenLock' não encontrado — Quickshell está rodando?"
-  exit 1
-fi
+[ -z "${WAYLAND_DISPLAY:-}" ] && { echo "ERRO: Wayland não disponível"; exit 1; }
 
 # ================= PRÉ-LOCK =================
-"$FULLSCREEN" save
-
-pulsemixer --mute
-
-# Bitwarden: fecha o menu se estiver aberto (não bloqueia o lock)
+"$FULLSCREEN" save 2>/dev/null || true
+pulsemixer --mute 2>/dev/null || true
 bwmenu-hyprland -l 2>/dev/null || true
+command -v playerctl >/dev/null 2>&1 && playerctl pause 2>/dev/null || true
 
-# pega os monitors ativos (sem headless)
-DUAL_ACTIVE=$(hyprctl monitors -j | jq -r '[.[] | select(.name | test("HEADLESS"; "i") | not) | .name] | length')
+DUAL_ACTIVE=$(hyprctl monitors -j 2>/dev/null \
+  | jq -r '[.[] | select(.name | test("HEADLESS";"i") | not)] | length' \
+  || echo "1")
 
-if [ "$DUAL_ACTIVE" -eq 2 ]; then
-  # ambos ativos — desliga eDP-1 (laptop) com preferência
-  "$HOME/.config/hypr/scripts/monitor-toggle.sh" --quiet --no-waybar laptop off || true
+if [ "$DUAL_ACTIVE" -ge 2 ]; then
+  "$MONITOR_TOGGLE" --quiet --no-waybar laptop off 2>/dev/null || true
 fi
 
-# ================= PREPARAÇÃO =================
-# Pausa notificações do swaync se ainda estiver ativo
-# (na nova config o Quickshell gerencia notificações, mas mantém compatibilidade)
-if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
-  if command -v swaync-client >/dev/null 2>&1; then
-    swaync-client -dn >/dev/null 2>&1 || true
-    echo "Notificações pausadas (swaync)"
+# ================= LOCK =================
+USE_QS=false
+
+if pgrep -x qs >/dev/null 2>&1; then
+  # Já está bloqueado?
+  if state_is_locked; then
+    echo "QS já está bloqueado, saindo..."
+    exit 0
+  fi
+
+  # Tenta ativar — se o exit code for 0, o IPC chegou ao QS
+  if qs ipc call screenLock lock 2>/dev/null; then
+    USE_QS=true
+    echo "QS lock ativado — aguardando desbloqueio..."
+
+    # Polling pelo state file até "unlocked"
+    # O QS escreve "locked" quando ativa e "unlocked" quando PAM ok
+    TIMEOUT=7200; COUNT=0
+    while true; do
+      sleep 0.5
+      COUNT=$((COUNT + 1))
+
+      # Desbloqueado: state file diz "unlocked" ou sumiu
+      if ! state_is_locked; then
+        echo "QS desbloqueado (state: $(cat "$STATE_FILE" 2>/dev/null || echo 'ausente'))"
+        break
+      fi
+
+      # Timeout de segurança (1h)
+      if [ "$COUNT" -ge "$TIMEOUT" ]; then
+        echo "AVISO: timeout 1h atingido, forçando unlock"
+        qs ipc call screenLock unlock 2>/dev/null || true
+        break
+      fi
+    done
+  else
+    echo "qs ipc call falhou (exit $?) — usando swaylock"
   fi
 else
-  echo "swaync não está ativo, pulando..."
+  echo "QS não está rodando — usando swaylock"
 fi
 
-if command -v playerctl >/dev/null 2>&1; then
-  playerctl pause >/dev/null 2>&1 || true
-  echo "Mídia pausada"
+# ── Fallback: swaylock ────────────────────────────────────────────────────────
+if [ "$USE_QS" = "false" ]; then
+  if ! command -v swaylock >/dev/null 2>&1; then
+    echo "ERRO: nem QS nem swaylock disponíveis"
+    exit 1
+  fi
+
+  echo "Usando swaylock..."
+
+  SWAYLOCK_ARGS=(
+    --ignore-empty-password
+    --show-failed-attempts
+    --color 0d0d0dff
+    --inside-color 0d0d0d00
+    --ring-color ffb4acff
+    --key-hl-color ffb4acff
+    --text-color f0ebe8ff
+    --font "JetBrainsMono Nerd Font"
+  )
+
+  LOCKBG="$HOME/.config/ml4w/cache/lockscreen/lock.png"
+  if [ -f "$LOCKBG" ]; then
+    while IFS= read -r mon; do
+      SWAYLOCK_ARGS+=(--image "${mon}:${LOCKBG}")
+    done < <(hyprctl monitors -j 2>/dev/null \
+      | jq -r '.[] | select(.name | test("HEADLESS";"i") | not) | .name' || true)
+  fi
+
+  # swaylock sem --daemonize: bloqueia até desbloquear
+  swaylock "${SWAYLOCK_ARGS[@]}" || true
+  echo "swaylock encerrado"
 fi
 
-# ================= ATIVA O LOCK VIA QUICKSHELL IPC =================
-echo "Ativando lock via Quickshell IPC..."
-sleep 0.1
-
-qs ipc call screenLock lock
-echo "Lock ativado — aguardando desbloqueio..."
-
-# Espera até que o lock seja desfeito (polling do estado via IPC)
-# O desbloqueio acontece dentro do Quickshell após autenticação PAM bem-sucedida
-while is_locked; do
+# ================= PÓS-LOCK =================
+if [ "$DUAL_ACTIVE" -ge 2 ]; then
+  hyprctl dispatch dpms on 2>/dev/null || true
   sleep 0.5
-done
-
-echo "Desbloqueado com sucesso"
-
-# ================= RESTAURAÇÃO =================
-if [ "$DUAL_ACTIVE" -eq 2 ]; then
-  hyprctl dispatch dpms on || true
-  sleep 0.5
-
-  CURRENTLY_ON=$(hyprctl monitors -j | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))')
-  if [[ "$CURRENTLY_ON" == "false" ]]; then
-    "$HOME/.config/hypr/scripts/monitor-toggle.sh" --quiet --no-waybar laptop on || true
+  CURRENTLY_ON=$(hyprctl monitors -j 2>/dev/null \
+    | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))' \
+    || echo "true")
+  if [ "$CURRENTLY_ON" = "false" ]; then
+    "$MONITOR_TOGGLE" --quiet --no-waybar laptop on 2>/dev/null || true
     sleep 0.3
   fi
-
-  # força recomposição do layout após restaurar
-  hyprctl dispatch dpms on || true
+  hyprctl dispatch dpms on 2>/dev/null || true
 fi
 
-pulsemixer --unmute
-"$FULLSCREEN" restore
+pulsemixer --unmute 2>/dev/null || true
+"$FULLSCREEN" restore 2>/dev/null || true
 
-if systemctl --user is-active --quiet wallpaper-schedule.timer; then
-  systemctl --user start wallpaper-schedule.timer || true
+if systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null; then
+  systemctl --user start wallpaper-schedule.timer 2>/dev/null || true
 fi
 
-# Retoma notificações
-if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
-  if command -v swaync-client >/dev/null 2>&1; then
-    swaync-client -dn >/dev/null 2>&1 || true
-    echo "Notificações retomadas (swaync)"
-  fi
-fi
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock encerrado"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] ========== Screenlock encerrado =========="
 exit 0
