@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# ================= CONFIGURAÇÃO BÁSICA =================
+set -euo pipefail
+LOG="$HOME/.local/state/screenlock-qs.log"
+mkdir -p "$(dirname "$LOG")"
+exec >>"$LOG" 2>&1
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock iniciado"
+
+# ================= LOCK ATÔMICO =================
+LOCK_FILE="$HOME/.cache/screenlock-qs-$UID.lock"
+FULLSCREEN="$HOME/.config/hypr/scripts/fullscreen_state.sh"
+
+# trap garante remoção do lock file mesmo em saída abrupta
+cleanup_lock() {
+  rm -f "$LOCK_FILE"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Lock file removido"
+}
+trap cleanup_lock EXIT
+
+# Verificação primária: Quickshell já está com lock ativo?
+is_locked() {
+  qs ipc call screenLock isLocked 2>/dev/null | grep -qi "true"
+}
+
+if is_locked; then
+  echo "Quickshell já está bloqueado, saindo..."
+  exit 0
+fi
+
+# Verificação secundária: race condition via lock file
+if [ -f "$LOCK_FILE" ]; then
+  PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
+  if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+    echo "Lock file válido encontrado (PID: $PID), saindo..."
+    exit 0
+  fi
+  echo "Lock file órfão detectado, removendo..."
+  rm -f "$LOCK_FILE"
+fi
+
+echo $$ >"$LOCK_FILE"
+
+# ================= VERIFICAÇÕES =================
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  echo "ERRO: Wayland não está disponível"
+  exit 1
+fi
+
+if ! command -v qs >/dev/null 2>&1; then
+  echo "ERRO: Quickshell (qs) não está instalado ou não está no PATH"
+  exit 1
+fi
+
+if ! qs ipc list 2>/dev/null | grep -q "screenLock"; then
+  echo "ERRO: IPC target 'screenLock' não encontrado — Quickshell está rodando?"
+  exit 1
+fi
+
+# ================= PRÉ-LOCK =================
+"$FULLSCREEN" save
+
+pulsemixer --mute
+
+# Bitwarden: fecha o menu se estiver aberto (não bloqueia o lock)
+bwmenu-hyprland -l 2>/dev/null || true
+
+# pega os monitors ativos (sem headless)
+DUAL_ACTIVE=$(hyprctl monitors -j | jq -r '[.[] | select(.name | test("HEADLESS"; "i") | not) | .name] | length')
+
+if [ "$DUAL_ACTIVE" -eq 2 ]; then
+  # ambos ativos — desliga eDP-1 (laptop) com preferência
+  "$HOME/.config/hypr/scripts/monitor-toggle.sh" --quiet --no-waybar laptop off || true
+fi
+
+# ================= PREPARAÇÃO =================
+# Pausa notificações do swaync se ainda estiver ativo
+# (na nova config o Quickshell gerencia notificações, mas mantém compatibilidade)
+if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
+  if command -v swaync-client >/dev/null 2>&1; then
+    swaync-client -dn >/dev/null 2>&1 || true
+    echo "Notificações pausadas (swaync)"
+  fi
+else
+  echo "swaync não está ativo, pulando..."
+fi
+
+if command -v playerctl >/dev/null 2>&1; then
+  playerctl pause >/dev/null 2>&1 || true
+  echo "Mídia pausada"
+fi
+
+# ================= ATIVA O LOCK VIA QUICKSHELL IPC =================
+echo "Ativando lock via Quickshell IPC..."
+sleep 0.1
+
+qs ipc call screenLock lock
+echo "Lock ativado — aguardando desbloqueio..."
+
+# Espera até que o lock seja desfeito (polling do estado via IPC)
+# O desbloqueio acontece dentro do Quickshell após autenticação PAM bem-sucedida
+while is_locked; do
+  sleep 0.5
+done
+
+echo "Desbloqueado com sucesso"
+
+# ================= RESTAURAÇÃO =================
+if [ "$DUAL_ACTIVE" -eq 2 ]; then
+  hyprctl dispatch dpms on || true
+  sleep 0.5
+
+  CURRENTLY_ON=$(hyprctl monitors -j | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))')
+  if [[ "$CURRENTLY_ON" == "false" ]]; then
+    "$HOME/.config/hypr/scripts/monitor-toggle.sh" --quiet --no-waybar laptop on || true
+    sleep 0.3
+  fi
+
+  # força recomposição do layout após restaurar
+  hyprctl dispatch dpms on || true
+fi
+
+pulsemixer --unmute
+"$FULLSCREEN" restore
+
+if systemctl --user is-active --quiet wallpaper-schedule.timer; then
+  systemctl --user start wallpaper-schedule.timer || true
+fi
+
+# Retoma notificações
+if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
+  if command -v swaync-client >/dev/null 2>&1; then
+    swaync-client -dn >/dev/null 2>&1 || true
+    echo "Notificações retomadas (swaync)"
+  fi
+fi
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock encerrado"
+exit 0

@@ -2,11 +2,13 @@
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import "modules/widgets/clock"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
 import './modules/default/powermenu'     as PowerModule
+import './modules/default/screenlock'    as LockModule
 
 Scope {
   ClockWidget {}
@@ -45,11 +47,20 @@ Scope {
   }
 
   // ── Power Menu ────────────────────────────────────────────────────────────
-  // Abrir:   qs ipc call powerMenu open
-  //          qs ipc call powerMenu toggle
-  // Fechar:  qs ipc call powerMenu close  |  ESC  |  clique no fundo
-  // Keybind: tecla configurada em modules/default/powermenu/layout.json
   PowerModule.PowerMenu {
     id: powerMenu
+  }
+
+  // ── Screen Lock ───────────────────────────────────────────────────────────
+  // Ativar:      qs ipc call screenLock lock
+  // Desbloquear: senha correta via PAM (automático)
+  LockModule.ScreenLock {
+    id: screenLock
+  }
+
+  IpcHandler {
+    target: "screenLock"
+    function lock()   { screenLock.lock()   }
+    function unlock() { screenLock.unlock() }
   }
 }

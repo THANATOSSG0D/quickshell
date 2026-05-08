@@ -1,0 +1,4 @@
+module screenlock
+
+ScreenLock  ScreenLock.qml
+LockContent LockContent.qml
