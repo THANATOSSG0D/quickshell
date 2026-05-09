@@ -27,9 +27,20 @@ state_is_locked() {
   [ -f "$STATE_FILE" ] && grep -q "^locked$" "$STATE_FILE"
 }
 
+# Limpa state file órfão: se diz "locked" mas QS não está rodando,
+# ou se QS está rodando mas o IPC não confirma lock ativo
 if state_is_locked; then
-  echo "QS já está bloqueado (state file), saindo..."
-  exit 0
+  if ! pgrep -x qs >/dev/null 2>&1; then
+    echo "State file diz locked mas QS não está rodando — limpando state file órfão"
+    echo "unlocked" > "$STATE_FILE"
+  elif pgrep -x swaylock >/dev/null 2>&1; then
+    echo "swaylock já está rodando, saindo..."
+    exit 0
+  else
+    # QS está rodando e state diz locked — confia
+    echo "QS já está bloqueado (state file confirmado), saindo..."
+    exit 0
+  fi
 fi
 
 if pgrep -x swaylock >/dev/null 2>&1; then
@@ -109,22 +120,41 @@ USE_QS=false
 if pgrep -x qs >/dev/null 2>&1; then
   if qs ipc call screenLock lock 2>/dev/null; then
     USE_QS=true
-    echo "QS lock ativado — aguardando desbloqueio..."
+    echo "QS lock ativado"
 
-    TIMEOUT=7200; COUNT=0
-    while true; do
-      sleep 0.5
-      COUNT=$((COUNT + 1))
-      if ! state_is_locked; then
-        echo "QS desbloqueado após $((COUNT / 2))s"
+    # Fase 1: aguarda o QML confirmar lock (state file = "locked")
+    # O IPC retorna imediatamente mas o Process QML escreve o arquivo
+    # de forma assíncrona — sem essa espera o script leria "unlocked"
+    # e sairia do loop instantaneamente antes do usuário desbloquear
+    echo "Aguardando confirmação do lock..."
+    CONFIRMED=false
+    for i in $(seq 1 40); do
+      sleep 0.1
+      if state_is_locked; then
+        CONFIRMED=true
+        echo "Lock confirmado após $((i * 100))ms"
         break
       fi
+    done
+
+    if [ "$CONFIRMED" = "false" ]; then
+      echo "AVISO: state file não confirmou lock em 4s — forçando estado"
+      echo "locked" > "$STATE_FILE"
+    fi
+
+    # Fase 2: aguarda desbloqueio (state file = "unlocked")
+    echo "Aguardando desbloqueio..."
+    TIMEOUT=7200; COUNT=0
+    while state_is_locked; do
+      sleep 0.5
+      COUNT=$((COUNT + 1))
       if [ "$COUNT" -ge "$TIMEOUT" ]; then
         echo "AVISO: timeout 1h atingido, forçando unlock"
         qs ipc call screenLock unlock 2>/dev/null || true
         break
       fi
     done
+    echo "QS desbloqueado após $((COUNT / 2))s"
   else
     echo "qs ipc call falhou — usando swaylock como fallback"
   fi

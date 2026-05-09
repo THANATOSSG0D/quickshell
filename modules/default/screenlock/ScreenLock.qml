@@ -6,19 +6,32 @@ import Quickshell.Wayland
 WlSessionLock {
     id: root
 
-    function lock()   { root.locked = true  }
-    function unlock() { root.locked = false }
+    property bool lockRequested: false
+    locked: lockRequested
+
+    function lock() {
+        console.log("[ScreenLock] lock() chamado")
+        lockRequested = true
+    }
+    function unlock() {
+        console.log("[ScreenLock] unlock() chamado")
+        lockRequested = false
+    }
 
     onLockedChanged: {
+        console.log("[ScreenLock] onLockedChanged:", root.locked)
         if (root.locked) {
             writeLocked.running = true
-        } else {
-            writeUnlocked.running = true
         }
     }
 
-    // Dois processos separados com comandos fixos — evita problema de
-    // string interpolation não re-avaliar quando locked muda
+    // Timer interval:0 evita ReferenceError de forward reference no onCompleted
+    Timer {
+        interval: 0; running: true; repeat: false
+        onTriggered: writeUnlocked.running = true
+    }
+    Component.onDestruction: writeUnlocked.running = true
+
     Process {
         id: writeLocked
         command: ["bash", "-c",
@@ -32,9 +45,6 @@ WlSessionLock {
             "echo unlocked > " + Quickshell.env("HOME") + "/.cache/quickshell-lockstate"
         ]
     }
-
-    // Garante "unlocked" se o QS for morto/reiniciado
-    Component.onDestruction: writeUnlocked.running = true
 
     WlSessionLockSurface {
         id: surface

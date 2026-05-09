@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
 
@@ -23,11 +24,13 @@ Item {
         config: "login"
 
         onPamMessage: {
+            console.log("[ScreenLock] PAM message, responseRequired:", pam.responseRequired, "pwdLen:", root.password.length)
             if (pam.responseRequired)
                 pam.respond(root.password)
         }
 
         onCompleted: result => {
+            console.log("[ScreenLock] PAM completed, result:", result, "success:", result === PamResult.Success)
             pamWatchdog.stop()
             root.authRunning = false
             if (result === PamResult.Success)
@@ -57,20 +60,33 @@ Item {
         }
     }
 
+    // Escreve "unlocked" direto do LockContent — evita ReferenceError
+    // de referência cruzada ao chamar sessionLock.writeUnlockedState()
+    Process {
+        id: writeUnlockedProc
+        command: ["bash", "-c",
+            "echo unlocked > " + Quickshell.env("HOME") + "/.cache/quickshell-lockstate"
+        ]
+    }
+
     function submitPassword() {
         if (authRunning || password.length === 0) return
+        console.log("[ScreenLock] submitPassword: len=" + password.length)
         authRunning = true
         pamWatchdog.restart()
         pam.start()
     }
 
     function authSuccess() {
-        sessionLock.locked = false
+        console.log("[ScreenLock] authSuccess — desbloqueando")
+        writeUnlockedProc.running = true      // escreve state file localmente
+        sessionLock.lockRequested = false     // pede unlock ao compositor
         hiddenInput.text = ""
         failCount = 0
     }
 
     function authFailure() {
+        console.log("[ScreenLock] authFailure — tentativas:", failCount + 1)
         failCount++
         authFailed = true
         hiddenInput.text = ""
@@ -112,10 +128,14 @@ Item {
     // Keys especiais (Enter/Esc) são tratados aqui mesmo.
     TextInput {
         id: hiddenInput
-        visible:    false
-        enabled:    root.isPrimary
-        focus:      root.isPrimary
-        echoMode:   TextInput.NoEcho
+        // visible:false bloqueia foco no Qt — usa opacity+dimensões zero
+        // para ficar tecnicamente visível mas invisível ao usuário
+        opacity: 0
+        width:   0
+        height:  0
+        enabled:  root.isPrimary
+        focus:    root.isPrimary
+        echoMode: TextInput.NoEcho
         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhHiddenText
 
         Keys.onPressed: event => {
