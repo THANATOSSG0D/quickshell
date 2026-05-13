@@ -204,7 +204,7 @@ Item {
           hoverEnabled: true
           onEntered:    parent.isAddHovered = true
           onExited:     parent.isAddHovered = false
-          onClicked:    Hyprland.dispatch("workspace emptynm")
+          onClicked:    Hyprland.dispatch("hl.dsp.focus({ workspace = 'emptynm'})")
         }
       }
     }

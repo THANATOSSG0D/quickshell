@@ -56,7 +56,7 @@ Item {
       runCmd:    (entry) => {
         // entry = "class → title", foca a janela
         var cls = entry.split(" → ")[0].trim()
-        return ["bash", "-c", "hyprctl dispatch focuswindow class:" + cls + " &"]
+        return ["bash", "-c", "hyprctl dispatch 'hl.dsp.focus({ window = \'class:" + cls + "\' })' &"]
       }
     }
   })

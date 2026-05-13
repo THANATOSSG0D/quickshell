@@ -60,13 +60,11 @@ Item {
         }
     }
 
-    // Escreve "unlocked" direto do LockContent — evita ReferenceError
-    // de referência cruzada ao chamar sessionLock.writeUnlockedState()
-    Process {
-        id: writeUnlockedProc
-        command: ["bash", "-c",
-            "echo unlocked > " + Quickshell.env("HOME") + "/.cache/quickshell-lockstate"
-        ]
+    function authSuccess() {
+        console.log("[ScreenLock] authSuccess — desbloqueando")
+        hiddenInput.text = ""
+        failCount = 0
+        sessionLock.lockRequested = false
     }
 
     function submitPassword() {
@@ -75,14 +73,6 @@ Item {
         authRunning = true
         pamWatchdog.restart()
         pam.start()
-    }
-
-    function authSuccess() {
-        console.log("[ScreenLock] authSuccess — desbloqueando")
-        writeUnlockedProc.running = true      // escreve state file localmente
-        sessionLock.lockRequested = false     // pede unlock ao compositor
-        hiddenInput.text = ""
-        failCount = 0
     }
 
     function authFailure() {

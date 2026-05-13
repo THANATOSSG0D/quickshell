@@ -8,7 +8,6 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock iniciado"
 
 # ================= VARIÁVEIS =================
 LOCK_FILE="$HOME/.cache/screenlock-$UID.lock"
-STATE_FILE="$HOME/.cache/quickshell-lockstate"
 FULLSCREEN="$HOME/.config/hypr/scripts/fullscreen_state.sh"
 MONITOR_TOGGLE="$HOME/.config/hypr/scripts/monitor-toggle.sh"
 FONT="JetBrainsMono Nerd Font"
@@ -16,35 +15,23 @@ LOCK_IMG="$HOME/.config/ml4w/cache/lockscreen/lock.png"
 PRE_LOCK="$HOME/.config/ml4w/scripts/pre-lock"
 FALLBACK_IMG="$HOME/Imagens/wallpaper.png"
 
-# ================= LOCK ATÔMICO =================
-cleanup_lock() {
+# ================= FUNÇÕES =================
+cleanup() {
   rm -f "$LOCK_FILE"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Lock file removido"
 }
-trap cleanup_lock EXIT
+trap cleanup EXIT
 
-state_is_locked() {
-  [ -f "$STATE_FILE" ] && grep -q "^locked$" "$STATE_FILE"
+qs_is_locked() {
+  local session="${XDG_SESSION_ID:-}"
+  [ -z "$session" ] && session=$(loginctl list-sessions --no-legend 2>/dev/null |
+    awk -v u="$USER" '$3 == u {print $1; exit}')
+  [ "$(loginctl show-session "$session" -p LockedHint --value 2>/dev/null)" = "yes" ]
 }
 
-# Limpa state file órfão: se diz "locked" mas QS não está rodando,
-# ou se QS está rodando mas o IPC não confirma lock ativo
-if state_is_locked; then
-  if ! pgrep -x qs >/dev/null 2>&1; then
-    echo "State file diz locked mas QS não está rodando — limpando state file órfão"
-    echo "unlocked" > "$STATE_FILE"
-  elif pgrep -x swaylock >/dev/null 2>&1; then
-    echo "swaylock já está rodando, saindo..."
-    exit 0
-  else
-    # QS está rodando e state diz locked — confia
-    echo "QS já está bloqueado (state file confirmado), saindo..."
-    exit 0
-  fi
-fi
-
-if pgrep -x swaylock >/dev/null 2>&1; then
-  echo "swaylock já está rodando, saindo..."
+# ================= LOCK ATÔMICO =================
+if qs_is_locked || pgrep -x swaylock >/dev/null 2>&1; then
+  echo "Sessão já está bloqueada, saindo..."
   exit 0
 fi
 
@@ -54,62 +41,47 @@ if [ -f "$LOCK_FILE" ]; then
     echo "Lock file válido encontrado (PID: $PID), saindo..."
     exit 0
   fi
-  echo "Lock file órfão detectado, removendo..."
   rm -f "$LOCK_FILE"
 fi
-
 echo $$ >"$LOCK_FILE"
 
-# ================= VERIFICAÇÕES =================
-if [ -z "${WAYLAND_DISPLAY:-}" ]; then
-  echo "ERRO: Wayland não está disponível"
+[ -z "${WAYLAND_DISPLAY:-}" ] && {
+  echo "ERRO: Wayland não disponível"
   exit 1
-fi
+}
 
-# Verifica/gera imagem de lock
+# ================= IMAGEM DE LOCK =================
 if [ ! -f "$LOCK_IMG" ]; then
   echo "Imagem de lock não encontrada — executando pre-lock..."
-  if [ -x "$PRE_LOCK" ]; then
-    "$PRE_LOCK" || echo "Aviso: pre-lock falhou"
-  fi
+  [ -x "$PRE_LOCK" ] && "$PRE_LOCK" || echo "Aviso: pre-lock falhou"
 fi
-
-if [ ! -f "$LOCK_IMG" ]; then
-  if [ -f "$FALLBACK_IMG" ]; then
-    LOCK_IMG="$FALLBACK_IMG"
-    echo "Usando imagem fallback: $LOCK_IMG"
-  else
-    echo "Aviso: nenhuma imagem de lock disponível"
-  fi
+if [ ! -f "$LOCK_IMG" ] && [ -f "$FALLBACK_IMG" ]; then
+  LOCK_IMG="$FALLBACK_IMG"
+  echo "Usando imagem fallback: $LOCK_IMG"
 fi
 
 # ================= PRÉ-LOCK =================
 "$FULLSCREEN" save || echo "Aviso: fullscreen save falhou"
+
 pactl list sinks short 2>/dev/null | awk '{print $1}' | while read -r idx; do
   pactl set-sink-mute "$idx" 1 || true
 done
 pulsemixer --mute 2>/dev/null || true
+
 bwmenu-hyprland -l 2>/dev/null || true
 
-DUAL_ACTIVE=$(hyprctl monitors -j \
-  | jq -r '[.[] | select(.name | test("HEADLESS"; "i") | not) | .name] | length' \
-  || echo "1")
-
-if [ "$DUAL_ACTIVE" -eq 2 ]; then
-  "$MONITOR_TOGGLE" --quiet --no-waybar laptop off || true
-fi
+DUAL_ACTIVE=$(hyprctl monitors -j |
+  jq -r '[.[] | select(.name | test("HEADLESS";"i") | not)] | length' ||
+  echo "1")
+[ "$DUAL_ACTIVE" -eq 2 ] && "$MONITOR_TOGGLE" --quiet --no-waybar laptop off || true
 
 if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
   swaync-client -dn >/dev/null 2>&1 || true
   echo "Notificações pausadas (swaync)"
-else
-  echo "swaync não está ativo, pulando..."
 fi
 
-if command -v playerctl >/dev/null 2>&1; then
-  playerctl pause >/dev/null 2>&1 || true
-  echo "Mídia pausada"
-fi
+command -v playerctl >/dev/null 2>&1 && playerctl pause >/dev/null 2>&1 || true
+echo "Mídia pausada"
 
 # ================= LOCK =================
 echo "Executando lock..."
@@ -120,32 +92,23 @@ USE_QS=false
 if pgrep -x qs >/dev/null 2>&1; then
   if qs ipc call screenLock lock 2>/dev/null; then
     USE_QS=true
-    echo "QS lock ativado"
+    echo "QS lock ativado — aguardando confirmação via loginctl..."
 
-    # Fase 1: aguarda o QML confirmar lock (state file = "locked")
-    # O IPC retorna imediatamente mas o Process QML escreve o arquivo
-    # de forma assíncrona — sem essa espera o script leria "unlocked"
-    # e sairia do loop instantaneamente antes do usuário desbloquear
-    echo "Aguardando confirmação do lock..."
-    CONFIRMED=false
-    for i in $(seq 1 40); do
+    # Aguarda loginctl confirmar lock (até 5s)
+    for i in $(seq 1 50); do
       sleep 0.1
-      if state_is_locked; then
-        CONFIRMED=true
+      qs_is_locked && {
         echo "Lock confirmado após $((i * 100))ms"
         break
-      fi
+      }
     done
+    qs_is_locked || echo "AVISO: loginctl não confirmou lock em 5s — continuando"
 
-    if [ "$CONFIRMED" = "false" ]; then
-      echo "AVISO: state file não confirmou lock em 4s — forçando estado"
-      echo "locked" > "$STATE_FILE"
-    fi
-
-    # Fase 2: aguarda desbloqueio (state file = "unlocked")
+    # Polling até LockedHint = no (desbloqueado pelo usuário via PAM)
     echo "Aguardando desbloqueio..."
-    TIMEOUT=7200; COUNT=0
-    while state_is_locked; do
+    TIMEOUT=7200
+    COUNT=0
+    while qs_is_locked; do
       sleep 0.5
       COUNT=$((COUNT + 1))
       if [ "$COUNT" -ge "$TIMEOUT" ]; then
@@ -170,97 +133,60 @@ if [ "$USE_QS" = "false" ]; then
   fi
 
   echo "Executando swaylock..."
-
   run_swaylock() {
     local args=(--font "$FONT" -e --ring-color 00000000 --line-color 00000000)
-
     if [ -f "$LOCK_IMG" ]; then
       while IFS= read -r mon; do
         args+=(--image "${mon}:${LOCK_IMG}")
-      done < <(hyprctl monitors -j 2>/dev/null \
-        | jq -r '.[] | select(.name | test("HEADLESS";"i") | not) | .name' || true)
+      done < <(hyprctl monitors -j 2>/dev/null |
+        jq -r '.[] | select(.name | test("HEADLESS";"i") | not) | .name' || true)
       [ "${#args[@]}" -eq 4 ] && args+=(--image "$LOCK_IMG")
     fi
-
     swaylock "${args[@]}" 2>&1 | tee -a "$LOG"
     return "${PIPESTATUS[0]}"
   }
-
-  STATUS=0
-  if ! run_swaylock; then
-    STATUS=$?
-    echo "swaylock falhou (status $STATUS), tentando novamente em 1s..."
+  run_swaylock || {
     sleep 1
-    if ! run_swaylock; then
-      STATUS=$?
-      echo "swaylock falhou novamente (status $STATUS)"
-    else
-      STATUS=0
-      echo "swaylock OK na segunda tentativa"
-    fi
-  else
-    echo "swaylock OK"
-  fi
+    run_swaylock || true
+  }
 fi
 
 # ================= RESTAURAÇÃO =================
 echo "Restaurando sessão..."
 
 if [ "$DUAL_ACTIVE" -eq 2 ]; then
-  hyprctl dispatch dpms on || true
+  hyprctl dispatch 'hl.dps.dpms()' || true
   sleep 0.5
-
-  CURRENTLY_ON=$(hyprctl monitors -j \
-    | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))' \
-    || echo "true")
-
+  CURRENTLY_ON=$(hyprctl monitors -j |
+    jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))' ||
+    echo "true")
   if [[ "$CURRENTLY_ON" == "false" ]]; then
     "$MONITOR_TOGGLE" --quiet --no-waybar laptop on || true
     sleep 0.3
   fi
-
-  hyprctl dispatch dpms on || true
+  hyprctl dispatch 'hl.dps.dpms()' || true
 fi
 
 unmute_audio() {
-  # Após dpms off/on o pulsemixer pode perder referência do sink correto.
-  # Desmuta todos os sinks via pactl para garantir.
-  local ok=false
-
-  # Tenta até 5x com backoff — PipeWire pode demorar a responder após dpms
   for i in 1 2 3 4 5; do
-    if pactl list sinks short 2>/dev/null | awk '{print $1}' | while read -r idx; do
-        pactl set-sink-mute "$idx" 0 || true
-      done; then
-      ok=true
-      echo "Audio desmutado (pactl all-sinks, tentativa $i)"
-      break
-    fi
+    pactl list sinks short 2>/dev/null | awk '{print $1}' | while read -r idx; do
+      pactl set-sink-mute "$idx" 0 || true
+    done && echo "Audio desmutado (tentativa $i)" && return 0
     sleep 0.3
   done
-
-  # Fallback: pulsemixer e wpctl
-  if [ "$ok" = "false" ]; then
-    pulsemixer --unmute 2>/dev/null \
-      && echo "Audio desmutado (pulsemixer fallback)" \
-      || true
-    wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null \
-      && echo "Audio desmutado (wpctl fallback)" \
-      || echo "Aviso: todos os métodos de unmute falharam"
-  fi
+  pulsemixer --unmute 2>/dev/null || true
+  wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null || true
 }
 unmute_audio
+
 "$FULLSCREEN" restore || echo "Aviso: fullscreen restore falhou"
 
-if systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null; then
+systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null &&
   systemctl --user start wallpaper-schedule.timer || true
-fi
 
 if systemctl --user is-active --quiet swaync.service 2>/dev/null; then
   swaync-client -dn >/dev/null 2>&1 || true
   echo "Notificações retomadas (swaync)"
-else
-  echo "swaync não está ativo, pulando..."
 fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Screenlock encerrado"

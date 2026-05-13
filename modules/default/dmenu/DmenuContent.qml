@@ -133,7 +133,7 @@ Item {
       var parts = sel.display.split("\t")
       var addr  = parts.length > 2 ? parts[2].trim() : ""
       if (addr === "") return
-      execProc.command = ["bash", "-c", "hyprctl dispatch focuswindow address:" + addr]
+      execProc.command = ["bash", "-c", "hyprctl dispatch 'hl.dsp.focus({ window = \"address:" + addr +"\" })'"]
       execProc.running = true
       root.closeRequested()
       return

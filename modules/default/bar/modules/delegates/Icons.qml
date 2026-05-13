@@ -312,7 +312,7 @@ Item {
 
         MouseArea {
           anchors.fill: parent
-          onClicked: Hyprland.dispatch("focuswindow address:0x" + modelData.address)
+          onClicked: Hyprland.dispatch("hl.dsp.focus({ window = 'address:0x" + modelData.address + "'})")
         }
       }
     }

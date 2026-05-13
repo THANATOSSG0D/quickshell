@@ -4,7 +4,7 @@
         "barMargin": 3,
         "barSize": 30,
         "pillWidth": 800,
-        "position": 4,
+        "position": 1,
         "silence": false,
         "theme": "Pill"
     },
@@ -26,17 +26,19 @@
             "workspaces"
         ],
         "left": [
-            "mediaplayer"
+            "mediaplayer",
+            "separator",
+            "quicksettings"
         ],
         "middle": [
             "workspaces"
         ],
         "right": [
-            "quicksettings",
-            "separator",
             "clock",
             "separator",
-            "volume"
+            "volume",
+            "separator",
+            "notifications"
         ],
         "top": [
             "mediaplayer",

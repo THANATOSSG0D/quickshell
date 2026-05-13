@@ -21,16 +21,10 @@ Item {
     Timer { id: confirmTimer; interval: 4000; onTriggered: root.confirmPending = "" }
 
     function _execute(actionId) {
-        var cmd
-        switch (actionId) {
-            case "lock":     cmd = [ "loginctl", "lock-session" ]; break
-            case "suspend":  cmd = [ "systemctl", "suspend" ];     break
-            case "exit":     cmd = [ "bash", "-c", "uwsm stop 2>/dev/null || hyprctl dispatch exit" ]; break
-            case "reboot":   cmd = [ "systemctl", "reboot" ];      break
-            case "shutdown": cmd = [ "systemctl", "poweroff" ];    break
-            default: return
-        }
-        powerProc.command = cmd
+        var validActions = ["lock", "lockscreen", "suspend", "hibernate", "exit", "reboot", "shutdown"]
+        if (validActions.indexOf(actionId) === -1) return
+
+        powerProc.command = [Quickshell.env("HOME") + "/.config/hypr/scripts/power.sh", actionId]
         powerProc.running = true
     }
 
