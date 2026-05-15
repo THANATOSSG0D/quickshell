@@ -18,6 +18,7 @@ Scope {
 
   // ── Props do tema activo ───────────────────────────────────────────────
   property int  themeBarSize:    30
+  signal _onZoneSurfaceChanged()  // emitido quando a zona da superfície muda
   property int  themeBarMargin:  0
   property bool themePill:       false
   property int  themePillWidth:  600
@@ -126,6 +127,9 @@ Scope {
     function disableFullscreenPeek() { barState.fullscreenPeekEnabled = false }
     function enableFullscreenPeek()  { barState.fullscreenPeekEnabled = true  }
     function toggleFullscreenPeek()  { barState.fullscreenPeekEnabled = !barState.fullscreenPeekEnabled }
+    function disableautoHide() { barState.autoHide = false }
+    function enableAutoHide()  { barState.autoHide = true  }
+    function toggleAutoHide()  { barState.autoHide = !barState.autoHide }
     function silenceOn()     { barState.silenceMode = true  }
     function silenceOff()    { barState.silenceMode = false }
     function silenceToggle() { barState.silenceMode = !barState.silenceMode }
@@ -193,6 +197,63 @@ Scope {
   }
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
+  Variants {
+    model: Quickshell.screens
+
+    // ── Superfície de zona (transparente, não se retrai) ──────────────────
+    // Propósito exclusivo: reservar espaço para janelas normais.
+    //
+    // Por que superfície separada?
+    //   A barra visual precisa mudar zone (0↔barSize) quando detecta fullscreen.
+    //   Cada mudança de zone faz o Hyprland reposicionar TODAS as janelas do monitor,
+    //   incluindo a janela fullscreen em background — causando o push.
+    //
+    // Solução:
+    //   • Esta superfície (Top, zone=barSize): nunca muda por fullscreen.
+    //     Hyprland ignora exclusiveZone de superfícies Top para janelas fullscreen.
+    //     Zone só muda com barState.autoHide (ação explícita do usuário).
+    //   • Barra visual (Overlay, zone=0): nunca afeta o layout de janelas.
+    //     Aparece acima de fullscreen para peek. Anima normalmente.
+    PanelWindow {
+      required property var modelData
+      screen: modelData
+      color: "transparent"
+
+      WlrLayershell.layer:  WlrLayershell.Top
+      exclusionMode:        ExclusionMode.Ignore
+      exclusiveZone:        barState.autoHide ? 0 : barRoot.themeBarSize
+
+      readonly property int _pos: barRoot.position
+
+      // Mesmos anchors que a barra visual
+      anchors.top:    _pos === 1 || _pos === 2 || _pos === 4
+      anchors.bottom: _pos === 3 || _pos === 2 || _pos === 4
+      anchors.left:   _pos === 1 || _pos === 3 || _pos === 4
+      anchors.right:  _pos === 1 || _pos === 3 || _pos === 2
+
+      // Tamanho mínimo — exclusiveZone é explícito, tamanho não importa para a zona
+      implicitWidth:  (_pos === 2 || _pos === 4) ? barRoot.themeBarSize : 1
+      implicitHeight: (_pos === 1 || _pos === 3) ? barRoot.themeBarSize : 1
+
+      // Margem da borda (sem marginOffset — não se move nunca)
+      margins.top:    _pos === 1 ? barRoot.themeBarMargin : 0
+      margins.bottom: _pos === 3 ? barRoot.themeBarMargin : 0
+      margins.left:   _pos === 4 ? barRoot.themeBarMargin : 0
+      margins.right:  _pos === 2 ? barRoot.themeBarMargin : 0
+
+      Component.onCompleted: {
+        console.log("[ZoneBar] screen=" + screen.name
+            + " pos=" + _pos
+            + " zone=" + exclusiveZone
+            + " barSize=" + barRoot.themeBarSize)
+      }
+      onExclusiveZoneChanged: {
+        console.log("[ZoneBar] exclusiveZone →", exclusiveZone)
+        barRoot._onZoneSurfaceChanged()
+      }
+    }
+  }
+
   Variants {
     model: Quickshell.screens
 
@@ -311,10 +372,13 @@ Scope {
         marginOffset = barShow ? 0 : barSize + barMargin + 1
       }
 
+      // ── Layer e zona da barra visual ─────────────────────────────────────
+      // zone=0: nunca afeta layout de janelas — a superfície de zona cuida disso.
+      // Layer muda para Overlay quando autohide: barra aparece acima de fullscreen.
       WlrLayershell.layer: bar.effectiveAutoHide ? WlrLayershell.Overlay : WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
-      exclusiveZone: bar.effectiveAutoHide ? 0 : barSize
+      exclusiveZone: 0
 
       // anchor.* removidos — popups agora usam PanelWindow com barRef: bar
 
@@ -739,19 +803,112 @@ Scope {
       property bool isFullscreen: false
       property string _monBuf: ""
       property int _activeWsId: hyprMonitor ? hyprMonitor.activeWorkspace.id : -1
+      property bool _verifyMode: false   // true quando _monProc está a verificar após troca de workspace
+      property bool _zoneJustChanged: false  // true por 500ms após zone surface mudar
 
+      Timer {
+        id: _zoneChangedTimer
+        interval: 500
+        repeat: false
+        onTriggered: bar._zoneJustChanged = false
+      }
+
+      Connections {
+        target: barRoot
+        function on_OnZoneSurfaceChanged() {
+          bar._zoneJustChanged = true
+          _zoneChangedTimer.restart()
+        }
+      }
+
+      // ── fullscreenChanged: app entrou/saiu de fullscreen no workspace atual ────
+      // Usa activewindow com delay de 150ms (estados transitórios durante a transição)
+      // e debounce de 300ms no resultado false (Vivaldi/Chromium emite eventos extras).
       Timer {
         id: fsQueryTimer
         interval: 150
         repeat:   false
-        onTriggered: bar._monProc.running = true
+        onTriggered: {
+          bar._verifyMode = false
+          bar._monProc.running = true
+        }
       }
 
       Timer {
         id: fsInitTimer
         interval: 600
         repeat:   false
-        onTriggered: bar._monProc.running = true
+        onTriggered: {
+          bar._verifyMode = false
+          bar._monProc.running = true
+        }
+      }
+
+      Timer {
+        id: fsDebounceTimer
+        interval: 300
+        repeat:   false
+        onTriggered: {
+          console.log("[FS] debounce FIRED → isFullscreen false")
+          bar.isFullscreen = false
+        }
+      }
+
+      // ── workspaceOrFocusChanged: usuário trocou de workspace ─────────────────
+      // Fluxo "predict → verify":
+      //  1. _wsProc roda hyprctl clients -j → filtra por workspace alvo + fullscreen & 2
+      //     (hyprctl workspaces hasfullscreen é buggy para workspaces em background)
+      //  2. Aplica isFullscreen imediatamente (sem debounce) → zone/autohide corretos
+      //     antes de o Hyprland renderizar o workspace
+      //  3. _wsVerifyTimer dispara após 500ms → _monProc verifica activewindow real
+      //  4. Se a verificação discordar → corrige isFullscreen (evita falsos positivos)
+      Timer {
+        id: _wsVerifyTimer
+        interval: 500
+        repeat:   false
+        onTriggered: {
+          console.log("[FS] wsVerify → activewindow check")
+          bar._verifyMode = true
+          if (!bar._monProc.running) bar._monProc.running = true
+        }
+      }
+
+      property string _wsBuf: ""
+      property var _wsProc: Process {
+        command: ["hyprctl", "clients", "-j"]
+        stdout: SplitParser {
+          onRead: data => { bar._wsBuf += data }
+        }
+        onExited: {
+          try {
+            var clients = JSON.parse(bar._wsBuf)
+            var wsId = bar.hyprMonitor ? bar.hyprMonitor.activeWorkspace.id : -1
+            var found = false
+            for (var i = 0; i < clients.length; i++) {
+              var c = clients[i]
+              if (c.workspace && c.workspace.id === wsId) {
+                var isRealFs = c.fullscreen !== undefined && (c.fullscreen & 2) !== 0
+                if (isRealFs) {
+                  console.log("[FS] wsCheck HIT class=" + c.class
+                      + " ws=" + wsId + " fs=" + c.fullscreen)
+                  found = true; break
+                }
+              }
+            }
+            console.log("[FS] wsCheck ws=" + wsId + " hasFullscreen=" + found)
+            // Aplica imediatamente — fullscreen de cliente é estável, não transitório
+            fsDebounceTimer.stop()
+            if (found !== bar.isFullscreen) {
+              console.log("[FS] wsCheck → isFullscreen: " + bar.isFullscreen + " → " + found)
+              bar.isFullscreen = found
+            }
+            // Agenda verificação de confirmação após 500ms
+            _wsVerifyTimer.restart()
+          } catch(e) {
+            console.log("[FS] wsProc ERRO:", e.toString())
+          }
+          bar._wsBuf = ""
+        }
       }
 
       property var _monProc: Process {
@@ -762,17 +919,31 @@ Scope {
         onExited: {
           try {
             var win = JSON.parse(bar._monBuf)
-            // Janela ativa no monitor desta barra, com fullscreen real (bit cliente)
             var onThisMonitor = bar.hyprMonitor && (win.monitor === bar.hyprMonitor.id)
             var isRealFs = win.fullscreen !== undefined && (win.fullscreen & 2) !== 0
             var found = onThisMonitor && isRealFs
-            if (found)
-              console.log("[FS] activewindow fullscreen:", win.class, "fs:", win.fullscreen)
-            console.log("[FS] [" + bar.screen.name + "] →", found)
-            bar.isFullscreen = found
+            console.log("[FS] activewindow"
+                + (bar._verifyMode ? " [VERIFY]" : "")
+                + " class=" + (win.class || "?")
+                + " fs=" + win.fullscreen
+                + " → found=" + found)
+            if (bar._verifyMode) {
+              // Modo verificação: ground-truth após 500ms — corrige se necessário
+              if (found !== bar.isFullscreen) {
+                console.log("[FS] VERIFY corrigiu isFullscreen: " + bar.isFullscreen + " → " + found)
+                bar.isFullscreen = found
+              }
+            } else {
+              // Modo normal (fullscreenChanged): debounce no false para Vivaldi/Chromium
+              if (found) {
+                fsDebounceTimer.stop()
+                bar.isFullscreen = true
+              } else {
+                fsDebounceTimer.restart()
+              }
+            }
           } catch(e) {
-            // activewindow pode retornar {} quando não há janela focada (startup)
-            // nesse caso consulta clients filtrado pelo workspace ativo
+            console.log("[FS] activewindow ERRO:", e.toString())
             bar._monBuf = ""
             bar._fallbackProc.running = true
             return
@@ -814,13 +985,22 @@ Scope {
       Connections {
         target: barState
         function onFullscreenChanged(state) {
+          // App entrou/saiu de fullscreen no workspace atual
           console.log("[FS] fullscreenChanged:", state, "→ delay 150ms")
           fsQueryTimer.restart()
         }
         function onWorkspaceOrFocusChanged() {
-          bar._monProc.running = true
+          // Filtra eventos auto-gerados pelo Hyprland em resposta às nossas mudanças de zona
+          if (bar._zoneJustChanged) {
+            console.log("[FS] workspaceFocus IGNORADO (zone mudou há <500ms)")
+            return
+          }
+          console.log("[FS] workspaceFocus → wsCheck")
+          bar._wsProc.running = true
         }
       }
+
+
 
       property bool effectiveAutoHide: {
         if (barState.autoHide) return true

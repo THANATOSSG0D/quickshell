@@ -66,7 +66,7 @@ fi
 pactl list sinks short 2>/dev/null | awk '{print $1}' | while read -r idx; do
   pactl set-sink-mute "$idx" 1 || true
 done
-pulsemixer --mute 2>/dev/null || true
+# pulsemixer --mute 2>/dev/null || true
 
 bwmenu-hyprland -l 2>/dev/null || true
 
@@ -155,8 +155,6 @@ fi
 echo "Restaurando sessão..."
 
 if [ "$DUAL_ACTIVE" -eq 2 ]; then
-  hyprctl dispatch 'hl.dps.dpms()' || true
-  sleep 0.5
   CURRENTLY_ON=$(hyprctl monitors -j |
     jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))' ||
     echo "true")
@@ -164,7 +162,6 @@ if [ "$DUAL_ACTIVE" -eq 2 ]; then
     "$MONITOR_TOGGLE" --quiet --no-waybar laptop on || true
     sleep 0.3
   fi
-  hyprctl dispatch 'hl.dps.dpms()' || true
 fi
 
 unmute_audio() {

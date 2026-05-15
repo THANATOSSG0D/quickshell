@@ -4,7 +4,7 @@
         "barMargin": 3,
         "barSize": 30,
         "pillWidth": 800,
-        "position": 1,
+        "position": 4,
         "silence": false,
         "theme": "Pill"
     },
