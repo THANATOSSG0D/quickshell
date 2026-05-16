@@ -127,9 +127,6 @@ Scope {
     function disableFullscreenPeek() { barState.fullscreenPeekEnabled = false }
     function enableFullscreenPeek()  { barState.fullscreenPeekEnabled = true  }
     function toggleFullscreenPeek()  { barState.fullscreenPeekEnabled = !barState.fullscreenPeekEnabled }
-    function disableautoHide() { barState.autoHide = false }
-    function enableAutoHide()  { barState.autoHide = true  }
-    function toggleAutoHide()  { barState.autoHide = !barState.autoHide }
     function silenceOn()     { barState.silenceMode = true  }
     function silenceOff()    { barState.silenceMode = false }
     function silenceToggle() { barState.silenceMode = !barState.silenceMode }
@@ -219,9 +216,12 @@ Scope {
       screen: modelData
       color: "transparent"
 
-      WlrLayershell.layer:  WlrLayershell.Top
-      exclusionMode:        ExclusionMode.Ignore
-      exclusiveZone:        barState.autoHide ? 0 : barRoot.themeBarSize
+      WlrLayershell.layer:        WlrLayershell.Top
+      WlrLayershell.keyboardFocus: WlrLayershell.KeyboardFocus.None
+      focusable: false
+      exclusionMode:              ExclusionMode.Normal
+      exclusiveZone:              barState.autoHide ? 0 : barRoot.themeBarSize
+      aboveWindows: false
 
       readonly property int _pos: barRoot.position
 
@@ -1021,8 +1021,8 @@ Scope {
         var threshold = _showThreshold
         var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
         var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
-        var cx = barState.cursorX / scaleX
-        var cy = barState.cursorY / scaleY
+        var cx = barState.cursorX
+        var cy = barState.cursorY
         var inScreen = cx >= screen.x && cx <= screen.x + screen.width
                     && cy >= screen.y && cy <= screen.y + screen.height
         if (!inScreen) return false
@@ -1039,8 +1039,8 @@ Scope {
         var threshold = _showThreshold
         var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
         var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
-        var cx = barState.cursorX / scaleX
-        var cy = barState.cursorY / scaleY
+        var cx = barState.cursorX
+        var cy = barState.cursorY
         var inScreen = cx >= screen.x && cx <= screen.x + screen.width
                     && cy >= screen.y && cy <= screen.y + screen.height
         if (!inScreen) return false
@@ -1068,8 +1068,8 @@ Scope {
       property bool cursorOverBar: {
         var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
         var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
-        var cx = barState.cursorX / scaleX
-        var cy = barState.cursorY / scaleY
+        var cx = barState.cursorX
+        var cy = barState.cursorY
         var inScreen = cx >= screen.x && cx <= screen.x + screen.width
                     && cy >= screen.y && cy <= screen.y + screen.height
         if (!inScreen) return false
@@ -1083,17 +1083,29 @@ Scope {
         return false
       }
 
-      property bool barVisible: {
+      property bool barWasVisible: false
+
+      property bool shouldShowBar: {
         if (anyPanelOpen) return true
         if (!bar.effectiveAutoHide) return true
-        // Se o cursor já está sobre a barra, manter visível independente do threshold
-        if (cursorOverBar) return true
         var near = pill ? cursorAtEdge : cursorNearBar
-        return near || !hasWindows
+        if (near)
+            return true
+        if (barWasVisible && cursorOverBar)
+            return true
+        return !hasWindows
       }
+
+      onShouldShowBarChanged: {
+          barWasVisible = shouldShowBar
+      }
+  
+      property bool barVisible: shouldShowBar
+
       property bool barShow:             true
 
       onBarVisibleChanged: {
+        barWasVisible = barVisible
         if (barVisible) { hideTimer.stop(); barShow = true }
         else hideTimer.restart()
       }
