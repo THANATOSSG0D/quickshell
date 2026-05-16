@@ -176,22 +176,9 @@ Scope {
   readonly property int popupHNotif:  560
   readonly property int popupHDmenu:  460
 
-  // ── Configuração do dmenu — lida de state/dmenu-config.json ─────────────
+  // ── Configuração do dmenu (valores fixos) ────────────────────────────────
   property string _dmenuLaunchCmd: "uwsm app -- {exec}"
   property bool   _dmenuShowIcons: false
-
-  FileView {
-    id: dmenuConfigFile
-    path:        Qt.resolvedUrl("../../state/dmenu-config.json")
-    watchChanges: true
-    onTextChanged: {
-      try {
-        var cfg = JSON.parse(dmenuConfigFile.text)
-        if ("launchCmd" in cfg) barRoot._dmenuLaunchCmd = cfg.launchCmd
-        if ("showIcons"  in cfg) barRoot._dmenuShowIcons = cfg.showIcons
-      } catch(e) {}
-    }
-  }
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
   Variants {
@@ -216,12 +203,11 @@ Scope {
       screen: modelData
       color: "transparent"
 
-      WlrLayershell.layer:        WlrLayershell.Top
-      WlrLayershell.keyboardFocus: WlrLayershell.KeyboardFocus.None
+      WlrLayershell.layer: WlrLayershell.Top
       focusable: false
-      exclusionMode:              ExclusionMode.Normal
-      exclusiveZone:              barState.autoHide ? 0 : barRoot.themeBarSize
-      aboveWindows: false
+      exclusionMode: ExclusionMode.Normal
+      exclusiveZone: barState.autoHide ? 0 : barRoot.themeBarSize
+      aboveWindows:  false
 
       readonly property int _pos: barRoot.position
 
@@ -368,6 +354,9 @@ Scope {
       // Separados para evitar loop: cursorAtEdge → barVisible → barShow → threshold → cursorAtEdge.
       readonly property real _showThreshold: barState.edgeThreshold
 
+      // ── onBarShowChanged: controla marginOffset (estado físico) ──────────
+      // POSIÇÃO INTENCIONAL: antes do bloco de auto-hide, pois _doShow()/_doHide()
+      // escrevem barShow e precisam que este handler já exista.
       onBarShowChanged: {
         marginOffset = barShow ? 0 : barSize + barMargin + 1
       }
@@ -462,6 +451,7 @@ Scope {
 
           _applyConfig(item)
 
+          // Reaplica o estado físico correto sem animação após troca de tema
           bar.animating    = false
           bar.marginOffset = bar.barShow ? 0 : bar.barSize + bar.barMargin + 1
           bar.animating    = true
@@ -1000,8 +990,6 @@ Scope {
         }
       }
 
-
-
       property bool effectiveAutoHide: {
         if (barState.autoHide) return true
         // silenceMode suprime o peek de fullscreen — barra fica escondida durante fullscreen
@@ -1011,6 +999,7 @@ Scope {
 
       onEffectiveAutoHideChanged: {
         console.log("[FS] [" + bar.screen.name + "] effectiveAutoHide:", effectiveAutoHide)
+        updateBarVisibility()
       }
 
       onIsFullscreenChanged: {
@@ -1019,8 +1008,6 @@ Scope {
 
       property bool cursorNearBar: {
         var threshold = _showThreshold
-        var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
-        var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
         var cx = barState.cursorX
         var cy = barState.cursorY
         var inScreen = cx >= screen.x && cx <= screen.x + screen.width
@@ -1037,8 +1024,6 @@ Scope {
 
       property bool cursorAtEdge: {
         var threshold = _showThreshold
-        var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
-        var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
         var cx = barState.cursorX
         var cy = barState.cursorY
         var inScreen = cx >= screen.x && cx <= screen.x + screen.width
@@ -1063,11 +1048,9 @@ Scope {
       }
 
       // cursorOverBar: true quando o cursor está dentro da área física da barra
-      // (não apenas na borda). Usado para não esconder a barra quando o cursor
-      // já está sobre ela ao entrar em fullscreen.
+      // (não apenas na borda). Usado para não esconder a barra enquanto o cursor
+      // ainda está sobre ela.
       property bool cursorOverBar: {
-        var scaleX = hyprMonitor ? hyprMonitor.width  / screen.width  : 1.0
-        var scaleY = hyprMonitor ? hyprMonitor.height / screen.height : 1.0
         var cx = barState.cursorX
         var cy = barState.cursorY
         var inScreen = cx >= screen.x && cx <= screen.x + screen.width
@@ -1083,33 +1066,56 @@ Scope {
         return false
       }
 
-      property bool barWasVisible: false
+      // ══════════════════════════════════════════════════════════════════════
+      // Auto-hide — Máquina de estado imperativa (sem binding loop)
+      // ══════════════════════════════════════════════════════════════════════
+      //
+      // ARQUITETURA
+      // ───────────
+      // barVisible  (bool, simples) — estado LÓGICO. Sem binding derivado.
+      //   Escrito exclusivamente por _doShow() e _doHide(). Nenhuma propriedade
+      //   é lida dentro de um binding que também escreva barVisible.
+      //
+      // barShow     (bool, simples) — estado FÍSICO que controla marginOffset
+      //   (via onBarShowChanged acima). Segue barVisible com delay no fechamento
+      //   (hideTimer) para que a animação de saída possa terminar.
+      //
+      // updateBarVisibility() — único ponto de decisão. Lê todas as entradas e
+      //   chama _doShow()/_doHide(). NÃO é chamada de dentro de onBarVisibleChanged
+      //   nem de qualquer handler que barVisible dispare, evitando reentrada.
+      //
+      // POR QUÊ NÃO HÁ BINDING LOOP
+      // ────────────────────────────
+      // Bindings criam grafos de dependência estáticos: se A lê B, qualquer
+      // escrita em B re-avalia A, potencialmente emitindo onAChanged, que escreve
+      // B de volta — loop. Aqui:
+      //   • barVisible NÃO é binding — é uma variável simples.
+      //   • updateBarVisibility() é uma função JS: o motor QML não rastreia
+      //     suas leituras como dependências. Ela pode ler barVisible à vontade
+      //     sem criar dependência estática.
+      //   • Escrever barVisible emite onBarVisibleChanged, mas esse handler
+      //     não chama updateBarVisibility() nem escreve nenhuma propriedade
+      //     que dispare os sinais conectados (onCursorNearBarChanged, etc.).
+      //   • cursorOverBar/cursorNearBar/cursorAtEdge são bindings, mas NUNCA
+      //     lêem barVisible — a dependência é estritamente unidirecional:
+      //     cursor properties → updateBarVisibility → barVisible.
+      //
+      // ARMADILHA CONHECIDA: propriedades QML só emitem Changed quando o valor
+      // REALMENTE MUDA. Atribuir `barVisible = true` quando já é true não emite
+      // onBarVisibleChanged — comportamento esperado e necessário. _doShow() e
+      // _doHide() podem ser chamados repetidamente sem efeito colateral extra.
 
-      property bool shouldShowBar: {
-        if (anyPanelOpen) return true
-        if (!bar.effectiveAutoHide) return true
-        var near = pill ? cursorAtEdge : cursorNearBar
-        if (near)
-            return true
-        if (barWasVisible && cursorOverBar)
-            return true
-        return !hasWindows
-      }
+      // Estado lógico: sem binding, escrito apenas por _doShow()/_doHide()
+      property bool barVisible: false
 
-      onShouldShowBarChanged: {
-          barWasVisible = shouldShowBar
-      }
-  
-      property bool barVisible: shouldShowBar
+      // Estado físico: delayed em relação a barVisible (via hideTimer)
+      // Declarado separado de barVisible para deixar claro o papel de cada um.
+      property bool barShow: true
 
-      property bool barShow:             true
-
-      onBarVisibleChanged: {
-        barWasVisible = barVisible
-        if (barVisible) { hideTimer.stop(); barShow = true }
-        else hideTimer.restart()
-      }
-
+      // ── Timer de fechamento ──────────────────────────────────────────────
+      // Só altera barShow (estado físico). barVisible já foi para false
+      // antes do timer ser iniciado — garantindo que nenhuma condição de
+      // manutenção em updateBarVisibility() leia um barVisible "stale".
       Timer {
         id: hideTimer
         interval: barState.hideDelayMs
@@ -1117,14 +1123,154 @@ Scope {
         onTriggered: bar.barShow = false
       }
 
+      // ── Timer de debounce de abertura (anti-falso-positivo) ──────────────
+      // Evita abrir a barra quando o cursor roça a borda por < 80ms.
+      // Ao disparar, re-verifica as condições: se o cursor já saiu, não abre.
+      // 80ms é imperceptível para o usuário mas filtra movimentos rápidos.
+      Timer {
+        id: showDebounceTimer
+        interval: 80
+        repeat:   false
+        onTriggered: {
+          // Re-verificação: as condições ainda se aplicam?
+          var near = bar.pill ? bar.cursorAtEdge : bar.cursorNearBar
+          if (near || bar.anyPanelOpen || !bar.effectiveAutoHide || !bar.hasWindows) {
+            bar._doShow()
+          }
+          // Se nenhuma condição persiste: falso positivo descartado silenciosamente.
+        }
+      }
+
+      // ── _doShow: aplica o estado "visível" (lógico + físico imediatamente) ──
+      // Seguro chamar múltiplas vezes: escritas sem mudança não emitem Changed.
+      function _doShow() {
+        hideTimer.stop()
+        showDebounceTimer.stop()
+        barVisible = true    // emite onBarVisibleChanged apenas se mudou de false
+        barShow    = true    // emite onBarShowChanged → marginOffset = 0
+      }
+
+      // ── _doHide: aplica o estado "oculto"
+      //   noDelay=true  → imediato: barShow=false agora (startup, sem janela)
+      //   noDelay=false → lógico imediato, físico via hideTimer (comportamento normal).
+      //     Durante o delay, barShow ainda é true — a animação de saída ocorre.
+      //     Se o cursor voltar para a barra durante a animação (barShow=true,
+      //     cursorOverBar=true), P4 em updateBarVisibility() cancela o hide.
+      function _doHide(noDelay) {
+        showDebounceTimer.stop()
+        barVisible = false           // lógico: oculto agora (emite Changed se era true)
+        if (noDelay) {
+          hideTimer.stop()
+          barShow = false            // físico: oculto imediatamente
+        } else {
+          // barShow permanece true durante a animação de saída.
+          // hideTimer só é iniciado se não estiver rodando (evita reset do delay).
+          if (!hideTimer.running) hideTimer.restart()
+        }
+      }
+
+      // ── updateBarVisibility: ponto único de decisão ──────────────────────
+      // Prioridades em ordem decrescente. A primeira condição verdadeira vence.
+      // Chamada pelos onXChanged abaixo — nunca chamada de dentro de handlers
+      // que barVisible ou barShow disparem.
+      function updateBarVisibility() {
+
+        // P1: painel aberto → visível imediatamente (independente de cursor)
+        if (anyPanelOpen) { _doShow(); return }
+
+        // P2: auto-hide desativado (barState.autoHide=false e não fullscreen
+        //     com peek ativo) → sempre visível
+        if (!effectiveAutoHide) { _doShow(); return }
+
+        // P3: cursor na zona de ativação → abrir (com debounce anti-falso-positivo)
+        //     Modo pill: só cursorAtEdge (bordas da pill). Modo normal: cursorNearBar.
+        var near = pill ? cursorAtEdge : cursorNearBar
+        if (near) {
+          hideTimer.stop()    // cancela fechamento pendente
+          if (barVisible) {
+            // Já estava visível: mantém sem debounce extra
+            showDebounceTimer.stop()
+            barShow = true
+          } else if (!showDebounceTimer.running) {
+            // Aguarda 80ms antes de abrir (anti-falso-positivo)
+            showDebounceTimer.restart()
+          }
+          return
+        }
+
+        // P4: cursor sobre a barra enquanto ela ainda está fisicamente presente.
+        //     barShow pode ser true mesmo após barVisible ir a false (durante
+        //     a animação de saída). Isso permite "resgatar" a barra com o cursor.
+        if (barShow && cursorOverBar) {
+          _doShow()
+          return
+        }
+
+        // P5: workspace sem janelas → sempre visível (barra de desktop vazio)
+        if (!hasWindows) { _doShow(); return }
+
+        // Padrão: nenhuma condição de manutenção → fechar
+        if (barVisible || barShow) {
+          _doHide(false)
+        }
+        // Se ambos já são false: estado já correto, nada a fazer.
+      }
+
+      // ── onBarVisibleChanged: apenas log e guarda defensiva ────────────────
+      // barShow é gerenciado exclusivamente por _doShow(), _doHide() e hideTimer.
+      // NUNCA chama updateBarVisibility() — evita reentrada.
+      onBarVisibleChanged: {
+        console.log("[Bar] [" + screen.name + "] barVisible →", barVisible)
+        // Guarda defensiva: se barVisible foi para true mas barShow ainda é false
+        // (situação que não deve ocorrer com _doShow, mas defensivamente):
+        if (barVisible && !barShow) barShow = true
+      }
+
+      // ── Conexão de sinais → updateBarVisibility ───────────────────────────
+      // Todos são onXChanged de property bool: disparam APENAS quando o valor
+      // muda (false↔true), nunca por leituras ou a cada frame.
+      // Nenhum desses sinais é emitido como consequência de barVisible mudar,
+      // garantindo que não há ciclo.
+      onAnyPanelOpenChanged:  updateBarVisibility()
+      onCursorNearBarChanged: updateBarVisibility()
+      onCursorAtEdgeChanged:  updateBarVisibility()
+      onCursorOverBarChanged: updateBarVisibility()
+      onHasWindowsChanged:    updateBarVisibility()
+
+      // ══════════════════════════════════════════════════════════════════════
+
       Component.onCompleted: {
         for (var i = 0; i < Hyprland.monitors.values.length; i++) {
           var m = Hyprland.monitors.values[i]
           if (m.name === bar.screen.name) { bar.hyprMonitor = m; break }
         }
         barRoot._barInstances = barRoot._barInstances.concat([bar])
-        barShow = barVisible
-        if (!barVisible) marginOffset = barSize + barMargin + 1
+
+        // ── Estado inicial sem animação ──────────────────────────────────
+        // Determinamos o estado inicial diretamente, sem passar por
+        // updateBarVisibility(), porque:
+        //   1. cursorX/Y ainda não foram inicializados pelo Hyprland → não
+        //      confiamos em cursorNearBar/cursorAtEdge neste momento.
+        //   2. fsInitTimer ainda não rodou → isFullscreen pode estar desatualizado.
+        //   3. Queremos ocultar imediatamente (sem delay de hideTimer) se necessário.
+        //
+        // A máquina de estado passa a ser totalmente reativa após este bloco:
+        // fsInitTimer → _monProc → isFullscreen → effectiveAutoHide →
+        // onEffectiveAutoHideChanged → updateBarVisibility().
+        animating = false
+        var startVisible = anyPanelOpen || !effectiveAutoHide || !hasWindows
+        if (startVisible) {
+          barVisible   = true
+          barShow      = true
+          marginOffset = 0
+        } else {
+          barVisible   = false
+          barShow      = false
+          marginOffset = barSize + barMargin + 1
+        }
+        animating = true
+
+        // Dispara verificação de fullscreen após 600ms (aguarda Hyprland estabilizar)
         fsInitTimer.start()
       }
 
