@@ -7,7 +7,7 @@ import "."
 PanelWindow {
   id: root
 
-  readonly property string layoutPath: Quickshell.shellDir + "/modules/default/powermenu/layout.json"
+  readonly property string layoutPath: Quickshell.shellDir + "/state/layout-powermenu.json"
 
   property bool _open:    false
   property var  _entries: []

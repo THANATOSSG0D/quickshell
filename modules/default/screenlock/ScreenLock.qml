@@ -1,24 +1,28 @@
+// ~/.config/quickshell/modules/default/screenlock/ScreenLock.qml
+//
+// Este arquivo é carregado pelo shell PRINCIPAL apenas para expor
+// o IPC `screenLock` — usado pelo PowerMenu ("Bloquear") e keybinds.
+// O lock em si é feito pela instância isolada (shell.qml).
+//
+// Quando lock() é chamado, lança a instância isolada via execDetached.
+// O processo roda independente — sem bloquear o shell principal.
+
 import QtQuick
 import Quickshell
-import Quickshell.Wayland
+import Quickshell.Io
 
-WlSessionLock {
+QtObject {
     id: root
 
-    property bool lockRequested: false
-    locked: lockRequested
+    readonly property string lockDir: Quickshell.shellDir +
+                                      "/modules/default/screenlock"
+    readonly property string scriptPath: Quickshell.env("HOME") +
+                                         "/.config/quickshell/scripts/screenlock"
 
-    function lock()   { root.lockRequested = true  }
-    function unlock() { root.lockRequested = false }
-
-    WlSessionLockSurface {
-        id: surface
-        color: "#0d0d0d"
-
-        LockContent {
-            anchors.fill: parent
-            sessionLock:  root
-            isPrimary:    surface.screen === Quickshell.screens[0]
-        }
+    // IPC: qs ipc call screenLock lock
+    // Lança o shell script (que por sua vez roda qs -c)
+    function lock() {
+        Quickshell.execDetached(["bash", "-c",
+            "nohup " + root.scriptPath + " >/dev/null 2>&1 &"])
     }
 }

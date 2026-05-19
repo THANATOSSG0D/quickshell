@@ -8,7 +8,7 @@ import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
 import './modules/default/powermenu'     as PowerModule
-import './modules/default/screenlock'    as LockModule
+// import './modules/default/screenlock'    as LockModule
 
 Scope {
   ClockWidget {}
@@ -53,14 +53,14 @@ Scope {
   // ── Screen Lock ───────────────────────────────────────────────────────────
   // qs ipc call screenLock lock      → ativa
   // qs ipc call screenLock isLocked  → retorna "true" ou "false" (usado pelo script bash)
-  LockModule.ScreenLock {
-    id: screenLock
-  }
-
-  IpcHandler {
-    target: "screenLock"
-    function lock()     { screenLock.lock()                          }
-    function unlock()   { screenLock.unlock()                        }
-    function isLocked() { return screenLock.locked ? "true" : "false" }
-  }
+  // LockModule.ScreenLock {
+  //   id: screenLock
+  // }
+  //
+  // IpcHandler {
+  //   target: "screenLock"
+  //   function lock()     { screenLock.lock()                          }
+  //   function unlock()   { screenLock.unlock()                        }
+  //   function isLocked() { return screenLock.locked ? "true" : "false" }
+  // }
 }

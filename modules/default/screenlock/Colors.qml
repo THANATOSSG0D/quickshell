@@ -1,0 +1,1 @@
+/home/antonio/.config/quickshell/Colors.qml

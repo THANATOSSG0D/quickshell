@@ -1,4 +1,5 @@
 module screenlock
 
+singleton Colors 1.0 Colors.qml
 ScreenLock  ScreenLock.qml
 LockContent LockContent.qml

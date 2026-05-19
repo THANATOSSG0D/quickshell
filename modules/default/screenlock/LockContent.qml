@@ -1,9 +1,9 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
+import "../../.."
 
 Item {
     id: root
@@ -11,26 +11,49 @@ Item {
     property WlSessionLock sessionLock
     property bool isPrimary: true
 
+    // Signal usado pelo shell.qml isolado para disparar Qt.quit()
+    signal unlockRequested()
+
+    readonly property string powerScript: Quickshell.env("HOME") + "/.config/hypr/scripts/power.sh"
+
     property bool authFailed:  false
     property bool authRunning: false
     property int  failCount:   0
+    property bool capsLock:    false
 
-    // Senha lida diretamente do TextInput — sem propriedade intermediária
     readonly property string password: isPrimary ? hiddenInput.text : ""
 
-    // ── PAM ──────────────────────────────────────────────────────────────────
+    property string timeString: Qt.formatTime(new Date(), "HH:mm")
+    property string dateString: Qt.formatDate(new Date(), "dddd, d 'de' MMMM")
+
+    Timer {
+        interval: 1000; running: true; repeat: true
+        onTriggered: {
+            root.timeString = Qt.formatTime(new Date(), "HH:mm")
+            root.dateString = Qt.formatDate(new Date(), "dddd, d 'de' MMMM")
+        }
+    }
+
+    // ── Caps Lock ─────────────────────────────────────────────────────────────
+    Process {
+        id: capsProc
+        command: ["sh", "-c", "cat /sys/class/leds/*capslock*/brightness 2>/dev/null | head -1 || echo 0"]
+        running: root.isPrimary
+        stdout: SplitParser {
+            onRead: line => root.capsLock = (parseInt(line.trim()) > 0)
+        }
+    }
+
+    // ── PAM ───────────────────────────────────────────────────────────────────
     PamContext {
         id: pam
         config: "login"
 
         onPamMessage: {
-            console.log("[ScreenLock] PAM message, responseRequired:", pam.responseRequired, "pwdLen:", root.password.length)
-            if (pam.responseRequired)
-                pam.respond(root.password)
+            if (pam.responseRequired) pam.respond(root.password)
         }
 
         onCompleted: result => {
-            console.log("[ScreenLock] PAM completed, result:", result, "success:", result === PamResult.Success)
             pamWatchdog.stop()
             root.authRunning = false
             if (result === PamResult.Success)
@@ -41,17 +64,16 @@ Item {
 
         onError: error => {
             pamWatchdog.stop()
-            console.warn("[ScreenLock] PAM error:", error)
+            console.warn("[LockContent] PAM error:", error)
             root.authRunning = false
             root.authFailure()
         }
     }
 
     Timer {
-        id: pamWatchdog
-        interval: 8000
+        id: pamWatchdog; interval: 8000
         onTriggered: {
-            console.warn("[ScreenLock] PAM watchdog: abortando")
+            console.warn("[LockContent] PAM watchdog: abortando")
             if (pam.active) pam.abort()
             root.authRunning = false
             hiddenInput.text = ""
@@ -61,34 +83,29 @@ Item {
     }
 
     function authSuccess() {
-        console.log("[ScreenLock] authSuccess — desbloqueando")
         hiddenInput.text = ""
         failCount = 0
-        sessionLock.lockRequested = false
+        // Dispara fade-out e emite o signal — shell.qml seta locked=false + Qt.quit()
+        fadeOut.start()
     }
 
     function submitPassword() {
         if (authRunning || password.length === 0) return
-        console.log("[ScreenLock] submitPassword: len=" + password.length)
         authRunning = true
         pamWatchdog.restart()
         pam.start()
     }
 
     function authFailure() {
-        console.log("[ScreenLock] authFailure — tentativas:", failCount + 1)
         failCount++
         authFailed = true
         hiddenInput.text = ""
         shakeAnim.start()
         failTimer.restart()
+        Qt.callLater(() => hiddenInput.forceActiveFocus())
     }
 
-    Timer {
-        id: failTimer
-        interval: 1400
-        onTriggered: root.authFailed = false
-    }
+    Timer { id: failTimer; interval: 1400; onTriggered: root.authFailed = false }
 
     SequentialAnimation {
         id: shakeAnim
@@ -101,28 +118,10 @@ Item {
         NumberAnimation { target: capsule; property: "x"; to: capsule.baseX;      duration: 40 }
     }
 
-    // ── Relógio ──────────────────────────────────────────────────────────────
-    property string timeString: Qt.formatTime(new Date(), "HH:mm")
-    property string dateString: Qt.formatDate(new Date(), "dddd, d 'de' MMMM")
-
-    Timer {
-        interval: 1000; running: true; repeat: true
-        onTriggered: {
-            root.timeString = Qt.formatTime(new Date(), "HH:mm")
-            root.dateString = Qt.formatDate(new Date(), "dddd, d 'de' MMMM")
-        }
-    }
-
-    // ── TextInput invisível — âncora de foco + captura de senha ──────────────
-    // echoMode: NoEcho → o Qt gerencia o texto nativamente, sem loops de sinal.
-    // Keys especiais (Enter/Esc) são tratados aqui mesmo.
+    // ── TextInput de senha ────────────────────────────────────────────────────
     TextInput {
         id: hiddenInput
-        // visible:false bloqueia foco no Qt — usa opacity+dimensões zero
-        // para ficar tecnicamente visível mas invisível ao usuário
-        opacity: 0
-        width:   0
-        height:  0
+        opacity: 0; width: 0; height: 0
         enabled:  root.isPrimary
         focus:    root.isPrimary
         echoMode: TextInput.NoEcho
@@ -138,8 +137,11 @@ Item {
                 pamWatchdog.stop()
                 root.authRunning = false
                 event.accepted = true
+            } else if (event.key === Qt.Key_CapsLock) {
+                root.capsLock = !root.capsLock
+                capsProc.running = true
+                event.accepted = false
             }
-            // Backspace e caracteres normais: o TextInput gerencia nativamente
         }
 
         Component.onCompleted: {
@@ -148,114 +150,165 @@ Item {
         }
     }
 
-    // ── Visual ───────────────────────────────────────────────────────────────
+    Timer {
+        interval: 300
+        running: root.isPrimary && !root.authRunning
+        repeat: true
+        onTriggered: {
+            if (!hiddenInput.activeFocus)
+                hiddenInput.forceActiveFocus()
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        z: -1
+        onPressed: {
+            if (root.isPrimary) hiddenInput.forceActiveFocus()
+            mouse.accepted = false
+        }
+    }
+
+    // ── Processos de energia ──────────────────────────────────────────────────
+    Process { id: procDpmsOff;  command: ["hyprctl", "dispatch", "dpms", "off"] }
+    Process { id: procSuspend;  command: [root.powerScript, "suspend"]  }
+    Process { id: procReboot;   command: [root.powerScript, "reboot"]   }
+    Process { id: procShutdown; command: [root.powerScript, "shutdown"] }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // VISUAL
+    // ═════════════════════════════════════════════════════════════════════════
+
+    // Fundo escuro sólido — aparece imediatamente enquanto imagem carrega
+    Rectangle {
+        anchors.fill: parent
+        color: Colors.background
+        z: -1
+    }
+
     Image {
         anchors.fill: parent
         source:   "file://" + Quickshell.env("HOME") + "/.config/ml4w/cache/lockscreen/lock.png"
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        layer.enabled: true
-        layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 64 }
+        // Sem MultiEffect — imagem já vem pré-blurrada pelo sistema de wallpaper.
+        // blur: 1.0 + layer.enabled causava tela branca em superfícies Wayland.
     }
 
-    Rectangle { anchors.fill: parent; color: "#000"; opacity: 0.55 }
-
-    // (Canvas de ruído removido — rodava na main thread e congelava o relógio)
+    // Overlay escuro sobre a imagem
+    Rectangle {
+        anchors.fill: parent
+        color: Colors.scrim
+        opacity: 0.55
+    }
 
     Column {
         anchors.centerIn: parent
         spacing: 0
 
-        // Relógio
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text:           root.timeString
-            font.family:    "JetBrainsMono Nerd Font"
-            font.pixelSize: 120
-            font.weight:    Font.Light
-            color:          "#f0ebe8"
-            renderType:     Text.NativeRendering
-            lineHeight:     0.9
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                blurEnabled: true; blur: 0.08; blurMax: 8
-                colorization: 1.0; colorizationColor: "#ffb4ac"
-            }
+            text: root.timeString
+            font.family: "Fira Sans"; font.pixelSize: 96; font.weight: Font.Light
+            font.letterSpacing: -2; color: Colors.on_surface
+            renderType: Text.NativeRendering
         }
 
         Item { width: 1; height: 12 }
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 80; height: 1; color: "#ffb4ac"; opacity: 0.4
+            width: 80; height: 1; color: Colors.primary; opacity: 0.4
         }
 
         Item { width: 1; height: 14 }
 
-        // Data
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text:               root.dateString
-            font.family:        "Fira Sans"
-            font.pixelSize:     16
-            font.weight:        Font.Light
-            font.letterSpacing: 2.5
-            color:              "#c6c6c6"
-            renderType:         Text.NativeRendering
+            text: root.dateString
+            font.family: "Fira Sans"; font.pixelSize: 16; font.weight: Font.Light
+            font.letterSpacing: 2.5; color: Colors.on_surface_variant
+            renderType: Text.NativeRendering
         }
 
-        Item { width: 1; height: 52 }
+        Item { width: 1; height: 40 }
 
-        // Cápsula de senha
+        Item {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width:   capsLockBadge.implicitWidth
+            height:  root.isPrimary && root.capsLock ? 34 : 0
+            visible: root.isPrimary; clip: true
+            Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+            Rectangle {
+                id: capsLockBadge
+                anchors.centerIn: parent
+                width: capsLockRow.implicitWidth + 24; height: 28; radius: 14
+                color: Qt.rgba(Colors.error.r, Colors.error.g, Colors.error.b, 0.12)
+                border.color: Colors.error; border.width: 1
+                Row {
+                    id: capsLockRow
+                    anchors.centerIn: parent; spacing: 6
+                    Text { anchors.verticalCenter: parent.verticalCenter
+                           text: "⇪"; font.pixelSize: 13; color: Colors.error }
+                    Text { anchors.verticalCenter: parent.verticalCenter
+                           text: "CAPS LOCK"; font.family: "Fira Sans"; font.pixelSize: 11
+                           font.letterSpacing: 1.8; font.weight: Font.Medium; color: Colors.error }
+                }
+            }
+        }
+
+        Item { width: 1; height: 12; visible: root.isPrimary }
+
         Item {
             id: capsule
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 320; height: 56
-            visible: root.isPrimary
-
+            width: 320; height: 56; visible: root.isPrimary
             property real baseX: 0
             Component.onCompleted: baseX = x
 
-            // Borda
+            Rectangle {
+                anchors.fill: parent; radius: 28
+                color: Qt.rgba(Colors.surface_container.r,
+                               Colors.surface_container.g,
+                               Colors.surface_container.b, 0.35)
+            }
             Rectangle {
                 anchors.fill: parent; radius: 28; color: "transparent"
-                border.color: root.authFailed  ? "#ffb4ab"
-                            : root.authRunning ? "#e0c38c"
-                            : root.password.length > 0 ? "#ffb4ac" : "#ffffff"
+                border.color: root.authFailed  ? Colors.error
+                            : root.authRunning ? Colors.tertiary
+                            : root.password.length > 0 ? Colors.primary
+                            : Colors.on_surface
                 border.width: 1
                 opacity: root.authFailed  ? 1.0
-                       : root.authRunning ? 0.9
-                       : root.password.length > 0 ? 0.75 : 0.22
+                       : root.authRunning ? 0.85
+                       : root.password.length > 0 ? 0.75
+                       : 0.22
                 Behavior on border.color { ColorAnimation  { duration: 200 } }
                 Behavior on opacity      { NumberAnimation { duration: 200 } }
             }
-
-            // Ícone
             Text {
                 anchors.left: parent.left; anchors.leftMargin: 18
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.authFailed  ? "󰟐"
-                    : root.authRunning ? "󱄤"
-                    : "󰍁"
+                text: root.authFailed ? "󰟐" : root.authRunning ? "󱄤" : "󰍁"
                 font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18
-                color: root.authFailed  ? "#ffb4ab"
-                     : root.authRunning ? "#e0c38c"
-                     : root.password.length > 0 ? "#ffb4ac" : "#919191"
+                color: root.authFailed  ? Colors.error
+                     : root.authRunning ? Colors.tertiary
+                     : root.password.length > 0 ? Colors.primary
+                     : Colors.outline
                 Behavior on color { ColorAnimation { duration: 200 } }
                 RotationAnimation on rotation {
                     running: root.authRunning
                     from: 0; to: 360; duration: 900; loops: Animation.Infinite
                 }
             }
-
-            // Pontos de senha
             Row {
                 anchors.centerIn: parent; spacing: 7
                 Repeater {
                     model: Math.min(root.password.length, 24)
                     Rectangle {
                         width: 7; height: 7; radius: 4
-                        color: root.authFailed ? "#ffb4ab" : "#ffb4ac"
+                        color: root.authFailed ? Colors.error : Colors.primary
                         opacity: 0.9
                         Behavior on color { ColorAnimation { duration: 150 } }
                         scale: 0
@@ -267,21 +320,18 @@ Item {
                     }
                 }
             }
-
-            // Hint ↵
             Text {
                 anchors.right: parent.right; anchors.rightMargin: 18
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.password.length > 0 && !root.authRunning
                 text: "↵"
                 font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
-                color: "#ffb4ac"; opacity: 0.7
+                color: Colors.primary; opacity: 0.7
             }
         }
 
         Item { width: 1; height: 14; visible: root.isPrimary }
 
-        // Erro
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.isPrimary && root.authFailed
@@ -289,25 +339,95 @@ Item {
                 ? "Senha incorreta (" + root.failCount + " tentativas)"
                 : "Senha incorreta"
             font.family: "Fira Sans"; font.pixelSize: 13
-            font.letterSpacing: 1.5; color: "#ffb4ab"; opacity: 0.85
+            font.letterSpacing: 1.5; color: Colors.error; opacity: 0.88
         }
-
-        Item { width: 1; height: 8; visible: root.isPrimary }
-
-        // Usuário
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.isPrimary && !root.authFailed && root.password.length === 0
             text: Quickshell.env("USER")
             font.family: "Fira Sans"; font.pixelSize: 13
-            font.letterSpacing: 1.5; color: "#919191"
+            font.letterSpacing: 1.5; color: Colors.outline
         }
     }
 
+    // ── Botões de energia ─────────────────────────────────────────────────────
+    Row {
+        visible: root.isPrimary
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 40
+        spacing: 10
+
+        component PowerButton: Item {
+            id: btn
+            property string icon:      ""
+            property string label:     ""
+            property color  iconColor: Colors.on_surface_variant
+            signal clicked()
+            width: 44; height: 44
+
+            Rectangle {
+                anchors.fill: parent; radius: 22
+                color: Colors.surface_container_high
+                opacity: ma.containsMouse ? 0.75 : 0.32
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+            }
+            Text {
+                anchors.centerIn: parent
+                text: btn.icon
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18
+                color: ma.containsMouse ? Colors.on_surface : btn.iconColor
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+            Rectangle {
+                anchors.bottom: parent.top; anchors.bottomMargin: 6
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: ma.containsMouse && btn.label !== ""
+                width: ttText.implicitWidth + 16; height: 24; radius: 6
+                color: Colors.surface_container_highest
+                Text {
+                    id: ttText; anchors.centerIn: parent; text: btn.label
+                    font.family: "Fira Sans"; font.pixelSize: 11
+                    font.letterSpacing: 1.2; color: Colors.on_surface_variant
+                }
+            }
+            MouseArea {
+                id: ma; anchors.fill: parent
+                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: btn.clicked()
+            }
+        }
+
+        PowerButton { icon: "󰹑"; label: "Apagar tela"; iconColor: Colors.secondary
+                      onClicked: procDpmsOff.running = true }
+        Rectangle { anchors.verticalCenter: parent.verticalCenter
+                    width: 1; height: 24; color: Colors.outline_variant; opacity: 0.5 }
+        PowerButton { icon: "󰒲"; label: "Suspender"
+                      onClicked: procSuspend.running = true }
+        PowerButton { icon: "󰑓"; label: "Reiniciar"
+                      onClicked: procReboot.running = true }
+        PowerButton { icon: "󰐥"; label: "Desligar"
+                      iconColor: Qt.rgba(Colors.error.r, Colors.error.g, Colors.error.b, 0.8)
+                      onClicked: procShutdown.running = true }
+    }
+
+    // ── Animações de entrada e saída ──────────────────────────────────────────
     opacity: 0
-    Component.onCompleted: appearAnim.start()
+    Component.onCompleted: fadeIn.start()
+
     NumberAnimation on opacity {
-        id: appearAnim; from: 0; to: 1
+        id: fadeIn
+        from: 0; to: 1
         duration: 500; easing.type: Easing.OutCubic
+    }
+
+    // Fade para preto ao desbloquear (escurece, não clareia)
+    SequentialAnimation {
+        id: fadeOut
+        NumberAnimation {
+            target: root; property: "opacity"
+            from: 1; to: 0
+            duration: 300; easing.type: Easing.InCubic
+        }
+        ScriptAction { script: root.unlockRequested() }
     }
 }
