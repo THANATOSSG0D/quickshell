@@ -13,8 +13,8 @@ Item {
 
     // ── Signals ───────────────────────────────────────────────────────────────
     signal unlockRequested()
-    // Emitido em qualquer input do usuário — shell.qml usa para acordar DPMS.
-    signal userActivity()
+    signal userActivity()        // qualquer input — shell.qml usa para acordar DPMS
+    signal displayOffRequested() // botão "Apagar tela" — shell.qml gerencia estado
 
     readonly property string powerScript: Quickshell.env("HOME") + "/.config/hypr/scripts/power.sh"
 
@@ -186,10 +186,7 @@ Item {
     }
 
     // ── Processos de energia ──────────────────────────────────────────────────
-    Process {
-        id: procDpmsOff
-        command: ["hyprctl", "dispatch", "hl.dsp.dpms({mode = \"off\"})"]
-    }
+    // procDpmsOff foi movido para shell.qml — botão usa signal displayOffRequested()
     Process { id: procSuspend;  command: [root.powerScript, "suspend"]  }
     Process { id: procReboot;   command: [root.powerScript, "reboot"]   }
     Process { id: procShutdown; command: [root.powerScript, "shutdown"] }
@@ -413,7 +410,7 @@ Item {
         }
 
         PowerButton { icon: "󰹑"; label: "Apagar tela"; iconColor: Colors.secondary
-                      onClicked: procDpmsOff.running = true }
+                      onClicked: root.displayOffRequested() }
         Rectangle { anchors.verticalCenter: parent.verticalCenter
                     width: 1; height: 24; color: Colors.outline_variant; opacity: 0.5 }
         PowerButton { icon: "󰒲"; label: "Suspender"
