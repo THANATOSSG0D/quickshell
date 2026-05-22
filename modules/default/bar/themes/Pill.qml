@@ -14,11 +14,32 @@ Item {
   property int    barSize:       30
   property int    barMargin:     3
   property bool   pill:          true
-  property int    pillWidth:     800
   property int    panelWidth:    400
   property string monitorName:   ""
   property bool   hasMediaPanel: true
   property int    barPosition:   2
+
+  // ── Largura mínima configurável (injetada pelo Bar.qml via editor) ─────
+  property int minPillWidth:   400
+  // Espaço mínimo garantido entre o slot central e cada lateral.
+  // Ex: 20px → o centro nunca chega a menos de 20px do left ou do right.
+  property int pillMinSpacing: 20
+
+  // contentWidth: largura mínima necessária para que os três slots
+  // caibam sem colisão.
+  //
+  // Raciocínio geométrico (pill horizontal simétrica):
+  //   • O centro fica ancorado ao meio da pill.
+  //   • Para que não colida com os laterais, o lado mais largo (left ou right)
+  //     precisa de espaço em ambos os lados do centro.
+  //   • Largura mínima = max(leftW, rightW)*2 + centerW + margens + espaçamentos.
+  //
+  // Isso garante que mesmo que left e right tenham tamanhos diferentes,
+  // o centro nunca sobrepõe nenhum dos dois.
+  property int _measuredContentWidth: 0
+
+  implicitWidth:  Math.max(minPillWidth, _measuredContentWidth)
+  implicitHeight: barSize
 
   signal sinkPanelRequested()
   signal sourcePanelRequested()
@@ -127,16 +148,20 @@ Item {
   }
 
   // ── Loader do layout ───────────────────────────────────────────────────
-  // Sempre ativo. Os Repeaters dentro usam cfgModules* como model diretamente
-  // — quando os Bindings em Bar.qml atualizam as props, os Repeaters reagem.
+  // anchors.fill: parent → o layout ocupa todo o espaço da pill.
+  // A largura real é medida pela função _updateContentWidth() chamada pelos
+  // Repeaters quando os módulos mudam — não dependemos de implicitWidth
+  // de items com anchors (que o QML não calcula automaticamente).
   Loader {
     id: layoutLoader
-    anchors.fill:    parent
+    anchors.fill: parent
     sourceComponent: root.isHorizontal ? horizontalComp : verticalComp
 
     onLoaded: {
       item.monitorName = root.monitorName
       root._updateRefs()
+      // Mede o conteúdo inicial logo após o layout carregar
+      Qt.callLater(root._updateContentWidth)
     }
   }
 
@@ -150,6 +175,37 @@ Item {
     root.refsUpdated()
   }
 
+  // ── Medição da largura/altura real do conteúdo ───────────────────────
+  // Para layout HORIZONTAL (hRoot): lê lay.contentWidth.
+  // Para layout VERTICAL   (vRoot): lê lay.contentHeight.
+  //
+  // Em ambos os casos, o valor resultante é gravado em _measuredContentWidth,
+  // que representa a DIMENSÃO LONGA da pill (largura para barras horizontais,
+  // altura para barras verticais). Bar.qml usa isso via Pill.implicitWidth
+  // → effectivePillWidth → tamanho real do PanelWindow.
+  //
+  // A directAssignment via onContentWidthChanged / onContentHeightChanged
+  // (dentro de hRoot / vRoot) trata as mudanças reactivas normais.
+  // Esta função é o caminho imperativo chamado por Qt.callLater quando os
+  // Rows/Columns mudam de tamanho (ex: módulos carregados, workspaces adicionados).
+  //
+  // HYSTERESIS: só actualiza _measuredContentWidth se a diferença for ≥ 4px.
+  // Razão: as Behavior animations (150ms) em wsWrapper.implicitWidth/Height
+  // causam que layout.implicitHeight oscile ±1-2px durante a animação de
+  // troca de workspace activo. Sem histérése, cada frame propaga para
+  // effectivePillWidth → pillSideMargin, que oscila entre 164-166 a cada
+  // 100ms (visível no log de cursor). Ícones de workspace têm ≥ 20px, logo
+  // 4px de histerése filtra o ruído sem perder mudanças reais.
+  function _updateContentWidth() {
+    var lay = layoutLoader.item
+    if (!lay) return
+    // contentHeight tem prioridade sobre contentWidth para layouts verticais
+    var w = lay.contentHeight || lay.contentWidth || 0
+    if (w > 0 && Math.abs(w - root._measuredContentWidth) >= 4) {
+      root._measuredContentWidth = w
+    }
+  }
+
   // isHorizontal muda quando a posição da barra muda (h↔v).
   // O binding sourceComponent já troca o componente; só propaga monitorName.
   onIsHorizontalChanged: {
@@ -161,13 +217,13 @@ Item {
     if (layoutLoader.item) layoutLoader.item.monitorName = monitorName
   }
 
-  // Quando módulos mudam, atualiza refs de clock/mediaPlayer/volume.
-  onCfgModulesLeftChanged:   Qt.callLater(_updateRefs)
-  onCfgModulesCenterChanged: Qt.callLater(_updateRefs)
-  onCfgModulesRightChanged:  Qt.callLater(_updateRefs)
-  onCfgModulesTopChanged:    Qt.callLater(_updateRefs)
-  onCfgModulesMiddleChanged: Qt.callLater(_updateRefs)
-  onCfgModulesBottomChanged: Qt.callLater(_updateRefs)
+  // Quando módulos mudam, atualiza refs de clock/mediaPlayer/volume e a largura.
+  onCfgModulesLeftChanged:   { Qt.callLater(_updateRefs); Qt.callLater(_updateContentWidth) }
+  onCfgModulesCenterChanged: { Qt.callLater(_updateRefs); Qt.callLater(_updateContentWidth) }
+  onCfgModulesRightChanged:  { Qt.callLater(_updateRefs); Qt.callLater(_updateContentWidth) }
+  onCfgModulesTopChanged:    { Qt.callLater(_updateRefs); Qt.callLater(_updateContentWidth) }
+  onCfgModulesMiddleChanged: { Qt.callLater(_updateRefs); Qt.callLater(_updateContentWidth) }
+  onCfgModulesBottomChanged: { Qt.callLater(_updateRefs); Qt.callLater(_updateContentWidth) }
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual
@@ -371,6 +427,34 @@ Item {
             dotUrgentColor:      root.colWsDotUrgent
           }
         }
+        // Quando o Loader (re)carrega o item Workspaces, actualiza refs e
+        // dispara uma nova medição. Necessário porque o item pode ter sido
+        // criado após _updateContentWidth ter corrido na primeira vez.
+        onItemChanged: {
+          if (item) root._updateRefs()
+          Qt.callLater(root._updateContentWidth)
+        }
+      }
+
+      // ── Propagação reactiva de mudanças dinâmicas do módulo Workspaces ──
+      //
+      // Problema: quando o utilizador cria ou remove um workspace (botão "+",
+      // fechar workspace), Hyprland.workspaces.values muda → o GridLayout do
+      // Workspaces.qml recalcula → bg.width muda → Workspaces.implicitWidth
+      // muda. Esta cadeia DEVERIA chegar até Row.onWidthChanged e disparar
+      // _updateContentWidth. Porém, modItem.implicitWidth lê
+      //   var l = _activeLoader; l.item.implicitWidth
+      // e o QML engine pode não criar a dependência reactiva correcta através
+      // de uma indireção de property var.
+      //
+      // Solução: Connections explícito em wsLoader.item. Quando implicitWidth
+      // ou implicitHeight muda (workspaces adicionados/removidos), forçamos
+      // _updateContentWidth para que a pill se expanda/contraia em tempo real.
+      Connections {
+        target: wsLoader.item
+        ignoreUnknownSignals: true
+        function onImplicitWidthChanged()  { Qt.callLater(root._updateContentWidth) }
+        function onImplicitHeightChanged() { Qt.callLater(root._updateContentWidth) }
       }
     }
   }
@@ -404,6 +488,32 @@ Item {
       anchors.rightMargin: 10
       property string monitorName: ""
 
+      // contentWidth: largura mínima necessária sem colisão entre os slots.
+      //
+      // O centro é ancorado no meio → para não colidir com left nem right,
+      // o maior dos dois laterais determina o espaço necessário em cada lado.
+      // Fórmula: max(leftW, rightW)*2 + centerW + espaçamento mínimo*2 + margens
+      //
+      // pillMinSpacing vem do root (injetado pelo Bar.qml) e garante uma folga
+      // mínima entre o centro e cada lateral.
+      readonly property int contentWidth: {
+        var lw  = leftRow.width
+        var rw  = rightRow.width
+        var cw  = centerInnerRow.width
+        var gap = root.pillMinSpacing
+        // Lado dominante × 2 garante simetria; +gap*2 adiciona folga em cada lado
+        return Math.max(lw, rw) * 2 + cw + gap * 2 + 40
+      }
+
+      // Propaga para root sempre que contentWidth muda.
+      // Propaga para root sempre que contentWidth muda.
+      // Histérése de 4px: filtra oscilações de 1-2px das animações dos
+      // módulos sem perder mudanças reais (ícone ≥ 20px por workspace).
+      onContentWidthChanged: {
+        if (Math.abs(contentWidth - root._measuredContentWidth) >= 4)
+          root._measuredContentWidth = contentWidth
+      }
+
       // Refs coletadas pelos Repeaters — usadas por root._updateRefs()
       property var mediaPlayer:  root._findRef(leftRep,   "mediaPlayer")
                                || root._findRef(centerRep, "mediaPlayer")
@@ -425,6 +535,9 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 6
         z: 1   // fica acima do slot central (que tem z:0)
+        // Quando workspaces ou módulos mudam a largura deste slot,
+        // actualiza a medição global da pill.
+        onWidthChanged: Qt.callLater(root._updateContentWidth)
 
         Repeater {
           id: leftRep
@@ -451,6 +564,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 6
         z: 1   // fica acima do slot central
+        onWidthChanged: Qt.callLater(root._updateContentWidth)
 
         Repeater {
           id: rightRep
@@ -471,26 +585,38 @@ Item {
       }
 
       // ── Slot Centro ────────────────────────────────────────────────────
-      // Usa anchors.left/right delimitados pelos laterais para NUNCA sobrepor.
-      // O Row interno usa anchors.centerIn do container — com 1 modulo fica
-      // no centro absoluto da area disponivel; com N modulos ficam agrupados
-      // no centro (identico ao Waybar).
-      // Nota: o container nao e anchors.fill para nao cobrir os laterais.
+      // anchors.fill: parent → o container ocupa o hRoot INTEIRO.
+      //
+      // Por quê: com anchors.left/right limitados pelos laterais, o centro
+      // do container só coincide com o centro da pill quando
+      // leftRow.width == rightRow.width. Na prática, os slots são assimétricos
+      // (ex: mediaplayer à esq, clock+volume à dir) e o centerInnerRow ficava
+      // deslocado para o lado mais curto.
+      //
+      // Com anchors.fill: parent, centerInnerRow.anchors.centerIn: parent
+      // posiciona no centro geométrico exato do hRoot (= centro da pill).
+      // leftRow e rightRow têm z:1 — cobrem visualmente qualquer sobreposição.
+      // clip:true impede transbordamento para fora das bordas da pill se o
+      // conteúdo central for maior que o espaço disponível.
+      //
+      // A fórmula contentWidth já garante que a pill se expande o suficiente
+      // para que não haja sobreposição real:
+      //   Math.max(lw, rw)*2 + cw + gap*2 + 40
+      // onde os +40 = 20px de margens do hRoot (10+10) + 20px de folga extra.
       Item {
-        anchors.left:           leftRow.right
-        anchors.right:          rightRow.left
-        anchors.leftMargin:     4
-        anchors.rightMargin:    4
-        anchors.top:            parent.top
-        anchors.bottom:         parent.bottom
-        z: 0   // abaixo dos laterais
+        id: centerRowContainer
+        anchors.fill: parent   // ← era: anchors.left/right limitados por laterais
+        z: 0                   // abaixo dos laterais (z:1)
+        clip: true             // safety net: evita que um centro muito largo
+                               // vaze para fora dos limites visuais da pill
 
         Row {
-          // anchors.centerIn centraliza no espaco disponivel entre left e right.
-          // Com 1 modulo: centro absoluto da area.
-          // Com N modulos: agrupados e centralizados juntos.
+          id: centerInnerRow
           anchors.centerIn: parent
           spacing: 6
+          // Quando a largura do centro muda (ex: workspaces mudou),
+          // propaga a actualização da medição global.
+          onWidthChanged: Qt.callLater(root._updateContentWidth)
 
           Repeater {
             id: centerRep
@@ -544,6 +670,34 @@ Item {
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
 
+      // ── Altura mínima para os três slots não se sobreporem ──────────────
+      // Análogo ao contentWidth do hRoot (layout horizontal).
+      //
+      // Raciocínio (pill vertical simétrica):
+      //   • O middle fica centrado no vRoot inteiro.
+      //   • Para não colidir com top nem bottom, o slot mais alto dos dois
+      //     determina quanto espaço é necessário em cada lado do middle.
+      //   • Altura mínima = max(topH, bottomH)*2 + middleH + margens + espaçamentos.
+      //
+      // Este valor é lido por _updateContentWidth → _measuredContentWidth
+      // → Pill.implicitWidth → Bar.qml.effectivePillWidth → altura real da pill.
+      readonly property int contentHeight: {
+        var th  = topCol.height
+        var bh  = bottomCol.height
+        var mh  = middleCol.implicitHeight
+        var gap = root.pillMinSpacing
+        // Mesmo raciocínio do contentWidth horizontal:
+        // topMargin(10) + bottomMargin(10) + gap*2 + 20 de folga extra = +40
+        return Math.max(th, bh) * 2 + mh + gap * 2 + 40
+      }
+
+      // Propaga para root sempre que contentHeight muda.
+      // Histérése de 4px: mesma razão do hRoot.onContentWidthChanged.
+      onContentHeightChanged: {
+        if (Math.abs(contentHeight - root._measuredContentWidth) >= 4)
+          root._measuredContentWidth = contentHeight
+      }
+
       // ── Slot Topo ──────────────────────────────────────────────────────
       Column {
         id: topCol
@@ -551,6 +705,9 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: 6
         z: 1
+        // Propaga mudanças de altura (novos módulos carregados) para
+        // a medição global da pill — igual ao onWidthChanged dos Rows horizontais.
+        onHeightChanged: Qt.callLater(root._updateContentWidth)
 
         Repeater {
           id: topRep
@@ -577,6 +734,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: 6
         z: 1
+        onHeightChanged: Qt.callLater(root._updateContentWidth)
 
         Repeater {
           id: bottomRep
@@ -596,22 +754,25 @@ Item {
         }
       }
 
-      // ── Slot Centro ────────────────────────────────────────────────────
-      // Delimitado entre topCol.bottom e bottomCol.top para nao sobrepor.
-      // Column interno centralizado: 1 modulo = centro absoluto da area,
-      // N modulos = agrupados e centralizados juntos (estilo Waybar).
+      // ── Slot Centro (vertical) ─────────────────────────────────────────
+      // Mesma lógica do layout horizontal: anchors.fill: parent garante que
+      // o Column interno (anchors.centerIn: parent) fica no centro geométrico
+      // exato do vRoot — não no espaço residual entre topCol e bottomCol.
+      // topCol/bottomCol têm z:1 e cobrem visualmente qualquer sobreposição.
+      // clip:true impede transbordamento para fora da pill.
       Item {
-        anchors.top:              topCol.bottom
-        anchors.bottom:           bottomCol.top
-        anchors.topMargin:        4
-        anchors.bottomMargin:     4
+        anchors.fill:             parent
         anchors.horizontalCenter: parent.horizontalCenter
         width:                    parent.width
         z: 0
+        clip: true
 
         Column {
+          id: middleCol                   // ← id necessário para contentHeight
           anchors.centerIn: parent
           spacing: 6
+          // Propaga crescimento dinâmico do middle (workspaces adicionados)
+          onHeightChanged: Qt.callLater(root._updateContentWidth)
 
           Repeater {
             id: middleRep

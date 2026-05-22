@@ -48,8 +48,9 @@ Bar.BarPopup {
   property bool   localAutoHide:  false
   property bool   localSilence:   false
   property int    localPosition:  4
-  property int    localPillWidth: 800
-  property int    localBarSize:   30
+  property int    localPillWidth:      800
+  property int    localPillMinSpacing: 20
+  property int    localBarSize:        30
   property int    localBarMargin: 3
   property string localWsStyle:   "icons"
   property string localWsSort:    "position"
@@ -80,8 +81,9 @@ Bar.BarPopup {
     localAutoHide  = config.autoHide  || false
     localSilence   = config.silenceMode || false
     localPosition  = config.position  || 4
-    localPillWidth = config.pillWidth || 800
-    localBarSize   = config.barSize   || 30
+    localPillWidth       = config.pillWidth    || 800
+    localPillMinSpacing  = config.pillMinSpacing !== undefined ? config.pillMinSpacing : 20
+    localBarSize         = config.barSize      || 30
     localBarMargin = config.barMargin || 3
     localWsStyle   = config.wsStyle   || "icons"
     localWsSort    = config.wsIconsSort || "position"
@@ -118,6 +120,7 @@ Bar.BarPopup {
       silence:          localSilence,
       position:         localPosition,
       pillWidth:        localPillWidth,
+      pillMinSpacing:   localPillMinSpacing,
       barSize:          localBarSize,
       barMargin:        localBarMargin,
       wsStyle:          localWsStyle,
@@ -136,9 +139,10 @@ Bar.BarPopup {
     slotTop    = ["mediaplayer"]
     slotMiddle = ["workspaces"]
     slotBottom = ["quicksettings", "separator", "clock", "separator", "volume"]
-    localBarSize   = 30
-    localBarMargin = 3
-    localPillWidth = 800
+    localBarSize         = 30
+    localBarMargin       = 3
+    localPillWidth       = 800
+    localPillMinSpacing  = 20
     _save()
   }
 
@@ -342,10 +346,11 @@ Bar.BarPopup {
         font.pixelSize: 9; font.weight: Font.Medium; font.family: "JetBrainsMono Nerd Font" }
       Repeater {
         model: [
-          { label: "Largura pill",  prop: "localPillWidth", from: 400, to: 2000, step: 10, unit: "px", vis: localIsH },
-          { label: "Espessura",     prop: "localBarSize",   from: 20,  to: 60,   step: 2,  unit: "px", vis: true     },
-          { label: "Margem",        prop: "localBarMargin", from: 0,   to: 30,   step: 1,  unit: "px", vis: true     },
-          { label: "Espac. icones", prop: "localWsSpacing", from: 0,   to: 16,   step: 1,  unit: "px", vis: true     },
+          { label: "Largura pill",   prop: "localPillWidth",      from: 400, to: 2000, step: 10, unit: "px", vis: localIsH },
+          { label: "Espac. lateral", prop: "localPillMinSpacing",  from: 0,   to: 120,  step: 4,  unit: "px", vis: localIsH },
+          { label: "Espessura",      prop: "localBarSize",         from: 20,  to: 60,   step: 2,  unit: "px", vis: true     },
+          { label: "Margem",         prop: "localBarMargin",       from: 0,   to: 30,   step: 1,  unit: "px", vis: true     },
+          { label: "Espac. icones",  prop: "localWsSpacing",       from: 0,   to: 16,   step: 1,  unit: "px", vis: true     },
         ]
         delegate: RowLayout {
           required property var modelData

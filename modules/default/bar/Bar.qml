@@ -20,9 +20,10 @@ Scope {
   property int  themeBarSize:    30
   signal _onZoneSurfaceChanged()  // emitido quando a zona da superfície muda
   property int  themeBarMargin:  0
-  property bool themePill:       false
-  property int  themePillWidth:  600
-  property bool themeHasPanel:   false
+  property bool themePill:         false
+  property int  themePillMinWidth:   400   // piso da pill
+  property int  themePillMinSpacing: 20    // espaço mínimo entre centro e laterais
+  property bool themeHasPanel:     false
   property int  themePanelWidth: 400
 
   property var barMediaPlayerRef: null
@@ -285,21 +286,29 @@ Scope {
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
       property bool pill:      barRoot.themePill
-      property int  pillWidth: barRoot.themePillWidth
       property int  position:  barRoot.position
 
       readonly property bool isVertical: position === 2 || position === 4
 
+      // ── Largura real da pill (sem deadlock de bootstrap) ───────────────
+      // O PanelWindow não pode depender de loader.item para seu tamanho,
+      // porque o loader vive DENTRO do PanelWindow (anchors.fill).
+      // Solução: _pillContentWidth é uma var simples, atualizada pelo
+      // Connections abaixo quando loader.item.implicitWidth muda.
+      // No bootstrap: começa com themePillMinWidth → PanelWindow abre →
+      // Loader carrega → Pill mede conteúdo → sinal → _pillContentWidth atualiza.
+      property int _pillContentWidth: barRoot.themePillMinWidth
+
+      readonly property int effectivePillWidth:
+          Math.max(barRoot.themePillMinWidth, _pillContentWidth)
+
+      // pillSideMargin: margem lateral calculada a partir da largura real.
       property int pillSideMargin: {
         if (!pill) return 0
         if (isVertical)
-          return Math.max(0, Math.floor((screen.height - pillWidth) / 2))
-        return Math.max(0, Math.floor((screen.width - pillWidth) / 2))
+          return Math.max(0, Math.floor((screen.height - effectivePillWidth) / 2))
+        return Math.max(0, Math.floor((screen.width - effectivePillWidth) / 2))
       }
-
-      // Valor estável de pillSideMargin para uso em cursorAtEdge.
-      // Não depende do _computedPillWidth dinâmico do tema — quebra binding loop.
-      readonly property int _frozenPillSideMargin: pillSideMargin
 
       property bool themeLoaded: barRoot.themeBarSize > 0
 
@@ -311,12 +320,12 @@ Scope {
       implicitHeight: {
         if (!themeLoaded) return 0
         if (!isVertical) return barSize
-        return pill ? pillWidth : screen.height
+        return pill ? effectivePillWidth : screen.height
       }
       implicitWidth: {
         if (!themeLoaded) return 0
         if (isVertical) return barSize
-        return pill ? pillWidth : screen.width
+        return pill ? effectivePillWidth : screen.width
       }
 
       property bool animating:    true
@@ -410,7 +419,6 @@ Scope {
           if (barState.config.barMargin >= 0)  barRoot.themeBarMargin = barState.config.barMargin
 
           barRoot.themePill       = item.pill          !== undefined ? item.pill          : false
-          barRoot.themePillWidth  = item.pillWidth     !== undefined ? item.pillWidth     : 600
           barRoot.themeHasPanel   = item.hasMediaPanel !== undefined ? item.hasMediaPanel : false
           barRoot.themePanelWidth = item.panelWidth    !== undefined ? item.panelWidth    : 400
 
@@ -446,8 +454,24 @@ Scope {
 
           // Módulos são gerenciados pelos Binding declarativos acima.
 
-          // pillWidth configurado pelo editor
-          if ("minPillWidth" in item) item.minPillWidth = barState.config.pillWidth
+          // Injecta a largura mínima e o espaçamento mínimo ao Pill.qml.
+          var minW   = barState.config.pillWidth    > 0 ? barState.config.pillWidth    : 400
+          var minGap = barState.config.pillMinSpacing >= 0 ? barState.config.pillMinSpacing : 20
+          barRoot.themePillMinWidth   = minW
+          barRoot.themePillMinSpacing = minGap
+          if ("minPillWidth"   in item) item.minPillWidth   = minW
+          if ("pillMinSpacing" in item) item.pillMinSpacing = minGap
+
+          // Semente inicial de _pillContentWidth: usa o implicitWidth que o
+          // Pill.qml já calculou (pode ser minPillWidth se o conteúdo ainda
+          // não foi medido). O Connections onImplicitWidthChanged atualiza
+          // conforme o layout estabiliza.
+          Qt.callLater(function() {
+            if (loader.item) {
+              var iw = loader.item.implicitWidth
+              if (iw > 0) bar._pillContentWidth = iw
+            }
+          })
 
           _applyConfig(item)
 
@@ -458,19 +482,20 @@ Scope {
         }
       }
 
-      // ── Propaga pillWidth dinâmico do tema → PanelWindow ─────────────────
-      // Pill.qml expõe pillWidth como _computedPillWidth (dinâmico).
-      // Quando muda (ex: mais workspaces abertas), atualiza barRoot.themePillWidth.
+      // ── Aplicação de config ao tema ────────────────────────────────────
+
+      // Rastreia implicitWidth do Pill.qml → atualiza _pillContentWidth →
+      // effectivePillWidth → PanelWindow redimensiona.
+      // ignoreUnknownSignals: temas sem pill não emitem implicitWidthChanged.
       Connections {
         target: loader.item
         ignoreUnknownSignals: true
-        function onPillWidthChanged() {
-          if (loader.item && loader.item.pillWidth > 0)
-            barRoot.themePillWidth = loader.item.pillWidth
+        function onImplicitWidthChanged() {
+          var iw = loader.item ? loader.item.implicitWidth : 0
+          if (iw > 0) bar._pillContentWidth = iw
         }
       }
 
-      // ── Aplicação de config ao tema ────────────────────────────────────
       function _set(prop, value) {
         if (loader.item && prop in loader.item) loader.item[prop] = value
       }
@@ -547,6 +572,16 @@ Scope {
         // barSize/barMargin — afetam o PanelWindow diretamente
         function onBarSizeChanged()   { barRoot.themeBarSize   = barState.config.barSize   }
         function onBarMarginChanged() { barRoot.themeBarMargin = barState.config.barMargin }
+        function onPillWidthChanged() {
+          var minW = barState.config.pillWidth > 0 ? barState.config.pillWidth : 400
+          barRoot.themePillMinWidth = minW
+          if (loader.item && "minPillWidth" in loader.item) loader.item.minPillWidth = minW
+        }
+        function onPillMinSpacingChanged() {
+          var gap = barState.config.pillMinSpacing >= 0 ? barState.config.pillMinSpacing : 20
+          barRoot.themePillMinSpacing = gap
+          if (loader.item && "pillMinSpacing" in loader.item) loader.item.pillMinSpacing = gap
+        }
         // paleta
         function onPaletteBarBgChanged()                { bar._set("colBarBg",          barState.config.paletteBarBg)                 }
         function onPaletteBarBgPillChanged()            { bar._set("colBarBgPill",      barState.config.paletteBarBgPill)             }
@@ -609,10 +644,8 @@ Scope {
         // onModules*Changed — removidos. Os Binding declarativos
         // no Loader são reativos via barState.modules* e atualizam
         // automaticamente sem handlers explícitos.
-        // pillWidth configurado pelo editor
-        function onPillWidthChanged() {
-          if ("minPillWidth" in loader.item) loader.item.minPillWidth = barState.config.pillWidth
-        }
+        // pillWidth: gerido pelo implicitWidth reactivo do Pill.qml —
+        // não é necessário propagar manualmente.
 
       }
 
@@ -638,10 +671,6 @@ Scope {
         target: barRoot
         function onPositionChanged() {
           bar._set("barPosition", barRoot.position)
-        }
-        function onThemePillWidthChanged() {
-          if (loader.item && "minPillWidth" in loader.item)
-            loader.item.minPillWidth = barState.config.pillWidth
         }
         function onOsdServiceChanged() {
           if (!loader.item) return
@@ -1035,13 +1064,16 @@ Scope {
         if (position === 1 || position === 3) {
           var atV = position === 1 ? ly <= threshold : ly >= screen.height - threshold
           if (!atV) return false
-          if (pill) return lx >= _frozenPillSideMargin - tolerance && lx <= screen.width - _frozenPillSideMargin + tolerance
+          // pill: verifica se o cursor está dentro da extensão horizontal da pill
+          // (com tolerância = metade da altura da barra para não cortar nas bordas)
+          if (pill) return lx >= pillSideMargin - tolerance && lx <= screen.width - pillSideMargin + tolerance
           return true
         }
         if (position === 2 || position === 4) {
           var atH = position === 4 ? lx <= threshold : lx >= screen.width - threshold
           if (!atH) return false
-          if (pill) return ly >= _frozenPillSideMargin - tolerance && ly <= screen.height - _frozenPillSideMargin + tolerance
+          // pill vertical: mesma lógica no eixo Y
+          if (pill) return ly >= pillSideMargin - tolerance && ly <= screen.height - pillSideMargin + tolerance
           return true
         }
         return false
@@ -1050,6 +1082,10 @@ Scope {
       // cursorOverBar: true quando o cursor está dentro da área física da barra
       // (não apenas na borda). Usado para não esconder a barra enquanto o cursor
       // ainda está sobre ela.
+      // CORRECÇÃO: em modo pill, também verifica os limites laterais da pill —
+      // sem isso a barra desaparecia quando o cursor chegava perto das extremidades
+      // (dentro da pill mas fora da zona central), porque só a profundidade (Y)
+      // era verificada.
       property bool cursorOverBar: {
         var cx = barState.cursorX
         var cy = barState.cursorY
@@ -1059,11 +1095,39 @@ Scope {
         var lx = cx - screen.x
         var ly = cy - screen.y
         var size = barSize + barMargin + 4
-        if (position === 1) return ly <= size
-        if (position === 2) return lx >= screen.width  - size
-        if (position === 3) return ly >= screen.height - size
-        if (position === 4) return lx <= size
-        return false
+        // Verifica primeiro a profundidade (distância à borda da tela)
+        var inDepth = false
+        if      (position === 1) inDepth = ly <= size
+        else if (position === 2) inDepth = lx >= screen.width  - size
+        else if (position === 3) inDepth = ly >= screen.height - size
+        else if (position === 4) inDepth = lx <= size
+        if (!inDepth) return false
+        // Em modo pill: também verifica se o cursor está dentro da extensão lateral
+        // da pill.
+        //
+        // CORRECÇÃO: tolerância aumentada de 2px para barSize/2 (≈15px).
+        //
+        // Antes: margin = pillSideMargin - 2
+        //   → cursorOverBar vai a false 2px além da borda visual da pill.
+        //   → barra esconde quando o cursor está sobre os módulos das extremidades
+        //     (ex: clock ou volume na base de uma barra vertical), porque qualquer
+        //     micro-overshoot de 3px+ já desactiva cursorOverBar.
+        //
+        // Agora: margin = pillSideMargin - barSize/2 (≈ pillSideMargin - 15)
+        //   → mesma tolerância que cursorAtEdge usa (tolerance = barSize/2).
+        //   → o cursor pode ultrapassar a borda da pill em até ~15px antes da
+        //     barra se esconder, dando espaço para interagir com módulos nas
+        //     extremidades sem que a barra desapareça no caminho.
+        //   → isométrico com cursorAtEdge: as duas zonas agora coincidem.
+        if (pill) {
+          var tolerance = Math.round(barSize / 2)
+          var margin = pillSideMargin - tolerance
+          if (position === 1 || position === 3)
+            return lx >= margin && lx <= screen.width - margin
+          if (position === 2 || position === 4)
+            return ly >= margin && ly <= screen.height - margin
+        }
+        return true
       }
 
       // ══════════════════════════════════════════════════════════════════════
@@ -1112,6 +1176,10 @@ Scope {
       // Declarado separado de barVisible para deixar claro o papel de cada um.
       property bool barShow: true
 
+      // ── Hover nativo (Wayland) para detecção precisa do cursor sobre a barra ──
+      HoverHandler { id: barHover }
+      property bool cursorOnBar: barHover.hovered
+
       // ── Timer de fechamento ──────────────────────────────────────────────
       // Só altera barShow (estado físico). barVisible já foi para false
       // antes do timer ser iniciado — garantindo que nenhuma condição de
@@ -1127,6 +1195,27 @@ Scope {
       // Evita abrir a barra quando o cursor roça a borda por < 80ms.
       // Ao disparar, re-verifica as condições: se o cursor já saiu, não abre.
       // 80ms é imperceptível para o usuário mas filtra movimentos rápidos.
+      //
+      // CORREÇÃO: adicionado `|| bar.cursorOverBar` à re-verificação.
+      //
+      // Cenário que este fix resolve (pill horizontal, barra no topo):
+      //   1. cursor chega à borda superior (ly ≤ edgeThreshold=5px)
+      //      → cursorAtEdge=true → P3 → showDebounceTimer.start()
+      //   2. cursor move-se para o módulo clock/volume (ly=20px)
+      //      ANTES dos 80ms expirarem
+      //      → cursorAtEdge=false → onCursorAtEdgeChanged → updateBarVisibility()
+      //      → P3 falha, P4 falha (barShow=false), nenhuma condição activa
+      //      → _doHide NÃO é chamado (barVisible=false,barShow=false)
+      //      → timer continua a correr
+      //   3. 80ms depois o timer dispara:
+      //      → SEM fix: near=false, condição=false → barra nunca abre
+      //      → COM fix: near=false MAS cursorOverBar=true (cursor está sobre a
+      //        barra, a ≤ barSize+barMargin+4 px da borda) → _doShow() ✓
+      //
+      // Segurança: showDebounceTimer SÓ é iniciado via P3, que exige
+      // cursorAtEdge=true. Logo cursorOverBar=true aqui significa sempre
+      // "cursor passou pela borda E está sobre a área da barra" — não é
+      // um atalho para mostrar a barra a partir de posições arbitrárias.
       Timer {
         id: showDebounceTimer
         interval: 80
@@ -1134,7 +1223,7 @@ Scope {
         onTriggered: {
           // Re-verificação: as condições ainda se aplicam?
           var near = bar.pill ? bar.cursorAtEdge : bar.cursorNearBar
-          if (near || bar.anyPanelOpen || !bar.effectiveAutoHide || !bar.hasWindows) {
+          if (near || bar.cursorOverBar || bar.anyPanelOpen || !bar.effectiveAutoHide || !bar.hasWindows) {
             bar._doShow()
           }
           // Se nenhuma condição persiste: falso positivo descartado silenciosamente.
@@ -1182,6 +1271,36 @@ Scope {
         //     com peek ativo) → sempre visível
         if (!effectiveAutoHide) { _doShow(); return }
 
+        // P2.5 (NOVO): cursor entrou na área física da barra sem ter passado
+        //   pela zona estreita de cursorAtEdge (threshold=5px).
+        //
+        // Causa: o polling de cursor é a cada 100ms. Se o cursor se move
+        //   rápido o suficiente, o primeiro sample DENTRO da barra já aparece
+        //   a lx=7-25px da borda (barSize=30, threshold=5 → "zona cega" de 25px).
+        //   cursorAtEdge nunca foi true → showDebounceTimer nunca iniciou →
+        //   P3, P3.5 e P4 falham → barra nunca abre.
+        //
+        // Evidência no log: lx=4..25, todos < barSize+barMargin=33 (cursor NA
+        //   barra) mas lx > threshold=5 → cursorAtEdge=false → barra oculta.
+        //
+        // Solução: cursorOverBar como trigger alternativo do debounce.
+        //   cursorOverBar = lx <= barSize+barMargin+4 = 37 (profundidade correta)
+        //              AND ly dentro da pill ± barSize/2 (lateral, após Fix B).
+        //   Isso significa "cursor está na área onde a barra ficaria visível".
+        //   Iniciamos o mesmo debounce de 80ms → comportamento idêntico ao P3.
+        //
+        // Diferença de P3: P3 usa o threshold de 5px e actua via cursorAtEdge.
+        //   P2.5 usa a área completa da barra (37px de profundidade).
+        //   O debounce de 80ms continua a funcionar como anti-falso-positivo.
+        //
+        // Segurança: só actua quando barShow=false (barra oculta) e debounce
+        //   não está a correr (evita reiniciar um debounce que já iniciou via P3).
+        if (!barShow && cursorOverBar && !showDebounceTimer.running) {
+          hideTimer.stop()
+          showDebounceTimer.restart()
+          return
+        }
+
         // P3: cursor na zona de ativação → abrir (com debounce anti-falso-positivo)
         //     Modo pill: só cursorAtEdge (bordas da pill). Modo normal: cursorNearBar.
         var near = pill ? cursorAtEdge : cursorNearBar
@@ -1198,12 +1317,38 @@ Scope {
           return
         }
 
+        // P3.5: debounce pendente + cursor já sobre a área física da barra.
+        //
+        // Acontece quando:
+        //   • O cursor cruzou a borda de activação (cursorAtEdge=true)
+        //     → P3 iniciou showDebounceTimer
+        //   • O cursor entrou no interior da barra (cursorAtEdge=false,
+        //     cursorOverBar=true) ANTES de os 80ms expirarem
+        //   • onCursorAtEdgeChanged chama updateBarVisibility():
+        //     P3 falha, P4 falha (barShow=false), default não actua
+        //     (barVisible=false e barShow=false → guarda não passa)
+        //     → timer ainda corre, mas sem este P3.5 ficaria preso:
+        //     ao disparar, near=false e a barra nunca abriria.
+        //
+        // P3.5 confirma a abertura imediatamente, sem esperar o timer,
+        // sempre que o cursor esteja sobre a barra e o debounce ainda esteja
+        // activo (garantia de que houve um cursorAtEdge=true recente).
+        //
+        // Diferença de P4: P4 exige barShow=true (barra já fisicamente visível).
+        // P3.5 actua enquanto a barra ainda está oculta (barShow=false).
+        // P3.5: debounce pendente + cursor já sobre a área física da barra.
+        if (showDebounceTimer.running && cursorOverBar) {
+            _doShow()
+            return
+        }
+
         // P4: cursor sobre a barra enquanto ela ainda está fisicamente presente.
         //     barShow pode ser true mesmo após barVisible ir a false (durante
         //     a animação de saída). Isso permite "resgatar" a barra com o cursor.
-        if (barShow && cursorOverBar) {
-          _doShow()
-          return
+        // P4: cursor sobre a barra enquanto ela ainda está fisicamente presente (hover nativo)
+        if (barShow && cursorOnBar) {
+            _doShow()
+            return
         }
 
         // P5: workspace sem janelas → sempre visível (barra de desktop vazio)
@@ -1235,6 +1380,7 @@ Scope {
       onCursorNearBarChanged: updateBarVisibility()
       onCursorAtEdgeChanged:  updateBarVisibility()
       onCursorOverBarChanged: updateBarVisibility()
+      onCursorOnBarChanged: updateBarVisibility()
       onHasWindowsChanged:    updateBarVisibility()
 
       // ══════════════════════════════════════════════════════════════════════

@@ -82,21 +82,23 @@ PanelWindow {
   visible: _alive
 
   onPanelOpenChanged: {
-    if (panelOpen) {
-      _closing = false
-      _alive   = true
-      _unmapTimer.stop()
-      closeAnim.stop()
-      openAnim.from = _animProg
-      openAnim.to   = 1.0
-      openAnim.start()
-    } else {
-      _closing = true
-      openAnim.stop()
-      closeAnim.from = _animProg
-      closeAnim.to   = 0.0
-      closeAnim.start()
-    }
+      if (panelOpen) {
+          _closing = false
+          _alive   = true
+          _unmapTimer.stop()
+          _safetyUnmapTimer.stop()    // ← NOVO: cancela o timer de segurança
+          closeAnim.stop()
+          openAnim.from = _animProg
+          openAnim.to   = 1.0
+          openAnim.start()
+      } else {
+          _closing = true
+          openAnim.stop()
+          closeAnim.from = _animProg
+          closeAnim.to   = 0.0
+          closeAnim.start()
+          _safetyUnmapTimer.restart() // ← NOVO: inicia o timer de segurança
+      }
   }
 
   // ── Configuração da janela ────────────────────────────────────────────
@@ -167,6 +169,18 @@ PanelWindow {
     }
   }
 
+  Timer {
+      id: _safetyUnmapTimer
+      interval: popup.animDuration + 200   // animação (200ms) + folga
+      repeat:   false
+      onTriggered: {
+          if (!popup.panelOpen) {
+              popup._alive   = false
+              popup._closing = false
+              _unmapTimer.stop()
+          }
+      }
+  }
   // ── Animação de abertura ──────────────────────────────────────────────
   NumberAnimation {
     id: openAnim

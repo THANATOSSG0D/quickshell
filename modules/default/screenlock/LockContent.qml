@@ -11,8 +11,10 @@ Item {
     property WlSessionLock sessionLock
     property bool isPrimary: true
 
-    // Signal usado pelo shell.qml isolado para disparar Qt.quit()
+    // ── Signals ───────────────────────────────────────────────────────────────
     signal unlockRequested()
+    // Emitido em qualquer input do usuário — shell.qml usa para acordar DPMS.
+    signal userActivity()
 
     readonly property string powerScript: Quickshell.env("HOME") + "/.config/hypr/scripts/power.sh"
 
@@ -38,7 +40,6 @@ Item {
     Process {
         id: capsProc
         command: ["sh", "-c", "cat /sys/class/leds/*capslock*/brightness 2>/dev/null | head -1 || echo 0"]
-        running: root.isPrimary
         stdout: SplitParser {
             onRead: line => root.capsLock = (parseInt(line.trim()) > 0)
         }
@@ -85,8 +86,10 @@ Item {
     function authSuccess() {
         hiddenInput.text = ""
         failCount = 0
-        // Dispara fade-out e emite o signal — shell.qml seta locked=false + Qt.quit()
-        fadeOut.start()
+        // Libera o lock diretamente — sem fade — para evitar o flash preto
+        // que ocorre quando WlSessionLock exibe o fundo do compositor enquanto
+        // a superfície ainda está animando para opacity 0.
+        root.unlockRequested()
     }
 
     function submitPassword() {
@@ -128,6 +131,9 @@ Item {
         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhHiddenText
 
         Keys.onPressed: event => {
+            // Qualquer tecla = atividade (acorda DPMS se necessário).
+            root.userActivity()
+
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                 root.submitPassword()
                 event.accepted = true
@@ -150,27 +156,40 @@ Item {
         }
     }
 
-    Timer {
-        interval: 300
-        running: root.isPrimary && !root.authRunning
-        repeat: true
-        onTriggered: {
-            if (!hiddenInput.activeFocus)
-                hiddenInput.forceActiveFocus()
+    // Re-foca só quando o foco foi genuinamente perdido.
+    Connections {
+        target: hiddenInput
+        function onActiveFocusChanged() {
+            if (root.isPrimary && !root.authRunning && !hiddenInput.activeFocus)
+                Qt.callLater(() => hiddenInput.forceActiveFocus())
         }
     }
 
+    // ── MouseArea principal ───────────────────────────────────────────────────
+    // Cobre todo o lock screen; captura movimento e clique para:
+    //   (a) acordar o DPMS se estiver apagado
+    //   (b) forçar foco no input
     MouseArea {
         anchors.fill: parent
         z: -1
-        onPressed: {
+        // hoverEnabled desativado intencionalmente: onPositionChanged gerava
+        // eventos sintéticos quando o Hyprland mudava estado do DPMS, causando
+        // o ciclo liga/apaga imediato. Agora o cooldown em shell.qml + somente
+        // onPressed/Keys.onPressed são suficientes para acordar o display.
+        hoverEnabled: false
+
+        onPressed: mouse => {
+            root.userActivity()
             if (root.isPrimary) hiddenInput.forceActiveFocus()
             mouse.accepted = false
         }
     }
 
     // ── Processos de energia ──────────────────────────────────────────────────
-    Process { id: procDpmsOff;  command: ["hyprctl", "dispatch", "dpms", "off"] }
+    Process {
+        id: procDpmsOff
+        command: ["hyprctl", "dispatch", "hl.dsp.dpms({mode = \"off\"})"]
+    }
     Process { id: procSuspend;  command: [root.powerScript, "suspend"]  }
     Process { id: procReboot;   command: [root.powerScript, "reboot"]   }
     Process { id: procShutdown; command: [root.powerScript, "shutdown"] }
@@ -179,7 +198,6 @@ Item {
     // VISUAL
     // ═════════════════════════════════════════════════════════════════════════
 
-    // Fundo escuro sólido — aparece imediatamente enquanto imagem carrega
     Rectangle {
         anchors.fill: parent
         color: Colors.background
@@ -191,11 +209,8 @@ Item {
         source:   "file://" + Quickshell.env("HOME") + "/.config/ml4w/cache/lockscreen/lock.png"
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        // Sem MultiEffect — imagem já vem pré-blurrada pelo sistema de wallpaper.
-        // blur: 1.0 + layer.enabled causava tela branca em superfícies Wayland.
     }
 
-    // Overlay escuro sobre a imagem
     Rectangle {
         anchors.fill: parent
         color: Colors.scrim
@@ -412,7 +427,13 @@ Item {
 
     // ── Animações de entrada e saída ──────────────────────────────────────────
     opacity: 0
-    Component.onCompleted: fadeIn.start()
+    Component.onCompleted: {
+        fadeIn.start()
+        if (root.isPrimary) {
+            capsProc.running = true
+            Qt.callLater(() => hiddenInput.forceActiveFocus())
+        }
+    }
 
     NumberAnimation on opacity {
         id: fadeIn
@@ -420,14 +441,4 @@ Item {
         duration: 500; easing.type: Easing.OutCubic
     }
 
-    // Fade para preto ao desbloquear (escurece, não clareia)
-    SequentialAnimation {
-        id: fadeOut
-        NumberAnimation {
-            target: root; property: "opacity"
-            from: 1; to: 0
-            duration: 300; easing.type: Easing.InCubic
-        }
-        ScriptAction { script: root.unlockRequested() }
-    }
 }

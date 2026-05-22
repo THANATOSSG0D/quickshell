@@ -1,105 +1,37 @@
 #!/usr/bin/env bash
 # ── screenlock ────────────────────────────────────────────────────────────────
-# Abordagem qylock: instância separada do Quickshell.
-# `qs -c` bloqueia até Qt.quit() — quando retorna, o lock terminou.
-# Restauração de sessão acontece naturalmente após o processo sair.
-# ─────────────────────────────────────────────────────────────────────────────
 set -eo pipefail
 
-LOG="$HOME/.local/state/screenlock.log"
-mkdir -p "$(dirname "$LOG")"
-exec >> "$LOG" 2>&1
-
-log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
-info() { echo "  → $*"; }
-
-log "Screenlock iniciado (PID: $$)"
-
 LOCK_DIR="$HOME/.config/quickshell/modules/default/screenlock"
-LOCK_FILE="$HOME/.cache/screenlock-$UID.lock"
-MONITOR_TOGGLE="$HOME/.config/hypr/scripts/monitor-toggle.sh"
-FULLSCREEN="$HOME/.config/hypr/scripts/fullscreen_state.sh"
-LOCK_IMG="$HOME/.config/ml4w/cache/lockscreen/lock.png"
-PRE_LOCK="$HOME/.config/ml4w/scripts/pre-lock"
-FALLBACK_IMG="$HOME/Imagens/wallpaper.png"
+LOCK_FILE="/tmp/screenlock-$UID.lock"
 
-cleanup() {
-    rm -f "$LOCK_FILE"
-    log "Screenlock encerrado"
-}
-trap cleanup EXIT
+log() { echo "[$(date '+%H:%M:%S')] screenlock: $*"; }
 
 # ── Instância única ───────────────────────────────────────────────────────────
 if [ -f "$LOCK_FILE" ]; then
-    PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
-    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-        info "Lock já ativo (PID: $PID) — saindo"
-        exit 0
-    fi
-    rm -f "$LOCK_FILE"
+  PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
+  if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+    log "Já ativo (PID: $PID) — saindo"
+    exit 0
+  fi
+  rm -f "$LOCK_FILE"
 fi
 echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"; log "Encerrado"' EXIT
 
-[ -z "${WAYLAND_DISPLAY:-}" ] && { log "ERRO: Wayland não disponível"; exit 1; }
-
-# ── Imagem de lock ────────────────────────────────────────────────────────────
-if [ ! -f "$LOCK_IMG" ]; then
-    [ -x "$PRE_LOCK" ] && "$PRE_LOCK" >/dev/null 2>&1 || true
-fi
-[ ! -f "$LOCK_IMG" ] && [ -f "$FALLBACK_IMG" ] && LOCK_IMG="$FALLBACK_IMG"
+[ -z "${WAYLAND_DISPLAY:-}" ] && { log "Wayland não disponível"; exit 1; }
 
 # ── Pré-lock ──────────────────────────────────────────────────────────────────
-[ -x "$FULLSCREEN" ] && "$FULLSCREEN" save >/dev/null 2>&1 || true
-
-while IFS= read -r idx; do
-    pactl set-sink-mute "$idx" 1 2>/dev/null || true
-done < <(pactl list sinks short 2>/dev/null | awk '{print $1}')
-info "Áudio mutado"
-
-timeout 4 bwmenu-hyprland -l >/dev/null 2>&1 && info "Bitwarden vault travado" || true
-
+command -v playerctl >/dev/null 2>&1 && playerctl pause 2>/dev/null || true
 systemctl --user is-active --quiet swaync.service 2>/dev/null \
-    && swaync-client -dn >/dev/null 2>&1 || true
-command -v playerctl >/dev/null 2>&1 \
-    && playerctl pause >/dev/null 2>&1 || true
+  && swaync-client -dn 2>/dev/null || true
+timeout 4 bwmenu-hyprland -l 2>/dev/null || true
 
-DUAL_ACTIVE=$(hyprctl monitors -j 2>/dev/null \
-    | jq -r '[.[] | select(.name | test("HEADLESS";"i") | not)] | length' 2>/dev/null \
-    || echo "1")
-info "Monitores ativos: $DUAL_ACTIVE"
-
-if [ "$DUAL_ACTIVE" -eq 2 ]; then
-    "$MONITOR_TOGGLE" --quiet --no-waybar laptop off >/dev/null 2>&1 \
-        && info "Monitor laptop desligado" || true
-fi
-
-# ── Lock — BLOQUEANTE ─────────────────────────────────────────────────────────
-# qs -c roda shell.qml como instância isolada e só retorna quando Qt.quit()
-# for chamado — ou seja, após PAM autenticar com sucesso.
-info "Iniciando lock screen (qs -c)..."
+# ── Lock (bloqueante) ─────────────────────────────────────────────────────────
+log "Iniciando..."
 qs -c "$LOCK_DIR"
-info "Lock encerrado"
+log "Desbloqueado"
 
-# ── Restauração ───────────────────────────────────────────────────────────────
-info "Restaurando sessão..."
-
-if [ "$DUAL_ACTIVE" -eq 2 ]; then
-    LAPTOP_ON=$(hyprctl monitors -j 2>/dev/null \
-        | jq -r 'any(.[]; .name == "eDP-1" and .dpmsStatus == true and (.disabled == false))' \
-        2>/dev/null || echo "true")
-    if [ "$LAPTOP_ON" = "false" ]; then
-        "$MONITOR_TOGGLE" --quiet --no-waybar laptop on >/dev/null 2>&1 && sleep 0.3 || true
-    fi
-fi
-
-while IFS= read -r idx; do
-    pactl set-sink-mute "$idx" 0 2>/dev/null || true
-done < <(pactl list sinks short 2>/dev/null | awk '{print $1}')
-info "Áudio desmutado"
-
-[ -x "$FULLSCREEN" ] && "$FULLSCREEN" restore >/dev/null 2>&1 || true
-
+# ── Pós-unlock ────────────────────────────────────────────────────────────────
 systemctl --user is-active --quiet swaync.service 2>/dev/null \
-    && swaync-client -dn >/dev/null 2>&1 || true
-
-exit 0
+  && swaync-client -dn 2>/dev/null || true

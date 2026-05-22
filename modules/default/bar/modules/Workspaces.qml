@@ -49,8 +49,42 @@ Item {
 
   readonly property bool isHorizontal: orientation === "horizontal"
 
-  implicitWidth:  isHorizontal ? bg.width  : bg.height
-  implicitHeight: isHorizontal ? bg.height : bg.width
+  // ── Tamanho implícito ─────────────────────────────────────────────────
+  //
+  // ANTES (bugado):
+  //   implicitWidth  = isHorizontal ? bg.width  : bg.height   ← swap
+  //   implicitHeight = isHorizontal ? bg.height : bg.width    ← swap
+  //
+  // O swap fazia sentido conceptualmente ("roda 90° para barra vertical"),
+  // mas estava errado na prática:
+  //
+  //   • O Column do verticalComp usa Loader.height para layout vertical.
+  //     Loader.height = modItem.implicitHeight = Workspaces.implicitHeight.
+  //     Com o swap, implicitHeight = bg.width (pequeno, ~30px).
+  //     → módulo ocupa só ~30px na coluna mas renderiza bg.height (~200px)
+  //     → workspaces transborda sobre os outros módulos (clock, volume).
+  //
+  //   • O Row do horizontalComp usa Loader.width = modItem.implicitWidth.
+  //     Com o swap para vertical, implicitWidth = bg.height (grande) numa
+  //     barra horizontal — esse caso não se aplica (orientation="horizontal"
+  //     quando isHorizontal=true, logo swap não actua na horizontal).
+  //
+  // AGORA (correcto):
+  //   implicitWidth  = bg.width   ← dimensão HORIZONTAL do widget
+  //   implicitHeight = bg.height  ← dimensão VERTICAL do widget
+  //
+  // Para barra HORIZONTAL: Row usa implicitWidth = bg.width (extensão total
+  //   dos workspaces na horizontal). ✓
+  // Para barra VERTICAL: Column usa implicitHeight = bg.height (extensão
+  //   total dos workspaces na vertical, pode ser ~200px com 6 workspaces). ✓
+  //
+  // O `bg` já calcula width e height correctamente para cada orientação:
+  //   bg.width  = layout.implicitWidth  + padding_h
+  //   bg.height = layout.implicitHeight + padding_v
+  // e o GridLayout usa columns=-1 (row único) ou rows=-1 (column única)
+  // conforme isHorizontal, então implicitWidth/Height já reflectem o eixo certo.
+  implicitWidth:  bg.width
+  implicitHeight: bg.height
 
   // ── Lista de workspaces do monitor ───────────────────────────────────
   property var workspaces: {

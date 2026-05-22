@@ -1,15 +1,9 @@
 [
   {
-    "label": "lock and screen",
-    "action": "~/.config/hypr/scripts/power.sh lockscreen",
-    "text": "󰌾",
-    "keybind": "l"
-  },
-  {
     "label": "lock",
     "action": "~/.config/hypr/scripts/power.sh lock",
     "text": "󰌾",
-    "keybind": "k"
+    "keybind": "l"
   },
   {
     "label": "logout",

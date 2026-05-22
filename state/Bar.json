@@ -3,7 +3,7 @@
         "autoHide": false,
         "barMargin": 3,
         "barSize": 30,
-        "pillWidth": 800,
+        "pillWidth": 400,
         "position": 4,
         "silence": false,
         "theme": "Pill"
@@ -109,7 +109,7 @@
         }
     },
     "workspaces": {
-        "iconMonochrome": false,
+        "iconMonochrome": true,
         "iconSpacing": 4,
         "iconsSort": "position",
         "showAddButton": true,
