@@ -1067,14 +1067,16 @@ Scope {
           // pill: verifica se o cursor está dentro da extensão horizontal da pill
           // (com tolerância = metade da altura da barra para não cortar nas bordas)
           if (pill) return lx >= pillSideMargin - tolerance && lx <= screen.width - pillSideMargin + tolerance
-          return true
+          // não-pill: usa barMargin como dead-zone lateral nos cantos
+          return lx >= barMargin - tolerance && lx <= screen.width - barMargin + tolerance
         }
         if (position === 2 || position === 4) {
           var atH = position === 4 ? lx <= threshold : lx >= screen.width - threshold
           if (!atH) return false
           // pill vertical: mesma lógica no eixo Y
           if (pill) return ly >= pillSideMargin - tolerance && ly <= screen.height - pillSideMargin + tolerance
-          return true
+          // não-pill vertical: mesma dead-zone lateral usando barMargin
+          return ly >= barMargin - tolerance && ly <= screen.height - barMargin + tolerance
         }
         return false
       }
@@ -1222,8 +1224,7 @@ Scope {
         repeat:   false
         onTriggered: {
           // Re-verificação: as condições ainda se aplicam?
-          var near = bar.pill ? bar.cursorAtEdge : bar.cursorNearBar
-          if (near || bar.cursorOverBar || bar.anyPanelOpen || !bar.effectiveAutoHide || !bar.hasWindows) {
+          if (bar.cursorAtEdge || bar.anyPanelOpen || !bar.effectiveAutoHide || !bar.hasWindows) {
             bar._doShow()
           }
           // Se nenhuma condição persiste: falso positivo descartado silenciosamente.
@@ -1271,40 +1272,9 @@ Scope {
         //     com peek ativo) → sempre visível
         if (!effectiveAutoHide) { _doShow(); return }
 
-        // P2.5 (NOVO): cursor entrou na área física da barra sem ter passado
-        //   pela zona estreita de cursorAtEdge (threshold=5px).
-        //
-        // Causa: o polling de cursor é a cada 100ms. Se o cursor se move
-        //   rápido o suficiente, o primeiro sample DENTRO da barra já aparece
-        //   a lx=7-25px da borda (barSize=30, threshold=5 → "zona cega" de 25px).
-        //   cursorAtEdge nunca foi true → showDebounceTimer nunca iniciou →
-        //   P3, P3.5 e P4 falham → barra nunca abre.
-        //
-        // Evidência no log: lx=4..25, todos < barSize+barMargin=33 (cursor NA
-        //   barra) mas lx > threshold=5 → cursorAtEdge=false → barra oculta.
-        //
-        // Solução: cursorOverBar como trigger alternativo do debounce.
-        //   cursorOverBar = lx <= barSize+barMargin+4 = 37 (profundidade correta)
-        //              AND ly dentro da pill ± barSize/2 (lateral, após Fix B).
-        //   Isso significa "cursor está na área onde a barra ficaria visível".
-        //   Iniciamos o mesmo debounce de 80ms → comportamento idêntico ao P3.
-        //
-        // Diferença de P3: P3 usa o threshold de 5px e actua via cursorAtEdge.
-        //   P2.5 usa a área completa da barra (37px de profundidade).
-        //   O debounce de 80ms continua a funcionar como anti-falso-positivo.
-        //
-        // Segurança: só actua quando barShow=false (barra oculta) e debounce
-        //   não está a correr (evita reiniciar um debounce que já iniciou via P3).
-        if (!barShow && cursorOverBar && !showDebounceTimer.running) {
-          hideTimer.stop()
-          showDebounceTimer.restart()
-          return
-        }
-
         // P3: cursor na zona de ativação → abrir (com debounce anti-falso-positivo)
-        //     Modo pill: só cursorAtEdge (bordas da pill). Modo normal: cursorNearBar.
-        var near = pill ? cursorAtEdge : cursorNearBar
-        if (near) {
+        //     cursorAtEdge cobre pill e não-pill com verificação lateral.
+        if (cursorAtEdge) {
           hideTimer.stop()    // cancela fechamento pendente
           if (barVisible) {
             // Já estava visível: mantém sem debounce extra
