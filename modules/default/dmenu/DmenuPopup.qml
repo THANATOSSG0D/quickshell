@@ -34,6 +34,7 @@ Bar.BarPopup {
     colorAccent:  popup.colorAccent
     colorDivider: popup.colorDivider
     colorInputBg: popup.colorInputBg
+    // selected é null em todos os modos nativos (drun/run/window executam direto)
     onCloseRequested: popup.closeRequested()
   }
 }

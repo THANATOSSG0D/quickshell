@@ -3,31 +3,38 @@ import Quickshell.Hyprland
 import QtQuick
 
 // ── DmenuPanel ────────────────────────────────────────────────────────────────
-// PanelWindow layer-shell que exibe o DmenuContent.
-// Aparece ao centro do topo do monitor, exatamente como o rofi (north + center).
+// PanelWindow standalone (não depende do Bar).
+// Suporta modos: drun, run, window, script.
 //
-// Uso mínimo:
-//   DmenuPanel {
-//     id: dmenu
-//     screen: Quickshell.screens[0]
-//     entries: ["bash", "kitty", "firefox"]
-//     prompt: "RUN"
-//     onAccepted: (text) => console.log("run:", text)
-//   }
-//   // abrir:  dmenu.open()
-//   // fechar: dmenu.close()
+// panelAnchor controla a posição no monitor:
+//   "top-center"    (padrão) — centrado no topo, offset de 65px
+//   "top-left"      — topo esquerda, com margem
+//   "top-right"     — topo direita, com margem
+//   "center"        — centro absoluto do monitor
+//   "bottom-center" — rodapé centrado
 
 PanelWindow {
   id: panel
 
-  // ── API pública ────────────────────────────────────────────────────────────
   required property var screen
 
-  property var    entries:     []
-  property string prompt:      ">"
-  property string placeholder: "pesquisar..."
+  // ── Posicionamento ────────────────────────────────────────────────────────
+  // "top-center" | "top-left" | "top-right" | "center" | "bottom-center"
+  property string panelAnchor: "top-center"
+  property int    edgeMargin:  65   // distância da borda (top offset ou bottom offset)
+  property int    sideMargin:  40   // margem lateral para top-left / top-right
+
+  // ── Modo e conteúdo ───────────────────────────────────────────────────────
+  property string mode:        "drun"
+  property bool   showIcons:   true
   property int    maxVisible:  12
-  property string filterMode:  "internal"
+
+  // Props do modo script
+  property var    scriptEntries:  []
+  property string scriptPrompt:   ">"
+  property string scriptLabel:    "SCRIPT"
+  property string scriptSep:      ""
+  property var    scriptCallback: null
 
   // ── Cores ─────────────────────────────────────────────────────────────────
   property color colorPanelBg:  "#1f1f1f"
@@ -38,100 +45,123 @@ PanelWindow {
   property color colorDivider:  "#474747"
   property color colorInputBg:  "#131313"
 
-  // ── Sinais ─────────────────────────────────────────────────────────────────
-  signal accepted(string text)
-  signal dismissed()
-  signal textChanged(string t)
-
-  // ── Métodos públicos ───────────────────────────────────────────────────────
   function open()  { panelOpen = true  }
   function close() { panelOpen = false }
-  function toggle() { panelOpen = !panelOpen }
 
-  // ── Dimensões ─────────────────────────────────────────────────────────────
-  // Largura fixa, altura dinâmica conforme maxVisible
-  readonly property int  _itemH:   32
-  readonly property int  _inputH:  40
-  readonly property int  _gap:     6
-  readonly property int  _padV:    12
-  readonly property int  _panelW:  720
-  readonly property int  _panelH:  _inputH + _gap + (_itemH * Math.min(maxVisible, Math.max(entries.length, 1))) + _padV * 2 + 8
+  // ── Dimensões do painel flutuante ─────────────────────────────────────────
+  readonly property int _itemH:  32
+  readonly property int _inputH: 42
+  readonly property int _padV:   12
+  readonly property int _panelW: 720
+  readonly property int _panelH: _inputH + 6 + (_itemH * maxVisible) + _padV * 2 + 28
 
-  // Offset do topo (equivalente ao y-offset: 65px do rofi)
-  property int topOffset: 65
+  // ── Posicionamento layer-shell ────────────────────────────────────────────
+  // Âncoras e margens variam conforme panelAnchor.
+  // Usamos anchors.top+left+right para top-* (horizontal stretch + margin.top)
+  // e anchors.bottom para bottom-center.
+  // Para "center" usamos top+bottom para calcular posição vertical.
 
-  // ── Posicionamento: topo, centrado horizontalmente ─────────────────────────
+  readonly property bool _anchorTop:    panelAnchor !== "bottom-center"
+  readonly property bool _anchorBottom: panelAnchor === "bottom-center" || panelAnchor === "center"
+  readonly property bool _anchorLeft:   true   // sempre stretch horizontal para poder centralizar
+  readonly property bool _anchorRight:  true
+
   screen: panel.screen
   color:  "transparent"
   exclusionMode: ExclusionMode.Ignore
 
-  anchors.top:   true
-  anchors.left:  true
-  anchors.right: true
+  anchors.top:    _anchorTop
+  anchors.bottom: _anchorBottom
+  anchors.left:   _anchorLeft
+  anchors.right:  _anchorRight
 
-  implicitWidth:  1        // layer-shell horizontal stretch
-  implicitHeight: _panelH + topOffset
+  implicitWidth:  1
+  implicitHeight: {
+    if (panelAnchor === "center") return _panelH
+    return _panelH + edgeMargin
+  }
 
-  // Sem margens — o container interno faz o posicionamento
   margins.top:    0
+  margins.bottom: 0
   margins.left:   0
   margins.right:  0
-  margins.bottom: 0
 
-  // ── Estado de abertura ────────────────────────────────────────────────────
+  // ── Animação ──────────────────────────────────────────────────────────────
   property bool panelOpen: false
   property real slideProgress: 0.0
-
   visible: slideProgress > 0.0
 
   Behavior on slideProgress {
     NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
   }
-  onPanelOpenChanged: slideProgress = panelOpen ? 1.0 : 0.0
 
-  // ── FocusGrab ─────────────────────────────────────────────────────────────
-  HyprlandFocusGrab {
-    windows: [ panel ]
-    active:  panel.panelOpen
-    onCleared: panel.dismissed()
+  onPanelOpenChanged: {
+    slideProgress = panelOpen ? 1.0 : 0.0
+    if (panelOpen) content.activate()
   }
 
-  // ── Container principal ───────────────────────────────────────────────────
-  // Centralizado horizontalmente, com topOffset de topo
-  Item {
-    id: clipContainer
-    clip:    true
-    opacity: Math.min(1.0, panel.slideProgress * 2.5)
+  HyprlandFocusGrab {
+    windows: [panel]
+    active:  panel.panelOpen
+    onCleared: {
+      panel.panelOpen = false
+      if (panel.mode === "script" && panel.scriptCallback)
+        panel.scriptCallback(null)
+    }
+  }
 
-    // Centraliza horizontalmente na largura total do monitor
-    x:      Math.round((panel.width  - panel._panelW) / 2)
-    y:      panel.topOffset
+  // ── Posição do container dentro da PanelWindow ────────────────────────────
+  // A PanelWindow ocupa a largura toda do monitor (stretch horizontal).
+  // O container é centralizado ou alinhado conforme panelAnchor.
+
+  readonly property real _containerX: {
+    if (panelAnchor === "top-left")   return sideMargin
+    if (panelAnchor === "top-right")  return panel.width - _panelW - sideMargin
+    // top-center, center, bottom-center: centralizado
+    return Math.round((panel.width - _panelW) / 2)
+  }
+
+  readonly property real _containerY: {
+    if (panelAnchor === "bottom-center") return 0
+    if (panelAnchor === "center")
+      return Math.round((panel.height - _panelH) / 2)
+    // top-*: offset do topo
+    return edgeMargin
+  }
+
+  // ── Slide direction ───────────────────────────────────────────────────────
+  readonly property real _slideY: {
+    if (panelAnchor === "bottom-center") return  14
+    if (panelAnchor === "center")        return   0
+    return -14  // top-*: slide de cima para baixo
+  }
+
+  // ── Container ─────────────────────────────────────────────────────────────
+  Item {
+    id: container
+    clip: true
+    x: panel._containerX
+    y: panel._containerY
     width:  panel._panelW
     height: panel._panelH * panel.slideProgress
 
-    // Slide de cima para baixo
+    opacity: Math.min(1.0, panel.slideProgress * 2.5)
+
     transform: Translate {
-      y: -(1.0 - panel.slideProgress) * 20
+      y: panel._slideY * (1.0 - panel.slideProgress)
     }
 
-    // ── Fundo com blur ────────────────────────────────────────────────────
     Rectangle {
       anchors.fill: parent
       radius: 12
-      color: Qt.rgba(
-        panel.colorPanelBg.r,
-        panel.colorPanelBg.g,
-        panel.colorPanelBg.b,
-        0.92
-      )
-
-      // Borda sutil
+      color: Qt.rgba(panel.colorPanelBg.r, panel.colorPanelBg.g,
+                     panel.colorPanelBg.b, 0.92)
       border.width: 1
       border.color: Qt.rgba(1, 1, 1, 0.06)
     }
 
-    // ── Conteúdo ──────────────────────────────────────────────────────────
     DmenuContent {
+      id: content
       anchors {
         fill:         parent
         topMargin:    panel._padV
@@ -140,23 +170,28 @@ PanelWindow {
         rightMargin:  12
       }
 
-      entries:     panel.entries
-      prompt:      panel.prompt
-      placeholder: panel.placeholder
+      mode:        panel.mode
+      showIcons:   panel.showIcons
       maxVisible:  panel.maxVisible
-      filterMode:  panel.filterMode
 
-      colorPanelBg: panel.colorPanelBg
-      colorText:    panel.colorText
-      colorTextDim: panel.colorTextDim
-      colorAccent:  panel.colorAccent
+      scriptEntries: panel.scriptEntries
+      scriptPrompt:  panel.scriptPrompt
+      scriptLabel:   panel.scriptLabel
+      scriptSep:     panel.scriptSep
+
+      colorPanelBg:  panel.colorPanelBg
+      colorText:     panel.colorText
+      colorTextDim:  panel.colorTextDim
+      colorAccent:   panel.colorAccent
       colorSelected: panel.colorSelected
-      colorDivider: panel.colorDivider
-      colorInputBg: panel.colorInputBg
+      colorDivider:  panel.colorDivider
+      colorInputBg:  panel.colorInputBg
 
-      onAccepted:    (text) => { panel.accepted(text);   panel.close() }
-      onDismissed:   { panel.dismissed();  panel.close() }
-      onTextChanged: (t) => panel.textChanged(t)
+      onCloseRequested: (selected) => {
+        panel.panelOpen = false
+        if (panel.mode === "script" && panel.scriptCallback)
+          panel.scriptCallback(selected)
+      }
     }
   }
 }

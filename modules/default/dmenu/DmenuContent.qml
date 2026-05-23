@@ -8,18 +8,27 @@ Item {
   id: root
 
   // ── API pública ────────────────────────────────────────────────────────────
-  property string mode:      "drun"    // "drun" | "run" | "window"
-  property string launchCmd: "uwsm app -- {exec}"  // {exec} = Exec do .desktop
-  property bool   showIcons: true
+  property string mode:       "drun"  // "drun" | "run" | "window" | "script"
+  property string launchCmd:  "uwsm app -- {exec}"
+  property bool   showIcons:  true
+  property int    maxVisible: 12
 
-  property color colorPanelBg: "#1f1f1f"
-  property color colorText:    "#e2e2e2"
-  property color colorTextDim: "#c6c6c6"
-  property color colorAccent:  "#ffb4a9"
-  property color colorDivider: "#474747"
-  property color colorInputBg: "#131313"
+  // Props do modo script (entries já prontas, vindas do DmenuIpc)
+  property var    scriptEntries: []
+  property string scriptPrompt:  ">"
+  property string scriptLabel:   "SCRIPT"
+  property string scriptSep:     ""
 
-  signal closeRequested()
+  property color colorPanelBg:  "#1f1f1f"
+  property color colorText:     "#e2e2e2"
+  property color colorTextDim:  "#c6c6c6"
+  property color colorAccent:   "#ffb4a9"
+  property color colorSelected: "#442926"
+  property color colorDivider:  "#474747"
+  property color colorInputBg:  "#131313"
+
+  // selected: string com a entrada escolhida, ou null se cancelado
+  signal closeRequested(var selected)
 
   // ── Estado ─────────────────────────────────────────────────────────────────
   property string _query:       ""
@@ -27,7 +36,7 @@ Item {
   property var    _dynamicList: []
   property bool   _loading:     false
 
-  // ── Apps via DesktopEntries ────────────────────────────────────────────────
+  // ── Apps via DesktopEntries (modo drun) ────────────────────────────────────
   readonly property var _allApps: {
     var apps = DesktopEntries.applications.values
     var list = []
@@ -36,21 +45,15 @@ Item {
       if (!a || !a.name) continue
       var name = a.name.trim()
       if (name === "") continue
-      // Limpa placeholders do Exec (%f %u %F %U etc.)
       var exec = (a.execString || "").replace(/%[uUfFdDnNickvm]/g, "").trim()
-      list.push({
-        name:    name,
-        comment: (a.comment || "").trim(),
-        icon:    a.icon || "",
-        exec:    exec,
-        app:     a
-      })
+      list.push({ name: name, comment: (a.comment || "").trim(),
+                  icon: a.icon || "", exec: exec, app: a })
     }
     list.sort(function(a, b) { return a.name.localeCompare(b.name) })
     return list
   }
 
-  // ── Processo: window / run ─────────────────────────────────────────────────
+  // ── Processo de listagem (modos run e window) ──────────────────────────────
   Process {
     id: loader
     running: false
@@ -76,18 +79,14 @@ Item {
         "hyprctl clients -j 2>/dev/null | python3 -c \"" +
         "import sys,json;" +
         "data=json.load(sys.stdin);" +
-        "[print(c['class']+'\t'+c['title']+'\t'+c['address'])" +
+        "[print(c['class']+'\\t'+c['title']+'\\t'+c['address'])" +
         " for c in data if c.get('class')]\""]
     } else if (mode === "run") {
       loader.command = ["bash", "-c",
         "grep '^- cmd:' ~/.local/share/fish/fish_history 2>/dev/null" +
         " | sed 's/^- cmd: //'" +
         " | awk '!seen[$0]++'" +
-        " | tac 2>/dev/null" +
-        " || grep '^- cmd:' ~/.local/share/fish/fish_history 2>/dev/null" +
-        " | sed 's/^- cmd: //'" +
-        " | awk '!seen[$0]++'" +
-        " | tail -r 2>/dev/null"]
+        " | tac 2>/dev/null"]
     }
     loader.running = false
     loader.running = true
@@ -103,28 +102,26 @@ Item {
     if (mode === "drun") {
       if (!sel) return
       var finalCmd = ""
-      if (sel.exec !== "" && launchCmd !== "") {
+      if (sel.exec !== "" && launchCmd !== "")
         finalCmd = launchCmd.replace("{exec}", sel.exec)
-      }
       if (finalCmd !== "") {
         execProc.command = ["bash", "-c", finalCmd + " &"]
         execProc.running = true
       } else {
         sel.app.execute()
       }
-      root.closeRequested()
+      root.closeRequested(null)
       return
     }
 
     if (mode === "run") {
-      // Se digitou algo diferente do item selecionado, usa o texto digitado
       var typed = _query.trim()
       var cmd   = (typed !== "" && (!sel || sel.display !== typed))
         ? typed : (sel ? sel.display : typed)
       if (cmd === "") return
       execProc.command = ["bash", "-c", cmd + " &"]
       execProc.running = true
-      root.closeRequested()
+      root.closeRequested(null)
       return
     }
 
@@ -133,31 +130,37 @@ Item {
       var parts = sel.display.split("\t")
       var addr  = parts.length > 2 ? parts[2].trim() : ""
       if (addr === "") return
-      execProc.command = ["bash", "-c", "hyprctl dispatch 'hl.dsp.focus({ window = \"address:" + addr +"\" })'"]
+      execProc.command = ["bash", "-c",
+        "hyprctl dispatch focuswindow address:" + addr]
       execProc.running = true
-      root.closeRequested()
+      root.closeRequested(null)
+      return
+    }
+
+    if (mode === "script") {
+      // Retorna a entrada selecionada via closeRequested — DmenuIpc trata
+      var text = sel ? sel.display : null
+      root.closeRequested(text)
       return
     }
   }
 
-  // ── Listas ─────────────────────────────────────────────────────────────────
-  readonly property var _sourceList: mode === "drun" ? _allApps : _dynamicList
+  // ── Fonte de dados ─────────────────────────────────────────────────────────
+  readonly property var _sourceList: {
+    if (mode === "drun")   return _allApps
+    if (mode === "script") return scriptEntries.map(function(e) { return { display: e } })
+    return _dynamicList
+  }
 
-  // ── Busca com ranking de relevância ───────────────────────────────────────
-  // Prioridade (menor = melhor):
-  //   0 — correspondência exata do nome
-  //   1 — nome começa com a query
-  //   2 — palavra do nome começa com a query
-  //   3 — nome contém a query
-  //   4 — comment contém a query (só drun)
+  // ── Filtro com ranking ─────────────────────────────────────────────────────
   function _score(item, q) {
     var name = (mode === "drun" ? item.name : item.display).toLowerCase()
-    if (name === q)              return 0
+    if (name === q)             return 0
     if (name.startsWith(q))     return 1
     var words = name.split(/[\s\-_]+/)
     for (var i = 1; i < words.length; i++)
       if (words[i].startsWith(q)) return 2
-    if (name.indexOf(q) !== -1)  return 3
+    if (name.indexOf(q) !== -1) return 3
     if (mode === "drun" && item.comment &&
         item.comment.toLowerCase().indexOf(q) !== -1) return 4
     return 99
@@ -173,7 +176,6 @@ Item {
     }
     scored.sort(function(a, b) {
       if (a.score !== b.score) return a.score - b.score
-      // desempate alfabético
       var na = mode === "drun" ? a.item.name : a.item.display
       var nb = mode === "drun" ? b.item.name : b.item.display
       return na.localeCompare(nb)
@@ -186,23 +188,56 @@ Item {
     listView.positionViewAtIndex(0, ListView.Beginning)
   }
 
+  // ── Helpers de display ─────────────────────────────────────────────────────
   function _label(item) {
-    if (mode === "drun")   return item.name
-    if (mode === "window") return item.display.split("\t")[0] + "  →  " + (item.display.split("\t")[1] || "")
+    if (mode === "drun") return item.name
+    if (mode === "window") {
+      var p = item.display.split("\t")
+      return p[0] + "  →  " + (p[1] || "")
+    }
+    if (mode === "script" && scriptSep !== "")
+      return item.display.split(scriptSep)[0].trim()
     return item.display
   }
 
   function _sub(item) {
     if (mode === "drun") return item.comment || ""
+    if (mode === "script" && scriptSep !== "") {
+      var cols = item.display.split(scriptSep)
+      return cols.length > 1 ? cols.slice(1).join(scriptSep).trim() : ""
+    }
     return ""
   }
 
-  // ── Activate (chamado pelo DmenuPopup) ─────────────────────────────────────
+  readonly property string _sectionLabel: {
+    if (mode === "drun")   return "APLICATIVOS"
+    if (mode === "run")    return "HISTÓRICO"
+    if (mode === "window") return "JANELAS"
+    if (mode === "script") return scriptLabel
+    return ""
+  }
+
+  readonly property string _modeIcon: {
+    if (mode === "drun")   return "󰀻"
+    if (mode === "run")    return "󰆍"
+    if (mode === "window") return "󱂬"
+    return "󰈺"
+  }
+
+  readonly property string _placeholder: {
+    if (mode === "run")    return "comando ou pesquise no histórico..."
+    if (mode === "window") return "pesquisar janela..."
+    if (mode === "script") return scriptPrompt !== ">" ? scriptPrompt : "filtrar..."
+    return "pesquisar aplicativo..."
+  }
+
+  // ── Activate — chamado pelo painel ao abrir ────────────────────────────────
   function activate() {
     _query = ""
     inputField.text = ""
     _selectedIdx = 0
     if (mode === "window" || mode === "run") _load()
+    // modo script: entries já estão em scriptEntries, nada a carregar
     Qt.callLater(function() { inputField.forceActiveFocus() })
   }
 
@@ -210,7 +245,7 @@ Item {
   focus: true
   Keys.onPressed: function(ev) {
     if (ev.key === Qt.Key_Escape) {
-      root.closeRequested(); ev.accepted = true
+      root.closeRequested(null); ev.accepted = true
 
     } else if (ev.key === Qt.Key_Return || ev.key === Qt.Key_Enter) {
       _launch(); ev.accepted = true
@@ -246,16 +281,12 @@ Item {
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   ColumnLayout {
-    anchors.fill:    parent
-    anchors.margins: 10
-    spacing:         8
+    anchors.fill: parent; anchors.margins: 10; spacing: 8
 
-    // ── Searchbar ─────────────────────────────────────────────────────────
+    // Searchbar
     Rectangle {
-      Layout.fillWidth: true
-      height: 42
-      radius: 10
-      color:  Qt.rgba(root.colorInputBg.r, root.colorInputBg.g, root.colorInputBg.b, 0.95)
+      Layout.fillWidth: true; height: 42; radius: 10
+      color: Qt.rgba(root.colorInputBg.r, root.colorInputBg.g, root.colorInputBg.b, 0.95)
       border.width: 1
       border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.12)
 
@@ -263,26 +294,22 @@ Item {
         anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
         spacing: 10
 
-        // Ícone do modo
         Text {
-          text: mode === "drun" ? "󰀻" : mode === "run" ? "󰆍" : "󱂬"
-          color:   root.colorAccent
-          font   { family: "JetBrainsMono Nerd Font"; pixelSize: 16 }
+          text: root._modeIcon; color: root.colorAccent
+          font { family: "JetBrainsMono Nerd Font"; pixelSize: 16 }
           verticalAlignment: Text.AlignVCenter
         }
 
-        // Divisor
         Rectangle {
           width: 1; height: 18
           color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.4)
         }
 
-        // Input
         TextInput {
-          id:               inputField
+          id: inputField
           Layout.fillWidth: true
-          color:            root.colorText
-          selectionColor:   Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.3)
+          color: root.colorText
+          selectionColor: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.3)
           selectedTextColor: root.colorText
           font { family: "Fira Sans"; pixelSize: 13 }
           verticalAlignment: TextInput.AlignVCenter
@@ -290,15 +317,9 @@ Item {
 
           Text {
             anchors.fill: parent
-            text: {
-              if (mode === "run")    return "comando ou pesquise no histórico..."
-              if (mode === "window") return "pesquisar janela..."
-              return "pesquisar aplicativo..."
-            }
-            color:   root.colorTextDim
-            font:    inputField.font
-            opacity: 0.35
-            verticalAlignment: Text.AlignVCenter
+            text: root._placeholder
+            color: root.colorTextDim; font: inputField.font
+            opacity: 0.35; verticalAlignment: Text.AlignVCenter
             visible: inputField.text === ""
           }
 
@@ -306,92 +327,69 @@ Item {
           Keys.forwardTo: [root]
         }
 
-        // Loading / contador
         Text {
-          visible: root._loading
-          text:    "󰑓"
-          color:   root.colorTextDim
+          visible: root._loading; text: "󰑓"
+          color: root.colorTextDim
           font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
           opacity: 0.6
-
           RotationAnimator on rotation {
             running: root._loading
-            from: 0; to: 360; duration: 900
-            loops: Animation.Infinite
+            from: 0; to: 360; duration: 900; loops: Animation.Infinite
           }
         }
 
         Text {
           visible: !root._loading && _displayList.length > 0
-          text:    (_selectedIdx + 1) + " / " + _displayList.length
-          color:   root.colorTextDim
+          text: (_selectedIdx + 1) + " / " + _displayList.length
+          color: root.colorTextDim
           font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 }
           opacity: 0.38
         }
       }
     }
 
-    // ── Label de seção ────────────────────────────────────────────────────
+    // Label de seção
     Item {
-      Layout.fillWidth: true
-      height: 14
-
+      Layout.fillWidth: true; height: 14
       Rectangle {
         anchors.verticalCenter: parent.verticalCenter
-        anchors.left: parent.left; anchors.right: sectionLabel.left
-        anchors.rightMargin: 8
-        height: 1
+        anchors.left: parent.left; anchors.right: secLabel.left
+        anchors.rightMargin: 8; height: 1
         color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.18)
       }
-
       Text {
-        id: sectionLabel
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        text: {
-          if (mode === "drun")   return "APLICATIVOS"
-          if (mode === "run")    return "HISTÓRICO"
-          return "JANELAS"
-        }
-        color:   root.colorTextDim
+        id: secLabel
+        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+        text: root._sectionLabel; color: root.colorTextDim
         font { family: "JetBrainsMono Nerd Font"; pixelSize: 8; letterSpacing: 1.5 }
         opacity: 0.3
       }
     }
 
-    // ── Lista ──────────────────────────────────────────────────────────────
+    // Lista
     ListView {
-      id:               listView
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip:             true
-      model:            root._displayList
-      currentIndex:     root._selectedIdx
-      boundsBehavior:   Flickable.StopAtBounds
-      spacing:          1
+      id: listView
+      Layout.fillWidth: true; Layout.fillHeight: true
+      clip: true; model: root._displayList
+      currentIndex: root._selectedIdx
+      boundsBehavior: Flickable.StopAtBounds; spacing: 1
 
       delegate: Item {
-        id:     dlg
-        width:  listView.width
-        // altura maior quando tem subtítulo
+        id: dlg
+        width: listView.width
         readonly property string subText: root._sub(modelData)
-        height: (mode === "drun" && subText !== "") ? 46 : 32
-
+        height: subText !== "" ? 46 : 32
         required property var modelData
         required property int index
-
         readonly property bool isSelected: index === root._selectedIdx
 
-        // Fundo do item
         Rectangle {
-          anchors.fill: parent
-          radius: 7
+          anchors.fill: parent; radius: 7
           color: dlg.isSelected
             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.13)
             : "transparent"
           Behavior on color { ColorAnimation { duration: 80 } }
 
-          // Barra lateral esquerda
           Rectangle {
             width: 3; radius: 2
             height: dlg.isSelected ? 22 : 0
@@ -402,21 +400,17 @@ Item {
 
           RowLayout {
             anchors {
-              fill:        parent
-              leftMargin:  dlg.isSelected ? 16 : 10
-              rightMargin: 10
-              topMargin:   2
-              bottomMargin: 2
+              fill: parent
+              leftMargin: dlg.isSelected ? 16 : 10; rightMargin: 10
+              topMargin: 2; bottomMargin: 2
             }
             spacing: 10
-
             Behavior on anchors.leftMargin { NumberAnimation { duration: 80 } }
 
-            // Ícone (só no modo drun e se showIcons=true)
+            // Ícone (só drun)
             Item {
               visible: root.showIcons && mode === "drun"
-              width:   visible ? 24 : 0
-              height:  24
+              width: visible ? 24 : 0; height: 24
               Layout.alignment: Qt.AlignVCenter
 
               IconImage {
@@ -427,35 +421,26 @@ Item {
                   if (ico.startsWith("/") || ico.startsWith("file://")) return ico
                   return "image://icon/" + ico
                 }
-                width:  20; height: 20
-                smooth: true
-                // fallback invisível se ícone não carrega
+                width: 20; height: 20; smooth: true
                 opacity: status === Image.Ready ? 1.0 : 0.0
               }
 
-              // Fallback: inicial do app
               Text {
                 anchors.centerIn: parent
                 text: (dlg.modelData.name || "?").charAt(0).toUpperCase()
-                color:   root.colorAccent
+                color: root.colorAccent
                 font { family: "Fira Sans"; pixelSize: 13; bold: true }
                 opacity: 0.6
-                visible: {
-                  var ico = dlg.modelData.icon || ""
-                  return ico === ""
-                }
+                visible: (dlg.modelData.icon || "") === ""
               }
             }
 
-            // Textos
             ColumnLayout {
-              Layout.fillWidth: true
-              Layout.alignment: Qt.AlignVCenter
-              spacing: 1
+              Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter; spacing: 1
 
               Text {
                 Layout.fillWidth: true
-                text:  root._label(dlg.modelData)
+                text: root._label(dlg.modelData)
                 color: dlg.isSelected ? root.colorAccent : root.colorText
                 elide: Text.ElideRight
                 font { family: "Fira Sans"; pixelSize: 12 }
@@ -464,10 +449,8 @@ Item {
 
               Text {
                 Layout.fillWidth: true
-                visible: dlg.subText !== ""
-                text:    dlg.subText
-                color:   root.colorTextDim
-                elide:   Text.ElideRight
+                visible: dlg.subText !== ""; text: dlg.subText
+                color: root.colorTextDim; elide: Text.ElideRight
                 font { family: "Fira Sans"; pixelSize: 10 }
                 opacity: 0.55
               }
@@ -476,33 +459,28 @@ Item {
         }
 
         MouseArea {
-          anchors.fill: parent
-          hoverEnabled: true
-          onEntered:  root._selectedIdx = index
-          onClicked:  { root._selectedIdx = index; root._launch() }
+          anchors.fill: parent; hoverEnabled: true
+          onEntered: root._selectedIdx = index
+          onClicked: { root._selectedIdx = index; root._launch() }
           cursorShape: Qt.PointingHandCursor
         }
       }
 
-      // ── Estados vazios ─────────────────────────────────────────────────
+      // Estado vazio
       Item {
         anchors.centerIn: parent
         visible: root._displayList.length === 0 && !root._loading
-        width: listView.width
-        height: 60
+        width: listView.width; height: 60
 
         ColumnLayout {
-          anchors.centerIn: parent
-          spacing: 6
-
+          anchors.centerIn: parent; spacing: 6
           Text {
             Layout.alignment: Qt.AlignHCenter
             text: root._query !== "" ? "󰍉" : (mode === "window" ? "󱂬" : "󰋗")
-            color:   root.colorTextDim
+            color: root.colorTextDim
             font { family: "JetBrainsMono Nerd Font"; pixelSize: 22 }
             opacity: 0.25
           }
-
           Text {
             Layout.alignment: Qt.AlignHCenter
             text: {
@@ -511,7 +489,7 @@ Item {
               if (mode === "run")     return "histórico vazio"
               return "carregando..."
             }
-            color:   root.colorTextDim
+            color: root.colorTextDim
             font { family: "Fira Sans"; pixelSize: 11; italic: true }
             opacity: 0.35
           }
@@ -521,8 +499,8 @@ Item {
       Text {
         anchors.centerIn: parent
         visible: root._loading
-        text:    "carregando..."
-        color:   root.colorTextDim
+        text: "carregando..."
+        color: root.colorTextDim
         font { family: "Fira Sans"; pixelSize: 11; italic: true }
         opacity: 0.35
       }
