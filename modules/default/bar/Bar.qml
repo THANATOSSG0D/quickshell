@@ -796,6 +796,17 @@ Scope {
       // ── Auto-hide ──────────────────────────────────────────────────────
       property var hyprMonitor: null
 
+      // ── Coordenadas globais do monitor via HyprlandMonitor ────────────────
+      // screen.x/y NÃO existem no tipo Screen do Quickshell (só width/height/name).
+      // Sem estas propriedades screen.x === undefined → NaN em comparações →
+      // inScreen sempre false → detecção de cursor na borda nunca funciona.
+      // Solução: usar hyprMonitor.x/y do IPC do Hyprland (coordenadas globais
+      // corretas, incluindo monitores com posição negativa como eDP-1 em -1920,0).
+      readonly property int _scrX: hyprMonitor ? hyprMonitor.x      : 0
+      readonly property int _scrY: hyprMonitor ? hyprMonitor.y      : 0
+      readonly property int _scrW: hyprMonitor ? hyprMonitor.width  : screen.width
+      readonly property int _scrH: hyprMonitor ? hyprMonitor.height : screen.height
+
       Connections {
         target: Hyprland.monitors
         function onValuesChanged() {
@@ -1039,14 +1050,14 @@ Scope {
         var threshold = _showThreshold
         var cx = barState.cursorX
         var cy = barState.cursorY
-        var inScreen = cx >= screen.x && cx <= screen.x + screen.width
-                    && cy >= screen.y && cy <= screen.y + screen.height
+        var inScreen = cx >= _scrX && cx <= _scrX + _scrW
+                    && cy >= _scrY && cy <= _scrY + _scrH
         if (!inScreen) return false
-        var lx = cx - screen.x
-        var ly = cy - screen.y
+        var lx = cx - _scrX
+        var ly = cy - _scrY
         if (position === 1) return ly <= threshold
-        if (position === 2) return lx >= screen.width - threshold
-        if (position === 3) return ly >= screen.height - threshold
+        if (position === 2) return lx >= _scrW - threshold
+        if (position === 3) return ly >= _scrH - threshold
         if (position === 4) return lx <= threshold
         return false
       }
@@ -1055,28 +1066,25 @@ Scope {
         var threshold = _showThreshold
         var cx = barState.cursorX
         var cy = barState.cursorY
-        var inScreen = cx >= screen.x && cx <= screen.x + screen.width
-                    && cy >= screen.y && cy <= screen.y + screen.height
+        var inScreen = cx >= _scrX && cx <= _scrX + _scrW
+                    && cy >= _scrY && cy <= _scrY + _scrH
         if (!inScreen) return false
-        var lx = cx - screen.x
-        var ly = cy - screen.y
+        var lx = cx - _scrX
+        var ly = cy - _scrY
         var tolerance = barSize / 2
         if (position === 1 || position === 3) {
-          var atV = position === 1 ? ly <= threshold : ly >= screen.height - threshold
+          var atV = position === 1 ? ly <= threshold : ly >= _scrH - threshold
           if (!atV) return false
-          // pill: verifica se o cursor está dentro da extensão horizontal da pill
-          // (com tolerância = metade da altura da barra para não cortar nas bordas)
-          if (pill) return lx >= pillSideMargin - tolerance && lx <= screen.width - pillSideMargin + tolerance
-          // não-pill: usa barMargin como dead-zone lateral nos cantos
-          return lx >= barMargin - tolerance && lx <= screen.width - barMargin + tolerance
+          // pill: verifica extensão horizontal da pill (± barSize/2 de tolerância)
+          if (pill) return lx >= pillSideMargin - tolerance && lx <= _scrW - pillSideMargin + tolerance
+          return true   // não-pill: cobre toda a largura
         }
         if (position === 2 || position === 4) {
-          var atH = position === 4 ? lx <= threshold : lx >= screen.width - threshold
+          var atH = position === 4 ? lx <= threshold : lx >= _scrW - threshold
           if (!atH) return false
-          // pill vertical: mesma lógica no eixo Y
-          if (pill) return ly >= pillSideMargin - tolerance && ly <= screen.height - pillSideMargin + tolerance
-          // não-pill vertical: mesma dead-zone lateral usando barMargin
-          return ly >= barMargin - tolerance && ly <= screen.height - barMargin + tolerance
+          // pill vertical: extensão vertical da pill
+          if (pill) return ly >= pillSideMargin - tolerance && ly <= _scrH - pillSideMargin + tolerance
+          return true   // não-pill: cobre toda a altura
         }
         return false
       }
@@ -1091,17 +1099,17 @@ Scope {
       property bool cursorOverBar: {
         var cx = barState.cursorX
         var cy = barState.cursorY
-        var inScreen = cx >= screen.x && cx <= screen.x + screen.width
-                    && cy >= screen.y && cy <= screen.y + screen.height
+        var inScreen = cx >= _scrX && cx <= _scrX + _scrW
+                    && cy >= _scrY && cy <= _scrY + _scrH
         if (!inScreen) return false
-        var lx = cx - screen.x
-        var ly = cy - screen.y
+        var lx = cx - _scrX
+        var ly = cy - _scrY
         var size = barSize + barMargin + 4
         // Verifica primeiro a profundidade (distância à borda da tela)
         var inDepth = false
         if      (position === 1) inDepth = ly <= size
-        else if (position === 2) inDepth = lx >= screen.width  - size
-        else if (position === 3) inDepth = ly >= screen.height - size
+        else if (position === 2) inDepth = lx >= _scrW - size
+        else if (position === 3) inDepth = ly >= _scrH - size
         else if (position === 4) inDepth = lx <= size
         if (!inDepth) return false
         // Em modo pill: também verifica se o cursor está dentro da extensão lateral
@@ -1125,9 +1133,9 @@ Scope {
           var tolerance = Math.round(barSize / 2)
           var margin = pillSideMargin - tolerance
           if (position === 1 || position === 3)
-            return lx >= margin && lx <= screen.width - margin
+            return lx >= margin && lx <= _scrW - margin
           if (position === 2 || position === 4)
-            return ly >= margin && ly <= screen.height - margin
+            return ly >= margin && ly <= _scrH - margin
         }
         return true
       }
