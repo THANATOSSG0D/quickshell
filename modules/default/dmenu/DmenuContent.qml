@@ -29,6 +29,8 @@ Item {
 
   // selected: string com a entrada escolhida, ou null se cancelado
   signal closeRequested(var selected)
+  // backRequested: emitido quando Backspace é pressionado com query vazia
+  signal backRequested()
 
   // ── Estado ─────────────────────────────────────────────────────────────────
   property string _query:       ""
@@ -244,7 +246,10 @@ Item {
   // ── Teclado ────────────────────────────────────────────────────────────────
   focus: true
   Keys.onPressed: function(ev) {
-    if (ev.key === Qt.Key_Escape) {
+    if (ev.key === Qt.Key_Backspace && _query === "") {
+      root.backRequested(); ev.accepted = true
+
+    } else if (ev.key === Qt.Key_Escape) {
       root.closeRequested(null); ev.accepted = true
 
     } else if (ev.key === Qt.Key_Return || ev.key === Qt.Key_Enter) {

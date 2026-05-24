@@ -4,44 +4,56 @@ import Quickshell.Io
 import QtQuick
 
 // ── DmenuIpc ──────────────────────────────────────────────────────────────────
-// Servidor IPC para scripts externos. Standalone — não conflita com o
-// IpcHandler "dmenu" do Bar (que gerencia drun/run/window).
+// Ponto único de entrada para todos os modos do dmenu.
 //
-// Em shell.qml:
-//   DmenuModule.DmenuIpc {
-//     screen:      Quickshell.screens[0]
-//     panelAnchor: "top-center"   // "top-center"|"top-left"|"top-right"|"center"|"bottom-center"
-//     showIcons:   true
-//     colorAccent: Colors.primary
-//     // ...
-//   }
+// Modos nativos (drun / run / window):
+//   DmenuIpc.openNative("drun")   — abre/fecha como toggle
 //
-// No terminal (qualquer script):
-//   echo -e "a\nb\nc" | qs-dmenu --prompt "Título"
-//   cmd_que_lista     | qs-dmenu -p "Prompt" -s " → " -l "SEÇÃO"
+// Modo script (chamado por scripts externos via socket):
+//   Automático — o servidor Python envia o request via stdout.
+//
+// Navegação com pilha:
+//   • Backspace com query vazia → volta ao nível anterior da pilha.
+//   • Se a pilha estiver vazia, fecha o painel.
+//   • Isso permite submenus aninhados com navegação natural.
+//
+// Toggle:
+//   • openNative() chamado com o mesmo modo enquanto o painel está aberto → fecha.
+//   • Scripts: se o mesmo script chamar qs-dmenu enquanto o painel está aberto
+//     (ex: atalho duplo), o request é empilhado normalmente — o toggle é gerenciado
+//     pelo caller (rofi-config-for-menus.sh já era toggle via PID).
 
 Item {
   id: root
 
-  // ── Configuração pública ──────────────────────────────────────────────────
-  property var    screen:      Quickshell.screens[0]
-  property string panelAnchor: "top-center"
-  property int    edgeMargin:  65
-  property int    sideMargin:  40
-  property bool   showIcons:   true
+  property var  barRoot:   null
+  property bool showIcons: true
 
-  // ── Cores ─────────────────────────────────────────────────────────────────
   property color colorPanelBg:  "#1f1f1f"
   property color colorText:     "#e2e2e2"
   property color colorTextDim:  "#c6c6c6"
   property color colorAccent:   "#ffb4a9"
-  property color colorSelected: "#442926"
+  property color colorSelected: "#1f1f1f"
   property color colorDivider:  "#474747"
-  property color colorInputBg:  "#131313"
+  property color colorInputBg:  "#1f1f1f"
 
-  // ── Estado interno ────────────────────────────────────────────────────────
-  property bool   _busy:    false
-  property string _fifoOut: ""
+  // ── Estado ───────────────────────────────────────────────────────────────
+  // _stack:      pilha de requests — o topo é o request em exibição.
+  //              Cada entry: { mode, entries, prompt, label, sep, fifo,
+  //                            launchCmd, callback }
+  //              Para modos nativos, fifo = "" e callback = null.
+  // _closing:    true durante a animação de fechamento (cooldown 450ms).
+  //              Bloqueia novos requests externos enquanto o painel ainda anima.
+  property var    _stack:   []
+  property bool   _closing: false
+
+  // Exposto para que Bar.qml possa verificar se o painel está visível
+  // e implementar o toggle corretamente.
+  readonly property bool panelVisible: ipcPanel.panelOpen
+  readonly property string currentNativeMode: {
+    if (_stack.length === 0) return ""
+    return _stack[_stack.length - 1].mode
+  }
 
   // ── Servidor Python ───────────────────────────────────────────────────────
   Process {
@@ -64,68 +76,231 @@ Item {
         try { msg = JSON.parse(t) } catch(e) { return }
 
         if (msg.ready === true) {
-          root._fifoOut = msg.fifo_out || ""
-          console.log("DmenuIpc: pronto —", msg.sock)
+          console.log("DmenuIpc: servidor pronto —", msg.sock)
           return
         }
 
-        if (root._busy) { root._respond(null); return }
-        root._open(msg)
+        // Request de script externo
+        var req = {
+          mode:      "script",
+          entries:   msg.entries   || [],
+          prompt:    msg.prompt    || ">",
+          label:     msg.label     || "SCRIPT",
+          sep:       msg.sep       || "",
+          fifo:      msg._fifo     || "",
+          launchCmd: "",
+          callback:  null   // será preenchido em _pushAndOpen
+        }
+
+        if (req.entries.length === 0) {
+          _respondFifo(null, req.fifo)
+          return
+        }
+
+        // Se fechando (cooldown pós-seleção), enfileira para depois
+        if (root._closing) {
+          _pendingExternal = req
+          return
+        }
+
+        _pushAndOpen(req)
       }
     }
 
     onRunningChanged: {
-      if (!running) { root._busy = false; restartTimer.start() }
+      if (!running) {
+        root._stack        = []
+        root._closing      = false
+        root._pendingExternal = null
+        _cooldownTimer.stop()
+        restartTimer.start()
+      }
     }
   }
 
+  // Request externo recebido durante cooldown — processado após _cooldownTimer
+  property var _pendingExternal: null
+
+  Timer { id: restartTimer; interval: 1500; repeat: false; onTriggered: serverProc.running = true }
+
+  // Timer de cooldown: aguarda o painel anterior fechar completamente (~450ms)
+  // antes de processar o próximo request externo (subscript).
+  // Intervalo = animDuration(200) + safetyUnmapTimer(200) + folga(50).
   Timer {
-    id: restartTimer; interval: 1500; repeat: false
-    onTriggered: serverProc.running = true
+    id: _cooldownTimer
+    interval: 450
+    repeat:   false
+    onTriggered: {
+      root._closing = false
+      if (root._pendingExternal !== null) {
+        var req = root._pendingExternal
+        root._pendingExternal = null
+        root._pushAndOpen(req)
+      }
+    }
   }
 
-  // ── Abre o painel ─────────────────────────────────────────────────────────
-  function _open(req) {
-    var entries = req.entries || []
-    if (entries.length === 0) { _respond(null); return }
+  // ── openNative: abre um modo nativo (drun/run/window) como toggle ─────────
+  // Se o painel já está visível com o mesmo modo → fecha (toggle).
+  // Se está visível com outro modo → troca o modo no topo da pilha.
+  // Se está fechado → abre normalmente.
+  function openNative(mode, launchCmd) {
+    if (ipcPanel.panelOpen) {
+      // Toggle: mesmo modo → fecha
+      if (root.currentNativeMode === mode) {
+        _closeAll()
+        return
+      }
+      // Modo diferente: limpa pilha e abre novo modo (não empilha modos nativos)
+      _stack = []
+    }
 
-    _busy = true
+    var req = {
+      mode:      mode,
+      entries:   [],    // não usado em modos nativos — DmenuContent carrega sozinho
+      prompt:    mode === "drun" ? "pesquisar app..." : (mode === "run" ? "executar..." : "janela..."),
+      label:     mode === "drun" ? "APLICATIVOS" : (mode === "run" ? "HISTÓRICO" : "JANELAS"),
+      sep:       "",
+      fifo:      "",
+      launchCmd: launchCmd || "",
+      callback:  null
+    }
 
-    ipcPanel.scriptEntries  = entries
-    ipcPanel.scriptPrompt   = req.prompt || ">"
-    ipcPanel.scriptLabel    = req.label  || "SCRIPT"
-    ipcPanel.scriptSep      = req.sep    || ""
-    ipcPanel.scriptCallback = function(selected) { root._respond(selected) }
-    ipcPanel.mode           = "script"
-    ipcPanel.open()
+    _pushAndOpen(req)
   }
 
-  // ── Resposta via FIFO ─────────────────────────────────────────────────────
-  Process {
-    id: responseProc
-    running: false
-    onExited: root._busy = false
+  // ── _pushAndOpen: empilha um request e exibe o painel ────────────────────
+  function _pushAndOpen(req) {
+    // Cria o callback de resposta para este nível da pilha
+    // (closure captura o índice da pilha para garantir que só responde ao FIFO certo)
+    var fifo = req.fifo
+    req.callback = function(selected) {
+      // Remove este item da pilha
+      var s = root._stack.slice()
+      s.pop()
+      root._stack = s
+
+      if (fifo !== "") {
+        // Modo script: responde ao FIFO e inicia cooldown
+        root._closing = true
+        _respondFifo(selected, fifo)
+        if (s.length > 0) {
+          // Volta ao nível anterior após o cooldown
+          _cooldownTimer.restart()
+        } else {
+          _cooldownTimer.restart()
+        }
+      } else {
+        // Modo nativo: fecha direto (sem FIFO)
+        if (s.length > 0) {
+          // Havia um nível anterior — reexibe (ex: voltou de um script pro nativo)
+          _showTop()
+        }
+        // Se pilha vazia, o painel já fechou via panelOpen = false
+      }
+    }
+
+    var s = root._stack.slice()
+    s.push(req)
+    root._stack = s
+
+    _showTop()
   }
 
-  function _respond(selected) {
-    if (_fifoOut === "") { _busy = false; return }
+  // ── _showTop: exibe o topo da pilha no ipcPanel ───────────────────────────
+  function _showTop() {
+    if (_stack.length === 0) return
+
+    var req = _stack[_stack.length - 1]
+    var activeBar = root.barRoot ? root.barRoot._activeBar() : null
+
+    ipcPanel.barRef         = activeBar
+    ipcPanel.popupW         = root.barRoot ? root.barRoot.themePanelWidth : 320
+    ipcPanel.popupH         = root.barRoot ? root.barRoot.popupHDmenu     : 460
+    ipcPanel.showIcons      = root.showIcons
+    ipcPanel.mode           = req.mode
+    ipcPanel.launchCmd      = req.launchCmd || "uwsm app -- {exec}"
+    ipcPanel.scriptEntries  = req.entries
+    ipcPanel.scriptPrompt   = req.prompt
+    ipcPanel.scriptLabel    = req.label
+    ipcPanel.scriptSep      = req.sep
+    ipcPanel.scriptCallback = req.callback
+    ipcPanel.backCallback   = function() { root._goBack() }
+
+    if (!ipcPanel.panelOpen) {
+      ipcPanel._callbackFired = false
+      ipcPanel.panelOpen = true
+    } else {
+      // Painel já aberto (voltando de submenu): reativa sem reabrir
+      ipcPanel._callbackFired = false
+      ipcPanel.dmenuContent.activate()
+    }
+  }
+
+  // ── _goBack: Backspace com query vazia — volta um nível na pilha ──────────
+  function _goBack() {
+    if (_stack.length === 0) return
+
+    var top = _stack[_stack.length - 1]
+
+    if (_stack.length === 1) {
+      // Último nível: fecha o painel
+      // Responde null ao FIFO se for modo script
+      if (top.fifo !== "") {
+        root._closing = true
+        _respondFifo(null, top.fifo)
+        _cooldownTimer.restart()
+      }
+      var s = []
+      root._stack = s
+      ipcPanel.panelOpen = false
+    } else {
+      // Volta ao nível anterior: descarta o topo sem responder (cancela o subscript)
+      if (top.fifo !== "") {
+        root._closing = true
+        _respondFifo(null, top.fifo)
+      }
+      var s2 = root._stack.slice(0, root._stack.length - 1)
+      root._stack = s2
+
+      if (top.fifo !== "") {
+        _cooldownTimer.restart()
+      } else {
+        _showTop()
+      }
+    }
+  }
+
+  // ── _closeAll: fecha tudo e cancela requests pendentes ───────────────────
+  function _closeAll() {
+    // Cancela todos os FIFOs pendentes de baixo para cima
+    for (var i = root._stack.length - 1; i >= 0; i--) {
+      var r = root._stack[i]
+      if (r.fifo !== "") _respondFifo(null, r.fifo)
+    }
+    root._stack   = []
+    root._closing = false
+    _cooldownTimer.stop()
+    ipcPanel.panelOpen = false
+  }
+
+  // ── _respondFifo: escreve o resultado na FIFO exclusiva do request ────────
+  Process { id: responseProc; running: false }
+
+  function _respondFifo(selected, fifoPath) {
+    if (!fifoPath) return
+    if (responseProc.running) responseProc.running = false
     var payload = JSON.stringify({
       selected: (selected !== null && selected !== undefined) ? selected : null
     })
     responseProc.command = ["bash", "-c",
-      "printf '%s\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(_fifoOut)]
+      "printf '%s\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(fifoPath)]
     responseProc.running = true
   }
 
   // ── Painel ────────────────────────────────────────────────────────────────
   DmenuPanel {
     id: ipcPanel
-
-    screen:      root.screen
-    panelAnchor: root.panelAnchor
-    edgeMargin:  root.edgeMargin
-    sideMargin:  root.sideMargin
-    showIcons:   root.showIcons
 
     colorPanelBg:  root.colorPanelBg
     colorText:     root.colorText
@@ -134,5 +309,13 @@ Item {
     colorSelected: root.colorSelected
     colorDivider:  root.colorDivider
     colorInputBg:  root.colorInputBg
+
+    // Fecha toda a pilha se o foco for perdido (Escape ou clique fora)
+    onCloseRequested: {
+      if (!_callbackFired) {
+        _callbackFired = true
+        root._closeAll()
+      }
+    }
   }
 }

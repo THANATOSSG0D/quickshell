@@ -86,7 +86,7 @@ PanelWindow {
           _closing = false
           _alive   = true
           _unmapTimer.stop()
-          _safetyUnmapTimer.stop()    // ← NOVO: cancela o timer de segurança
+          _safetyUnmapTimer.stop()
           closeAnim.stop()
           openAnim.from = _animProg
           openAnim.to   = 1.0
@@ -97,12 +97,15 @@ PanelWindow {
           closeAnim.from = _animProg
           closeAnim.to   = 0.0
           closeAnim.start()
-          _safetyUnmapTimer.restart() // ← NOVO: inicia o timer de segurança
+          _safetyUnmapTimer.restart()
       }
   }
 
   // ── Configuração da janela ────────────────────────────────────────────
-  screen:         barRef ? barRef.screen : undefined
+  // FIX: era "undefined" quando barRef é null — undefined não é atribuível
+  // ao tipo QuickshellScreenInfo*, causando o WARN "Unable to assign [undefined]".
+  // null é o valor correto para "sem screen específica" em PanelWindow.
+  screen:         barRef ? barRef.screen : null
   color:          "transparent"
   implicitWidth:  popupW
   implicitHeight: popupH

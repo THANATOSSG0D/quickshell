@@ -26,13 +26,17 @@ Item {
   visible: false
 
   // ── bar.* ──────────────────────────────────────────────────────────────
-  property string theme:       "Pill"
-  property bool   autoHide:    true
-  property bool   silenceMode: false   // persiste no Bar.json
-  property int    position:    -2
-  property int    barSize:   0    // 0 = usa padrão do tema
-  property int    barMargin: -1   // -1 = usa padrão do tema
-  property int    pillWidth: 800
+  property string theme:           "Pill"
+  property bool   autoHide:        true
+  property bool   silenceMode:     false   // persiste no Bar.json
+  property int    position:        -2
+  property int    barSize:         0    // 0 = usa padrão do tema
+  property int    barMargin:       -1   // -1 = usa padrão do tema
+  property int    pillWidth:       800
+  // FIX: propriedade adicionada — era referenciada em Bar.qml (Connections
+  // onPillMinSpacingChanged + barState.config.pillMinSpacing) mas não declarada,
+  // causando o WARN "Detected function onPillMinSpacingChanged … no signal matches".
+  property int    pillMinSpacing:  20   // espaço mínimo entre centro e laterais da pill
 
   // ── modules — listas de módulos por slot ───────────────────────────────
   // Defaults usados quando o JSON não tem a seção modules.
@@ -161,15 +165,9 @@ Item {
   FileView {
     id: file
     path:         Quickshell.shellDir + "/state/Bar.json"
-    // watchChanges: false evita o loop escrita→leitura:
-    // writeAdapter() modificaria o arquivo → onFileChanged dispararia →
-    // reload() leria com adapter ainda vazio → hasModules=false →
-    // sobrescreveria modules com defaults. O arquivo só é relido via
-    // file.reload() chamado explicitamente (startup e reloadConfig).
     watchChanges: false
 
     onFileChanged: {
-      // Guard: ignora notificações causadas pelo próprio writeAdapter().
       if (root._parsing) {
         console.log("[BarConfig] onFileChanged ignorado (_parsing=true)")
         return
@@ -200,16 +198,22 @@ Item {
           needsWrite = true
         }
 
+        // FIX: verifica também pillMinSpacing para migração de Bar.json antigos
         var b = adapter.bar
-        if (b && (b.barSize === undefined || b.barMargin === undefined || b.pillWidth === undefined)) {
+        if (b && (b.barSize        === undefined ||
+                  b.barMargin      === undefined ||
+                  b.pillWidth      === undefined ||
+                  b.pillMinSpacing === undefined)) {
           console.log("[BarConfig] bar incompleto — completando campos faltantes")
           adapter.bar = {
-            theme:     root.theme,
-            autoHide:  root.autoHide,
-            position:  root.position,
-            barSize:   root.barSize,
-            barMargin: root.barMargin,
-            pillWidth: root.pillWidth
+            theme:          root.theme,
+            autoHide:       root.autoHide,
+            silence:        root.silenceMode,
+            position:       root.position,
+            barSize:        root.barSize,
+            barMargin:      root.barMargin,
+            pillWidth:      root.pillWidth,
+            pillMinSpacing: root.pillMinSpacing
           }
           needsWrite = true
         }
@@ -238,18 +242,16 @@ Item {
           return
         }
         console.log("[BarConfig] onBarChanged:", JSON.stringify(b))
-        if (b.theme     !== undefined) { root.theme     = b.theme; applyTheme(b.theme) }
-        if (b.autoHide  !== undefined)   root.autoHide  = b.autoHide
-        if (b.silence   !== undefined)   root.silenceMode = b.silence
-        if (b.position  !== undefined)   root.position  = b.position
-        if (b.barSize   !== undefined)   root.barSize   = b.barSize
-        if (b.barMargin !== undefined)   root.barMargin = b.barMargin
-        if (b.pillWidth !== undefined)   root.pillWidth = b.pillWidth
-        // Lê modules via callLater — o JsonAdapter popula as propriedades
-        // em ordem não garantida; modules chega um tick depois de bar.
-        // Usamos JSON.parse(JSON.stringify()) para forçar objeto JS puro,
-        // já que o objeto retornado pelo adapter é um proxy QML e
-        // Array.isArray() falha em suas propriedades dentro de closures.
+        if (b.theme          !== undefined) { root.theme          = b.theme; applyTheme(b.theme) }
+        if (b.autoHide       !== undefined)   root.autoHide       = b.autoHide
+        if (b.silence        !== undefined)   root.silenceMode    = b.silence
+        if (b.position       !== undefined)   root.position       = b.position
+        if (b.barSize        !== undefined)   root.barSize        = b.barSize
+        if (b.barMargin      !== undefined)   root.barMargin      = b.barMargin
+        if (b.pillWidth      !== undefined)   root.pillWidth      = b.pillWidth
+        // FIX: lê pillMinSpacing do JSON
+        if (b.pillMinSpacing !== undefined)   root.pillMinSpacing = b.pillMinSpacing
+
         Qt.callLater(function() {
           var raw = JSON.stringify(adapter.modules)
           console.log("[BarConfig] onBarChanged callLater → adapter.modules:", raw)
@@ -405,47 +407,39 @@ Item {
   }
 
   // ── Guard: só persiste após o componente estar pronto ─────────────────
-  // Os handlers on*Changed disparam durante a inicialização das propriedades,
-  // antes de Component.onCompleted — nesse momento FileView.path ainda não
-  // foi resolvido e writeAdapter() falha com "no path has been specified".
   property bool _ready:       false
   property bool configLoaded: false
-  // Verdadeiro enquanto JSON está sendo parseado ou saveAll() está rodando.
-  // Impede que _syncModulesToAdapter escreva no disco com valores parciais.
   property bool _parsing:     false
 
   // ── Sync interno — disparado por on*Changed das próprias propriedades ──
-  //
-  // IMPORTANTE: ambas as funções têm guard `_ready` no início.
-  // O QML engine dispara on*Changed para CADA propriedade durante a
-  // inicialização do componente (atribuição de valor default já emite o signal).
-  // Sem o guard, adapter.bar/modules seria escrito com defaults ANTES do JSON
-  // ser lido, causando onBarChanged/onModulesChanged prematuros que setariam
-  // configLoaded=true com os valores errados e o Loader carregaria com defaults.
   function _syncBarToAdapter() {
     if (!root._ready) return
     if (root._parsing) { console.log("[BarConfig] _syncBarToAdapter ignorado (_parsing)"); return }
     console.log("[BarConfig] _syncBarToAdapter → writeAdapter()")
     root._parsing = true
+    // FIX: inclui pillMinSpacing na sincronização
     adapter.bar = {
-      theme:     root.theme,
-      autoHide:  root.autoHide,
-      silence:   root.silenceMode,
-      position:  root.position,
-      barSize:   root.barSize,
-      barMargin: root.barMargin,
-      pillWidth: root.pillWidth
+      theme:          root.theme,
+      autoHide:       root.autoHide,
+      silence:        root.silenceMode,
+      position:       root.position,
+      barSize:        root.barSize,
+      barMargin:      root.barMargin,
+      pillWidth:      root.pillWidth,
+      pillMinSpacing: root.pillMinSpacing
     }
     file.writeAdapter()
     root._parsing = false
   }
-  onThemeChanged:       _syncBarToAdapter()
-  onAutoHideChanged:    _syncBarToAdapter()
-  onSilenceModeChanged: _syncBarToAdapter()
-  onPositionChanged:    _syncBarToAdapter()
-  onBarSizeChanged:   _syncBarToAdapter()
-  onBarMarginChanged: _syncBarToAdapter()
-  onPillWidthChanged: _syncBarToAdapter()
+  onThemeChanged:          _syncBarToAdapter()
+  onAutoHideChanged:       _syncBarToAdapter()
+  onSilenceModeChanged:    _syncBarToAdapter()
+  onPositionChanged:       _syncBarToAdapter()
+  onBarSizeChanged:        _syncBarToAdapter()
+  onBarMarginChanged:      _syncBarToAdapter()
+  onPillWidthChanged:      _syncBarToAdapter()
+  // FIX: persiste pillMinSpacing quando muda
+  onPillMinSpacingChanged: _syncBarToAdapter()
 
   function _syncModulesToAdapter() {
     if (!root._ready) return
@@ -471,16 +465,6 @@ Item {
   onModulesBottomChanged: _syncModulesToAdapter()
 
   // ── saveAll() — API pública para o BarEditorPopup ──────────────────────
-  //
-  // O editor NÃO deve atribuir config.modulesLeft = [...] diretamente:
-  // atribuições de array JS via referência externa em property var não
-  // garantem que on*Changed dispare de forma confiável no QML engine.
-  //
-  // Em vez disso, o editor chama config.saveAll({...}) com todos os valores
-  // de uma vez. saveAll() atualiza as propriedades, sincroniza o adapter e
-  // chama writeAdapter() explicitamente — sem depender de signal propagation.
-  // Emitido por saveAll() e após reload do JSON — garante que Bar.qml
-  // propague os valores corretos para Pill.qml independente de on*Changed.
   signal modulesUpdated()
 
   function saveAll(opts) {
@@ -491,16 +475,17 @@ Item {
     root._parsing = true
 
     // bar.*
-    if (opts.theme     !== undefined) root.theme     = opts.theme
-    if (opts.autoHide  !== undefined) root.autoHide  = opts.autoHide
-    if (opts.silence   !== undefined) root.silenceMode = opts.silence
-    if (opts.position  !== undefined) root.position  = opts.position
-    if (opts.barSize   !== undefined) root.barSize   = opts.barSize
-    if (opts.barMargin !== undefined) root.barMargin = opts.barMargin
-    if (opts.pillWidth !== undefined) root.pillWidth = opts.pillWidth
+    if (opts.theme          !== undefined) root.theme          = opts.theme
+    if (opts.autoHide       !== undefined) root.autoHide       = opts.autoHide
+    if (opts.silence        !== undefined) root.silenceMode    = opts.silence
+    if (opts.position       !== undefined) root.position       = opts.position
+    if (opts.barSize        !== undefined) root.barSize        = opts.barSize
+    if (opts.barMargin      !== undefined) root.barMargin      = opts.barMargin
+    if (opts.pillWidth      !== undefined) root.pillWidth      = opts.pillWidth
+    // FIX: persiste pillMinSpacing via saveAll
+    if (opts.pillMinSpacing !== undefined) root.pillMinSpacing = opts.pillMinSpacing
 
-    // modules — .slice() força nova referência JS para maximizar chance
-    // de on*Changed disparar no engine QML
+    // modules
     if (opts.modulesLeft   !== undefined) root.modulesLeft   = opts.modulesLeft.slice()
     if (opts.modulesCenter !== undefined) root.modulesCenter = opts.modulesCenter.slice()
     if (opts.modulesRight  !== undefined) root.modulesRight  = opts.modulesRight.slice()
@@ -515,15 +500,16 @@ Item {
     if (opts.wsIconSpacing    !== undefined) root.wsIconSpacing    = opts.wsIconSpacing
     if (opts.wsShowAddButton  !== undefined) root.wsShowAddButton  = opts.wsShowAddButton
 
-    // Escreve tudo no disco de uma vez
+    // FIX: inclui pillMinSpacing no bloco bar do adapter
     adapter.bar = {
-      theme:     root.theme,
-      autoHide:  root.autoHide,
-      silence:   root.silenceMode,
-      position:  root.position,
-      barSize:   root.barSize,
-      barMargin: root.barMargin,
-      pillWidth: root.pillWidth
+      theme:          root.theme,
+      autoHide:       root.autoHide,
+      silence:        root.silenceMode,
+      position:       root.position,
+      barSize:        root.barSize,
+      barMargin:      root.barMargin,
+      pillWidth:      root.pillWidth,
+      pillMinSpacing: root.pillMinSpacing
     }
     adapter.modules = {
       left:   root.modulesLeft,
@@ -549,20 +535,6 @@ Item {
   }
 
   // ── Startup ────────────────────────────────────────────────────────────
-  // O FileView lê o JSON automaticamente ao inicializar — NÃO chamamos
-  // file.reload() explicitamente. O mkdirProc só garante que o diretório
-  // existe e seta _ready=true para liberar os guards de escrita.
-  //
-  // Fluxo real observado nos logs:
-  //   1. FileView inicializa → lê Bar.json → onBarChanged + onModulesChanged
-  //   2. mkdirProc termina  → _ready=true
-  //   3. startupTimer (600ms após _ready) verifica se configLoaded=true
-  //      · true  → JSON foi lido OK, não faz nada
-  //      · false → JSON não existe ou não tem modules → grava defaults
-  //
-  // NÃO chamar file.reload() no onExited: isso reseta o adapter para {}
-  // e dispara onModulesChanged vazio, que nosso guard ignora — mas também
-  // impede que o _parsing seja limpo, travando todas as escritas futuras.
   Process {
     id: mkdirProc
     command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
@@ -580,7 +552,6 @@ Item {
     onTriggered: {
       console.log("[BarConfig] startupTimer: configLoaded =", root.configLoaded,
                   "| _parsing =", root._parsing)
-      // Limpa _parsing travado (pode ter ficado true de um reload vazio)
       if (root._parsing) {
         console.log("[BarConfig] startupTimer: limpando _parsing travado")
         root._parsing = false
@@ -589,8 +560,6 @@ Item {
         console.log("[BarConfig] startupTimer: JSON carregado OK")
         return
       }
-      // Última tentativa antes de gravar defaults: lê adapter.modules direto
-      // com JSON.parse round-trip para contornar proxy QML no closure
       var raw = JSON.stringify(adapter.modules)
       var m   = JSON.parse(raw)
       var hasAny = (m.left   && m.left.length   > 0) ||
@@ -611,9 +580,19 @@ Item {
         Qt.callLater(function() { root.modulesUpdated() })
         return
       }
-      // JSON realmente não existe ou não tem modules — gravar defaults
       console.log("[BarConfig] AVISO: adapter.modules vazio após 600ms — gravando defaults")
       root._parsing = true
+      // FIX: inclui pillMinSpacing nos defaults gravados
+      adapter.bar = {
+        theme:          root.theme,
+        autoHide:       root.autoHide,
+        silence:        root.silenceMode,
+        position:       root.position,
+        barSize:        root.barSize,
+        barMargin:      root.barMargin,
+        pillWidth:      root.pillWidth,
+        pillMinSpacing: root.pillMinSpacing
+      }
       adapter.modules = {
         left:   root.modulesLeft,
         center: root.modulesCenter,

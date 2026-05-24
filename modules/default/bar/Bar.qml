@@ -9,7 +9,6 @@ import '../clock'       as ClockModule
 import '../quicksettings' as QsModule
 import '../notifications' as NotifModule
 import './themes' as BarThemes
-import '../dmenu'  as DmenuModule
 
 Scope {
   id: barRoot
@@ -35,6 +34,15 @@ Scope {
 
   // silenceMode — lido pelo shell.qml para propagar ao osd e notifService
   readonly property bool silenceMode: barState.silenceMode
+
+  // ── Cores dos popups — expostas publicamente para que componentes externos
+  // (ex: DmenuIpc no shell.qml) usem exatamente as mesmas cores que o bar,
+  // incluindo atualizações automáticas quando o tema muda.
+  readonly property color popupColorBg:      barState.config.palettePanelBg
+  readonly property color popupColorText:    barState.config.paletteText
+  readonly property color popupColorTextDim: barState.config.paletteTextDim
+  readonly property color popupColorAccent:  barState.config.paletteAccent
+  readonly property color popupColorDivider: barState.config.paletteDivider
 
   // Referência ao ClockContent (dentro do clockPopup) — exposta para que
   // shell.qml possa injetar em osd.clockContent e conectar timerElapsed.
@@ -133,23 +141,7 @@ Scope {
     function silenceToggle() { barState.silenceMode = !barState.silenceMode }
   }
 
-  // ── IPC do dmenu ─────────────────────────────────────────────────────────
-  // qs ipc call dmenu drun | run | window
-  IpcHandler {
-    target: "dmenu"
-    function drun() {
-      var b = barRoot._activeBar(); if (!b) return
-      b.dmenuMode = "drun"; b.openPanel(barRoot.panelDmenu)
-    }
-    function run() {
-      var b = barRoot._activeBar(); if (!b) return
-      b.dmenuMode = "run"; b.openPanel(barRoot.panelDmenu)
-    }
-    function window() {
-      var b = barRoot._activeBar(); if (!b) return
-      b.dmenuMode = "window"; b.openPanel(barRoot.panelDmenu)
-    }
-  }
+  // ── IPC do dmenu — movido para shell.qml (usa DmenuIpc.openNative) ──────
 
   property int position: barState.position
 
@@ -163,7 +155,6 @@ Scope {
   readonly property int panelEditor: 6
   readonly property int panelNotif:  7
   readonly property int panelVolume: 8
-  readonly property int panelDmenu:  9
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
   readonly property int popupHVolume: 380
@@ -259,7 +250,6 @@ Scope {
         // Em silence: só editor e dmenu são permitidos
         if (barState.silenceMode) {
           var allowed = panelId === barRoot.panelEditor ||
-                        panelId === barRoot.panelDmenu  ||
                         panelId === barRoot.panelNone
           if (!allowed) {
             console.log("[Bar] openPanel bloqueado pelo silence mode — panelId:", panelId)
@@ -279,9 +269,6 @@ Scope {
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
       readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
       readonly property bool volumePanelOpen: activePanel === barRoot.panelVolume
-      readonly property bool dmenuPanelOpen:  activePanel === barRoot.panelDmenu
-      property string dmenuMode: "drun"
-   // atualizado pelo IpcHandler antes de openPanel
 
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
@@ -661,8 +648,7 @@ Scope {
           // Ao ativar silence, fecha todos os painéis abertos
           // exceto editor e dmenu (são de configuração/controle, sempre permitidos).
           if (!barState.silenceMode) return
-          var keep = bar.activePanel === barRoot.panelEditor ||
-                     bar.activePanel === barRoot.panelDmenu
+          var keep = bar.activePanel === barRoot.panelEditor
           if (!keep) bar.closeAllPanels()
         }
       }
@@ -1581,27 +1567,7 @@ Scope {
         onCloseRequested: bar.closeAllPanels()
       }
 
-      // ── Dmenu ──────────────────────────────────────────────────────────────
-      DmenuModule.DmenuPopup {
-        id: dmenuPopup
-        barRef: bar
-
-        popupW:    barRoot.themePanelWidth
-        popupH:    barRoot.popupHDmenu
-        mode:      bar.dmenuMode
-        launchCmd: barRoot._dmenuLaunchCmd
-        showIcons: barRoot._dmenuShowIcons
-        panelOpen: bar.dmenuPanelOpen
-
-        colorPanelBg:  bar.popupColorBg
-        colorText:     bar.popupColorText
-        colorTextDim:  bar.popupColorTextDim
-        colorAccent:   bar.popupColorAccent
-        colorDivider:  bar.popupColorDivider
-        colorInputBg:  bar.popupColorBg
-
-        onCloseRequested: bar.closeAllPanels()
-      }
+      // ── Dmenu — gerenciado por DmenuIpc em shell.qml ──────────────────────
 
     } // PanelWindow bar
   } // Variants

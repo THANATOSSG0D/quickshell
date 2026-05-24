@@ -1,196 +1,110 @@
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
+import "../bar" as Bar
 
-// ── DmenuPanel ────────────────────────────────────────────────────────────────
-// PanelWindow standalone (não depende do Bar).
-// Suporta modos: drun, run, window, script.
-//
-// panelAnchor controla a posição no monitor:
-//   "top-center"    (padrão) — centrado no topo, offset de 65px
-//   "top-left"      — topo esquerda, com margem
-//   "top-right"     — topo direita, com margem
-//   "center"        — centro absoluto do monitor
-//   "bottom-center" — rodapé centrado
-
-PanelWindow {
+Bar.BarPopup {
   id: panel
 
-  required property var screen
+  property string mode:       "drun"   // drun | run | window | script — controlado por DmenuIpc._showTop()
+  property string launchCmd:  "uwsm app -- {exec}"
+  property bool   showIcons:  true
+  property int    maxVisible: 12
 
-  // ── Posicionamento ────────────────────────────────────────────────────────
-  // "top-center" | "top-left" | "top-right" | "center" | "bottom-center"
-  property string panelAnchor: "top-center"
-  property int    edgeMargin:  65   // distância da borda (top offset ou bottom offset)
-  property int    sideMargin:  40   // margem lateral para top-left / top-right
-
-  // ── Modo e conteúdo ───────────────────────────────────────────────────────
-  property string mode:        "drun"
-  property bool   showIcons:   true
-  property int    maxVisible:  12
-
-  // Props do modo script
   property var    scriptEntries:  []
   property string scriptPrompt:   ">"
   property string scriptLabel:    "SCRIPT"
   property string scriptSep:      ""
   property var    scriptCallback: null
+  property var    backCallback:    null   // chamado quando usuário pressiona Backspace com query vazia
 
-  // ── Cores ─────────────────────────────────────────────────────────────────
-  property color colorPanelBg:  "#1f1f1f"
+  popupW: barRef ? barRef.parent.themePanelWidth : 320
+  popupH: barRef ? barRef.parent.popupHDmenu     : 460
+
   property color colorText:     "#e2e2e2"
   property color colorTextDim:  "#c6c6c6"
   property color colorAccent:   "#ffb4a9"
-  property color colorSelected: "#442926"
+  property color colorSelected: "#1f1f1f"
   property color colorDivider:  "#474747"
-  property color colorInputBg:  "#131313"
+  property color colorInputBg:  "#1f1f1f"
 
-  function open()  { panelOpen = true  }
+  // ── Garante que o callback é chamado exatamente uma vez ──────────────────
+  property bool _callbackFired: false
+
+  function open() {
+    _callbackFired = false
+    panelOpen = true
+  }
   function close() { panelOpen = false }
 
-  // ── Dimensões do painel flutuante ─────────────────────────────────────────
-  readonly property int _itemH:  32
-  readonly property int _inputH: 42
-  readonly property int _padV:   12
-  readonly property int _panelW: 720
-  readonly property int _panelH: _inputH + 6 + (_itemH * maxVisible) + _padV * 2 + 28
-
-  // ── Posicionamento layer-shell ────────────────────────────────────────────
-  // Âncoras e margens variam conforme panelAnchor.
-  // Usamos anchors.top+left+right para top-* (horizontal stretch + margin.top)
-  // e anchors.bottom para bottom-center.
-  // Para "center" usamos top+bottom para calcular posição vertical.
-
-  readonly property bool _anchorTop:    panelAnchor !== "bottom-center"
-  readonly property bool _anchorBottom: panelAnchor === "bottom-center" || panelAnchor === "center"
-  readonly property bool _anchorLeft:   true   // sempre stretch horizontal para poder centralizar
-  readonly property bool _anchorRight:  true
-
-  screen: panel.screen
-  color:  "transparent"
-  exclusionMode: ExclusionMode.Ignore
-
-  anchors.top:    _anchorTop
-  anchors.bottom: _anchorBottom
-  anchors.left:   _anchorLeft
-  anchors.right:  _anchorRight
-
-  implicitWidth:  1
-  implicitHeight: {
-    if (panelAnchor === "center") return _panelH
-    return _panelH + edgeMargin
-  }
-
-  margins.top:    0
-  margins.bottom: 0
-  margins.left:   0
-  margins.right:  0
-
-  // ── Animação ──────────────────────────────────────────────────────────────
-  property bool panelOpen: false
-  property real slideProgress: 0.0
-  visible: slideProgress > 0.0
-
-  Behavior on slideProgress {
-    NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
-  }
-
   onPanelOpenChanged: {
-    slideProgress = panelOpen ? 1.0 : 0.0
     if (panelOpen) content.activate()
   }
 
-  HyprlandFocusGrab {
-    windows: [panel]
-    active:  panel.panelOpen
-    onCleared: {
-      panel.panelOpen = false
-      if (panel.mode === "script" && panel.scriptCallback)
-        panel.scriptCallback(null)
+  // ── FocusGrab.onCleared → BarPopup emite closeRequested() ────────────────
+  // Só chama callback se DmenuContent ainda não o chamou (seleção com Enter/click).
+  // _callbackFired já estará true se o usuário selecionou algo — guarda re-entrada.
+  onCloseRequested: {
+    if (!_callbackFired) {
+      _callbackFired = true
+      if (scriptCallback) scriptCallback(null)
     }
   }
 
-  // ── Posição do container dentro da PanelWindow ────────────────────────────
-  // A PanelWindow ocupa a largura toda do monitor (stretch horizontal).
-  // O container é centralizado ou alinhado conforme panelAnchor.
+  property alias dmenuContent: content
 
-  readonly property real _containerX: {
-    if (panelAnchor === "top-left")   return sideMargin
-    if (panelAnchor === "top-right")  return panel.width - _panelW - sideMargin
-    // top-center, center, bottom-center: centralizado
-    return Math.round((panel.width - _panelW) / 2)
-  }
+  DmenuContent {
+    id: content
+    anchors.fill: parent
 
-  readonly property real _containerY: {
-    if (panelAnchor === "bottom-center") return 0
-    if (panelAnchor === "center")
-      return Math.round((panel.height - _panelH) / 2)
-    // top-*: offset do topo
-    return edgeMargin
-  }
+    mode:       panel.mode
+    launchCmd:  panel.launchCmd
+    showIcons:  panel.showIcons
+    maxVisible: panel.maxVisible
 
-  // ── Slide direction ───────────────────────────────────────────────────────
-  readonly property real _slideY: {
-    if (panelAnchor === "bottom-center") return  14
-    if (panelAnchor === "center")        return   0
-    return -14  // top-*: slide de cima para baixo
-  }
+    scriptEntries: panel.scriptEntries
+    scriptPrompt:  panel.scriptPrompt
+    scriptLabel:   panel.scriptLabel
+    scriptSep:     panel.scriptSep
 
-  // ── Container ─────────────────────────────────────────────────────────────
-  Item {
-    id: container
-    clip: true
-    x: panel._containerX
-    y: panel._containerY
-    width:  panel._panelW
-    height: panel._panelH * panel.slideProgress
+    colorPanelBg:  panel.colorPanelBg
+    colorText:     panel.colorText
+    colorTextDim:  panel.colorTextDim
+    colorAccent:   panel.colorAccent
+    colorSelected: panel.colorSelected
+    colorDivider:  panel.colorDivider
+    colorInputBg:  panel.colorInputBg
 
-    opacity: Math.min(1.0, panel.slideProgress * 2.5)
-
-    transform: Translate {
-      y: panel._slideY * (1.0 - panel.slideProgress)
+    // ── FIX: duplo-callback ───────────────────────────────────────────────
+    //
+    // BUG ORIGINAL (ordem errada):
+    //   panel.panelOpen = false        ← dispara BarPopup.closeRequested() SYNC
+    //   if (!panel._callbackFired) {   ← _callbackFired ainda é false aqui!
+    //     panel._callbackFired = true  ← nunca chega aqui: o onCloseRequested acima
+    //     panel.scriptCallback(selected)  já chamou scriptCallback(null) antes.
+    //   }
+    //
+    // Como acontecia:
+    //   HyprlandFocusGrab.onCleared é emitido sincronamente quando panelOpen
+    //   muda para false → BarPopup.closeRequested() dispara → DmenuPanel.
+    //   onCloseRequested executa → scriptCallback(null) enviado ao cliente.
+    //   O handler original continuava, mas _callbackFired já estava true,
+    //   então scriptCallback(selected) NUNCA era chamado.
+    //   Resultado: o cliente sempre recebia null, main_choice ficava vazio,
+    //   e os submenus nunca eram abertos.
+    //
+    // FIX: marcar _callbackFired = true PRIMEIRO, antes de fechar o painel.
+    //   Assim, quando BarPopup.closeRequested() disparar (dentro de panelOpen=false),
+    //   o guard já está ativo e o segundo callback(null) é descartado.
+    onBackRequested: {
+      if (panel.backCallback) panel.backCallback()
     }
 
-    Rectangle {
-      anchors.fill: parent
-      radius: 12
-      color: Qt.rgba(panel.colorPanelBg.r, panel.colorPanelBg.g,
-                     panel.colorPanelBg.b, 0.92)
-      border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.06)
-    }
-
-    DmenuContent {
-      id: content
-      anchors {
-        fill:         parent
-        topMargin:    panel._padV
-        bottomMargin: panel._padV
-        leftMargin:   12
-        rightMargin:  12
-      }
-
-      mode:        panel.mode
-      showIcons:   panel.showIcons
-      maxVisible:  panel.maxVisible
-
-      scriptEntries: panel.scriptEntries
-      scriptPrompt:  panel.scriptPrompt
-      scriptLabel:   panel.scriptLabel
-      scriptSep:     panel.scriptSep
-
-      colorPanelBg:  panel.colorPanelBg
-      colorText:     panel.colorText
-      colorTextDim:  panel.colorTextDim
-      colorAccent:   panel.colorAccent
-      colorSelected: panel.colorSelected
-      colorDivider:  panel.colorDivider
-      colorInputBg:  panel.colorInputBg
-
-      onCloseRequested: (selected) => {
-        panel.panelOpen = false
-        if (panel.mode === "script" && panel.scriptCallback)
-          panel.scriptCallback(selected)
+    onCloseRequested: (selected) => {
+      if (!panel._callbackFired) {
+        panel._callbackFired = true           // ← guarda PRIMEIRO
+        panel.panelOpen = false               // ← fecha painel (pode emitir closeRequested)
+        if (panel.scriptCallback) panel.scriptCallback(selected)
       }
     }
   }

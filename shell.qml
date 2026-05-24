@@ -58,17 +58,35 @@ Scope {
   //   "center"        centro absoluto do monitor
   //   "bottom-center" rodapé centrado
   DmenuModule.DmenuIpc {
-    screen:      Quickshell.screens[0]
-    panelAnchor: "top-center"
-    showIcons:   true
+    id: dmenuIpc
+    barRoot:   bar
+    showIcons: bar._dmenuShowIcons
 
-    colorPanelBg:  Colors.surface_container   // "#1f1f1f"
-    colorText:     Colors.on_surface          // "#e2e2e2"
-    colorTextDim:  Colors.on_surface_variant  // "#c6c6c6"
-    colorAccent:   Colors.primary             // "#81cfff"
-    colorSelected: Colors.surface_variant     // "#474747"
-    colorDivider:  Colors.outline_variant     // "#474747"
-    colorInputBg:  Colors.surface             // "#131313"
+    // Mesmas cores que o Bar usa internamente — atualizam automaticamente com o tema
+    colorPanelBg:  bar.popupColorBg
+    colorText:     bar.popupColorText
+    colorTextDim:  bar.popupColorTextDim
+    colorAccent:   bar.popupColorAccent
+    colorSelected: bar.popupColorBg
+    colorDivider:  bar.popupColorDivider
+    colorInputBg:  bar.popupColorBg
+  }
+
+  // ── IPC do dmenu — ponto único de entrada para todos os modos ────────────
+  // qs ipc call dmenu drun | run | window
+  // Todos os modos passam pelo DmenuIpc (pilha de navegação, toggle, backspace).
+  // O DmenuPopup separado no Bar.qml foi removido.
+  IpcHandler {
+    target: "dmenu"
+    function drun() {
+      dmenuIpc.openNative("drun", bar._dmenuLaunchCmd)
+    }
+    function run() {
+      dmenuIpc.openNative("run", bar._dmenuLaunchCmd)
+    }
+    function window() {
+      dmenuIpc.openNative("window", bar._dmenuLaunchCmd)
+    }
   }
 
   PowerModule.PowerMenu {
