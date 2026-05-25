@@ -17,7 +17,7 @@ Protocolo:
     <JSON>\n          ex: {"prompt":"Manager","entries":["A","B"],...}
 
   Servidor → QML (stdout):
-    <JSON com _fifo>\n  ex: {"prompt":"Manager","entries":[...],"_fifo":"/run/user/1000/qs-dmenu-out-3"}
+    <JSON com _fifo>\n  ex: {"prompt":"Manager","entries":[...],"preview_image":"/tmp/ss.png","_fifo":"/run/user/1000/qs-dmenu-out-3"}
 
   QML → servidor (FIFO exclusivo):
     <JSON>\n          ex: {"selected":"A"}
@@ -96,6 +96,8 @@ def _handle(conn):
         except json.JSONDecodeError:
             conn.sendall(b'{"selected":null}\n')
             return
+
+        # preview_image é passado adiante transparentemente (se presente)
 
         # Cria FIFO exclusivo para este request
         req_id    = _next_id()

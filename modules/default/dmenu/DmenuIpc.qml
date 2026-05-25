@@ -82,14 +82,15 @@ Item {
 
         // Request de script externo
         var req = {
-          mode:      "script",
-          entries:   msg.entries   || [],
-          prompt:    msg.prompt    || ">",
-          label:     msg.label     || "SCRIPT",
-          sep:       msg.sep       || "",
-          fifo:      msg._fifo     || "",
-          launchCmd: "",
-          callback:  null   // será preenchido em _pushAndOpen
+          mode:         "script",
+          entries:      msg.entries       || [],
+          previewImage: msg.preview_image || "",
+          prompt:       msg.prompt        || ">",
+          label:        msg.label         || "SCRIPT",
+          sep:          msg.sep           || "",
+          fifo:         msg._fifo         || "",
+          launchCmd:    "",
+          callback:     null   // será preenchido em _pushAndOpen
         }
 
         if (req.entries.length === 0) {
@@ -156,9 +157,10 @@ Item {
     }
 
     var req = {
-      mode:      mode,
-      entries:   [],    // não usado em modos nativos — DmenuContent carrega sozinho
-      prompt:    mode === "drun" ? "pesquisar app..." : (mode === "run" ? "executar..." : "janela..."),
+      mode:         mode,
+      entries:      [],
+      previewImage: "",
+      prompt:       mode === "drun" ? "pesquisar app..." : (mode === "run" ? "executar..." : "janela..."),
       label:     mode === "drun" ? "APLICATIVOS" : (mode === "run" ? "HISTÓRICO" : "JANELAS"),
       sep:       "",
       fifo:      "",
@@ -216,11 +218,14 @@ Item {
 
     ipcPanel.barRef         = activeBar
     ipcPanel.popupW         = root.barRoot ? root.barRoot.themePanelWidth : 320
-    ipcPanel.popupH         = root.barRoot ? root.barRoot.popupHDmenu     : 460
+    // Aumenta altura quando há preview de imagem no topo (~180px para o preview)
+    var baseH = root.barRoot ? root.barRoot.popupHDmenu : 460
+    ipcPanel.popupH         = req.previewImage ? Math.max(baseH, 580) : baseH
     ipcPanel.showIcons      = root.showIcons
     ipcPanel.mode           = req.mode
     ipcPanel.launchCmd      = req.launchCmd || "uwsm app -- {exec}"
     ipcPanel.scriptEntries  = req.entries
+    ipcPanel.scriptPreview  = req.previewImage || ""
     ipcPanel.scriptPrompt   = req.prompt
     ipcPanel.scriptLabel    = req.label
     ipcPanel.scriptSep      = req.sep

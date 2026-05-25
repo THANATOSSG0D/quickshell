@@ -15,6 +15,7 @@ Item {
 
   // Props do modo script (entries já prontas, vindas do DmenuIpc)
   property var    scriptEntries: []
+  property string scriptPreview: ""   // path da imagem de preview no topo (opcional)
   property string scriptPrompt:  ">"
   property string scriptLabel:   "SCRIPT"
   property string scriptSep:     ""
@@ -289,6 +290,7 @@ Item {
     anchors.fill: parent; anchors.margins: 10; spacing: 8
 
     // Searchbar
+    // (sempre no topo para foco imediato ao abrir)
     Rectangle {
       Layout.fillWidth: true; height: 42; radius: 10
       color: Qt.rgba(root.colorInputBg.r, root.colorInputBg.g, root.colorInputBg.b, 0.95)
@@ -353,6 +355,58 @@ Item {
       }
     }
 
+    // ── Preview de imagem ──────────────────────────────────────────────────
+    // Fica entre a searchbar e a lista.
+    // Layout.fillHeight=true: ocupa todo o espaço vertical disponível depois
+    // da searchbar e antes da lista — quanto maior o painel, maior o preview.
+    // Layout.minimumHeight garante que nunca fique menor que 180px.
+    // Colapsado (max=0) quando não há preview.
+    Rectangle {
+      id: previewContainer
+      visible: root.scriptPreview !== ""
+      Layout.fillWidth: true
+      Layout.fillHeight:   root.scriptPreview !== ""
+      Layout.minimumHeight: root.scriptPreview !== "" ? 180 : 0
+      Layout.maximumHeight: root.scriptPreview !== "" ? 99999 : 0
+      Layout.preferredHeight: root.scriptPreview !== "" ? 240 : 0
+
+      radius: 8
+      color: Qt.rgba(0, 0, 0, 0.15)
+      clip: true
+
+      Image {
+        id: previewImg
+        anchors.fill: parent
+        anchors.margins: 1
+        source: root.scriptPreview !== "" ? ("file://" + root.scriptPreview) : ""
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        asynchronous: true
+        cache: false
+
+        opacity: status === Image.Ready ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+      }
+
+      // Placeholder enquanto carrega
+      Text {
+        anchors.centerIn: parent
+        visible: previewImg.status !== Image.Ready && root.scriptPreview !== ""
+        text: "󰋼"
+        color: root.colorTextDim
+        font { family: "JetBrainsMono Nerd Font"; pixelSize: 32 }
+        opacity: 0.2
+      }
+
+      Rectangle {
+        anchors.fill: parent; radius: 8
+        color: "transparent"
+        border.width: 1
+        border.color: Qt.rgba(root.colorDivider.r, root.colorDivider.g,
+                              root.colorDivider.b, 0.3)
+      }
+    }
+
     // Label de seção
     Item {
       Layout.fillWidth: true; height: 14
@@ -374,7 +428,13 @@ Item {
     // Lista
     ListView {
       id: listView
-      Layout.fillWidth: true; Layout.fillHeight: true
+      Layout.fillWidth: true
+      // Quando há preview: altura fixa baseada nos itens (máx 6 × 34px = 204px)
+      // Quando não há:     preenche todo o espaço disponível normalmente
+      Layout.fillHeight:    root.scriptPreview === ""
+      Layout.preferredHeight: root.scriptPreview !== ""
+        ? Math.min(_displayList.length, 6) * 34
+        : -1
       clip: true; model: root._displayList
       currentIndex: root._selectedIdx
       boundsBehavior: Flickable.StopAtBounds; spacing: 1
