@@ -35,6 +35,10 @@ Scope {
   // silenceMode — lido pelo shell.qml para propagar ao osd e notifService
   readonly property bool silenceMode: barState.silenceMode
 
+  // Escrito pelo DmenuIpc.onPanelVisibleChanged para que cada instância de
+  // bar (por monitor) possa incluir o dmenu no cálculo de anyPanelOpen.
+  property bool dmenuPanelOpen: false
+
   // ── Cores dos popups — expostas publicamente para que componentes externos
   // (ex: DmenuIpc no shell.qml) usem exatamente as mesmas cores que o bar,
   // incluindo atualizações automáticas quando o tema muda.
@@ -244,7 +248,9 @@ Scope {
       // ── Estado de painéis — isolado por monitor ────────────────────────
       property int activePanel: barRoot.panelNone
 
-      readonly property bool anyPanelOpen: activePanel !== barRoot.panelNone
+      // dmenuPanelOpen é escrito pelo DmenuIpc.onPanelVisibleChanged.
+      readonly property bool anyPanelOpen:
+          activePanel !== barRoot.panelNone || barRoot.dmenuPanelOpen
 
       function openPanel(panelId) {
         // Em silence: só editor e dmenu são permitidos

@@ -50,6 +50,12 @@ Item {
   // Exposto para que Bar.qml possa verificar se o painel está visível
   // e implementar o toggle corretamente.
   readonly property bool panelVisible: ipcPanel.panelOpen
+  onPanelVisibleChanged: {
+    if (root.barRoot) {
+      root.barRoot.dmenuPanelOpen = panelVisible
+    }
+  }
+
   readonly property string currentNativeMode: {
     if (_stack.length === 0) return ""
     return _stack[_stack.length - 1].mode
