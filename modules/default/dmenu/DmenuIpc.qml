@@ -90,6 +90,7 @@ Item {
         var req = {
           mode:         "script",
           entries:      msg.entries       || [],
+          thumbnails:   msg.thumbnails    || [],
           previewImage: msg.preview_image || "",
           prompt:       msg.prompt        || ">",
           label:        msg.label         || "SCRIPT",
@@ -167,6 +168,7 @@ Item {
     var req = {
       mode:         mode,
       entries:      [],
+      thumbnails:   [],
       previewImage: "",
       prompt:       mode === "drun" ? "pesquisar app..." : (mode === "run" ? "executar..." : "janela..."),
       label:     mode === "drun" ? "APLICATIVOS" : (mode === "run" ? "HISTÓRICO" : "JANELAS"),
@@ -233,6 +235,7 @@ Item {
     ipcPanel.mode           = req.mode
     ipcPanel.launchCmd      = req.launchCmd || "uwsm app -- {exec}"
     ipcPanel.scriptEntries  = req.entries
+    ipcPanel.scriptThumbs   = req.thumbnails || []
     ipcPanel.scriptPreview  = req.previewImage || ""
     ipcPanel.scriptPrompt   = req.prompt
     ipcPanel.scriptLabel    = req.label

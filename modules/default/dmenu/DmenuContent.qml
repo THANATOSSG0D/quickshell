@@ -15,7 +15,8 @@ Item {
 
   // Props do modo script (entries já prontas, vindas do DmenuIpc)
   property var    scriptEntries:  []
-  property string scriptPreview: ""   // path da imagem de preview no topo (opcional)
+  property var    scriptThumbs:   []  // array paralelo a scriptEntries com paths de thumbnail
+  property string scriptPreview: ""   // preview estático inicial (usado quando scriptThumbs vazio)
   property string scriptPrompt:  ">"
   property string scriptLabel:   "SCRIPT"
   property string scriptSep:     ""
@@ -41,6 +42,30 @@ Item {
   property int    _selectedIdx: 0
   property var    _dynamicList: []
   property bool   _loading:     false
+
+  // Preview efetivo: atualizado imperativamente.
+  // Binding JS complexo em QML não rastreia sub-propriedades de elementos
+  // de arrays — os handlers onXChanged garantem atualização em qualquer mudança.
+  property string _activePreview: ""
+
+  function _updateActivePreview() {
+    if (mode !== "script") { _activePreview = ""; return }
+    if (scriptThumbs && scriptThumbs.length > 0) {
+      var items = _displayList
+      if (_selectedIdx >= 0 && _selectedIdx < items.length) {
+        var tidx = items[_selectedIdx]._thumbIdx
+        if (tidx !== undefined && tidx >= 0 && tidx < scriptThumbs.length) {
+          var t = scriptThumbs[tidx]
+          if (t && t !== "") { _activePreview = t; return }
+        }
+      }
+    }
+    _activePreview = scriptPreview
+  }
+
+  on_SelectedIdxChanged:  _updateActivePreview()
+  onScriptThumbsChanged:  _updateActivePreview()
+  onScriptPreviewChanged: _updateActivePreview()
 
   // ── Apps via DesktopEntries (modo drun) ────────────────────────────────────
   readonly property var _allApps: {
@@ -154,7 +179,9 @@ Item {
   // ── Fonte de dados ─────────────────────────────────────────────────────────
   readonly property var _sourceList: {
     if (mode === "drun")   return _allApps
-    if (mode === "script") return scriptEntries.map(function(e) { return { display: e } })
+    if (mode === "script") return scriptEntries.map(function(e, i) {
+      return { display: e, _thumbIdx: i }
+    })
     return _dynamicList
   }
 
@@ -192,6 +219,7 @@ Item {
   on_DisplayListChanged: {
     _selectedIdx = 0
     listView.positionViewAtIndex(0, ListView.Beginning)
+    _updateActivePreview()
   }
 
   // ── Helpers de display ─────────────────────────────────────────────────────
@@ -481,12 +509,12 @@ Item {
     // Colapsado (max=0) quando não há preview ou em modo password.
     Rectangle {
       id: previewContainer
-      visible: root.scriptPreview !== "" && !root.scriptPassword && !root._freeText
+      visible: root._activePreview !== "" && !root.scriptPassword && !root._freeText
       Layout.fillWidth: true
-      Layout.fillHeight:   root.scriptPreview !== ""
-      Layout.minimumHeight: root.scriptPreview !== "" ? 180 : 0
-      Layout.maximumHeight: root.scriptPreview !== "" ? 99999 : 0
-      Layout.preferredHeight: root.scriptPreview !== "" ? 240 : 0
+      Layout.fillHeight:   root._activePreview !== ""
+      Layout.minimumHeight: root._activePreview !== "" ? 180 : 0
+      Layout.maximumHeight: root._activePreview !== "" ? 99999 : 0
+      Layout.preferredHeight: root._activePreview !== "" ? 240 : 0
 
       radius: 8
       color: Qt.rgba(0, 0, 0, 0.15)
@@ -496,7 +524,7 @@ Item {
         id: previewImg
         anchors.fill: parent
         anchors.margins: 1
-        source: root.scriptPreview !== "" ? ("file://" + root.scriptPreview) : ""
+        source: root._activePreview !== "" ? ("file://" + root._activePreview) : ""
         fillMode: Image.PreserveAspectFit
         smooth: true
         asynchronous: true
@@ -509,7 +537,7 @@ Item {
       // Placeholder enquanto carrega
       Text {
         anchors.centerIn: parent
-        visible: previewImg.status !== Image.Ready && root.scriptPreview !== ""
+        visible: previewImg.status !== Image.Ready && root._activePreview !== ""
         text: "󰋼"
         color: root.colorTextDim
         font { family: "JetBrainsMono Nerd Font"; pixelSize: 32 }
@@ -547,8 +575,8 @@ Item {
     // Lista + rodapé de keybinds
     Item {
       Layout.fillWidth: true
-      Layout.fillHeight:      root.scriptPreview === ""
-      Layout.preferredHeight: root.scriptPreview !== ""
+      Layout.fillHeight:      root._activePreview === ""
+      Layout.preferredHeight: root._activePreview !== ""
         ? Math.min(_displayList.length, 6) * 34
         : -1
 

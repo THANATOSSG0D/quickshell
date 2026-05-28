@@ -12,6 +12,7 @@ Bar.BarPopup {
   property int    maxVisible: 12
 
   property var    scriptEntries:  []
+  property var    scriptThumbs:   []
   property string scriptPreview:  ""
   property string scriptPrompt:   ">"
   property string scriptLabel:    "SCRIPT"
@@ -66,6 +67,7 @@ Bar.BarPopup {
     maxVisible: panel.maxVisible
 
     scriptEntries: panel.scriptEntries
+    scriptThumbs:  panel.scriptThumbs
     scriptPreview: panel.scriptPreview
     scriptPrompt:  panel.scriptPrompt
     scriptLabel:   panel.scriptLabel
