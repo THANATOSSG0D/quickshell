@@ -97,7 +97,7 @@ def _handle(conn):
             conn.sendall(b'{"selected":null}\n')
             return
 
-        # preview_image é passado adiante transparentemente (se presente)
+        # preview_image, keybinds e password são passados adiante transparentemente (se presentes)
 
         # Cria FIFO exclusivo para este request
         req_id    = _next_id()

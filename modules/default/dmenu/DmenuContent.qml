@@ -14,11 +14,13 @@ Item {
   property int    maxVisible: 12
 
   // Props do modo script (entries já prontas, vindas do DmenuIpc)
-  property var    scriptEntries: []
+  property var    scriptEntries:  []
   property string scriptPreview: ""   // path da imagem de preview no topo (opcional)
   property string scriptPrompt:  ">"
   property string scriptLabel:   "SCRIPT"
   property string scriptSep:     ""
+  property var    scriptKeybinds: {}  // { actionName: "Alt+t", ... }
+  property bool   scriptPassword: false  // true → echoMode Password, sem lista
 
   property color colorPanelBg:  "#1f1f1f"
   property color colorText:     "#e2e2e2"
@@ -29,7 +31,8 @@ Item {
   property color colorInputBg:  "#131313"
 
   // selected: string com a entrada escolhida, ou null se cancelado
-  signal closeRequested(var selected)
+  // key: nome do atalho acionado (string vazia = Enter normal)
+  signal closeRequested(var selected, string key)
   // backRequested: emitido quando Backspace é pressionado com query vazia
   signal backRequested()
 
@@ -113,7 +116,7 @@ Item {
       } else {
         sel.app.execute()
       }
-      root.closeRequested(null)
+      root.closeRequested(null, "")
       return
     }
 
@@ -124,7 +127,7 @@ Item {
       if (cmd === "") return
       execProc.command = ["bash", "-c", cmd + " &"]
       execProc.running = true
-      root.closeRequested(null)
+      root.closeRequested(null, "")
       return
     }
 
@@ -136,14 +139,14 @@ Item {
       execProc.command = ["bash", "-c",
         "hyprctl dispatch focuswindow address:" + addr]
       execProc.running = true
-      root.closeRequested(null)
+      root.closeRequested(null, "")
       return
     }
 
     if (mode === "script") {
       // Retorna a entrada selecionada via closeRequested — DmenuIpc trata
-      var text = sel ? sel.display : null
-      root.closeRequested(text)
+      var text = sel ? sel.display : (_query.trim() !== "" ? _query.trim() : null)
+      root.closeRequested(text, "")
       return
     }
   }
@@ -192,6 +195,15 @@ Item {
   }
 
   // ── Helpers de display ─────────────────────────────────────────────────────
+
+  // Retorna a cor hexadecimal se a string começa com #RRGGBB ou #RRGGBBAA,
+  // case-insensitive. Retorna "" se não houver.
+  function _parseHexColor(str) {
+    if (!str) return ""
+    var m = str.match(/^(#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)\b/)
+    return m ? m[1] : ""
+  }
+
   function _label(item) {
     if (mode === "drun") return item.name
     if (mode === "window") {
@@ -200,6 +212,11 @@ Item {
     }
     if (mode === "script" && scriptSep !== "")
       return item.display.split(scriptSep)[0].trim()
+    // Strip hex color prefix (#RRGGBB) do início da entry, se presente
+    if (mode === "script") {
+      var hex = _parseHexColor(item.display)
+      if (hex !== "") return item.display.slice(hex.length).trim()
+    }
     return item.display
   }
 
@@ -228,10 +245,95 @@ Item {
   }
 
   readonly property string _placeholder: {
+    if (scriptPassword)    return scriptPrompt !== ">" ? scriptPrompt : "senha..."
+    if (_freeText)         return scriptPrompt !== ">" ? scriptPrompt : "texto..."
     if (mode === "run")    return "comando ou pesquise no histórico..."
     if (mode === "window") return "pesquisar janela..."
     if (mode === "script") return scriptPrompt !== ">" ? scriptPrompt : "filtrar..."
     return "pesquisar aplicativo..."
+  }
+
+  // true quando não há entries E não é modo nativo — campo de texto livre
+  readonly property bool _freeText: mode === "script" && scriptEntries.length === 0 && !scriptPassword
+  // Converte {"sync":"Alt+r","lock":"Alt+l",...} em uma lista de objetos
+  // {name, mod, key} para comparação rápida no handler de teclado.
+  readonly property var _parsedKeybinds: {
+    var result = []
+    if (!scriptKeybinds) return result
+    var keys = Object.keys(scriptKeybinds)
+    for (var i = 0; i < keys.length; i++) {
+      var name  = keys[i]
+      var combo = scriptKeybinds[name] || ""
+      if (combo === "") continue
+      var parts = combo.split("+")
+      var k     = parts[parts.length - 1].trim().toLowerCase()
+      var mods  = Qt.NoModifier
+      for (var j = 0; j < parts.length - 1; j++) {
+        var m = parts[j].trim().toLowerCase()
+        if (m === "ctrl")  mods |= Qt.ControlModifier
+        if (m === "alt")   mods |= Qt.AltModifier
+        if (m === "shift") mods |= Qt.ShiftModifier
+        if (m === "meta")  mods |= Qt.MetaModifier
+      }
+      result.push({ name: name, mod: mods, key: k })
+    }
+    return result
+  }
+
+  // Mapa Qt.Key_* → string usada no keybind (ex: Qt.Key_Delete → "delete")
+  // Necessário porque ev.text retorna "" para teclas especiais e também
+  // para qualquer tecla quando um modificador como Alt está pressionado no Wayland.
+  readonly property var _qtKeyNames: ({
+    [Qt.Key_Delete]:    "delete",
+    [Qt.Key_Return]:    "return",
+    [Qt.Key_Enter]:     "enter",
+    [Qt.Key_Escape]:    "escape",
+    [Qt.Key_Tab]:       "tab",
+    [Qt.Key_Backspace]: "backspace",
+    [Qt.Key_Up]:        "up",
+    [Qt.Key_Down]:      "down",
+    [Qt.Key_Left]:      "left",
+    [Qt.Key_Right]:     "right",
+    [Qt.Key_Home]:      "home",
+    [Qt.Key_End]:       "end",
+    [Qt.Key_PageUp]:    "pageup",
+    [Qt.Key_PageDown]:  "pagedown",
+    [Qt.Key_F1]: "f1", [Qt.Key_F2]: "f2", [Qt.Key_F3]:  "f3",  [Qt.Key_F4]:  "f4",
+    [Qt.Key_F5]: "f5", [Qt.Key_F6]: "f6", [Qt.Key_F7]:  "f7",  [Qt.Key_F8]:  "f8",
+    [Qt.Key_F9]: "f9", [Qt.Key_F10]:"f10",[Qt.Key_F11]: "f11", [Qt.Key_F12]: "f12",
+    // Alfanuméricos — necessário porque ev.text="" quando Alt está pressionado
+    [Qt.Key_0]:"0",[Qt.Key_1]:"1",[Qt.Key_2]:"2",[Qt.Key_3]:"3",[Qt.Key_4]:"4",
+    [Qt.Key_5]:"5",[Qt.Key_6]:"6",[Qt.Key_7]:"7",[Qt.Key_8]:"8",[Qt.Key_9]:"9",
+    [Qt.Key_A]:"a",[Qt.Key_B]:"b",[Qt.Key_C]:"c",[Qt.Key_D]:"d",[Qt.Key_E]:"e",
+    [Qt.Key_F]:"f",[Qt.Key_G]:"g",[Qt.Key_H]:"h",[Qt.Key_I]:"i",[Qt.Key_J]:"j",
+    [Qt.Key_K]:"k",[Qt.Key_L]:"l",[Qt.Key_M]:"m",[Qt.Key_N]:"n",[Qt.Key_O]:"o",
+    [Qt.Key_P]:"p",[Qt.Key_Q]:"q",[Qt.Key_R]:"r",[Qt.Key_S]:"s",[Qt.Key_T]:"t",
+    [Qt.Key_U]:"u",[Qt.Key_V]:"v",[Qt.Key_W]:"w",[Qt.Key_X]:"x",[Qt.Key_Y]:"y",
+    [Qt.Key_Z]:"z"
+  })
+
+  // Retorna o nome da ação se o evento corresponde a um keybind, senão "".
+  function _matchKeybind(ev) {
+    var kb = _parsedKeybinds
+    // Sempre usa o mapa Qt.Key_* como fonte primária — é o único método confiável
+    // no Wayland com Hyprland:
+    //   • Alt+r  → ev.text = ""  (Alt consumido pelo compositor)
+    //   • Ctrl+r → ev.text = "" (caractere de controle, não "r")
+    //   • Delete → ev.text = ""
+    // ev.key é sempre o código numérico correto independente de modificadores.
+    var evKey = _qtKeyNames[ev.key] || ""
+    // Fallback para ev.text apenas se for um caractere imprimível normal (sem modificadores)
+    if (evKey === "") {
+      var t = ev.text.toLowerCase()
+      if (t.length === 1 && t.charCodeAt(0) >= 32 && t.charCodeAt(0) < 127) evKey = t
+    }
+    if (evKey === "") return ""
+    for (var i = 0; i < kb.length; i++) {
+      if (evKey !== kb[i].key) continue
+      if ((ev.modifiers & kb[i].mod) !== kb[i].mod) continue
+      return kb[i].name
+    }
+    return ""
   }
 
   // ── Activate — chamado pelo painel ao abrir ────────────────────────────────
@@ -241,38 +343,53 @@ Item {
     _selectedIdx = 0
     if (mode === "window" || mode === "run") _load()
     // modo script: entries já estão em scriptEntries, nada a carregar
+    // modo password: campo de texto livre, lista oculta
     Qt.callLater(function() { inputField.forceActiveFocus() })
   }
 
   // ── Teclado ────────────────────────────────────────────────────────────────
   focus: true
   Keys.onPressed: function(ev) {
+    // ── Keybinds personalizados (modo script com keybinds ativos) ─────────
+    if (mode === "script" && Object.keys(scriptKeybinds).length > 0) {
+      var actionName = _matchKeybind(ev)
+      if (actionName !== "") {
+        var items2    = _displayList
+        var selItem   = items2[_selectedIdx]
+        var selText2  = selItem ? selItem.display : null
+        // Alguns keybinds globais (sync, lock, etc.) não requerem item selecionado
+        root.closeRequested(selText2, actionName)
+        ev.accepted = true
+        return
+      }
+    }
+
     if (ev.key === Qt.Key_Backspace && _query === "") {
       root.backRequested(); ev.accepted = true
 
     } else if (ev.key === Qt.Key_Escape) {
-      root.closeRequested(null); ev.accepted = true
+      root.closeRequested(null, ""); ev.accepted = true
 
     } else if (ev.key === Qt.Key_Return || ev.key === Qt.Key_Enter) {
       _launch(); ev.accepted = true
 
-    } else if (ev.key === Qt.Key_Down ||
-               (ev.key === Qt.Key_N && (ev.modifiers & Qt.ControlModifier))) {
+    } else if (!scriptPassword && (ev.key === Qt.Key_Down ||
+               (ev.key === Qt.Key_N && (ev.modifiers & Qt.ControlModifier)))) {
       if (_selectedIdx < _displayList.length - 1) {
         _selectedIdx++
         listView.positionViewAtIndex(_selectedIdx, ListView.Contain)
       }
       ev.accepted = true
 
-    } else if (ev.key === Qt.Key_Up ||
-               (ev.key === Qt.Key_P && (ev.modifiers & Qt.ControlModifier))) {
+    } else if (!scriptPassword && (ev.key === Qt.Key_Up ||
+               (ev.key === Qt.Key_P && (ev.modifiers & Qt.ControlModifier)))) {
       if (_selectedIdx > 0) {
         _selectedIdx--
         listView.positionViewAtIndex(_selectedIdx, ListView.Contain)
       }
       ev.accepted = true
 
-    } else if (ev.key === Qt.Key_Tab) {
+    } else if (!scriptPassword && ev.key === Qt.Key_Tab) {
       if (_displayList.length > 0) {
         var lbl = mode === "drun"
           ? _displayList[_selectedIdx].name
@@ -321,6 +438,7 @@ Item {
           font { family: "Fira Sans"; pixelSize: 13 }
           verticalAlignment: TextInput.AlignVCenter
           height: parent.height
+          echoMode: root.scriptPassword ? TextInput.Password : TextInput.Normal
 
           Text {
             anchors.fill: parent
@@ -360,10 +478,10 @@ Item {
     // Layout.fillHeight=true: ocupa todo o espaço vertical disponível depois
     // da searchbar e antes da lista — quanto maior o painel, maior o preview.
     // Layout.minimumHeight garante que nunca fique menor que 180px.
-    // Colapsado (max=0) quando não há preview.
+    // Colapsado (max=0) quando não há preview ou em modo password.
     Rectangle {
       id: previewContainer
-      visible: root.scriptPreview !== ""
+      visible: root.scriptPreview !== "" && !root.scriptPassword && !root._freeText
       Layout.fillWidth: true
       Layout.fillHeight:   root.scriptPreview !== ""
       Layout.minimumHeight: root.scriptPreview !== "" ? 180 : 0
@@ -409,6 +527,7 @@ Item {
 
     // Label de seção
     Item {
+      visible: !root.scriptPassword && !root._freeText
       Layout.fillWidth: true; height: 14
       Rectangle {
         anchors.verticalCenter: parent.verticalCenter
@@ -425,19 +544,114 @@ Item {
       }
     }
 
-    // Lista
-    ListView {
-      id: listView
+    // Lista + rodapé de keybinds
+    Item {
       Layout.fillWidth: true
-      // Quando há preview: altura fixa baseada nos itens (máx 6 × 34px = 204px)
-      // Quando não há:     preenche todo o espaço disponível normalmente
-      Layout.fillHeight:    root.scriptPreview === ""
+      Layout.fillHeight:      root.scriptPreview === ""
       Layout.preferredHeight: root.scriptPreview !== ""
         ? Math.min(_displayList.length, 6) * 34
         : -1
-      clip: true; model: root._displayList
-      currentIndex: root._selectedIdx
-      boundsBehavior: Flickable.StopAtBounds; spacing: 1
+
+      // ── Rodapé de keybinds ───────────────────────────────────────────────
+      // Ancorado ao bottom do Item wrapper; a lista ancora seu bottom aqui.
+      Rectangle {
+        id: keybindFooter
+        visible: mode === "script" && _parsedKeybinds.length > 0
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        // Altura dinâmica baseada no conteúdo real do Flow + padding
+        height: visible ? (keybindFlow.implicitHeight + 14) : 0
+        radius: 6
+        // Cor sólida — sem transparência para não vazar o conteúdo atrás
+        color: root.colorInputBg
+        border.width: 1
+        border.color: Qt.rgba(root.colorDivider.r, root.colorDivider.g,
+                              root.colorDivider.b, 0.40)
+
+        Flow {
+          id: keybindFlow
+          anchors { left: parent.left; right: parent.right; top: parent.top }
+          anchors.leftMargin: 8
+          anchors.rightMargin: 8
+          anchors.topMargin: 7
+          spacing: 6
+
+          Repeater {
+            model: _parsedKeybinds
+            delegate: Row {
+              spacing: 4
+              Rectangle {
+                width: badgeTxt.implicitWidth + 10
+                height: 18
+                radius: 4
+                color: Qt.rgba(root.colorAccent.r, root.colorAccent.g,
+                               root.colorAccent.b, 0.12)
+                border.width: 1
+                border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g,
+                                      root.colorAccent.b, 0.30)
+                Text {
+                  id: badgeTxt
+                  anchors.centerIn: parent
+                  text: {
+                    var parts = []
+                    var m = modelData.mod
+                    if (m & Qt.ControlModifier) parts.push("Ctrl")
+                    if (m & Qt.AltModifier)     parts.push("Alt")
+                    if (m & Qt.ShiftModifier)   parts.push("Shift")
+                    if (m & Qt.MetaModifier)    parts.push("Meta")
+                    var k = modelData.key
+                    parts.push(k.charAt(0).toUpperCase() + k.slice(1))
+                    return parts.join("+")
+                  }
+                  color: root.colorAccent
+                  font { family: "JetBrainsMono Nerd Font"; pixelSize: 9 }
+                }
+              }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: {
+                  var labels = {
+                    "sync": "sync", "search_url": "URL",
+                    "search_folder": "pasta", "copy_totp": "TOTP",
+                    "copy_username": "usuário", "copy_password": "senha",
+                    "copy_uri": "URI", "autotype_all": "autotype",
+                    "autotype_user": "type user", "autotype_pass": "type pass",
+                    "show_details": "detalhes", "lock": "bloquear",
+                    "generate_password": "gerar senha", "create_new": "criar",
+                    "import_totp": "imp. TOTP", "map_totp": "map TOTP",
+                    "remove_totp_map": "rem. TOTP", "delete_totp": "del. TOTP"
+                  }
+                  return labels[modelData.name] || modelData.name
+                }
+                color: root.colorTextDim
+                font { family: "Fira Sans"; pixelSize: 10 }
+                opacity: 0.70
+              }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: index < _parsedKeybinds.length - 1
+                text: "·"
+                color: root.colorDivider
+                font { pixelSize: 10 }
+                opacity: 0.35
+              }
+            }
+          }
+        }
+      }
+
+      ListView {
+        id: listView
+        visible: !root.scriptPassword && !root._freeText
+        anchors {
+          left: parent.left
+          right: parent.right
+          top: parent.top
+          bottom: keybindFooter.visible ? keybindFooter.top : parent.bottom
+          bottomMargin: keybindFooter.visible ? 6 : 0
+        }
+        clip: true; model: root._displayList
+        currentIndex: root._selectedIdx
+        boundsBehavior: Flickable.StopAtBounds; spacing: 1
 
       delegate: Item {
         id: dlg
@@ -497,6 +711,34 @@ Item {
                 font { family: "Fira Sans"; pixelSize: 13; bold: true }
                 opacity: 0.6
                 visible: (dlg.modelData.icon || "") === ""
+              }
+            }
+
+            // Swatch de cor hexadecimal (só modo script, quando a entry começa com #RRGGBB)
+            Item {
+              readonly property string _swatchHex: root._parseHexColor(dlg.modelData.display || "")
+              visible: mode === "script" && _swatchHex !== ""
+              width: visible ? 28 : 0
+              height: 28
+              Layout.alignment: Qt.AlignVCenter
+
+              Rectangle {
+                anchors.centerIn: parent
+                width: 22; height: 22; radius: 5
+                color: parent._swatchHex !== "" ? parent._swatchHex : "transparent"
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.12)
+
+                // Indicador de seleção: borda accent quando o item está selecionado
+                Rectangle {
+                  anchors.fill: parent
+                  anchors.margins: -2
+                  radius: 7
+                  color: "transparent"
+                  border.width: dlg.isSelected ? 2 : 0
+                  border.color: root.colorAccent
+                  Behavior on border.width { NumberAnimation { duration: 80 } }
+                }
               }
             }
 
@@ -569,6 +811,7 @@ Item {
         font { family: "Fira Sans"; pixelSize: 11; italic: true }
         opacity: 0.35
       }
+    }
     }
   }
 }

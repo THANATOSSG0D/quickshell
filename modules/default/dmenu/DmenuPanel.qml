@@ -16,6 +16,8 @@ Bar.BarPopup {
   property string scriptPrompt:   ">"
   property string scriptLabel:    "SCRIPT"
   property string scriptSep:      ""
+  property var    scriptKeybinds: {}
+  property bool   scriptPassword: false
   property var    scriptCallback: null
   property var    backCallback:    null   // chamado quando usuário pressiona Backspace com query vazia
 
@@ -68,6 +70,8 @@ Bar.BarPopup {
     scriptPrompt:  panel.scriptPrompt
     scriptLabel:   panel.scriptLabel
     scriptSep:     panel.scriptSep
+    scriptKeybinds: panel.scriptKeybinds
+    scriptPassword: panel.scriptPassword
 
     colorPanelBg:  panel.colorPanelBg
     colorText:     panel.colorText
@@ -77,36 +81,15 @@ Bar.BarPopup {
     colorDivider:  panel.colorDivider
     colorInputBg:  panel.colorInputBg
 
-    // ── FIX: duplo-callback ───────────────────────────────────────────────
-    //
-    // BUG ORIGINAL (ordem errada):
-    //   panel.panelOpen = false        ← dispara BarPopup.closeRequested() SYNC
-    //   if (!panel._callbackFired) {   ← _callbackFired ainda é false aqui!
-    //     panel._callbackFired = true  ← nunca chega aqui: o onCloseRequested acima
-    //     panel.scriptCallback(selected)  já chamou scriptCallback(null) antes.
-    //   }
-    //
-    // Como acontecia:
-    //   HyprlandFocusGrab.onCleared é emitido sincronamente quando panelOpen
-    //   muda para false → BarPopup.closeRequested() dispara → DmenuPanel.
-    //   onCloseRequested executa → scriptCallback(null) enviado ao cliente.
-    //   O handler original continuava, mas _callbackFired já estava true,
-    //   então scriptCallback(selected) NUNCA era chamado.
-    //   Resultado: o cliente sempre recebia null, main_choice ficava vazio,
-    //   e os submenus nunca eram abertos.
-    //
-    // FIX: marcar _callbackFired = true PRIMEIRO, antes de fechar o painel.
-    //   Assim, quando BarPopup.closeRequested() disparar (dentro de panelOpen=false),
-    //   o guard já está ativo e o segundo callback(null) é descartado.
     onBackRequested: {
       if (panel.backCallback) panel.backCallback()
     }
 
-    onCloseRequested: (selected) => {
+    onCloseRequested: (selected, key) => {
       if (!panel._callbackFired) {
         panel._callbackFired = true           // ← guarda PRIMEIRO
         panel.panelOpen = false               // ← fecha painel (pode emitir closeRequested)
-        if (panel.scriptCallback) panel.scriptCallback(selected)
+        if (panel.scriptCallback) panel.scriptCallback(selected, key || "")
       }
     }
   }

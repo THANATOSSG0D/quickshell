@@ -94,15 +94,17 @@ Item {
           prompt:       msg.prompt        || ">",
           label:        msg.label         || "SCRIPT",
           sep:          msg.sep           || "",
+          keybinds:     msg.keybinds      || {},
+          password:     msg.password      || false,
           fifo:         msg._fifo         || "",
           launchCmd:    "",
           callback:     null   // será preenchido em _pushAndOpen
         }
 
-        if (req.entries.length === 0) {
-          _respondFifo(null, req.fifo)
-          return
-        }
+        // Modo password: entries vazia é válido (campo de texto livre)
+        // Modo text-input livre: entries=[] sem password também abre o painel
+        // Só rejeita se entries=[] E não foi explicitamente solicitado (campo sem modo definido)
+        // — na prática nunca ocorre pois o bwmenu sempre envia entries ou password:true
 
         // Se fechando (cooldown pós-seleção), enfileira para depois
         if (root._closing) {
@@ -182,7 +184,7 @@ Item {
     // Cria o callback de resposta para este nível da pilha
     // (closure captura o índice da pilha para garantir que só responde ao FIFO certo)
     var fifo = req.fifo
-    req.callback = function(selected) {
+    req.callback = function(selected, key) {
       // Remove este item da pilha
       var s = root._stack.slice()
       s.pop()
@@ -191,7 +193,7 @@ Item {
       if (fifo !== "") {
         // Modo script: responde ao FIFO e inicia cooldown
         root._closing = true
-        _respondFifo(selected, fifo)
+        _respondFifo(selected, key || "", fifo)
         if (s.length > 0) {
           // Volta ao nível anterior após o cooldown
           _cooldownTimer.restart()
@@ -235,6 +237,8 @@ Item {
     ipcPanel.scriptPrompt   = req.prompt
     ipcPanel.scriptLabel    = req.label
     ipcPanel.scriptSep      = req.sep
+    ipcPanel.scriptKeybinds = req.keybinds || {}
+    ipcPanel.scriptPassword = req.password || false
     ipcPanel.scriptCallback = req.callback
     ipcPanel.backCallback   = function() { root._goBack() }
 
@@ -259,7 +263,7 @@ Item {
       // Responde null ao FIFO se for modo script
       if (top.fifo !== "") {
         root._closing = true
-        _respondFifo(null, top.fifo)
+        _respondFifo(null, "", top.fifo)
         _cooldownTimer.restart()
       }
       var s = []
@@ -269,7 +273,7 @@ Item {
       // Volta ao nível anterior: descarta o topo sem responder (cancela o subscript)
       if (top.fifo !== "") {
         root._closing = true
-        _respondFifo(null, top.fifo)
+        _respondFifo(null, "", top.fifo)
       }
       var s2 = root._stack.slice(0, root._stack.length - 1)
       root._stack = s2
@@ -287,7 +291,7 @@ Item {
     // Cancela todos os FIFOs pendentes de baixo para cima
     for (var i = root._stack.length - 1; i >= 0; i--) {
       var r = root._stack[i]
-      if (r.fifo !== "") _respondFifo(null, r.fifo)
+      if (r.fifo !== "") _respondFifo(null, "", r.fifo)
     }
     root._stack   = []
     root._closing = false
@@ -298,11 +302,12 @@ Item {
   // ── _respondFifo: escreve o resultado na FIFO exclusiva do request ────────
   Process { id: responseProc; running: false }
 
-  function _respondFifo(selected, fifoPath) {
+  function _respondFifo(selected, key, fifoPath) {
     if (!fifoPath) return
     if (responseProc.running) responseProc.running = false
     var payload = JSON.stringify({
-      selected: (selected !== null && selected !== undefined) ? selected : null
+      selected: (selected !== null && selected !== undefined) ? selected : null,
+      key:      (key      !== null && key      !== undefined) ? key      : ""
     })
     responseProc.command = ["bash", "-c",
       "printf '%s\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(fifoPath)]
