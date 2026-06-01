@@ -1,0 +1,6 @@
+module wallpaper
+WallpaperWindow        1.0 WallpaperWindow.qml
+WallpaperContent       1.0 WallpaperContent.qml
+WallpaperTabWallpapers 1.0 WallpaperTabWallpapers.qml
+WallpaperTabMatugen    1.0 WallpaperTabMatugen.qml
+WallpaperTabProfiles   1.0 WallpaperTabProfiles.qml

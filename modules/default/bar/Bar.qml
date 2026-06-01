@@ -8,6 +8,7 @@ import '../volume'      as VolumeModule
 import '../clock'       as ClockModule
 import '../quicksettings' as QsModule
 import '../notifications' as NotifModule
+import '../wallpaper' as WallModule
 import './themes' as BarThemes
 
 Scope {
@@ -143,6 +144,21 @@ Scope {
     function silenceOn()     { barState.silenceMode = true  }
     function silenceOff()    { barState.silenceMode = false }
     function silenceToggle() { barState.silenceMode = !barState.silenceMode }
+    function toggleWallpaper() { barRoot.wallpaperWindowOpen = !barRoot.wallpaperWindowOpen }
+  }
+
+  // ── Janela de configuração de wallpaper ──────────────────────────────────
+  property bool wallpaperWindowOpen: false
+
+  WallModule.WallpaperWindow {
+    id: wallpaperWin
+    panelOpen:    barRoot.wallpaperWindowOpen
+    colorBg:      barRoot.popupColorBg
+    colorText:    barRoot.popupColorText
+    colorTextDim: barRoot.popupColorTextDim
+    colorAccent:  barRoot.popupColorAccent
+    colorDivider: barRoot.popupColorDivider
+    onCloseRequested: barRoot.wallpaperWindowOpen = false
   }
 
   // ── IPC do dmenu — movido para shell.qml (usa DmenuIpc.openNative) ──────
@@ -275,7 +291,6 @@ Scope {
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
       readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
       readonly property bool volumePanelOpen: activePanel === barRoot.panelVolume
-
       property int  barSize:   barRoot.themeBarSize
       property int  barMargin: barRoot.themeBarMargin
       property bool pill:      barRoot.themePill
