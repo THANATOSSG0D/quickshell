@@ -33,7 +33,9 @@ Item {
   readonly property var tabs: [
     { id: "wallpaper", icon: "\uf03e", label: "Wallpaper" },
     { id: "matugen",   icon: "\uf53f", label: "Matugen"   },
-    { id: "profiles",  icon: "\uf097", label: "Perfis"    }
+    { id: "profiles",  icon: "\uf097", label: "Perfis"    },
+    { id: "history",   icon: "\uf1da", label: "Histórico" },
+    { id: "schedule",  icon: "\uf017", label: "Schedule"  }
   ]
 
   ColumnLayout {
@@ -184,6 +186,33 @@ Item {
         wallSh:       root.wallSh
         wpRun:        root.wpRun
         onRefreshState: function() { _refreshState() }
+      }
+
+      WallpaperTabHistory {
+        anchors.fill: parent
+        visible:      root.activeTab === "history"
+        panelOpen:    root.panelOpen && root.activeTab === "history"
+        colorText:    root.colorText
+        colorTextDim: root.colorTextDim
+        colorAccent:  root.colorAccent
+        colorDivider: root.colorDivider
+        mlScripts:    root.mlScripts
+        wpRun:        root.wpRun
+        onRefreshState: function() { _refreshState() }
+      }
+
+      WallpaperTabSchedule {
+        anchors.fill: parent
+        visible:      root.activeTab === "schedule"
+        panelOpen:    root.panelOpen && root.activeTab === "schedule"
+        colorText:    root.colorText
+        colorTextDim: root.colorTextDim
+        colorAccent:  root.colorAccent
+        colorDivider: root.colorDivider
+        mlScripts:    root.mlScripts
+        effectsDir:   root.effectsDir
+        previewDir:   root.previewDir
+        wpRun:        root.wpRun
       }
     }
   }

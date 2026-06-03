@@ -4,3 +4,5 @@ WallpaperContent       1.0 WallpaperContent.qml
 WallpaperTabWallpapers 1.0 WallpaperTabWallpapers.qml
 WallpaperTabMatugen    1.0 WallpaperTabMatugen.qml
 WallpaperTabProfiles   1.0 WallpaperTabProfiles.qml
+WallpaperTabHistory    1.0 WallpaperTabHistory.qml
+WallpaperTabSchedule   1.0 WallpaperTabSchedule.qml
