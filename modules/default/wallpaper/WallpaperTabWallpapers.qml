@@ -20,6 +20,8 @@ Item {
   signal wallpaperApplied(string src)
   signal engineSelected(string engine)
   signal refreshState()
+  signal wallpaperPicked(string path)          // clique esquerdo — aplicação global
+  signal wallpaperRightClicked(string path, real mouseX, real mouseY)  // clique direito — atribuir a slot
 
   // ── Estado interno ────────────────────────────────────────────────────────
   property var    allEntries:    []
@@ -147,10 +149,6 @@ Item {
   }
 
   // ── Aplicar wallpaper em 2 fases ──────────────────────────────────────────
-  // Fase 1: aplica VISUALMENTE (engine apenas) → feedback imediato ao usuário
-  // Fase 2: pipeline completo via --bg-pipeline → state.json, matugen, history,
-  //         effect previews, lock, blur — tudo correto e sem corrida com o guard
-
   Process {
     id: fastApplyProc
     property string _pendingPath: ""
@@ -159,14 +157,9 @@ Item {
     onRunningChanged: {
       if (!running) {
         fastApplyProc._buf = ""
-        // Fase 1 concluída: atualiza badge imediatamente
         root.currentWallpaper = fastApplyProc._pendingPath
         root.wallpaperApplied(fastApplyProc._pendingPath)
         root.applying = false
-        // Fase 2: pipeline completo em background via --bg-pipeline
-        // --bg-pipeline: pula o guard waypaperrunning e pula a Fase 4 (apply)
-        // garante que state.json, matugen e effect previews sejam escritos
-        // wp-run: double-fork python — sobrevive ao fechar painel
         bgPipelineProc.command = [
           root.wpRun, "--bg-pipeline", fastApplyProc._pendingPath
         ]
@@ -175,8 +168,6 @@ Item {
     }
   }
 
-  // Fase 2: dispara o background pipeline e aguarda lançamento
-  // O processo real roda desacoplado (setsid + &), então este proc termina rápido
   Process {
     id: bgPipelineProc
     property string _buf: ""
@@ -184,15 +175,11 @@ Item {
     onRunningChanged: {
       if (!running) {
         bgPipelineProc._buf = ""
-        // Aguarda o pipeline de background escrever o state antes de relê-lo.
-        // O pipeline faz matugen+state-and-history sequencialmente antes de sair.
-        // ~2.5s é suficiente para matugen+state na prática; aumentar se necessário.
         bgRefreshDelay.restart()
       }
     }
   }
 
-  // Timer: dá tempo ao --bg-pipeline de escrever state.json antes do refreshState
   Timer {
     id: bgRefreshDelay
     interval: 2500
@@ -200,7 +187,6 @@ Item {
     onTriggered: root.refreshState()
   }
 
-  // Lê a engine atual e aplica visualmente via engine direta
   function _engineCmd(path) {
     var e = root.currentEngine
     if (e === "swww")
@@ -211,7 +197,6 @@ Item {
     if (e === "mpvpaper")
       return "pkill -x mpvpaper 2>/dev/null || true; sleep 0.1; " +
              "mpvpaper -o 'no-audio loop-file=inf' '*' '" + path + "' &"
-    // fallback swww
     return "swww img '" + path + "' --transition-type none 2>/dev/null"
   }
 
@@ -220,7 +205,6 @@ Item {
     root.applying = true
     root.applyingPath = path
     fastApplyProc._pendingPath = path
-    // Fase 1: só aplica visualmente
     fastApplyProc.command = ["bash", "-c", root._engineCmd(path)]
     fastApplyProc.running = true
   }
@@ -509,6 +493,20 @@ Item {
                   color: "#1f1f1f"
                 }
               }
+
+              // ── Hint de clique direito (hover) ──────────────────────────
+              Rectangle {
+                anchors { bottom: parent.bottom; left: parent.left; margins: 3 }
+                visible: tileArea.containsMouse && !isCurrent
+                radius: 4; color: Qt.rgba(0,0,0,0.60)
+                width: rcHint.implicitWidth + 8; height: 14
+                Text {
+                  id: rcHint; anchors.centerIn: parent
+                  text: "\uf017 slot"
+                  font { family: "JetBrainsMono Nerd Font"; pixelSize: 7 }
+                  color: root.colorAccent
+                }
+              }
             }
 
             Text {
@@ -525,11 +523,23 @@ Item {
           }
 
           MouseArea {
+            id: tileArea
             anchors.fill: parent; hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
             onEntered: wallpaperGrid.hoveredIdx = index
             onExited:  if (wallpaperGrid.hoveredIdx === index) wallpaperGrid.hoveredIdx = -1
-            onClicked: root._apply(modelData.value.replace(/^file:/, ""))
+            onClicked: function(mouse) {
+              var path = modelData.value.replace(/^file:/, "")
+              if (mouse.button === Qt.RightButton) {
+                // Emite com coordenadas globais para posicionar o menu
+                var gpos = tileArea.mapToGlobal(mouse.x, mouse.y)
+                root.wallpaperRightClicked(path, gpos.x, gpos.y)
+              } else {
+                root.wallpaperPicked(path)
+                root._apply(path)
+              }
+            }
           }
         }
 
