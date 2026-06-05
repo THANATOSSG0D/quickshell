@@ -38,20 +38,49 @@ Item {
     { id: "schedule",  icon: "\uf017", label: "Schedule"  }
   ]
 
-  // ── Estado do menu de contexto ────────────────────────────────────────────
+  // ── Slots para o menu de contexto ─────────────────────────────────────────
+  // Carregados independentemente de a aba Schedule ter sido visitada.
+  property var    _menuSlots: []
   property string _pendingWallpaperPath: ""
 
-  // ── Menu de contexto (clique direito na grade) ────────────────────────────
+  // Processo que lê o JSON de schedule diretamente
+  Process {
+    id: slotsLoadProc
+    property string _buf: ""
+    stdout: SplitParser { onRead: function(l) { slotsLoadProc._buf += l + "\n" } }
+    onRunningChanged: {
+      if (running) return
+      var raw = slotsLoadProc._buf.trim(); slotsLoadProc._buf = ""
+      if (!raw) return
+      try {
+        var d = JSON.parse(raw)
+        root._menuSlots = d.slots || []
+        // Sincroniza com schedTab se já estiver instanciado
+        if (schedTab.slots.length === 0 && root._menuSlots.length > 0)
+          schedTab.slots = root._menuSlots
+      } catch(e) {}
+    }
+  }
+
+  function _loadMenuSlots() {
+    if (slotsLoadProc.running) return
+    slotsLoadProc.command = ["bash", "-c",
+      "cat ~/.config/ml4w/settings/wallpaper-schedule.json 2>/dev/null || echo '{}'"
+    ]
+    slotsLoadProc.running = true
+  }
+
+  // ── Menu de contexto (clique direito na grade de wallpapers) ──────────────
   Menu {
     id: slotContextMenu
 
+    // Cabeçalho — nome do arquivo
     MenuItem {
       enabled: false
       contentItem: Text {
-        text: "\uf03e  " + (root._pendingWallpaperPath !== ""
+        text: "📁  " + (root._pendingWallpaperPath !== ""
           ? root._pendingWallpaperPath.split("/").pop() : "wallpaper")
         font.pixelSize: 9
-        font.family: "JetBrainsMono Nerd Font"
         color: root.colorAccent
         leftPadding: 8
         verticalAlignment: Text.AlignVCenter
@@ -60,26 +89,32 @@ Item {
 
     MenuSeparator {}
 
+    // Slots — usa _menuSlots (sempre carregado) em vez de schedTab.slots
     Repeater {
-      model: schedTab.slots
+      model: root._menuSlots
       delegate: MenuItem {
         contentItem: Text {
           text: {
             var s = modelData
             var h = (s.start !== undefined ? s.start.toString().padStart(2,"0") : "??") + "h"
-            return "\uf017  " + h + "  " + (s.name || "(sem nome)")
+            return "⏰  " + h + "  " + (s.name || "(sem nome)")
           }
           font.pixelSize: 10
           color: root.colorText
           leftPadding: 8
           verticalAlignment: Text.AlignVCenter
         }
-        onTriggered: schedTab.assignWallpaperToSlot(index, root._pendingWallpaperPath)
+        onTriggered: {
+          // Atribui via schedTab se disponível, senão via processo direto
+          if (schedTab.visible || true) {
+            schedTab.assignWallpaperToSlot(index, root._pendingWallpaperPath)
+          }
+        }
       }
     }
 
     MenuItem {
-      visible: schedTab.slots.length === 0
+      visible: root._menuSlots.length === 0
       enabled: false
       contentItem: Text {
         text: "(nenhum slot cadastrado)"
@@ -95,7 +130,7 @@ Item {
 
     MenuItem {
       contentItem: Text {
-        text: "\uf067  Criar novo slot…"
+        text: "＋  Criar novo slot…"
         font.pixelSize: 10
         color: root.colorAccent
         leftPadding: 8
@@ -144,12 +179,7 @@ Item {
       RowLayout {
         Layout.fillWidth: true
         spacing: 8
-        Text {
-          text: "\uf017"
-          font.family: "JetBrainsMono Nerd Font"
-          font.pixelSize: 14
-          color: root.colorAccent
-        }
+        Text { text: "⏰"; font.pixelSize: 14; color: root.colorAccent }
         Text {
           Layout.fillWidth: true
           text: "Novo slot de schedule"
@@ -158,31 +188,22 @@ Item {
         }
       }
 
-      // Preview do wallpaper selecionado
+      // Preview do wallpaper
       Rectangle {
         Layout.fillWidth: true
-        height: 36
-        radius: 8
+        height: 36; radius: 8
         color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.07)
         border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
         border.width: 1
         RowLayout {
           anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
+          anchors.leftMargin: 10; anchors.rightMargin: 10
           spacing: 6
-          Text {
-            text: "\uf15b"
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 10
-            color: root.colorAccent
-          }
+          Text { text: "🖼"; font.pixelSize: 10; color: root.colorAccent }
           Text {
             Layout.fillWidth: true
             text: root._pendingWallpaperPath.split("/").pop()
-            font.pixelSize: 9
-            color: root.colorTextDim
-            elide: Text.ElideLeft
+            font.pixelSize: 9; color: root.colorTextDim; elide: Text.ElideLeft
           }
         }
       }
@@ -190,8 +211,7 @@ Item {
       // Campo nome
       Rectangle {
         Layout.fillWidth: true
-        height: 32
-        radius: 7
+        height: 32; radius: 7
         color: Qt.rgba(1,1,1,0.05)
         border.color: nsNameIn.activeFocus ? root.colorAccent : Qt.rgba(1,1,1,0.12)
         border.width: 1
@@ -199,20 +219,15 @@ Item {
         TextInput {
           id: nsNameIn
           anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
+          anchors.leftMargin: 10; anchors.rightMargin: 10
           verticalAlignment: TextInput.AlignVCenter
-          font.pixelSize: 11
-          color: root.colorText
+          font.pixelSize: 11; color: root.colorText
           text: newSlotPopup.newSlotName
           onTextChanged: newSlotPopup.newSlotName = text
           Text {
-            anchors.fill: parent
-            verticalAlignment: Text.AlignVCenter
-            text: "Nome do slot"
-            font: parent.font
-            color: root.colorTextDim
-            opacity: 0.45
+            anchors.fill: parent; verticalAlignment: Text.AlignVCenter
+            text: "Nome do slot"; font: parent.font
+            color: root.colorTextDim; opacity: 0.45
             visible: parent.text.length === 0 && !parent.activeFocus
           }
         }
@@ -220,53 +235,32 @@ Item {
 
       // Seletor de hora
       RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Text {
-          text: "Hora:"
-          font.pixelSize: 10
-          color: root.colorTextDim
-        }
+        Layout.fillWidth: true; spacing: 8
+        Text { text: "Hora:"; font.pixelSize: 10; color: root.colorTextDim }
         Rectangle {
-          width: 80
-          height: 32
-          radius: 7
+          width: 80; height: 32; radius: 7
           color: Qt.rgba(1,1,1,0.05)
-          border.color: Qt.rgba(1,1,1,0.12)
-          border.width: 1
+          border.color: Qt.rgba(1,1,1,0.12); border.width: 1
           RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 6
-            spacing: 0
+            anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 6; spacing: 0
             Text {
               Layout.fillWidth: true
               text: newSlotPopup.newSlotHour.toString().padStart(2,"0") + ":00"
-              font.pixelSize: 12
-              color: root.colorText
-              horizontalAlignment: Text.AlignHCenter
+              font.pixelSize: 12; color: root.colorText; horizontalAlignment: Text.AlignHCenter
             }
             ColumnLayout {
               spacing: 1
               Text {
-                text: "\uf077"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 8
-                color: root.colorTextDim
+                text: "▲"; font.pixelSize: 8; color: root.colorTextDim
                 MouseArea {
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
+                  anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                   onClicked: newSlotPopup.newSlotHour = (newSlotPopup.newSlotHour + 1) % 24
                 }
               }
               Text {
-                text: "\uf078"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 8
-                color: root.colorTextDim
+                text: "▼"; font.pixelSize: 8; color: root.colorTextDim
                 MouseArea {
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
+                  anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                   onClicked: newSlotPopup.newSlotHour = (newSlotPopup.newSlotHour + 23) % 24
                 }
               }
@@ -278,59 +272,38 @@ Item {
 
       // Botões
       RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
+        Layout.fillWidth: true; spacing: 8
         Item { Layout.fillWidth: true }
         Rectangle {
-          width: 72
-          height: 30
-          radius: 8
+          width: 72; height: 30; radius: 8
           color: nsCancelHov.containsMouse ? Qt.rgba(1,1,1,0.1) : Qt.rgba(1,1,1,0.05)
-          border.color: Qt.rgba(1,1,1,0.1)
-          border.width: 1
+          border.color: Qt.rgba(1,1,1,0.1); border.width: 1
           Behavior on color { ColorAnimation { duration: 100 } }
-          Text {
-            anchors.centerIn: parent
-            text: "Cancelar"
-            font.pixelSize: 10
-            color: root.colorTextDim
-          }
+          Text { anchors.centerIn: parent; text: "Cancelar"; font.pixelSize: 10; color: root.colorTextDim }
           MouseArea {
-            id: nsCancelHov
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
+            id: nsCancelHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
             onClicked: newSlotPopup.close()
           }
         }
         Rectangle {
-          width: 108
-          height: 30
-          radius: 8
+          width: 108; height: 30; radius: 8
           opacity: newSlotPopup.newSlotName.trim() === "" ? 0.4 : 1.0
           Behavior on opacity { NumberAnimation { duration: 120 } }
           color: nsConfirmHov.containsMouse
             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.38)
             : Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.22)
-          border.color: root.colorAccent
-          border.width: 1
+          border.color: root.colorAccent; border.width: 1
           Behavior on color { ColorAnimation { duration: 100 } }
-          Text {
-            anchors.centerIn: parent
-            text: "Criar e atribuir"
-            font.pixelSize: 10
-            color: root.colorAccent
-          }
+          Text { anchors.centerIn: parent; text: "Criar e atribuir"; font.pixelSize: 10; color: root.colorAccent }
           MouseArea {
-            id: nsConfirmHov
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
+            id: nsConfirmHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
             onClicked: {
               var name = newSlotPopup.newSlotName.trim()
               if (name === "") return
               schedTab._addSlotWithWallpaper(name, newSlotPopup.newSlotHour, root._pendingWallpaperPath)
               newSlotPopup.close()
+              // Recarrega a lista do menu após criar
+              Qt.callLater(function() { root._loadMenuSlots() })
             }
           }
         }
@@ -340,26 +313,21 @@ Item {
 
   // ── Layout principal ──────────────────────────────────────────────────────
   ColumnLayout {
-    anchors.fill: parent
-    spacing: 0
+    anchors.fill: parent; spacing: 0
 
     // Barra de abas
     Item {
-      Layout.fillWidth: true
-      height: 50
+      Layout.fillWidth: true; height: 50
 
       RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 16
-        anchors.rightMargin: 12
+        anchors.leftMargin: 16; anchors.rightMargin: 12
         spacing: 0
 
         Text {
-          text: "\uf03e  Wallpaper"
-          font.family: "JetBrainsMono Nerd Font"
+          text: "Wallpaper"
           font.pixelSize: 13
-          color: root.colorAccent
-          opacity: 0.9
+          color: root.colorAccent; opacity: 0.9
         }
 
         Item { Layout.fillWidth: true }
@@ -367,13 +335,11 @@ Item {
         Repeater {
           model: root.tabs
           delegate: Item {
-            width: tabRow.implicitWidth + 24
-            height: 34
+            width: tabRow.implicitWidth + 24; height: 34
             readonly property bool isActive: root.activeTab === modelData.id
 
             Rectangle {
-              anchors.fill: parent
-              radius: 8
+              anchors.fill: parent; radius: 8
               color: isActive
                 ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
                 : (tma.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent")
@@ -381,19 +347,15 @@ Item {
             }
 
             RowLayout {
-              id: tabRow
-              anchors.centerIn: parent
-              spacing: 5
+              id: tabRow; anchors.centerIn: parent; spacing: 5
               Text {
                 text: modelData.icon
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 12
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12
                 color: isActive ? root.colorAccent : root.colorTextDim
                 Behavior on color { ColorAnimation { duration: 120 } }
               }
               Text {
-                text: modelData.label
-                font.pixelSize: 11
+                text: modelData.label; font.pixelSize: 11
                 color: isActive ? root.colorText : root.colorTextDim
                 Behavior on color { ColorAnimation { duration: 120 } }
               }
@@ -401,21 +363,14 @@ Item {
 
             Rectangle {
               anchors.bottom: parent.bottom
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.margins: 4
-              height: 2
-              radius: 1
-              color: root.colorAccent
+              anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 4
+              height: 2; radius: 1; color: root.colorAccent
               opacity: isActive ? 1.0 : 0.0
               Behavior on opacity { NumberAnimation { duration: 140 } }
             }
 
             MouseArea {
-              id: tma
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
+              id: tma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
               onClicked: root.activeTab = modelData.id
             }
           }
@@ -423,45 +378,34 @@ Item {
 
         // Botão fechar
         Item {
-          width: 34
-          height: 34
+          width: 34; height: 34
           Rectangle {
-            anchors.fill: parent
-            radius: 8
+            anchors.fill: parent; radius: 8
             color: cma.containsMouse ? Qt.rgba(1,0.3,0.3,0.15) : "transparent"
             Behavior on color { ColorAnimation { duration: 100 } }
             Text {
-              anchors.centerIn: parent
-              text: "\uf00d"
-              font.family: "JetBrainsMono Nerd Font"
-              font.pixelSize: 12
+              anchors.centerIn: parent; text: "\uf00d"
+              font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12
               color: Qt.rgba(root.colorTextDim.r, root.colorTextDim.g,
                              root.colorTextDim.b, cma.containsMouse ? 1.0 : 0.5)
             }
           }
           MouseArea {
-            id: cma
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
+            id: cma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
             onClicked: root.closeRequested()
           }
         }
       }
 
       Rectangle {
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: 1
-        color: root.colorDivider
-        opacity: 0.5
+        anchors.bottom: parent.bottom; width: parent.width; height: 1
+        color: root.colorDivider; opacity: 0.5
       }
     }
 
     // Conteúdo das abas
     Item {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
+      Layout.fillWidth: true; Layout.fillHeight: true
 
       WallpaperTabWallpapers {
         id: wallTab
@@ -475,13 +419,20 @@ Item {
         mlScripts:        root.mlScripts
         wallSh:           root.wallSh
         wpRun:            root.wpRun
+        effectsDir:       root.effectsDir
         currentWallpaper: root.currentWallpaper
         currentEngine:    root.currentEngine
+        currentEffect:    root.currentEffect
+        currentPalette:   root.currentPalette
+        currentSource:    root.currentSource
+        currentIndex:     root.currentIndex
         onWallpaperApplied:      function(src) { root.currentWallpaper = src }
         onEngineSelected:        function(e)   { root.currentEngine = e }
         onRefreshState:          function()    { _refreshState() }
         onWallpaperRightClicked: function(path, mx, my) {
           root._pendingWallpaperPath = path
+          // Garante que os slots estejam carregados antes de abrir o menu
+          if (root._menuSlots.length === 0) root._loadMenuSlots()
           slotContextMenu.popup(mx, my)
         }
       }
@@ -551,6 +502,8 @@ Item {
         effectsDir:   root.effectsDir
         previewDir:   root.previewDir
         wpRun:        root.wpRun
+        // Sincroniza slots com o menu de contexto quando atualizados
+        onSlotsChanged: root._menuSlots = schedTab.slots
       }
     }
   }
@@ -596,5 +549,10 @@ Item {
     }
   }
 
-  onPanelOpenChanged: { if (panelOpen) _refreshState() }
+  onPanelOpenChanged: {
+    if (panelOpen) {
+      _refreshState()
+      _loadMenuSlots()
+    }
+  }
 }
