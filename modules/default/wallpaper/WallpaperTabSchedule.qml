@@ -480,6 +480,7 @@ Item {
     if (root.running) return
     root.running = true
     actionProc.command = ["bash", "-c",
+      "rm -f \"$HOME/.config/ml4w/cache/schedule-state.json\" && " +
       "bash '" + root.mlScripts + "/wallpaper-schedule.sh' run 2>/dev/null"
     ]
     actionProc.running = true
