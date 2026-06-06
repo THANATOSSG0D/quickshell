@@ -27,11 +27,25 @@ systemctl --user is-active --quiet swaync.service 2>/dev/null \
   && swaync-client -dn 2>/dev/null || true
 timeout 4 bwmenu-hyprland -l 2>/dev/null || true
 
+# Pausa o timer de wallpaper para evitar que swww/hyprpaper acorde o display
+_wp_timer_was_active=0
+if systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null; then
+  _wp_timer_was_active=1
+  systemctl --user stop wallpaper-schedule.timer wallpaper-schedule.service 2>/dev/null || true
+  log "wallpaper-schedule.timer pausado"
+fi
+
 # ── Lock (bloqueante) ─────────────────────────────────────────────────────────
 log "Iniciando..."
 qs -c "$LOCK_DIR"
 log "Desbloqueado"
 
 # ── Pós-unlock ────────────────────────────────────────────────────────────────
+# Reativa o timer de wallpaper se estava ativo
+if [[ $_wp_timer_was_active -eq 1 ]]; then
+  systemctl --user start wallpaper-schedule.timer 2>/dev/null || true
+  log "wallpaper-schedule.timer reativado"
+fi
+
 systemctl --user is-active --quiet swaync.service 2>/dev/null \
   && swaync-client -dn 2>/dev/null || true

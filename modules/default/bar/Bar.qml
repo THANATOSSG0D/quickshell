@@ -43,6 +43,9 @@ Scope {
   // ── Cores dos popups — expostas publicamente para que componentes externos
   // (ex: DmenuIpc no shell.qml) usem exatamente as mesmas cores que o bar,
   // incluindo atualizações automáticas quando o tema muda.
+  // Referência pública ao BarConfig — usada pelo shell.qml para o ConfigWindow
+  readonly property var configRef: barState.config
+
   readonly property color popupColorBg:      barState.config.palettePanelBg
   readonly property color popupColorText:    barState.config.paletteText
   readonly property color popupColorTextDim: barState.config.paletteTextDim

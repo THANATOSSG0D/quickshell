@@ -1,0 +1,9 @@
+module config.components
+CfgScroll      CfgScroll.qml
+CfgDiv         CfgDiv.qml
+CfgSection     CfgSection.qml
+CfgChip        CfgChip.qml
+CfgToggle      CfgToggle.qml
+CfgSlider      CfgSlider.qml
+CfgPalette     CfgPalette.qml
+CfgVolumeSlider CfgVolumeSlider.qml

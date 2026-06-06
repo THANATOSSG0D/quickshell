@@ -10,7 +10,6 @@
         "theme": "Pill"
     },
     "mediaPlayer": {
-        "scrollPauseMs": 1800,
         "scrollSpeed": 40,
         "scrollWidth": 140,
         "textMode": "artistAndTitle"

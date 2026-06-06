@@ -1,0 +1,8 @@
+module config.tabs.bar
+BarTabGeral       BarTabGeral.qml
+BarTabModulos     BarTabModulos.qml
+BarTabWorkspaces  BarTabWorkspaces.qml
+BarTabClock       BarTabClock.qml
+BarTabVolume      BarTabVolume.qml
+BarTabMidia       BarTabMidia.qml
+BarTabPaleta      BarTabPaleta.qml

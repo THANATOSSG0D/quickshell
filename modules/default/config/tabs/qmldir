@@ -1,0 +1,2 @@
+module config.tabs
+BarTab BarTab.qml

@@ -9,7 +9,7 @@ import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
 import './modules/default/powermenu'     as PowerModule
 import './modules/default/dmenu'         as DmenuModule
-// import './modules/default/screenlock'    as LockModule
+import './modules/default/config' as ConfigModule
 
 Scope {
   ClockWidget {}
@@ -93,12 +93,25 @@ Scope {
     id: powerMenu
   }
 
-  // ── Screen Lock ───────────────────────────────────────────────────────────
-  // LockModule.ScreenLock { id: screenLock }
-  // IpcHandler {
-  //   target: "screenLock"
-  //   function lock()     { screenLock.lock()                          }
-  //   function unlock()   { screenLock.unlock()                        }
-  //   function isLocked() { return screenLock.locked ? "true" : "false" }
-  // }
+  property bool configOpen: false
+
+  ConfigModule.ConfigWindow {
+    id: configWin
+    panelOpen:    configOpen
+    config:       bar.configRef          // ver abaixo
+    colorBg:      bar.popupColorBg
+    colorText:    bar.popupColorText
+    colorTextDim: bar.popupColorTextDim
+    colorAccent:  bar.popupColorAccent
+    colorDivider: bar.popupColorDivider
+    onCloseRequested: configOpen = false
+    onSaveRequested:  (opts) => bar.configRef.saveAll(opts)
+  }
+
+  IpcHandler {
+    target: "config"
+    function toggle() { configOpen = !configOpen }
+    function open()   { configOpen = true        }
+    function close()  { configOpen = false       }
+  }
 }

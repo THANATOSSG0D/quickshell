@@ -1,0 +1,26 @@
+{
+    "overrides": {
+        "clkDismissDelayMs": 8000,
+        "mpBgEnabled": false,
+        "pkAccent": "primary",
+        "pkAccentBg": "primary_container",
+        "pkAccentText": "on_primary",
+        "pkBarBg": "surface_container_lowest",
+        "pkBarBgPill": "background",
+        "pkClkAccentColor": "primary",
+        "pkClkDimColor": "on_surface_variant",
+        "pkClkTextColor": "on_surface",
+        "pkDivider": "outline_variant",
+        "pkMpBgColor": "surface_variant",
+        "pkMpBgColorActive": "primary_container",
+        "pkMpDimColor": "on_surface_variant",
+        "pkMpDimColorActive": "on_surface_variant",
+        "pkMpTextColor": "on_surface",
+        "pkMpTextColorActive": "on_primary_container",
+        "pkPanelBg": "surface_container",
+        "pkProgressBg": "outline_variant",
+        "pkProgressFg": "primary",
+        "pkText": "on_surface",
+        "pkTextDim": "on_surface_variant"
+    }
+}
