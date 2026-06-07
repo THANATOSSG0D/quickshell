@@ -47,6 +47,26 @@ Item {
   required property int    localWsSpacing
   required property bool   localWsAddBtn
 
+  // workspace visual
+  required property real   localWsBgOpacity
+  required property real   localWsBgOpacityActive
+  required property real   localWsBgBorderWidthActive
+  required property real   localWsBgPaddingH
+  required property real   localWsBgPaddingV
+  required property real   localWsBgPaddingHActive
+  required property real   localWsBgPaddingVActive
+  required property real   localWsBgRadiusActive
+  required property string pkWsBgColor
+  required property string pkWsBgColorActive
+  required property string pkWsBgBorderColor
+  required property string pkWsBgBorderColorActive
+  required property string pkWsDotColor
+  required property string pkWsDotActiveColor
+  required property string pkWsDotOccupiedColor
+  required property string pkWsDotUrgentColor
+  required property string pkWsIconMonoColor
+  required property string pkWsIconMonoColorActive
+
   // ── Clock ─────────────────────────────────────────────────────────────
   required property string pkClkText
   required property string pkClkDim
@@ -124,11 +144,35 @@ Item {
   Loader {
     anchors.fill: parent; active: root.activeSubtab === 2
     sourceComponent: Bar.BarTabWorkspaces {
-      localWsStyle: root.localWsStyle; localWsSort: root.localWsSort
-      localWsMono: root.localWsMono; localWsSpacing: root.localWsSpacing
-      localWsAddBtn: root.localWsAddBtn
+      // genérico
+      wsStyle: root.localWsStyle; wsIconsSort: root.localWsSort
+      wsIconMonochrome: root.localWsMono; wsIconSpacing: root.localWsSpacing
+      wsShowAddButton: root.localWsAddBtn
+      // visual
+      wsBgOpacity:           root.localWsBgOpacity
+      wsBgOpacityActive:     root.localWsBgOpacityActive
+      wsBgBorderWidthActive: root.localWsBgBorderWidthActive
+      wsBgPaddingH:          root.localWsBgPaddingH
+      wsBgPaddingV:          root.localWsBgPaddingV
+      wsBgPaddingHActive:    root.localWsBgPaddingHActive
+      wsBgPaddingVActive:    root.localWsBgPaddingVActive
+      wsBgRadiusActive:      root.localWsBgRadiusActive
+      // cores
+      pkWsBgColor:             root.pkWsBgColor
+      pkWsBgColorActive:       root.pkWsBgColorActive
+      pkWsBgBorderColor:       root.pkWsBgBorderColor
+      pkWsBgBorderColorActive: root.pkWsBgBorderColorActive
+      pkWsDotColor:            root.pkWsDotColor
+      pkWsDotActiveColor:      root.pkWsDotActiveColor
+      pkWsDotOccupiedColor:    root.pkWsDotOccupiedColor
+      pkWsDotUrgentColor:      root.pkWsDotUrgentColor
+      pkWsIconMonoColor:       root.pkWsIconMonoColor
+      pkWsIconMonoColorActive: root.pkWsIconMonoColorActive
+      // UI
+      colors: root.colors; overlay: root.overlay
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorProgressBg: root.colorProgressBg
+      colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
       onChanged: (opts) => root.changed(opts)
     }
   }

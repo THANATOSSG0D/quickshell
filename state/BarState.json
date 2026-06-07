@@ -21,6 +21,24 @@
         "pkProgressBg": "outline_variant",
         "pkProgressFg": "primary",
         "pkText": "on_surface",
-        "pkTextDim": "on_surface_variant"
+        "pkTextDim": "on_surface_variant",
+        "pkWsBgBorderColor": "on_surface",
+        "pkWsBgBorderColorActive": "primary",
+        "pkWsBgColor": "on_primary_container",
+        "pkWsBgColorActive": "primary_container",
+        "pkWsDotActiveColor": "on_surface",
+        "pkWsDotColor": "on_surface",
+        "pkWsDotOccupiedColor": "on_surface",
+        "pkWsDotUrgentColor": "error",
+        "pkWsIconMonoColor": "on_surface",
+        "pkWsIconMonoColorActive": "primary",
+        "wsBgBorderWidthActive": 0,
+        "wsBgOpacity": 1,
+        "wsBgOpacityActive": 0.4,
+        "wsBgPaddingH": 8,
+        "wsBgPaddingHActive": 6,
+        "wsBgPaddingV": 2,
+        "wsBgPaddingVActive": 2,
+        "wsBgRadiusActive": 99
     }
 }

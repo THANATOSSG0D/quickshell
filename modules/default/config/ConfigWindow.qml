@@ -152,6 +152,26 @@ PanelWindow {
   property int    localWsSpacing: 4
   property bool   localWsAddBtn:  true
 
+  // workspace visual
+  property real   localWsBgOpacity:             0.0
+  property real   localWsBgOpacityActive:       0.85
+  property real   localWsBgBorderWidthActive:   0
+  property real   localWsBgPaddingH:            8
+  property real   localWsBgPaddingV:            2
+  property real   localWsBgPaddingHActive:      6
+  property real   localWsBgPaddingVActive:      2
+  property real   localWsBgRadiusActive:        99
+  property string pkWsBgColor:             "surface_variant"
+  property string pkWsBgColorActive:       "primary_container"
+  property string pkWsBgBorderColor:       "on_surface"
+  property string pkWsBgBorderColorActive: "primary"
+  property string pkWsDotColor:            "on_surface"
+  property string pkWsDotActiveColor:      "on_surface"
+  property string pkWsDotOccupiedColor:    "on_surface"
+  property string pkWsDotUrgentColor:      "error"
+  property string pkWsIconMonoColor:       "on_surface"
+  property string pkWsIconMonoColorActive: "primary"
+
   property string pkClkText:       "on_surface"
   property string pkClkDim:        "on_surface_variant"
   property string pkClkAccent:     "primary"
@@ -210,6 +230,24 @@ PanelWindow {
     localWsMono    = config.wsIconMonochrome !== undefined ? config.wsIconMonochrome : true
     localWsSpacing = config.wsIconSpacing    || 4
     localWsAddBtn  = config.wsShowAddButton  !== undefined ? config.wsShowAddButton  : true
+    localWsBgOpacity             = config.wsBgOpacity           !== undefined ? config.wsBgOpacity           : 0.0
+    localWsBgOpacityActive       = config.wsBgOpacityActive     !== undefined ? config.wsBgOpacityActive     : 0.85
+    localWsBgBorderWidthActive   = config.wsBgBorderWidthActive !== undefined ? config.wsBgBorderWidthActive : 0
+    localWsBgPaddingH            = config.wsBgPaddingH          !== undefined ? config.wsBgPaddingH          : 8
+    localWsBgPaddingV            = config.wsBgPaddingV          !== undefined ? config.wsBgPaddingV          : 2
+    localWsBgPaddingHActive      = config.wsBgPaddingHActive    !== undefined ? config.wsBgPaddingHActive    : 6
+    localWsBgPaddingVActive      = config.wsBgPaddingVActive    !== undefined ? config.wsBgPaddingVActive    : 2
+    localWsBgRadiusActive        = config.wsBgRadiusActive      !== undefined ? config.wsBgRadiusActive      : 99
+    pkWsBgColor             = config.pkWsBgColor             || "surface_variant"
+    pkWsBgColorActive       = config.pkWsBgColorActive       || "primary_container"
+    pkWsBgBorderColor       = config.pkWsBgBorderColor       || "on_surface"
+    pkWsBgBorderColorActive = config.pkWsBgBorderColorActive || "primary"
+    pkWsDotColor            = config.pkWsDotColor            || "on_surface"
+    pkWsDotActiveColor      = config.pkWsDotActiveColor      || "on_surface"
+    pkWsDotOccupiedColor    = config.pkWsDotOccupiedColor    || "on_surface"
+    pkWsDotUrgentColor      = config.pkWsDotUrgentColor      || "error"
+    pkWsIconMonoColor       = config.pkWsIconMonoColor       || "on_surface"
+    pkWsIconMonoColorActive = config.pkWsIconMonoColorActive || "primary"
     pkClkText       = config.pkClkTextColor   || "on_surface"
     pkClkDim        = config.pkClkDimColor    || "on_surface_variant"
     pkClkAccent     = config.pkClkAccentColor || "primary"
@@ -257,14 +295,24 @@ PanelWindow {
         wsStyle:"localWsStyle", wsIconsSort:"localWsSort",
         wsIconMonochrome:"localWsMono", wsIconSpacing:"localWsSpacing",
         wsShowAddButton:"localWsAddBtn",
-        pkClkText:"pkClkText", pkClkDim:"pkClkDim", pkClkAccent:"pkClkAccent",
+        wsBgOpacity:"localWsBgOpacity", wsBgOpacityActive:"localWsBgOpacityActive",
+        wsBgBorderWidthActive:"localWsBgBorderWidthActive",
+        wsBgPaddingH:"localWsBgPaddingH", wsBgPaddingV:"localWsBgPaddingV",
+        wsBgPaddingHActive:"localWsBgPaddingHActive", wsBgPaddingVActive:"localWsBgPaddingVActive",
+        wsBgRadiusActive:"localWsBgRadiusActive",
+        pkWsBgColor:"pkWsBgColor", pkWsBgColorActive:"pkWsBgColorActive",
+        pkWsBgBorderColor:"pkWsBgBorderColor", pkWsBgBorderColorActive:"pkWsBgBorderColorActive",
+        pkWsDotColor:"pkWsDotColor", pkWsDotActiveColor:"pkWsDotActiveColor",
+        pkWsDotOccupiedColor:"pkWsDotOccupiedColor", pkWsDotUrgentColor:"pkWsDotUrgentColor",
+        pkWsIconMonoColor:"pkWsIconMonoColor", pkWsIconMonoColorActive:"pkWsIconMonoColorActive",
+        pkClkTextColor:"pkClkText", pkClkDimColor:"pkClkDim", pkClkAccentColor:"pkClkAccent",
         clkDismissDelayMs:"localClkDismiss",
         volShowSink:"localShowSink", volShowSource:"localShowSource", pkVolMuted:"pkVolMuted",
         mpTextMode:"localMpTextMode", mpScrollSpeed:"localMpScrollSpeed",
         mpScrollWidth:"localMpScrollWidth", mpBgEnabled:"localMpBgEnabled",
-        pkMpBgColor:"pkMpBgColor", pkMpBgActive:"pkMpBgActive",
-        pkMpText:"pkMpText", pkMpDim:"pkMpDim",
-        pkMpTextActive:"pkMpTextActive", pkMpDimActive:"pkMpDimActive",
+        pkMpBgColor:"pkMpBgColor", pkMpBgColorActive:"pkMpBgActive",
+        pkMpTextColor:"pkMpText", pkMpDimColor:"pkMpDim",
+        pkMpTextColorActive:"pkMpTextActive", pkMpDimColorActive:"pkMpDimActive",
         pkBarBg:"pkBarBg", pkBarBgPill:"pkBarBgPill",
         pkText:"pkText", pkTextDim:"pkTextDim",
         pkAccent:"pkAccent", pkAccentBg:"pkAccentBg",
@@ -294,14 +342,24 @@ PanelWindow {
       wsStyle: localWsStyle, wsIconsSort: localWsSort,
       wsIconMonochrome: localWsMono, wsIconSpacing: localWsSpacing,
       wsShowAddButton: localWsAddBtn,
+      wsBgOpacity: localWsBgOpacity, wsBgOpacityActive: localWsBgOpacityActive,
+      wsBgBorderWidthActive: localWsBgBorderWidthActive,
+      wsBgPaddingH: localWsBgPaddingH, wsBgPaddingV: localWsBgPaddingV,
+      wsBgPaddingHActive: localWsBgPaddingHActive, wsBgPaddingVActive: localWsBgPaddingVActive,
+      wsBgRadiusActive: localWsBgRadiusActive,
+      pkWsBgColor: pkWsBgColor, pkWsBgColorActive: pkWsBgColorActive,
+      pkWsBgBorderColor: pkWsBgBorderColor, pkWsBgBorderColorActive: pkWsBgBorderColorActive,
+      pkWsDotColor: pkWsDotColor, pkWsDotActiveColor: pkWsDotActiveColor,
+      pkWsDotOccupiedColor: pkWsDotOccupiedColor, pkWsDotUrgentColor: pkWsDotUrgentColor,
+      pkWsIconMonoColor: pkWsIconMonoColor, pkWsIconMonoColorActive: pkWsIconMonoColorActive,
       pkClkTextColor: pkClkText, pkClkDimColor: pkClkDim,
       pkClkAccentColor: pkClkAccent, clkDismissDelayMs: localClkDismiss,
       volShowSink: localShowSink, volShowSource: localShowSource, pkVolMuted: pkVolMuted,
       mpTextMode: localMpTextMode, mpScrollSpeed: localMpScrollSpeed,
       mpScrollWidth: localMpScrollWidth, mpBgEnabled: localMpBgEnabled,
-      pkMpBgColor: pkMpBgColor, pkMpBgActive: pkMpBgActive,
-      pkMpText: pkMpText, pkMpDim: pkMpDim,
-      pkMpTextActive: pkMpTextActive, pkMpDimActive: pkMpDimActive,
+      pkMpBgColor: pkMpBgColor, pkMpBgColorActive: pkMpBgActive,
+      pkMpTextColor: pkMpText, pkMpDimColor: pkMpDim,
+      pkMpTextColorActive: pkMpTextActive, pkMpDimColorActive: pkMpDimActive,
       pkBarBg: pkBarBg, pkBarBgPill: pkBarBgPill,
       pkText: pkText, pkTextDim: pkTextDim,
       pkAccent: pkAccent, pkAccentBg: pkAccentBg,
@@ -485,6 +543,17 @@ PanelWindow {
               // workspaces
               localWsStyle: win.localWsStyle; localWsSort: win.localWsSort
               localWsMono: win.localWsMono; localWsSpacing: win.localWsSpacing; localWsAddBtn: win.localWsAddBtn
+              // workspace visual
+              localWsBgOpacity: win.localWsBgOpacity; localWsBgOpacityActive: win.localWsBgOpacityActive
+              localWsBgBorderWidthActive: win.localWsBgBorderWidthActive
+              localWsBgPaddingH: win.localWsBgPaddingH; localWsBgPaddingV: win.localWsBgPaddingV
+              localWsBgPaddingHActive: win.localWsBgPaddingHActive; localWsBgPaddingVActive: win.localWsBgPaddingVActive
+              localWsBgRadiusActive: win.localWsBgRadiusActive
+              pkWsBgColor: win.pkWsBgColor; pkWsBgColorActive: win.pkWsBgColorActive
+              pkWsBgBorderColor: win.pkWsBgBorderColor; pkWsBgBorderColorActive: win.pkWsBgBorderColorActive
+              pkWsDotColor: win.pkWsDotColor; pkWsDotActiveColor: win.pkWsDotActiveColor
+              pkWsDotOccupiedColor: win.pkWsDotOccupiedColor; pkWsDotUrgentColor: win.pkWsDotUrgentColor
+              pkWsIconMonoColor: win.pkWsIconMonoColor; pkWsIconMonoColorActive: win.pkWsIconMonoColorActive
               // clock
               pkClkText: win.pkClkText; pkClkDim: win.pkClkDim; pkClkAccent: win.pkClkAccent
               localClkDismiss: win.localClkDismiss
