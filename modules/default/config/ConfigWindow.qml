@@ -208,6 +208,62 @@ PanelWindow {
     interval: 1800; repeat: false; onTriggered: win._savedFlash = false
   }
 
+  // Quando o usuário troca estilo de workspace → relê visuais do novo estilo
+  onLocalWsStyleChanged: Qt.callLater(_reloadWsVisual)
+  // Quando o usuário troca tema → relê todos os visuais do novo tema
+  onLocalThemeChanged:   Qt.callLater(_reloadThemeVisual)
+
+  function _reloadWsVisual() {
+    if (!config) return
+    localWsBgOpacity           = config.wsBgOpacity           !== undefined ? config.wsBgOpacity           : 0.0
+    localWsBgOpacityActive     = config.wsBgOpacityActive     !== undefined ? config.wsBgOpacityActive     : 0.85
+    localWsBgBorderWidthActive = config.wsBgBorderWidthActive !== undefined ? config.wsBgBorderWidthActive : 0
+    localWsBgPaddingH          = config.wsBgPaddingH          !== undefined ? config.wsBgPaddingH          : 8
+    localWsBgPaddingV          = config.wsBgPaddingV          !== undefined ? config.wsBgPaddingV          : 2
+    localWsBgPaddingHActive    = config.wsBgPaddingHActive    !== undefined ? config.wsBgPaddingHActive    : 6
+    localWsBgPaddingVActive    = config.wsBgPaddingVActive    !== undefined ? config.wsBgPaddingVActive    : 2
+    localWsBgRadiusActive      = config.wsBgRadiusActive      !== undefined ? config.wsBgRadiusActive      : 99
+    pkWsBgColor             = config.pkWsBgColor             || "surface_variant"
+    pkWsBgColorActive       = config.pkWsBgColorActive       || "primary_container"
+    pkWsBgBorderColor       = config.pkWsBgBorderColor       || "on_surface"
+    pkWsBgBorderColorActive = config.pkWsBgBorderColorActive || "primary"
+    pkWsDotColor            = config.pkWsDotColor            || "on_surface"
+    pkWsDotActiveColor      = config.pkWsDotActiveColor      || "on_surface"
+    pkWsDotOccupiedColor    = config.pkWsDotOccupiedColor    || "on_surface"
+    pkWsDotUrgentColor      = config.pkWsDotUrgentColor      || "error"
+    pkWsIconMonoColor       = config.pkWsIconMonoColor       || "on_surface"
+    pkWsIconMonoColorActive = config.pkWsIconMonoColorActive || "primary"
+  }
+
+  function _reloadThemeVisual() {
+    if (!config) return
+    pkClkText       = config.pkClkTextColor   || "on_surface"
+    pkClkDim        = config.pkClkDimColor    || "on_surface_variant"
+    pkClkAccent     = config.pkClkAccentColor || "primary"
+    localClkDismiss = config.clkDismissDelayMs || 8000
+    localMpTextMode    = config.mpTextMode    || "artistAndTitle"
+    localMpScrollSpeed = config.mpScrollSpeed || 40
+    localMpScrollWidth = config.mpScrollWidth || 140
+    localMpBgEnabled   = config.mpBgEnabled   !== undefined ? config.mpBgEnabled : false
+    pkMpBgColor    = config.pkMpBgColor         || "surface_variant"
+    pkMpBgActive   = config.pkMpBgColorActive   || "primary_container"
+    pkMpText       = config.pkMpTextColor       || "on_surface"
+    pkMpDim        = config.pkMpDimColor        || "on_surface_variant"
+    pkMpTextActive = config.pkMpTextColorActive || "on_primary_container"
+    pkMpDimActive  = config.pkMpDimColorActive  || "on_surface_variant"
+    pkBarBg      = config.pkBarBg      || "surface_container_lowest"
+    pkBarBgPill  = config.pkBarBgPill  || "background"
+    pkText       = config.pkText       || "on_surface"
+    pkTextDim    = config.pkTextDim    || "on_surface_variant"
+    pkAccent     = config.pkAccent     || "primary"
+    pkAccentBg   = config.pkAccentBg   || "primary_container"
+    pkPanelBg    = config.pkPanelBg    || "surface_container"
+    pkProgressBg = config.pkProgressBg || "outline_variant"
+    pkProgressFg = config.pkProgressFg || "primary"
+    pkDivider    = config.pkDivider    || "outline_variant"
+    _reloadWsVisual()
+  }
+
   // ── _reload ───────────────────────────────────────────────────────────
   function _reload() {
     if (!config) return
@@ -279,15 +335,15 @@ PanelWindow {
 
   // ── _applyOpts — chamado pelos filhos via onChanged ───────────────────
   function _applyOpts(opts) {
+    var themeChanged = opts.theme   !== undefined && opts.theme   !== win.localTheme
+    var styleChanged = opts.wsStyle !== undefined && opts.wsStyle !== win.localWsStyle
     for (var k in opts) {
-      // slots
       if (k === "modulesLeft")   { slotLeft   = opts[k]; continue }
       if (k === "modulesCenter") { slotCenter = opts[k]; continue }
       if (k === "modulesRight")  { slotRight  = opts[k]; continue }
       if (k === "modulesTop")    { slotTop    = opts[k]; continue }
       if (k === "modulesMiddle") { slotMiddle = opts[k]; continue }
       if (k === "modulesBottom") { slotBottom = opts[k]; continue }
-      // restante via mapeamento direto
       var map = {
         theme:"localTheme", position:"localPosition", autoHide:"localAutoHide",
         silence:"localSilence", barSize:"localBarSize", barMargin:"localBarMargin",
@@ -305,14 +361,14 @@ PanelWindow {
         pkWsDotColor:"pkWsDotColor", pkWsDotActiveColor:"pkWsDotActiveColor",
         pkWsDotOccupiedColor:"pkWsDotOccupiedColor", pkWsDotUrgentColor:"pkWsDotUrgentColor",
         pkWsIconMonoColor:"pkWsIconMonoColor", pkWsIconMonoColorActive:"pkWsIconMonoColorActive",
-        pkClkTextColor:"pkClkText", pkClkDimColor:"pkClkDim", pkClkAccentColor:"pkClkAccent",
+        pkClkText:"pkClkText", pkClkDim:"pkClkDim", pkClkAccent:"pkClkAccent",
         clkDismissDelayMs:"localClkDismiss",
         volShowSink:"localShowSink", volShowSource:"localShowSource", pkVolMuted:"pkVolMuted",
         mpTextMode:"localMpTextMode", mpScrollSpeed:"localMpScrollSpeed",
         mpScrollWidth:"localMpScrollWidth", mpBgEnabled:"localMpBgEnabled",
-        pkMpBgColor:"pkMpBgColor", pkMpBgColorActive:"pkMpBgActive",
-        pkMpTextColor:"pkMpText", pkMpDimColor:"pkMpDim",
-        pkMpTextColorActive:"pkMpTextActive", pkMpDimColorActive:"pkMpDimActive",
+        pkMpBgColor:"pkMpBgColor", pkMpBgActive:"pkMpBgActive",
+        pkMpText:"pkMpText", pkMpDim:"pkMpDim",
+        pkMpTextActive:"pkMpTextActive", pkMpDimActive:"pkMpDimActive",
         pkBarBg:"pkBarBg", pkBarBgPill:"pkBarBgPill",
         pkText:"pkText", pkTextDim:"pkTextDim",
         pkAccent:"pkAccent", pkAccentBg:"pkAccentBg",
@@ -322,6 +378,9 @@ PanelWindow {
       if (map[k]) win[map[k]] = opts[k]
     }
     _save()
+    // Após save, BarConfig._wsGet() aponta para o novo estilo/tema → relemos o painel
+    if (styleChanged) Qt.callLater(_reloadWsVisual)
+    if (themeChanged) Qt.callLater(_reloadThemeVisual)
   }
 
   // ── _save ─────────────────────────────────────────────────────────────

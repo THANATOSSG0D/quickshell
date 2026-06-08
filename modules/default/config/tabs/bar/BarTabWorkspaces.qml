@@ -12,7 +12,7 @@ C.CfgScroll {
   required property int    wsIconSpacing
   required property bool   wsShowAddButton
 
-  // ── Visual ────────────────────────────────────────────────────────────
+  // ── Visual (lidos do estilo ativo via BarConfig._wsGet) ───────────────
   required property real   wsBgOpacity
   required property real   wsBgOpacityActive
   required property real   wsBgBorderWidthActive
@@ -22,7 +22,7 @@ C.CfgScroll {
   required property real   wsBgPaddingVActive
   required property real   wsBgRadiusActive
 
-  // ── Cores (chave de paleta) ───────────────────────────────────────────
+  // ── Cores do estilo ativo ─────────────────────────────────────────────
   required property string pkWsBgColor
   required property string pkWsBgColorActive
   required property string pkWsBgBorderColor
@@ -34,7 +34,7 @@ C.CfgScroll {
   required property string pkWsIconMonoColor
   required property string pkWsIconMonoColorActive
 
-  // ── Tema / cores UI ───────────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────
   required property var    colors
   required property color  colorAccent
   required property color  colorTextDim
@@ -46,26 +46,30 @@ C.CfgScroll {
 
   signal changed(var opts)
 
-  // ═══════════════════════════════════════════════
+  // helpers de visibilidade por estilo
+  readonly property bool _hasIcons: wsStyle === "icons" || wsStyle === "hybrid"
+  readonly property bool _hasDots:  wsStyle === "dots"  || wsStyle === "hybrid"
+
+  // ════════════════════════════════════════════════
   // ESTILO
-  // ═══════════════════════════════════════════════
+  // ════════════════════════════════════════════════
   C.CfgSection { title: "ESTILO"; colorTextDim: root.colorTextDim }
 
   Row {
     spacing: 6
     Repeater {
       model: [
-        { id: "dots",   label: "Pontos"   },
-        { id: "icons",  label: "Ícones"   },
-        { id: "hybrid", label: "Híbrido"  },
-        { id: "number", label: "Número"   },
+        { id: "dots",   label: "Pontos"  },
+        { id: "icons",  label: "Ícones"  },
+        { id: "hybrid", label: "Híbrido" },
+        { id: "number", label: "Número"  },
       ]
       delegate: C.CfgChip {
         required property var modelData
-        label:        modelData.label
-        active:       root.wsStyle === modelData.id
-        colorAccent:  root.colorAccent
-        colorTextDim: root.colorTextDim
+        label:         modelData.label
+        active:        root.wsStyle === modelData.id
+        colorAccent:   root.colorAccent
+        colorTextDim:  root.colorTextDim
         onChipClicked: root.changed({ wsStyle: modelData.id })
       }
     }
@@ -73,12 +77,16 @@ C.CfgScroll {
 
   C.CfgDiv { colorDivider: root.colorDivider }
 
-  // ═══════════════════════════════════════════════
-  // ÍCONES (só quando style = icons ou hybrid)
-  // ═══════════════════════════════════════════════
-  C.CfgSection { title: "ÍCONES"; colorTextDim: root.colorTextDim }
+  // ════════════════════════════════════════════════
+  // ÍCONES — só icons e hybrid
+  // ════════════════════════════════════════════════
+  C.CfgSection {
+    visible: root._hasIcons
+    title: "ÍCONES"; colorTextDim: root.colorTextDim
+  }
 
   C.CfgToggle {
+    visible:      root._hasIcons
     label:        "Monocromático"
     checked:      root.wsIconMonochrome
     colorAccent:  root.colorAccent
@@ -87,18 +95,24 @@ C.CfgScroll {
   }
 
   C.CfgSlider {
-    label:          "Espaçamento"
-    value:          root.wsIconSpacing
+    visible:         root._hasIcons
+    label:           "Espaçamento"
+    value:           root.wsIconSpacing
     from: 0; to: 16; step: 1; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsIconSpacing: v })
   }
 
-  C.CfgSection { title: "ORDENAÇÃO"; colorTextDim: root.colorTextDim }
+  C.CfgSection {
+    visible: root._hasIcons
+    title: "ORDENAÇÃO"; colorTextDim: root.colorTextDim
+  }
+
   Row {
+    visible: root._hasIcons
     spacing: 6
     Repeater {
       model: [
@@ -107,122 +121,122 @@ C.CfgScroll {
       ]
       delegate: C.CfgChip {
         required property var modelData
-        label:        modelData.label
-        active:       root.wsIconsSort === modelData.id
-        colorAccent:  root.colorAccent
-        colorTextDim: root.colorTextDim
+        label:         modelData.label
+        active:        root.wsIconsSort === modelData.id
+        colorAccent:   root.colorAccent
+        colorTextDim:  root.colorTextDim
         onChipClicked: root.changed({ wsIconsSort: modelData.id })
       }
     }
   }
 
-  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgDiv { visible: root._hasIcons; colorDivider: root.colorDivider }
 
-  // ═══════════════════════════════════════════════
-  // FUNDO GLOBAL
-  // ═══════════════════════════════════════════════
-  C.CfgSection { title: "FUNDO GLOBAL"; colorTextDim: root.colorTextDim }
+  // ════════════════════════════════════════════════
+  // FUNDO — todos os estilos
+  // ════════════════════════════════════════════════
+  C.CfgSection { title: "FUNDO"; colorTextDim: root.colorTextDim }
 
   C.CfgSlider {
-    label:          "Opacidade"
-    value:          Math.round(root.wsBgOpacity * 100)
+    label:           "Opacidade"
+    value:           Math.round(root.wsBgOpacity * 100)
     from: 0; to: 100; step: 5; unit: "%"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgOpacity: v / 100 })
   }
 
   C.CfgSlider {
-    label:          "Padding H"
-    value:          root.wsBgPaddingH
+    label:           "Padding H"
+    value:           root.wsBgPaddingH
     from: 0; to: 32; step: 2; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgPaddingH: v })
   }
 
   C.CfgSlider {
-    label:          "Padding V"
-    value:          root.wsBgPaddingV
+    label:           "Padding V"
+    value:           root.wsBgPaddingV
     from: 0; to: 20; step: 1; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgPaddingV: v })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
 
-  // ═══════════════════════════════════════════════
-  // WORKSPACE ATIVA
-  // ═══════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // WORKSPACE ATIVA — todos os estilos
+  // ════════════════════════════════════════════════
   C.CfgSection { title: "ATIVA"; colorTextDim: root.colorTextDim }
 
   C.CfgSlider {
-    label:          "Opacidade fundo"
-    value:          Math.round(root.wsBgOpacityActive * 100)
+    label:           "Opacidade fundo"
+    value:           Math.round(root.wsBgOpacityActive * 100)
     from: 0; to: 100; step: 5; unit: "%"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgOpacityActive: v / 100 })
   }
 
   C.CfgSlider {
-    label:          "Raio"
-    value:          root.wsBgRadiusActive
+    label:           "Raio"
+    value:           root.wsBgRadiusActive
     from: 0; to: 99; step: 1; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgRadiusActive: v })
   }
 
   C.CfgSlider {
-    label:          "Padding H ativa"
-    value:          root.wsBgPaddingHActive
+    label:           "Padding H"
+    value:           root.wsBgPaddingHActive
     from: 0; to: 32; step: 2; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgPaddingHActive: v })
   }
 
   C.CfgSlider {
-    label:          "Padding V ativa"
-    value:          root.wsBgPaddingVActive
+    label:           "Padding V"
+    value:           root.wsBgPaddingVActive
     from: 0; to: 20; step: 1; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgPaddingVActive: v })
   }
 
   C.CfgSlider {
-    label:          "Borda ativa"
-    value:          root.wsBgBorderWidthActive
+    label:           "Borda"
+    value:           root.wsBgBorderWidthActive
     from: 0; to: 4; step: 1; unit: "px"
-    colorAccent:    root.colorAccent
-    colorTextDim:   root.colorTextDim
-    colorText:      root.colorText
+    colorAccent:     root.colorAccent
+    colorTextDim:    root.colorTextDim
+    colorText:       root.colorText
     colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ wsBgBorderWidthActive: v })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
 
-  // ═══════════════════════════════════════════════
-  // BOTÃO +
-  // ═══════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // BOTÃO + — comum a todos
+  // ════════════════════════════════════════════════
   C.CfgSection { title: "BOTÃO +"; colorTextDim: root.colorTextDim }
 
   C.CfgToggle {
@@ -235,85 +249,103 @@ C.CfgScroll {
 
   C.CfgDiv { colorDivider: root.colorDivider }
 
-  // ═══════════════════════════════════════════════
-  // CORES
-  // ═══════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // CORES — FUNDO (todos os estilos)
+  // ════════════════════════════════════════════════
   C.CfgSection { title: "CORES — FUNDO"; colorTextDim: root.colorTextDim }
 
   C.CfgPalette {
-    label: "Fundo global"; value: root.pkWsBgColor
+    label: "Fundo"; value: root.pkWsBgColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsBgColor →", v); root.changed({ pkWsBgColor: v }) }
+    onEdited: (v) => root.changed({ pkWsBgColor: v })
   }
   C.CfgPalette {
     label: "Fundo ativa"; value: root.pkWsBgColorActive
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsBgColorActive →", v); root.changed({ pkWsBgColorActive: v }) }
+    onEdited: (v) => root.changed({ pkWsBgColorActive: v })
   }
   C.CfgPalette {
-    label: "Borda global"; value: root.pkWsBgBorderColor
+    label: "Borda"; value: root.pkWsBgBorderColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsBgBorderColor →", v); root.changed({ pkWsBgBorderColor: v }) }
+    onEdited: (v) => root.changed({ pkWsBgBorderColor: v })
   }
   C.CfgPalette {
     label: "Borda ativa"; value: root.pkWsBgBorderColorActive
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsBgBorderColorActive →", v); root.changed({ pkWsBgBorderColorActive: v }) }
+    onEdited: (v) => root.changed({ pkWsBgBorderColorActive: v })
   }
 
-  C.CfgSection { title: "CORES — PONTOS"; colorTextDim: root.colorTextDim }
+  // ════════════════════════════════════════════════
+  // CORES — PONTOS (dots e hybrid)
+  // ════════════════════════════════════════════════
+  C.CfgSection {
+    visible: root._hasDots
+    title: "CORES — PONTOS"; colorTextDim: root.colorTextDim
+  }
 
   C.CfgPalette {
+    visible: root._hasDots
     label: "Vazio"; value: root.pkWsDotColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsDotColor →", v); root.changed({ pkWsDotColor: v }) }
+    onEdited: (v) => root.changed({ pkWsDotColor: v })
   }
   C.CfgPalette {
+    visible: root._hasDots
     label: "Ativo"; value: root.pkWsDotActiveColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsDotActiveColor →", v); root.changed({ pkWsDotActiveColor: v }) }
+    onEdited: (v) => root.changed({ pkWsDotActiveColor: v })
   }
   C.CfgPalette {
+    visible: root._hasDots
     label: "Ocupado"; value: root.pkWsDotOccupiedColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsDotOccupiedColor →", v); root.changed({ pkWsDotOccupiedColor: v }) }
+    onEdited: (v) => root.changed({ pkWsDotOccupiedColor: v })
   }
   C.CfgPalette {
+    visible: root._hasDots
     label: "Urgente"; value: root.pkWsDotUrgentColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsDotUrgentColor →", v); root.changed({ pkWsDotUrgentColor: v }) }
+    onEdited: (v) => root.changed({ pkWsDotUrgentColor: v })
   }
 
-  C.CfgSection { title: "CORES — ÍCONES MONO"; colorTextDim: root.colorTextDim }
+  // ════════════════════════════════════════════════
+  // CORES — ÍCONES MONO (icons e hybrid)
+  // ════════════════════════════════════════════════
+  C.CfgSection {
+    visible: root._hasIcons
+    title: "CORES — ÍCONES"; colorTextDim: root.colorTextDim
+  }
 
   C.CfgPalette {
-    label: "Ícone inativo"; value: root.pkWsIconMonoColor
+    visible: root._hasIcons
+    label: "Ícone"; value: root.pkWsIconMonoColor
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsIconMonoColor →", v); root.changed({ pkWsIconMonoColor: v }) }
+    onEdited: (v) => root.changed({ pkWsIconMonoColor: v })
   }
   C.CfgPalette {
+    visible: root._hasIcons
     label: "Ícone ativo"; value: root.pkWsIconMonoColorActive
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => { console.log("[BarTabWs] pkWsIconMonoColorActive →", v); root.changed({ pkWsIconMonoColorActive: v }) }
+    onEdited: (v) => root.changed({ pkWsIconMonoColorActive: v })
   }
 }
