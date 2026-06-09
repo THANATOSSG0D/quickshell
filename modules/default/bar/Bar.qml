@@ -221,16 +221,18 @@ Scope {
       WlrLayershell.layer: WlrLayershell.Top
       focusable: false
       exclusionMode: ExclusionMode.Normal
-      exclusiveZone: barState.autoHide ? 0 : barRoot.themeBarSize
+      exclusiveZone: (!barState._configReady || barState.autoHide) ? 0 : barRoot.themeBarSize
       aboveWindows:  false
 
       readonly property int _pos: barRoot.position
+      readonly property bool _ready: barState._configReady
 
-      // Mesmos anchors que a barra visual
-      anchors.top:    _pos === 1 || _pos === 2 || _pos === 4
-      anchors.bottom: _pos === 3 || _pos === 2 || _pos === 4
-      anchors.left:   _pos === 1 || _pos === 3 || _pos === 4
-      anchors.right:  _pos === 1 || _pos === 3 || _pos === 2
+      // Mesmos anchors que a barra visual — aguarda _configReady para não
+      // alocar espaço na posição padrão (3=bottom) antes do JSON carregar.
+      anchors.top:    _ready && (_pos === 1 || _pos === 2 || _pos === 4)
+      anchors.bottom: _ready && (_pos === 3 || _pos === 2 || _pos === 4)
+      anchors.left:   _ready && (_pos === 1 || _pos === 3 || _pos === 4)
+      anchors.right:  _ready && (_pos === 1 || _pos === 3 || _pos === 2)
 
       // Tamanho mínimo — exclusiveZone é explícito, tamanho não importa para a zona
       implicitWidth:  (_pos === 2 || _pos === 4) ? barRoot.themeBarSize : 1
@@ -321,7 +323,7 @@ Scope {
         return Math.max(0, Math.floor((screen.width - effectivePillWidth) / 2))
       }
 
-      property bool themeLoaded: barRoot.themeBarSize > 0
+      property bool themeLoaded: barRoot.themeBarSize > 0 && barState._configReady
 
       anchors.top:    themeLoaded ? (position === 1 || position === 2 || position === 4) : false
       anchors.bottom: themeLoaded ? (position === 3 || position === 2 || position === 4) : false
@@ -341,6 +343,20 @@ Scope {
 
       property bool animating:    true
       property real marginOffset: 0
+
+      // Suprime animação quando _configReady muda de false→true.
+      // Nesse momento os anchors saltam da posição padrão (3=bottom)
+      // para a posição real do JSON — sem este guard, o PanelWindow
+      // animaria a transição de posição no startup.
+      // Espelha _configReady numa propriedade sem underscore para garantir
+      // que o signal Changed seja gerado corretamente pelo Qt.
+      property bool cfgReady: barState._configReady
+      onCfgReadyChanged: {
+        if (cfgReady) {
+          animating = false
+          Qt.callLater(function() { animating = true })
+        }
+      }
 
       Behavior on marginOffset {
         enabled: bar.animating
