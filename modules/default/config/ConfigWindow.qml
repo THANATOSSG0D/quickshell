@@ -4,30 +4,22 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
+import qs
 import './tabs' as Tabs
-import '../../../' as Root  // Para acessar Colors singleton diretamente
 
 // ── ConfigWindow ──────────────────────────────────────────────────────────────
 // Janela de configuração global do shell.
 //
-// shell.qml:
-//   import './modules/default/config' as ConfigModule
-//   property bool configOpen: false
+// API mínima no shell.qml:
 //   ConfigModule.ConfigWindow {
 //     panelOpen:        configOpen
-//     config:           bar.configRef
+//     config:           bar.configRef   // BarConfig instance
 //     colors:           Colors
-//     colorBg:          bar.popupColorBg
-//     colorText:        bar.popupColorText
-//     colorTextDim:     bar.popupColorTextDim
-//     colorAccent:      bar.popupColorAccent
-//     colorDivider:     bar.popupColorDivider
 //     onCloseRequested: configOpen = false
-//     onSaveRequested:  (opts) => bar.configRef.saveAll(opts)
 //   }
-//   IpcHandler { target: "config"
-//     function toggle() { configOpen = !configOpen }
-//   }
+//
+// Os tabs recebem `config` e `colors` diretamente e usam config.get/set.
+// Não há estado local de módulos — cada tab lê e escreve diretamente.
 
 PanelWindow {
   id: win
@@ -35,31 +27,28 @@ PanelWindow {
   // ── API pública ───────────────────────────────────────────────────────
   property bool panelOpen: false
   property var  config:    null
-  property var  colors:    null   // Colors singleton — pode ser passado pelo shell.qml
-  // Resolve colors: usa o passado externamente ou importa direto
-  readonly property var _effectiveColors: colors !== null ? colors : (Root.Colors !== undefined ? Root.Colors : null)
+  property var  colors:    null
 
-  property color colorBg:         "#1e1e2e"
-  property color colorSidebar:    "#181825"
-  property color colorSubbar:     "#1a1a2a"
-  property color colorText:       "#cdd6f4"
-  property color colorTextDim:    "#6c7086"
-  property color colorAccent:     "#cba6f7"
-  property color colorDivider:    "#313244"
-  property color colorProgressBg: "#313244"
-  property color colorSuccess:    "#a6e3a1"
-  property color colorError:      "#f38ba8"
+  readonly property var _effectiveColors: colors
+
+  // Cores do painel — lidas do config quando disponível, fallback hardcoded
+  readonly property color colorBg:         config ? config.palettePanelBg                            : "#1e1e2e"
+  readonly property color colorSidebar:    config ? Qt.darker(config.palettePanelBg, 1.18)           : "#181825"
+  readonly property color colorSubbar:     config ? Qt.darker(config.palettePanelBg, 1.08)           : "#1a1a2a"
+  readonly property color colorText:       config ? config.paletteText                               : "#cdd6f4"
+  readonly property color colorTextDim:    config ? config.paletteTextDim                            : "#6c7086"
+  readonly property color colorAccent:     config ? config.paletteAccent                             : "#cba6f7"
+  readonly property color colorDivider:    config ? config.paletteDivider                            : "#313244"
+  readonly property color colorProgressBg: config ? config.paletteProgressBg                         : "#313244"
+  readonly property color colorSuccess:    _effectiveColors ? _effectiveColors.tertiary              : "#a6e3a1"
+  readonly property color colorError:      _effectiveColors ? _effectiveColors.error                 : "#f38ba8"
+  readonly property color colorSideline:   config ? config.paletteAccent                             : "#cba6f7"
 
   signal closeRequested()
-  signal saveRequested(var opts)
 
-  // ── Geometria / animação ──────────────────────────────────────────────
+  // ── Geometria ─────────────────────────────────────────────────────────
   readonly property int winW: 920
   readonly property int winH: 640
-
-  property real _anim:    0.0
-  property bool _alive:   false
-  property bool _closing: false
 
   visible:        _alive
   color:          "transparent"
@@ -75,12 +64,16 @@ PanelWindow {
   margins.left:   screen ? Math.max(0, Math.floor((screen.width  - winW) / 2)) : 0
   margins.right:  screen ? Math.max(0, Math.floor((screen.width  - winW) / 2)) : 0
 
+  // ── Animação ──────────────────────────────────────────────────────────
+  property real _anim:    0.0
+  property bool _alive:   false
+  property bool _closing: false
+
   onPanelOpenChanged: {
     if (panelOpen) {
       _closing = false; _alive = true
       _unmapTimer.stop(); _safetyTimer.stop(); closeAnim.stop()
       openAnim.from = _anim; openAnim.to = 1.0; openAnim.start()
-      if (config && config.configLoaded) _reload()
     } else {
       _closing = true; openAnim.stop()
       closeAnim.from = _anim; closeAnim.to = 0.0; closeAnim.start()
@@ -94,339 +87,64 @@ PanelWindow {
   Timer { id: _unmapTimer;  interval: 17;  onTriggered: { if (win._closing) { win._alive = false; win._closing = false } } }
   Timer { id: _safetyTimer; interval: 440; onTriggered: { if (!win.panelOpen) { win._alive = false; win._closing = false; _unmapTimer.stop() } } }
 
-  Component.onCompleted: {
-    console.log("[ConfigWindow] colors prop:", win.colors)
-    console.log("[ConfigWindow] _effectiveColors:", win._effectiveColors)
-    Qt.callLater(function() {
-      console.log("[ConfigWindow] delayed colors:", win.colors, "| effective:", win._effectiveColors)
-      if (win._effectiveColors)
-        console.log("[ConfigWindow] colors.primary:", win._effectiveColors.primary)
-    })
-  }
-
   HyprlandFocusGrab {
     windows: [win]; active: win.panelOpen
     onCleared: win.closeRequested()
   }
 
-  // ── Módulo / subaba ───────────────────────────────────────────────────
+  // ── Navegação ─────────────────────────────────────────────────────────
   property int activeModule: 0
   property var subtabState:  ({})
 
   function subtab(mod) { return subtabState[mod] !== undefined ? subtabState[mod] : 0 }
   function setSubtab(mod, idx) {
-    var o = {} for (var k in subtabState) o[k] = subtabState[k]; o[mod] = idx; subtabState = o
+    var o = {}
+    for (var k in subtabState) o[k] = subtabState[k]
+    o[mod] = idx
+    subtabState = o
   }
 
+  // Definição dos módulos e suas subabas
   readonly property var modules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
-      subtabs: ["Geral","Módulos","Workspaces","Clock","Volume","Mídia","Paleta"] },
+      subtabs: ["Geral", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações", "Paleta"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",  subtabs: [] },
     { id: "widgets",    icon: "\uf2d2", label: "Widgets",    subtabs: [] },
     { id: "dmenu",      icon: "\uf0ca", label: "Dmenu",      subtabs: [] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 
-  // ══════════════════════════════════════════════════════════════════════
-  // Estado local — Barra
-  // ══════════════════════════════════════════════════════════════════════
-  property string localTheme:          "Pill"
-  property int    localPosition:       3
-  property bool   localAutoHide:       true
-  property bool   localSilence:        false
-  property int    localBarSize:        30
-  property int    localBarMargin:      3
-  property int    localPillWidth:      800
-  property int    localPillMinSpacing: 20
-
-  property var slotLeft:   []
-  property var slotCenter: []
-  property var slotRight:  []
-  property var slotTop:    []
-  property var slotMiddle: []
-  property var slotBottom: []
-
-  property string localWsStyle:   "icons"
-  property string localWsSort:    "position"
-  property bool   localWsMono:    true
-  property int    localWsSpacing: 4
-  property bool   localWsAddBtn:  true
-
-  // workspace visual
-  property real   localWsBgOpacity:             0.0
-  property real   localWsBgOpacityActive:       0.85
-  property real   localWsBgBorderWidthActive:   0
-  property real   localWsBgPaddingH:            8
-  property real   localWsBgPaddingV:            2
-  property real   localWsBgPaddingHActive:      6
-  property real   localWsBgPaddingVActive:      2
-  property real   localWsBgRadiusActive:        99
-  property string pkWsBgColor:             "surface_variant"
-  property string pkWsBgColorActive:       "primary_container"
-  property string pkWsBgBorderColor:       "on_surface"
-  property string pkWsBgBorderColorActive: "primary"
-  property string pkWsDotColor:            "on_surface"
-  property string pkWsDotActiveColor:      "on_surface"
-  property string pkWsDotOccupiedColor:    "on_surface"
-  property string pkWsDotUrgentColor:      "error"
-  property string pkWsIconMonoColor:       "on_surface"
-  property string pkWsIconMonoColorActive: "primary"
-
-  property string pkClkText:       "on_surface"
-  property string pkClkDim:        "on_surface_variant"
-  property string pkClkAccent:     "primary"
-  property int    localClkDismiss: 8000
-
-  property bool   localShowSink:   true
-  property bool   localShowSource: true
-  property string pkVolMuted:      "error"
-
-  property string localMpTextMode:    "artistAndTitle"
-  property int    localMpScrollSpeed: 40
-  property int    localMpScrollWidth: 140
-  property bool   localMpBgEnabled:   false
-  property string pkMpBgColor:       "surface_variant"
-  property string pkMpBgActive:      "primary_container"
-  property string pkMpText:          "on_surface"
-  property string pkMpDim:           "on_surface_variant"
-  property string pkMpTextActive:    "on_primary_container"
-  property string pkMpDimActive:     "on_surface_variant"
-
-  property string pkBarBg:      "surface_container_lowest"
-  property string pkBarBgPill:  "background"
-  property string pkText:       "on_surface"
-  property string pkTextDim:    "on_surface_variant"
-  property string pkAccent:     "primary"
-  property string pkAccentBg:   "primary_container"
-  property string pkPanelBg:    "surface_container"
-  property string pkProgressBg: "outline_variant"
-  property string pkProgressFg: "primary"
-  property string pkDivider:    "outline_variant"
-
+  // ── Flash de salvo ────────────────────────────────────────────────────
   property bool _savedFlash: false
-  property var  _savedTimer: Timer {
-    interval: 1800; repeat: false; onTriggered: win._savedFlash = false
-  }
+  Timer { id: _savedTimer; interval: 1800; repeat: false; onTriggered: win._savedFlash = false }
 
-  // Quando o usuário troca estilo de workspace → relê visuais do novo estilo
-  onLocalWsStyleChanged: Qt.callLater(_reloadWsVisual)
-  // Quando o usuário troca tema → relê todos os visuais do novo tema
-  onLocalThemeChanged:   Qt.callLater(_reloadThemeVisual)
-
-  function _reloadWsVisual() {
+  // Chamado pelos tabs ao mudar qualquer prop de módulo
+  function applyChange(opts) {
     if (!config) return
-    localWsBgOpacity           = config.wsBgOpacity           !== undefined ? config.wsBgOpacity           : 0.0
-    localWsBgOpacityActive     = config.wsBgOpacityActive     !== undefined ? config.wsBgOpacityActive     : 0.85
-    localWsBgBorderWidthActive = config.wsBgBorderWidthActive !== undefined ? config.wsBgBorderWidthActive : 0
-    localWsBgPaddingH          = config.wsBgPaddingH          !== undefined ? config.wsBgPaddingH          : 8
-    localWsBgPaddingV          = config.wsBgPaddingV          !== undefined ? config.wsBgPaddingV          : 2
-    localWsBgPaddingHActive    = config.wsBgPaddingHActive    !== undefined ? config.wsBgPaddingHActive    : 6
-    localWsBgPaddingVActive    = config.wsBgPaddingVActive    !== undefined ? config.wsBgPaddingVActive    : 2
-    localWsBgRadiusActive      = config.wsBgRadiusActive      !== undefined ? config.wsBgRadiusActive      : 99
-    pkWsBgColor             = config.pkWsBgColor             || "surface_variant"
-    pkWsBgColorActive       = config.pkWsBgColorActive       || "primary_container"
-    pkWsBgBorderColor       = config.pkWsBgBorderColor       || "on_surface"
-    pkWsBgBorderColorActive = config.pkWsBgBorderColorActive || "primary"
-    pkWsDotColor            = config.pkWsDotColor            || "on_surface"
-    pkWsDotActiveColor      = config.pkWsDotActiveColor      || "on_surface"
-    pkWsDotOccupiedColor    = config.pkWsDotOccupiedColor    || "on_surface"
-    pkWsDotUrgentColor      = config.pkWsDotUrgentColor      || "error"
-    pkWsIconMonoColor       = config.pkWsIconMonoColor       || "on_surface"
-    pkWsIconMonoColorActive = config.pkWsIconMonoColorActive || "primary"
-  }
-
-  function _reloadThemeVisual() {
-    if (!config) return
-    pkClkText       = config.pkClkTextColor   || "on_surface"
-    pkClkDim        = config.pkClkDimColor    || "on_surface_variant"
-    pkClkAccent     = config.pkClkAccentColor || "primary"
-    localClkDismiss = config.clkDismissDelayMs || 8000
-    localMpTextMode    = config.mpTextMode    || "artistAndTitle"
-    localMpScrollSpeed = config.mpScrollSpeed || 40
-    localMpScrollWidth = config.mpScrollWidth || 140
-    localMpBgEnabled   = config.mpBgEnabled   !== undefined ? config.mpBgEnabled : false
-    pkMpBgColor    = config.pkMpBgColor         || "surface_variant"
-    pkMpBgActive   = config.pkMpBgColorActive   || "primary_container"
-    pkMpText       = config.pkMpTextColor       || "on_surface"
-    pkMpDim        = config.pkMpDimColor        || "on_surface_variant"
-    pkMpTextActive = config.pkMpTextColorActive || "on_primary_container"
-    pkMpDimActive  = config.pkMpDimColorActive  || "on_surface_variant"
-    pkBarBg      = config.pkBarBg      || "surface_container_lowest"
-    pkBarBgPill  = config.pkBarBgPill  || "background"
-    pkText       = config.pkText       || "on_surface"
-    pkTextDim    = config.pkTextDim    || "on_surface_variant"
-    pkAccent     = config.pkAccent     || "primary"
-    pkAccentBg   = config.pkAccentBg   || "primary_container"
-    pkPanelBg    = config.pkPanelBg    || "surface_container"
-    pkProgressBg = config.pkProgressBg || "outline_variant"
-    pkProgressFg = config.pkProgressFg || "primary"
-    pkDivider    = config.pkDivider    || "outline_variant"
-    _reloadWsVisual()
-  }
-
-  // ── _reload ───────────────────────────────────────────────────────────
-  function _reload() {
-    if (!config) return
-    localTheme          = config.theme          || "Pill"
-    localPosition       = config.position       || 3
-    localAutoHide       = config.autoHide       !== undefined ? config.autoHide    : true
-    localSilence        = config.silenceMode    !== undefined ? config.silenceMode : false
-    localBarSize        = config.barSize        || 30
-    localBarMargin      = config.barMargin      !== undefined ? config.barMargin   : 3
-    localPillWidth      = config.pillWidth      || 800
-    localPillMinSpacing = config.pillMinSpacing !== undefined ? config.pillMinSpacing : 20
-    slotLeft   = (config.modulesLeft   || []).slice()
-    slotCenter = (config.modulesCenter || []).slice()
-    slotRight  = (config.modulesRight  || []).slice()
-    slotTop    = (config.modulesTop    || []).slice()
-    slotMiddle = (config.modulesMiddle || []).slice()
-    slotBottom = (config.modulesBottom || []).slice()
-    localWsStyle   = config.wsStyle          || "icons"
-    localWsSort    = config.wsIconsSort      || "position"
-    localWsMono    = config.wsIconMonochrome !== undefined ? config.wsIconMonochrome : true
-    localWsSpacing = config.wsIconSpacing    || 4
-    localWsAddBtn  = config.wsShowAddButton  !== undefined ? config.wsShowAddButton  : true
-    localWsBgOpacity             = config.wsBgOpacity           !== undefined ? config.wsBgOpacity           : 0.0
-    localWsBgOpacityActive       = config.wsBgOpacityActive     !== undefined ? config.wsBgOpacityActive     : 0.85
-    localWsBgBorderWidthActive   = config.wsBgBorderWidthActive !== undefined ? config.wsBgBorderWidthActive : 0
-    localWsBgPaddingH            = config.wsBgPaddingH          !== undefined ? config.wsBgPaddingH          : 8
-    localWsBgPaddingV            = config.wsBgPaddingV          !== undefined ? config.wsBgPaddingV          : 2
-    localWsBgPaddingHActive      = config.wsBgPaddingHActive    !== undefined ? config.wsBgPaddingHActive    : 6
-    localWsBgPaddingVActive      = config.wsBgPaddingVActive    !== undefined ? config.wsBgPaddingVActive    : 2
-    localWsBgRadiusActive        = config.wsBgRadiusActive      !== undefined ? config.wsBgRadiusActive      : 99
-    pkWsBgColor             = config.pkWsBgColor             || "surface_variant"
-    pkWsBgColorActive       = config.pkWsBgColorActive       || "primary_container"
-    pkWsBgBorderColor       = config.pkWsBgBorderColor       || "on_surface"
-    pkWsBgBorderColorActive = config.pkWsBgBorderColorActive || "primary"
-    pkWsDotColor            = config.pkWsDotColor            || "on_surface"
-    pkWsDotActiveColor      = config.pkWsDotActiveColor      || "on_surface"
-    pkWsDotOccupiedColor    = config.pkWsDotOccupiedColor    || "on_surface"
-    pkWsDotUrgentColor      = config.pkWsDotUrgentColor      || "error"
-    pkWsIconMonoColor       = config.pkWsIconMonoColor       || "on_surface"
-    pkWsIconMonoColorActive = config.pkWsIconMonoColorActive || "primary"
-    pkClkText       = config.pkClkTextColor   || "on_surface"
-    pkClkDim        = config.pkClkDimColor    || "on_surface_variant"
-    pkClkAccent     = config.pkClkAccentColor || "primary"
-    localClkDismiss = config.clkDismissDelayMs || 8000
-    localShowSink   = config.volShowSink   !== undefined ? config.volShowSink   : true
-    localShowSource = config.volShowSource !== undefined ? config.volShowSource : true
-    pkVolMuted      = config.pkVolMuted    || "error"
-    localMpTextMode    = config.mpTextMode    || "artistAndTitle"
-    localMpScrollSpeed = config.mpScrollSpeed || 40
-    localMpScrollWidth = config.mpScrollWidth || 140
-    localMpBgEnabled   = config.mpBgEnabled   !== undefined ? config.mpBgEnabled : false
-    pkMpBgColor    = config.pkMpBgColor        || "surface_variant"
-    pkMpBgActive   = config.pkMpBgColorActive  || "primary_container"
-    pkMpText       = config.pkMpTextColor       || "on_surface"
-    pkMpDim        = config.pkMpDimColor        || "on_surface_variant"
-    pkMpTextActive = config.pkMpTextColorActive || "on_primary_container"
-    pkMpDimActive  = config.pkMpDimColorActive  || "on_surface_variant"
-    pkBarBg      = config.pkBarBg      || "surface_container_lowest"
-    pkBarBgPill  = config.pkBarBgPill  || "background"
-    pkText       = config.pkText       || "on_surface"
-    pkTextDim    = config.pkTextDim    || "on_surface_variant"
-    pkAccent     = config.pkAccent     || "primary"
-    pkAccentBg   = config.pkAccentBg   || "primary_container"
-    pkPanelBg    = config.pkPanelBg    || "surface_container"
-    pkProgressBg = config.pkProgressBg || "outline_variant"
-    pkProgressFg = config.pkProgressFg || "primary"
-    pkDivider    = config.pkDivider    || "outline_variant"
-  }
-
-  // ── _applyOpts — chamado pelos filhos via onChanged ───────────────────
-  function _applyOpts(opts) {
-    var themeChanged = opts.theme   !== undefined && opts.theme   !== win.localTheme
-    var styleChanged = opts.wsStyle !== undefined && opts.wsStyle !== win.localWsStyle
-    for (var k in opts) {
-      if (k === "modulesLeft")   { slotLeft   = opts[k]; continue }
-      if (k === "modulesCenter") { slotCenter = opts[k]; continue }
-      if (k === "modulesRight")  { slotRight  = opts[k]; continue }
-      if (k === "modulesTop")    { slotTop    = opts[k]; continue }
-      if (k === "modulesMiddle") { slotMiddle = opts[k]; continue }
-      if (k === "modulesBottom") { slotBottom = opts[k]; continue }
-      var map = {
-        theme:"localTheme", position:"localPosition", autoHide:"localAutoHide",
-        silence:"localSilence", barSize:"localBarSize", barMargin:"localBarMargin",
-        pillWidth:"localPillWidth", pillMinSpacing:"localPillMinSpacing",
-        wsStyle:"localWsStyle", wsIconsSort:"localWsSort",
-        wsIconMonochrome:"localWsMono", wsIconSpacing:"localWsSpacing",
-        wsShowAddButton:"localWsAddBtn",
-        wsBgOpacity:"localWsBgOpacity", wsBgOpacityActive:"localWsBgOpacityActive",
-        wsBgBorderWidthActive:"localWsBgBorderWidthActive",
-        wsBgPaddingH:"localWsBgPaddingH", wsBgPaddingV:"localWsBgPaddingV",
-        wsBgPaddingHActive:"localWsBgPaddingHActive", wsBgPaddingVActive:"localWsBgPaddingVActive",
-        wsBgRadiusActive:"localWsBgRadiusActive",
-        pkWsBgColor:"pkWsBgColor", pkWsBgColorActive:"pkWsBgColorActive",
-        pkWsBgBorderColor:"pkWsBgBorderColor", pkWsBgBorderColorActive:"pkWsBgBorderColorActive",
-        pkWsDotColor:"pkWsDotColor", pkWsDotActiveColor:"pkWsDotActiveColor",
-        pkWsDotOccupiedColor:"pkWsDotOccupiedColor", pkWsDotUrgentColor:"pkWsDotUrgentColor",
-        pkWsIconMonoColor:"pkWsIconMonoColor", pkWsIconMonoColorActive:"pkWsIconMonoColorActive",
-        pkClkText:"pkClkText", pkClkDim:"pkClkDim", pkClkAccent:"pkClkAccent",
-        clkDismissDelayMs:"localClkDismiss",
-        volShowSink:"localShowSink", volShowSource:"localShowSource", pkVolMuted:"pkVolMuted",
-        mpTextMode:"localMpTextMode", mpScrollSpeed:"localMpScrollSpeed",
-        mpScrollWidth:"localMpScrollWidth", mpBgEnabled:"localMpBgEnabled",
-        pkMpBgColor:"pkMpBgColor", pkMpBgActive:"pkMpBgActive",
-        pkMpText:"pkMpText", pkMpDim:"pkMpDim",
-        pkMpTextActive:"pkMpTextActive", pkMpDimActive:"pkMpDimActive",
-        pkBarBg:"pkBarBg", pkBarBgPill:"pkBarBgPill",
-        pkText:"pkText", pkTextDim:"pkTextDim",
-        pkAccent:"pkAccent", pkAccentBg:"pkAccentBg",
-        pkPanelBg:"pkPanelBg", pkProgressBg:"pkProgressBg",
-        pkProgressFg:"pkProgressFg", pkDivider:"pkDivider",
-      }
-      if (map[k]) win[map[k]] = opts[k]
-    }
-    _save()
-    // Após save, BarConfig._wsGet() aponta para o novo estilo/tema → relemos o painel
-    if (styleChanged) Qt.callLater(_reloadWsVisual)
-    if (themeChanged) Qt.callLater(_reloadThemeVisual)
-  }
-
-  // ── _save ─────────────────────────────────────────────────────────────
-  function _save() {
-    if (!config) return
-    var isH = localPosition === 1 || localPosition === 3
-    win.saveRequested({
-      theme: localTheme, position: localPosition,
-      autoHide: localAutoHide, silence: localSilence,
-      barSize: localBarSize, barMargin: localBarMargin,
-      pillWidth: localPillWidth, pillMinSpacing: localPillMinSpacing,
-      modulesLeft:   isH ? slotLeft   : (config.modulesLeft   || []).slice(),
-      modulesCenter: isH ? slotCenter : (config.modulesCenter || []).slice(),
-      modulesRight:  isH ? slotRight  : (config.modulesRight  || []).slice(),
-      modulesTop:    isH ? (config.modulesTop    || []).slice() : slotTop,
-      modulesMiddle: isH ? (config.modulesMiddle || []).slice() : slotMiddle,
-      modulesBottom: isH ? (config.modulesBottom || []).slice() : slotBottom,
-      wsStyle: localWsStyle, wsIconsSort: localWsSort,
-      wsIconMonochrome: localWsMono, wsIconSpacing: localWsSpacing,
-      wsShowAddButton: localWsAddBtn,
-      wsBgOpacity: localWsBgOpacity, wsBgOpacityActive: localWsBgOpacityActive,
-      wsBgBorderWidthActive: localWsBgBorderWidthActive,
-      wsBgPaddingH: localWsBgPaddingH, wsBgPaddingV: localWsBgPaddingV,
-      wsBgPaddingHActive: localWsBgPaddingHActive, wsBgPaddingVActive: localWsBgPaddingVActive,
-      wsBgRadiusActive: localWsBgRadiusActive,
-      pkWsBgColor: pkWsBgColor, pkWsBgColorActive: pkWsBgColorActive,
-      pkWsBgBorderColor: pkWsBgBorderColor, pkWsBgBorderColorActive: pkWsBgBorderColorActive,
-      pkWsDotColor: pkWsDotColor, pkWsDotActiveColor: pkWsDotActiveColor,
-      pkWsDotOccupiedColor: pkWsDotOccupiedColor, pkWsDotUrgentColor: pkWsDotUrgentColor,
-      pkWsIconMonoColor: pkWsIconMonoColor, pkWsIconMonoColorActive: pkWsIconMonoColorActive,
-      pkClkTextColor: pkClkText, pkClkDimColor: pkClkDim,
-      pkClkAccentColor: pkClkAccent, clkDismissDelayMs: localClkDismiss,
-      volShowSink: localShowSink, volShowSource: localShowSource, pkVolMuted: pkVolMuted,
-      mpTextMode: localMpTextMode, mpScrollSpeed: localMpScrollSpeed,
-      mpScrollWidth: localMpScrollWidth, mpBgEnabled: localMpBgEnabled,
-      pkMpBgColor: pkMpBgColor, pkMpBgColorActive: pkMpBgActive,
-      pkMpTextColor: pkMpText, pkMpDimColor: pkMpDim,
-      pkMpTextColorActive: pkMpTextActive, pkMpDimColorActive: pkMpDimActive,
-      pkBarBg: pkBarBg, pkBarBgPill: pkBarBgPill,
-      pkText: pkText, pkTextDim: pkTextDim,
-      pkAccent: pkAccent, pkAccentBg: pkAccentBg,
-      pkPanelBg: pkPanelBg, pkProgressBg: pkProgressBg,
-      pkProgressFg: pkProgressFg, pkDivider: pkDivider,
-    })
+    config.set(opts.moduleId, opts.key, opts.value, opts.style || null)
     _savedFlash = true; _savedTimer.restart()
   }
+
+  // Chamado pelos tabs ao mudar props estruturais (tema, posição, módulos)
+  function applyStructural(opts) {
+    if (!config) return
+    config.saveAll(opts)
+    _savedFlash = true; _savedTimer.restart()
+  }
+
+  // Props comuns passadas a todos os tabs
+  readonly property var _tabProps: ({
+    config:          win.config,
+    overlay:         popupOverlay,
+    colors:          win._effectiveColors,
+    colorAccent:     win.colorAccent,
+    colorTextDim:    win.colorTextDim,
+    colorText:       win.colorText,
+    colorDivider:    win.colorDivider,
+    colorSidebar:    win.colorSidebar,
+    colorProgressBg: win.colorProgressBg,
+    colorError:      win.colorError,
+  })
 
   // ══════════════════════════════════════════════════════════════════════
   // UI
@@ -434,113 +152,186 @@ PanelWindow {
   Rectangle {
     id: mainRect
     anchors.fill: parent; radius: 16; clip: true
-    opacity:      Math.min(1.0, win._anim * 1.4)
-    transform:    Translate { y: 12 * (1.0 - win._anim) }
-    color:        Qt.rgba(win.colorBg.r, win.colorBg.g, win.colorBg.b, 0.97)
+    opacity:   Math.min(1.0, win._anim * 1.4)
+    transform: Translate { y: 12 * (1.0 - win._anim) }
+    color:     Qt.rgba(win.colorBg.r, win.colorBg.g, win.colorBg.b, 0.97)
     border.color: Qt.rgba(win.colorDivider.r, win.colorDivider.g, win.colorDivider.b, 0.5)
     border.width: 1
-    layer.enabled: true
 
     RowLayout {
-      anchors.fill: parent
-      spacing: 0
+      anchors.fill: parent; spacing: 0
 
-      // ── Sidebar ────────────────────────────────────────────────────
+      // ── Sidebar ──────────────────────────────────────────────────────
       Rectangle {
-        Layout.preferredWidth: 158; Layout.fillHeight: true
-        color: win.colorSidebar; radius: 16
-        Rectangle { anchors { top: parent.top; bottom: parent.bottom; right: parent.right }
-          width: 16; color: win.colorSidebar }
+        Layout.preferredWidth: 148
+        Layout.fillHeight:     true
+        color:                 win.colorSidebar
+
+        // Canto direito quadrado para colar no conteúdo
+        Rectangle {
+          anchors { top: parent.top; right: parent.right; bottom: parent.bottom }
+          width: 12; color: parent.color
+        }
 
         ColumnLayout {
-          anchors { fill: parent; margins: 12 }
-          spacing: 2
+          anchors { fill: parent; topMargin: 16; bottomMargin: 12 }
+          spacing: 0
 
-          // Título
-          RowLayout {
-            Layout.fillWidth: true; spacing: 8
-            Text { text: "\uf085"; color: win.colorAccent; font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font" }
-            Text { text: "Shell Config"; color: win.colorText; font.pixelSize: 11; font.weight: Font.Medium }
-            Item { Layout.fillWidth: true }
-            Rectangle { width: 18; height: 18; radius: 9
-              color: xhov.containsMouse ? Qt.rgba(1,0.3,0.3,0.15) : "transparent"
-              Text { anchors.centerIn: parent; text: "\uf00d"; color: win.colorTextDim; font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font" }
-              MouseArea { id: xhov; anchors.fill: parent; hoverEnabled: true; onClicked: win.closeRequested() }
-            }
+          // Logo / título
+          Row {
+            Layout.leftMargin: 16; Layout.bottomMargin: 16; spacing: 8
+            Text { text: "\uf013"; color: win.colorAccent; font.pixelSize: 16
+              font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "Configurações"; color: win.colorText; font.pixelSize: 12
+              font.weight: Font.SemiBold; anchors.verticalCenter: parent.verticalCenter }
           }
 
-          Rectangle { Layout.fillWidth: true; height: 1
+          // Divisor
+          Rectangle { Layout.fillWidth: true; height: 1; Layout.leftMargin: 12; Layout.rightMargin: 12
             color: Qt.rgba(win.colorDivider.r, win.colorDivider.g, win.colorDivider.b, 0.5)
-            Layout.topMargin: 4; Layout.bottomMargin: 6 }
+            Layout.bottomMargin: 8 }
 
-          // Módulos
+          // Itens de módulo
           Repeater {
             model: win.modules
-            delegate: Rectangle {
-              required property var modelData; required property int index
+            delegate: Item {
+              required property var modelData
+              required property int index
+              Layout.fillWidth: true; height: 38
               readonly property bool active: win.activeModule === index
-              Layout.fillWidth: true; height: 36; radius: 7
-              color: active ? Qt.rgba(win.colorAccent.r,win.colorAccent.g,win.colorAccent.b,0.15)
-                   : (mhov.containsMouse ? Qt.rgba(1,1,1,0.05) : "transparent")
-              border.color: active ? Qt.rgba(win.colorAccent.r,win.colorAccent.g,win.colorAccent.b,0.35) : "transparent"
-              border.width: 1
-              Behavior on color        { ColorAnimation { duration: 80 } }
-              Behavior on border.color { ColorAnimation { duration: 80 } }
-              Row { anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter } spacing: 9
-                Text { text: modelData.icon; font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
-                  color: parent.parent.active ? win.colorAccent : win.colorTextDim
-                  Behavior on color { ColorAnimation { duration: 80 } }
-                  anchors.verticalCenter: parent.verticalCenter }
-                Text { text: modelData.label; font.pixelSize: 11
-                  color: parent.parent.active ? win.colorText : win.colorTextDim
-                  Behavior on color { ColorAnimation { duration: 80 } }
-                  anchors.verticalCenter: parent.verticalCenter }
+
+              Rectangle {
+                anchors { fill: parent; leftMargin: 8; rightMargin: 8; topMargin: 2; bottomMargin: 2 }
+                radius: 8
+                color: parent.active
+                  ? Qt.rgba(win.colorAccent.r, win.colorAccent.g, win.colorAccent.b, 0.15)
+                  : mhov.containsMouse ? Qt.rgba(1,1,1,0.05) : "transparent"
+                Behavior on color { ColorAnimation { duration: 100 } }
+
+                // Linha lateral de acento
+                Rectangle {
+                  anchors { left: parent.left; top: parent.top; bottom: parent.bottom; topMargin: 6; bottomMargin: 6 }
+                  width: 3; radius: 2
+                  color: win.colorAccent
+                  opacity: parent.parent.active ? 1 : 0
+                  Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+
+                Row {
+                  anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 14 }
+                  spacing: 10
+                  Text {
+                    text: parent.parent.parent.modelData.icon
+                    color: parent.parent.parent.active ? win.colorAccent : win.colorTextDim
+                    font.pixelSize: 14; font.family: "JetBrainsMono Nerd Font"
+                    anchors.verticalCenter: parent.verticalCenter
+                    Behavior on color { ColorAnimation { duration: 100 } }
+                  }
+                  Text {
+                    text: parent.parent.parent.modelData.label
+                    color: parent.parent.parent.active ? win.colorText : win.colorTextDim
+                    font.pixelSize: 11; font.weight: Font.Medium
+                    anchors.verticalCenter: parent.verticalCenter
+                    Behavior on color { ColorAnimation { duration: 100 } }
+                  }
+                }
               }
-              MouseArea { id: mhov; anchors.fill: parent; hoverEnabled: true; onClicked: win.activeModule = index }
+              MouseArea { id: mhov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: win.activeModule = index }
             }
           }
 
           Item { Layout.fillHeight: true }
 
-          // Salvo
+          // Indicador de salvo
           Rectangle {
-            Layout.fillWidth: true; height: 24; radius: 6; visible: win._savedFlash
-            color:        Qt.rgba(win.colorSuccess.r,win.colorSuccess.g,win.colorSuccess.b,0.12)
-            border.color: Qt.rgba(win.colorSuccess.r,win.colorSuccess.g,win.colorSuccess.b,0.35)
+            Layout.fillWidth: true; height: 28
+            Layout.leftMargin: 8; Layout.rightMargin: 8; radius: 8
+            visible: win._savedFlash
+            color:   Qt.rgba(win.colorSuccess.r, win.colorSuccess.g, win.colorSuccess.b, 0.12)
+            border.color: Qt.rgba(win.colorSuccess.r, win.colorSuccess.g, win.colorSuccess.b, 0.3)
             border.width: 1
-            Row { anchors.centerIn: parent; spacing: 5
-              Text { text: "\uf00c"; color: win.colorSuccess; font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font" }
-              Text { text: "Salvo"; color: win.colorSuccess; font.pixelSize: 10 }
+            Row { anchors.centerIn: parent; spacing: 6
+              Text { text: "\uf00c"; color: win.colorSuccess; font.pixelSize: 9
+                font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "Salvo"; color: win.colorSuccess; font.pixelSize: 10
+                anchors.verticalCenter: parent.verticalCenter }
             }
+          }
+
+          // Botão fechar
+          Item {
+            Layout.fillWidth: true; height: 34; Layout.topMargin: 4
+
+            Rectangle {
+              anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
+              radius: 8
+              color: closeHov.containsMouse ? Qt.rgba(win.colorError.r, win.colorError.g, win.colorError.b, 0.15)
+                                            : Qt.rgba(1,1,1,0.03)
+              border.color: Qt.rgba(win.colorDivider.r, win.colorDivider.g, win.colorDivider.b, 0.4)
+              border.width: 1
+              Behavior on color { ColorAnimation { duration: 100 } }
+
+              Row { anchors.centerIn: parent; spacing: 8
+                Text { text: "\uf00d"; color: closeHov.containsMouse ? win.colorError : win.colorTextDim
+                  font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter
+                  Behavior on color { ColorAnimation { duration: 100 } } }
+                Text { text: "Fechar"; color: closeHov.containsMouse ? win.colorError : win.colorTextDim
+                  font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter
+                  Behavior on color { ColorAnimation { duration: 100 } } }
+              }
+            }
+            MouseArea { id: closeHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+              onClicked: win.closeRequested() }
           }
         }
       }
 
-      // ── Área direita ───────────────────────────────────────────────
+      // ── Área principal ────────────────────────────────────────────────
       ColumnLayout {
         Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
 
         // Barra de subabas
         Rectangle {
-          Layout.fillWidth: true; height: 42; color: win.colorSubbar
-          Rectangle { anchors { top: parent.top; right: parent.right } width: 16; height: 16; color: win.colorSubbar
-            Rectangle { anchors.fill: parent; radius: 16; color: win.colorBg } }
+          Layout.fillWidth: true; height: 44
+          color: win.colorSubbar
+
+          // Canto superior direito arredondado
+          Rectangle {
+            anchors { top: parent.top; right: parent.right }
+            width: 16; height: 16; color: win.colorSubbar
+            Rectangle { anchors.fill: parent; radius: 16; color: win.colorBg }
+          }
 
           RowLayout {
-            anchors { fill: parent; leftMargin: 14; rightMargin: 12 } spacing: 0
+            anchors { fill: parent; leftMargin: 16; rightMargin: 12 }
+            spacing: 0
 
+            // Subabas do módulo ativo
             Repeater {
-              model: win.activeModule < win.modules.length ? win.modules[win.activeModule].subtabs : []
+              model: win.activeModule < win.modules.length
+                     ? win.modules[win.activeModule].subtabs : []
               delegate: Item {
-                required property string modelData; required property int index
-                readonly property bool active: win.subtab(win.activeModule) === index
-                height: 42; width: stLbl.implicitWidth + 22
-                Rectangle { anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+                required property string modelData
+                required property int    index
+                readonly property bool   active: win.subtab(win.activeModule) === index
+                height: 44
+                width:  stLbl.implicitWidth + 24
+
+                // Underline de acento
+                Rectangle {
+                  anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
                   height: 2; radius: 1; color: win.colorAccent
-                  opacity: parent.active ? 1 : 0; Behavior on opacity { NumberAnimation { duration: 120 } } }
-                Text { id: stLbl; anchors.centerIn: parent; text: modelData; font.pixelSize: 11
+                  opacity: parent.active ? 1 : 0
+                  Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+
+                Text {
+                  id: stLbl; anchors.centerIn: parent; text: parent.modelData
+                  font.pixelSize: 11; font.weight: parent.active ? Font.SemiBold : Font.Normal
                   color: parent.active ? win.colorText : win.colorTextDim
-                  Behavior on color { ColorAnimation { duration: 80 } } }
+                  Behavior on color { ColorAnimation { duration: 80 } }
+                }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                   onClicked: win.setSubtab(win.activeModule, index) }
               }
@@ -548,104 +339,267 @@ PanelWindow {
 
             Item { Layout.fillWidth: true }
 
-            // Reset (só barra)
+            // Botão Padrão (só para barra)
             Rectangle {
               visible: win.activeModule === 0
-              height: 26; width: rstLbl.implicitWidth + 16; radius: 6
+              height: 28; width: rstLbl.implicitWidth + 18; radius: 6
               color: rstHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
               Behavior on color { ColorAnimation { duration: 80 } }
-              Text { id: rstLbl; anchors.centerIn: parent; text: "\uf0e2  Padrão"
-                color: win.colorTextDim; font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font" }
-              MouseArea { id: rstHov; anchors.fill: parent; hoverEnabled: true
+              Row { anchors.centerIn: parent; spacing: 6
+                Text { text: "\uf0e2"; color: win.colorTextDim; font.pixelSize: 10
+                  font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+                Text { id: rstLbl; text: "Padrão"; color: win.colorTextDim; font.pixelSize: 10
+                  anchors.verticalCenter: parent.verticalCenter }
+              }
+              MouseArea { id: rstHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                  win.localTheme = "Pill"; win.localPosition = 3
-                  win.localAutoHide = true; win.localSilence = false
-                  win.localBarSize = 30; win.localBarMargin = 3
-                  win.localPillWidth = 800; win.localPillMinSpacing = 20
-                  win.slotLeft = ["mediaplayer"]; win.slotCenter = ["workspaces"]
-                  win.slotRight = ["quicksettings","separator","clock","separator","volume"]
-                  win.slotTop = ["mediaplayer"]; win.slotMiddle = ["workspaces"]
-                  win.slotBottom = ["quicksettings","separator","clock","separator","volume"]
-                  win._save()
+                  if (!win.config) return
+                  win.config.saveAll({
+                    theme: "Pill", position: 3, autoHide: true, silence: false,
+                    barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
+                    modulesLeft:   ["mediaplayer","separator","quicksettings"],
+                    modulesCenter: ["workspaces"],
+                    modulesRight:  ["clock","separator","volume","separator","notifications"],
+                    modulesTop:    ["mediaplayer","separator","quicksettings"],
+                    modulesMiddle: ["workspaces"],
+                    modulesBottom: ["clock","separator","volume","separator","notifications"],
+                  })
+                  win._savedFlash = true; _savedTimer.restart()
                 }
               }
             }
           }
 
+          // Divisor inferior
           Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1
-            color: Qt.rgba(win.colorDivider.r,win.colorDivider.g,win.colorDivider.b,0.4) }
+            color: Qt.rgba(win.colorDivider.r, win.colorDivider.g, win.colorDivider.b, 0.4) }
         }
 
-        // Conteúdo
+        // ── Conteúdo dos tabs ───────────────────────────────────────────
         Item {
           Layout.fillWidth: true; Layout.fillHeight: true
 
-          // Barra
+          // ── BARRA ───────────────────────────────────────────────────
+          // Subtab 0: Geral
           Loader {
-            anchors.fill: parent; active: win.activeModule === 0
-            sourceComponent: Tabs.BarTab {
-              activeSubtab: win.subtab(0)
-              // cores
-              colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
-              colorText: win.colorText; colorProgressBg: win.colorProgressBg
-              colorSidebar: win.colorSidebar; colorDivider: win.colorDivider
-              colorError: win.colorError; colors: win._effectiveColors
-              // geral
-              localTheme: win.localTheme; localPosition: win.localPosition
-              localAutoHide: win.localAutoHide; localSilence: win.localSilence
-              localBarSize: win.localBarSize; localBarMargin: win.localBarMargin
-              localPillWidth: win.localPillWidth; localPillMinSpacing: win.localPillMinSpacing
-              // módulos
-              slotLeft: win.slotLeft; slotCenter: win.slotCenter; slotRight: win.slotRight
-              slotTop: win.slotTop; slotMiddle: win.slotMiddle; slotBottom: win.slotBottom
-              // workspaces
-              localWsStyle: win.localWsStyle; localWsSort: win.localWsSort
-              localWsMono: win.localWsMono; localWsSpacing: win.localWsSpacing; localWsAddBtn: win.localWsAddBtn
-              // workspace visual
-              localWsBgOpacity: win.localWsBgOpacity; localWsBgOpacityActive: win.localWsBgOpacityActive
-              localWsBgBorderWidthActive: win.localWsBgBorderWidthActive
-              localWsBgPaddingH: win.localWsBgPaddingH; localWsBgPaddingV: win.localWsBgPaddingV
-              localWsBgPaddingHActive: win.localWsBgPaddingHActive; localWsBgPaddingVActive: win.localWsBgPaddingVActive
-              localWsBgRadiusActive: win.localWsBgRadiusActive
-              pkWsBgColor: win.pkWsBgColor; pkWsBgColorActive: win.pkWsBgColorActive
-              pkWsBgBorderColor: win.pkWsBgBorderColor; pkWsBgBorderColorActive: win.pkWsBgBorderColorActive
-              pkWsDotColor: win.pkWsDotColor; pkWsDotActiveColor: win.pkWsDotActiveColor
-              pkWsDotOccupiedColor: win.pkWsDotOccupiedColor; pkWsDotUrgentColor: win.pkWsDotUrgentColor
-              pkWsIconMonoColor: win.pkWsIconMonoColor; pkWsIconMonoColorActive: win.pkWsIconMonoColorActive
-              // clock
-              pkClkText: win.pkClkText; pkClkDim: win.pkClkDim; pkClkAccent: win.pkClkAccent
-              localClkDismiss: win.localClkDismiss
-              // volume
-              localShowSink: win.localShowSink; localShowSource: win.localShowSource; pkVolMuted: win.pkVolMuted
-              // midia
-              localMpTextMode: win.localMpTextMode; localMpScrollSpeed: win.localMpScrollSpeed
-              localMpScrollWidth: win.localMpScrollWidth; localMpBgEnabled: win.localMpBgEnabled
-              pkMpBgColor: win.pkMpBgColor; pkMpBgActive: win.pkMpBgActive
-              pkMpText: win.pkMpText; pkMpDim: win.pkMpDim
-              pkMpTextActive: win.pkMpTextActive; pkMpDimActive: win.pkMpDimActive
-              // paleta
-              pkBarBg: win.pkBarBg; pkBarBgPill: win.pkBarBgPill
-              pkText: win.pkText; pkTextDim: win.pkTextDim
-              pkAccent: win.pkAccent; pkAccentBg: win.pkAccentBg
-              pkPanelBg: win.pkPanelBg; pkProgressBg: win.pkProgressBg
-              pkProgressFg: win.pkProgressFg; pkDivider: win.pkDivider
-
-              overlay: popupOverlay
-              onChanged: (opts) => win._applyOpts(opts)
+            id: loaderGeral
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 0
+            sourceComponent: Component {
+              Tabs.BarTabGeral {
+                id: tabGeral
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderGeral.item
+              function onStructuralChange(opts) { win.applyStructural(opts) }
             }
           }
 
-          // Placeholder
+          // Subtab 1: Módulos
           Loader {
-            anchors.fill: parent; active: win.activeModule > 0
+            id: loaderModulos
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 1
+            sourceComponent: Component {
+              Tabs.BarTabModulos {
+                id: tabModulos
+                isH: win.config ? (win.config["position"] === 1 || win.config["position"] === 3) : true
+                slotLeft:   win.config ? (win.config["modulesLeft"]   || []) : []
+                slotCenter: win.config ? (win.config["modulesCenter"] || []) : []
+                slotRight:  win.config ? (win.config["modulesRight"]  || []) : []
+                slotTop:    win.config ? (win.config["modulesTop"]    || []) : []
+                slotMiddle: win.config ? (win.config["modulesMiddle"] || []) : []
+                slotBottom: win.config ? (win.config["modulesBottom"] || []) : []
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+              }
+            }
+            Connections {
+              target: loaderModulos.item
+              function onSlotChanged(slot, arr) {
+                var opts = {}
+                var key = "modules" + slot.charAt(0).toUpperCase() + slot.slice(1)
+                opts[key] = arr
+                win.applyStructural(opts)
+              }
+              function onModuleAdded(slot, id) {
+                if (!win.config) return
+                var key = "modules" + slot.charAt(0).toUpperCase() + slot.slice(1)
+                var opts = {}
+                opts[key] = (win.config[key] || []).concat([id])
+                win.applyStructural(opts)
+              }
+            }
+          }
+
+          // Subtab 2: Workspaces
+          Loader {
+            id: loaderWorkspaces
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 2
+            sourceComponent: Component {
+              Tabs.BarTabWorkspaces {
+                id: tabWorkspaces
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderWorkspaces.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 3: Mídia
+          Loader {
+            id: loaderMidia
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 3
+            sourceComponent: Component {
+              Tabs.BarTabMidia {
+                id: tabMidia
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderMidia.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 4: Relógio
+          Loader {
+            id: loaderClock
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 4
+            sourceComponent: Component {
+              Tabs.BarTabClock {
+                id: tabClock
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderClock.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 5: Volume
+          Loader {
+            id: loaderVolume
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 5
+            sourceComponent: Component {
+              Tabs.BarTabVolume {
+                id: tabVolume
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderVolume.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 6: Config Rápida
+          Loader {
+            id: loaderQuickSettings
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 6
+            sourceComponent: Component {
+              Tabs.BarTabQuickSettings {
+                id: tabQuickSettings
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderQuickSettings.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 7: Notificações
+          Loader {
+            id: loaderNotifications
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 7
+            sourceComponent: Component {
+              Tabs.BarTabNotifications {
+                id: tabNotifications
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderNotifications.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 8: Paleta
+          Loader {
+            id: loaderPaleta
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 8
+            sourceComponent: Component {
+              Tabs.BarTabPaleta {
+                id: tabPaleta
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderPaleta.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // ── Placeholder para módulos ainda não implementados ─────────
+          Loader {
+            anchors.fill: parent
+            active: win.activeModule > 0
             sourceComponent: Item {
-              Column { anchors.centerIn: parent; spacing: 10
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uf013"
-                  color: Qt.rgba(win.colorTextDim.r,win.colorTextDim.g,win.colorTextDim.b,0.2)
-                  font.pixelSize: 40; font.family: "JetBrainsMono Nerd Font" }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Em desenvolvimento"
-                  color: Qt.rgba(win.colorTextDim.r,win.colorTextDim.g,win.colorTextDim.b,0.35); font.pixelSize: 12 }
+              Column {
+                anchors.centerIn: parent; spacing: 14
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: win.activeModule < win.modules.length
+                        ? win.modules[win.activeModule].icon : "\uf013"
+                  color: Qt.rgba(win.colorTextDim.r, win.colorTextDim.g, win.colorTextDim.b, 0.18)
+                  font.pixelSize: 48; font.family: "JetBrainsMono Nerd Font"
+                }
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: win.activeModule < win.modules.length
+                        ? win.modules[win.activeModule].label + " — Em desenvolvimento"
+                        : "Em desenvolvimento"
+                  color: Qt.rgba(win.colorTextDim.r, win.colorTextDim.g, win.colorTextDim.b, 0.3)
+                  font.pixelSize: 13
+                }
               }
             }
           }
@@ -654,7 +608,7 @@ PanelWindow {
     }
   }
 
-  // Overlay para popups que precisam escapar do layer.enabled/clip do mainRect
+  // Overlay para CfgPalette e outros popups que precisam escapar do clip
   Item {
     id: popupOverlay
     anchors.fill: parent

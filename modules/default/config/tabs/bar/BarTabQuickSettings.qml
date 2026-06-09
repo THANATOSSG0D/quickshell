@@ -14,62 +14,50 @@ C.CfgScroll {
   required property color colorProgressBg
 
   signal changed(var opts)
-  function g(key) { return config ? config.get("volume", key) : undefined }
+  function g(key) { return config ? config.get("quicksettings", key) : undefined }
 
-  C.CfgSection { title: "GERAL"; colorTextDim: root.colorTextDim }
-  C.CfgToggle {
-    label: "Mostrar saída"; checked: root.g("showSink") !== false
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    onToggled: root.changed({ moduleId: "volume", key: "showSink", value: !(root.g("showSink") !== false) })
-  }
-  C.CfgToggle {
-    label: "Mostrar entrada"; checked: root.g("showSource") !== false
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    onToggled: root.changed({ moduleId: "volume", key: "showSource", value: !(root.g("showSource") !== false) })
-  }
-  C.CfgSlider {
-    label: "Volume máximo"; value: Math.round((root.g("maxVol") || 1.5) * 10) / 10
-    from: 1.0; to: 2.0; step: 0.1; unit: "×"
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ moduleId: "volume", key: "maxVol", value: v })
-  }
-
-  C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "CORES"; colorTextDim: root.colorTextDim }
+
   C.CfgPalette {
     label: "Texto"; value: root.g("textColor") || "on_surface"
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId: "volume", key: "textColor", value: v })
+    onEdited: (v) => root.changed({ moduleId:"quicksettings", key:"textColor", value:v })
   }
   C.CfgPalette {
     label: "Dim"; value: root.g("dimColor") || "on_surface_variant"
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId: "volume", key: "dimColor", value: v })
+    onEdited: (v) => root.changed({ moduleId:"quicksettings", key:"dimColor", value:v })
   }
   C.CfgPalette {
     label: "Acento"; value: root.g("accentColor") || "primary"
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId: "volume", key: "accentColor", value: v })
+    onEdited: (v) => root.changed({ moduleId:"quicksettings", key:"accentColor", value:v })
   }
   C.CfgPalette {
-    label: "Mutado"; value: root.g("mutedColor") || "error"
+    label: "Erro/Mutado"; value: root.g("mutedColor") || "error"
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId: "volume", key: "mutedColor", value: v })
+    onEdited: (v) => root.changed({ moduleId:"quicksettings", key:"mutedColor", value:v })
   }
   C.CfgPalette {
     label: "Fundo slider"; value: root.g("progressBg") || "outline_variant"
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId: "volume", key: "progressBg", value: v })
+    onEdited: (v) => root.changed({ moduleId:"quicksettings", key:"progressBg", value:v })
+  }
+  C.CfgPalette {
+    label: "Divisor"; value: root.g("divider") || "outline_variant"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"quicksettings", key:"divider", value:v })
   }
 }

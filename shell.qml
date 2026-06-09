@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
+import qs
 import "modules/widgets/clock"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
@@ -97,15 +98,10 @@ Scope {
 
   ConfigModule.ConfigWindow {
     id: configWin
-    panelOpen:    configOpen
-    config:       bar.configRef          // ver abaixo
-    colorBg:      bar.popupColorBg
-    colorText:    bar.popupColorText
-    colorTextDim: bar.popupColorTextDim
-    colorAccent:  bar.popupColorAccent
-    colorDivider: bar.popupColorDivider
+    panelOpen: configOpen
+    config:    bar.configRef
+    colors:    Colors
     onCloseRequested: configOpen = false
-    onSaveRequested:  (opts) => bar.configRef.saveAll(opts)
   }
 
   IpcHandler {

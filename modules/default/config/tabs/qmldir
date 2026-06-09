@@ -1,2 +1,12 @@
 module config.tabs
-BarTab BarTab.qml
+BarTab              BarTab.qml
+BarTabGeral         bar/BarTabGeral.qml
+BarTabBar           bar/BarTabBar.qml
+BarTabWorkspaces    bar/BarTabWorkspaces.qml
+BarTabMidia         bar/BarTabMidia.qml
+BarTabClock         bar/BarTabClock.qml
+BarTabVolume        bar/BarTabVolume.qml
+BarTabQuickSettings bar/BarTabQuickSettings.qml
+BarTabNotifications bar/BarTabNotifications.qml
+BarTabPaleta        bar/BarTabPaleta.qml
+BarTabModulos        bar/BarTabModulos.qml

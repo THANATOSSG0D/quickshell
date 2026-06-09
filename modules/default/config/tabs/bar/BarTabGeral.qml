@@ -1,119 +1,106 @@
 import QtQuick
-import QtQuick.Layouts
 import '../../components' as C
 
-// BarTabGeral — Tema, Posição, Comportamento, Dimensões
 C.CfgScroll {
   id: root
+  required property var   config
+  required property var   overlay
+  required property var   colors
+  required property color colorAccent
+  required property color colorTextDim
+  required property color colorText
+  required property color colorDivider
+  required property color colorSidebar
+  required property color colorProgressBg
 
-  required property string localTheme
-  required property int    localPosition
-  required property bool   localAutoHide
-  required property bool   localSilence
-  required property int    localBarSize
-  required property int    localBarMargin
-  required property int    localPillWidth
-  required property int    localPillMinSpacing
-  required property color  colorAccent
-  required property color  colorTextDim
-  required property color  colorText
-  required property color  colorProgressBg
+  // Emite mudanças estruturais (tema, posição, autoHide, etc.)
+  signal structuralChange(var opts)
 
-  readonly property bool isH: localPosition === 1 || localPosition === 3
+  function g(key) { return config ? config[key] : undefined }
 
-  signal changed(var opts)
-
-  // ── Tema ─────────────────────────────────────────────────────────────
+  // ── TEMA ────────────────────────────────────────────────────────────────
   C.CfgSection { title: "TEMA"; colorTextDim: root.colorTextDim }
   Row {
     spacing: 6
     Repeater {
-      model: ["Pill", "Default", "Minimal"]
+      model: ["Pill", "Minimal"]
       delegate: C.CfgChip {
         required property string modelData
-        label:       modelData
-        active:      root.localTheme === modelData
-        colorAccent:  root.colorAccent
-        colorTextDim: root.colorTextDim
-        onChipClicked: root.changed({ theme: modelData })
+        label:  modelData
+        active: root.g("theme") === modelData
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: root.structuralChange({ theme: modelData })
       }
     }
   }
 
-  // ── Posição ───────────────────────────────────────────────────────────
+  // ── POSIÇÃO ─────────────────────────────────────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "POSIÇÃO"; colorTextDim: root.colorTextDim }
   Row {
     spacing: 6
     Repeater {
       model: [
-        { id: 1, icon: "\uf077", label: "Topo"     },
-        { id: 3, icon: "\uf078", label: "Baixo"    },
-        { id: 4, icon: "\uf053", label: "Esquerda" },
-        { id: 2, icon: "\uf054", label: "Direita"  },
+        { id: 1, label: "Topo"   },
+        { id: 3, label: "Baixo"  },
+        { id: 4, label: "Esquerda" },
+        { id: 2, label: "Direita"  },
       ]
       delegate: C.CfgChip {
         required property var modelData
-        icon:         modelData.icon
-        label:        modelData.label
-        active:       root.localPosition === modelData.id
-        colorAccent:  root.colorAccent
-        colorTextDim: root.colorTextDim
-        onChipClicked: root.changed({ position: modelData.id })
+        label:  modelData.label
+        active: root.g("position") === modelData.id
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: root.structuralChange({ position: modelData.id })
       }
     }
   }
 
-  C.CfgDiv { colorDivider: root.colorTextDim }
-
-  // ── Comportamento ─────────────────────────────────────────────────────
-  C.CfgSection { title: "COMPORTAMENTO"; colorTextDim: root.colorTextDim }
-  C.CfgToggle {
-    label:       "Auto-ocultar"
-    checked:     root.localAutoHide
-    colorAccent:  root.colorAccent
-    colorTextDim: root.colorTextDim
-    onToggled: root.changed({ autoHide: !root.localAutoHide })
-  }
-  C.CfgToggle {
-    label:       "Silence (sem OSD/toasts)"
-    checked:     root.localSilence
-    colorAccent:  root.colorAccent
-    colorTextDim: root.colorTextDim
-    onToggled: root.changed({ silence: !root.localSilence })
-  }
-
-  C.CfgDiv { colorDivider: root.colorTextDim }
-
-  // ── Dimensões ─────────────────────────────────────────────────────────
+  // ── DIMENSÕES ───────────────────────────────────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "DIMENSÕES"; colorTextDim: root.colorTextDim }
   C.CfgSlider {
-    label: "Espessura"; value: root.localBarSize
+    label: "Tamanho"; value: root.g("barSize") || 30
     from: 20; to: 60; step: 2; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ barSize: v })
+    onMoved: (v) => root.structuralChange({ barSize: v })
   }
   C.CfgSlider {
-    label: "Margem"; value: root.localBarMargin
-    from: 0; to: 30; step: 1; unit: "px"
+    label: "Margem"; value: root.g("barMargin") || 3
+    from: 0; to: 20; step: 1; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ barMargin: v })
+    onMoved: (v) => root.structuralChange({ barMargin: v })
   }
   C.CfgSlider {
-    visible: root.isH
-    label: "Largura pill"; value: root.localPillWidth
-    from: 400; to: 2000; step: 10; unit: "px"
+    label: "Largura pílula"; value: root.g("pillWidth") || 400
+    from: 200; to: 1400; step: 10; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ pillWidth: v })
+    onMoved: (v) => root.structuralChange({ pillWidth: v })
   }
   C.CfgSlider {
-    visible: root.isH
-    label: "Espaç. lateral"; value: root.localPillMinSpacing
-    from: 0; to: 120; step: 4; unit: "px"
+    label: "Espaçamento mín."; value: root.g("pillMinSpacing") || 20
+    from: 0; to: 100; step: 5; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ pillMinSpacing: v })
+    onMoved: (v) => root.structuralChange({ pillMinSpacing: v })
+  }
+
+  // ── COMPORTAMENTO ───────────────────────────────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "COMPORTAMENTO"; colorTextDim: root.colorTextDim }
+  C.CfgToggle {
+    label: "Auto-esconder"
+    checked: root.g("autoHide") === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    onToggled: root.structuralChange({ autoHide: !(root.g("autoHide") === true) })
+  }
+  C.CfgToggle {
+    label: "Modo silencioso"
+    checked: root.g("silenceMode") === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    onToggled: root.structuralChange({ silence: !(root.g("silenceMode") === true) })
   }
 }

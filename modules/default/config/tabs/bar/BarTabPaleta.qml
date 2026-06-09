@@ -1,98 +1,112 @@
 import QtQuick
-import QtQuick.Layouts
 import '../../components' as C
 
 C.CfgScroll {
   id: root
-
-  required property string pkBarBg
-  required property string pkBarBgPill
-  required property string pkText
-  required property string pkTextDim
-  required property string pkAccent
-  required property string pkAccentBg
-  required property string pkPanelBg
-  required property string pkProgressBg
-  required property string pkProgressFg
-  required property string pkDivider
-  required property var    colors
-  required property color  colorAccent
-  required property color  colorTextDim
-  required property color  colorText
-  required property color  colorSidebar
-  required property color  colorDivider
+  required property var   config
   required property var   overlay
+  required property var   colors
+  required property color colorAccent
+  required property color colorTextDim
+  required property color colorText
+  required property color colorDivider
+  required property color colorSidebar
+  required property color colorProgressBg
 
   signal changed(var opts)
+  function g(key) { return config ? config.get("palette", key) : undefined }
 
-  C.CfgSection { title: "BARRA"; colorTextDim: root.colorTextDim }
+  C.CfgSection { title: "BAR"; colorTextDim: root.colorTextDim }
   C.CfgPalette {
-    label: "Fundo barra"; value: root.pkBarBg; colors: root.colors; overlay: root.overlay
+    label: "Fundo do bar"; value: root.g("barBg") || "surface_container_lowest"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkBarBg: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"barBg", value:v })
   }
   C.CfgPalette {
-    label: "Fundo pill"; value: root.pkBarBgPill; colors: root.colors; overlay: root.overlay
+    label: "Fundo da pílula"; value: root.g("barBgPill") || "background"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkBarBgPill: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"barBgPill", value:v })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "TEXTO"; colorTextDim: root.colorTextDim }
   C.CfgPalette {
-    label: "Texto"; value: root.pkText; colors: root.colors; overlay: root.overlay
+    label: "Texto"; value: root.g("text") || "on_surface"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkText: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"text", value:v })
   }
   C.CfgPalette {
-    label: "Texto dim"; value: root.pkTextDim; colors: root.colors; overlay: root.overlay
+    label: "Texto dim"; value: root.g("textDim") || "on_surface_variant"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkTextDim: v })
-  }
-
-  C.CfgDiv { colorDivider: root.colorDivider }
-  C.CfgSection { title: "ACCENT"; colorTextDim: root.colorTextDim }
-  C.CfgPalette {
-    label: "Accent"; value: root.pkAccent; colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkAccent: v })
-  }
-  C.CfgPalette {
-    label: "Accent bg"; value: root.pkAccentBg; colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkAccentBg: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"textDim", value:v })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
-  C.CfgSection { title: "PAINÉIS"; colorTextDim: root.colorTextDim }
+  C.CfgSection { title: "ACENTO"; colorTextDim: root.colorTextDim }
   C.CfgPalette {
-    label: "Fundo painel"; value: root.pkPanelBg; colors: root.colors; overlay: root.overlay
+    label: "Acento"; value: root.g("accent") || "primary"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkPanelBg: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"accent", value:v })
   }
   C.CfgPalette {
-    label: "Progress bg"; value: root.pkProgressBg; colors: root.colors; overlay: root.overlay
+    label: "Fundo acento"; value: root.g("accentBg") || "primary_container"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkProgressBg: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"accentBg", value:v })
   }
   C.CfgPalette {
-    label: "Progress fg"; value: root.pkProgressFg; colors: root.colors; overlay: root.overlay
+    label: "Texto acento"; value: root.g("accentText") || "on_primary"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkProgressFg: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"accentText", value:v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "PAINEL"; colorTextDim: root.colorTextDim }
+  C.CfgPalette {
+    label: "Fundo painel"; value: root.g("panelBg") || "surface_container"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"panelBg", value:v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "PROGRESSO"; colorTextDim: root.colorTextDim }
+  C.CfgPalette {
+    label: "Fundo progresso"; value: root.g("progressBg") || "outline_variant"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"progressBg", value:v })
   }
   C.CfgPalette {
-    label: "Divisor"; value: root.pkDivider; colors: root.colors; overlay: root.overlay
+    label: "Progresso"; value: root.g("progressFg") || "primary"
+    colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ pkDivider: v })
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"progressFg", value:v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "DIVISOR"; colorTextDim: root.colorTextDim }
+  C.CfgPalette {
+    label: "Divisor"; value: root.g("divider") || "outline_variant"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"palette", key:"divider", value:v })
   }
 }

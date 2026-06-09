@@ -12,10 +12,17 @@ QtObject {
   property int cursorX: 0
   property int cursorY: 0
 
-  property bool   autoHide:     true
+  // Valores iniciais — serão sobrescritos pelo BarConfig assim que o JSON carregar.
+  // NÃO colocar valores hardcoded aqui que conflitem com o que está salvo no JSON;
+  // o guard _configReady evita que esses defaults sejam escritos de volta no BarConfig.
+  property bool   autoHide:     false
   property bool   silenceMode:  false   // suprime OSD, toasts e autohide fullscreen
   property string currentTheme: "Pill"
-  property int    position:     2
+  property int    position:     3
+
+  // Guard: só propaga mudanças do BarState → BarConfig depois que o BarConfig
+  // já carregou do JSON. Evita que os defaults acima sobrescrevam o JSON salvo.
+  property bool _configReady: false
 
   // ── Fullscreen peek ──────────────────────────────────────────────────
   property bool fullscreenPeekEnabled: true
@@ -63,17 +70,40 @@ QtObject {
 
   property var _configConn: Connections {
     target: barConfig
-    function onThemeChanged()    { state.currentTheme = barConfig.theme    }
-    function onAutoHideChanged() { state.autoHide     = barConfig.autoHide }
-    function onSilenceModeChanged() { state.silenceMode = barConfig.silenceMode }
-    function onPositionChanged() { state.position     = barConfig.position }
-    function onModulesUpdated()  { state.modulesUpdated()                  }
+    function onThemeChanged()    {
+      state.currentTheme = barConfig.theme
+      state._configReady = true
+    }
+    function onAutoHideChanged() {
+      state.autoHide     = barConfig.autoHide
+      state._configReady = true
+    }
+    function onSilenceModeChanged() {
+      state.silenceMode  = barConfig.silenceMode
+      state._configReady = true
+    }
+    function onPositionChanged() {
+      state.position     = barConfig.position
+      state._configReady = true
+    }
+    function onModulesUpdated()  { state.modulesUpdated() }
+    // Fallback: quando o BarConfig termina de carregar o JSON (_ready→true),
+    // sincroniza tudo de uma vez e libera o guard — garante que funciona mesmo
+    // quando os valores do JSON são idênticos aos defaults (signals não disparam)
+    function on_ReadyChanged() {
+      if (!barConfig._ready) return
+      state.currentTheme = barConfig.theme
+      state.autoHide     = barConfig.autoHide
+      state.silenceMode  = barConfig.silenceMode
+      state.position     = barConfig.position
+      state._configReady = true
+    }
   }
 
-  onCurrentThemeChanged: barConfig.theme       = currentTheme
-  onAutoHideChanged:     barConfig.autoHide    = autoHide
-  onSilenceModeChanged:  barConfig.silenceMode = silenceMode
-  onPositionChanged:     barConfig.position    = position
+  onCurrentThemeChanged: if (_configReady) barConfig.theme       = currentTheme
+  onAutoHideChanged:     if (_configReady) barConfig.autoHide    = autoHide
+  onSilenceModeChanged:  if (_configReady) barConfig.silenceMode = silenceMode
+  onPositionChanged:     if (_configReady) barConfig.position    = position
 
   property var _proc: Process {
     id: cursorProc
