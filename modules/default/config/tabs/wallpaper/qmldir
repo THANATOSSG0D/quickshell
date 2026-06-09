@@ -1,0 +1,2 @@
+module config.tabs.wallpaper
+TabWallpaper 1.0 TabWallpaper.qml

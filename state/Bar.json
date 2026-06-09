@@ -5,7 +5,7 @@
         "barSize": 30,
         "pillMinSpacing": 20,
         "pillWidth": 400,
-        "position": 3,
+        "position": 4,
         "silence": false,
         "theme": "Pill"
     },

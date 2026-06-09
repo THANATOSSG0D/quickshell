@@ -108,7 +108,8 @@ PanelWindow {
   readonly property var modules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
       subtabs: ["Geral", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações", "Paleta"] },
-    { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",  subtabs: [] },
+    { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
+      subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "widgets",    icon: "\uf2d2", label: "Widgets",    subtabs: [] },
     { id: "dmenu",      icon: "\uf0ca", label: "Dmenu",      subtabs: [] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
@@ -578,10 +579,27 @@ PanelWindow {
             }
           }
 
+          // ── WALLPAPER ────────────────────────────────────────────────
+          Loader {
+            id: loaderWallpaper
+            anchors.fill: parent
+            active: win.activeModule === 1
+            sourceComponent: Component {
+              Tabs.TabWallpaper {
+                panelOpen:       win.panelOpen && win.activeModule === 1
+                activeSubtab:    win.subtab(1)
+                colorAccent:     win.colorAccent
+                colorTextDim:    win.colorTextDim
+                colorText:       win.colorText
+                colorDivider:    win.colorDivider
+              }
+            }
+          }
+
           // ── Placeholder para módulos ainda não implementados ─────────
           Loader {
             anchors.fill: parent
-            active: win.activeModule > 0
+            active: win.activeModule > 1
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14

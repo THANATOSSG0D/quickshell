@@ -14,6 +14,7 @@ Item {
   property color  colorDivider: "#333333"
   property bool   panelOpen:    false
   property string activeTab:    "wallpaper"
+  property bool   showTabBar:   true
 
   signal closeRequested()
 
@@ -317,7 +318,8 @@ Item {
 
     // Barra de abas
     Item {
-      Layout.fillWidth: true; height: 50
+      Layout.fillWidth: true; height: root.showTabBar ? 50 : 0
+      visible: root.showTabBar
 
       RowLayout {
         anchors.fill: parent
