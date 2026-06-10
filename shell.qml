@@ -49,21 +49,13 @@ Scope {
   }
 
   // ── DmenuIpc — habilita scripts externos via: cmd | qs-dmenu ────────────
-  // O dmenu normal (drun/run/window) continua gerenciado pelo Bar via IpcHandler.
-  // Este componente adiciona o modo pipe para scripts externos.
-  //
-  // Posições disponíveis (panelAnchor):
-  //   "top-center"    painel centrado no topo (padrão — igual ao rofi)
-  //   "top-left"      topo esquerda
-  //   "top-right"     topo direita
-  //   "center"        centro absoluto do monitor
-  //   "bottom-center" rodapé centrado
+  // Também gerencia os modos nativos (drun/run/window) via IpcHandler abaixo.
+  // A config do dmenu fica em dmenuIpc.configRef (DmenuConfig / state/dmenu.json).
   DmenuModule.DmenuIpc {
     id: dmenuIpc
     barRoot:   bar
-    showIcons: bar._dmenuShowIcons
 
-    // Mesmas cores que o Bar usa internamente — atualizam automaticamente com o tema
+    // Cores lidas do tema do Bar — atualizam automaticamente com matugen
     colorPanelBg:  bar.popupColorBg
     colorText:     bar.popupColorText
     colorTextDim:  bar.popupColorTextDim
@@ -71,23 +63,19 @@ Scope {
     colorSelected: bar.popupColorBg
     colorDivider:  bar.popupColorDivider
     colorInputBg:  bar.popupColorBg
+    // showIcons, launchCmd, maxVisible, panelWidth/Height, etc. → dmenuIpc.configRef
   }
 
-  // ── IPC do dmenu — ponto único de entrada para todos os modos ────────────
+  // ── IPC do dmenu ──────────────────────────────────────────────────────────
   // qs ipc call dmenu drun | run | window
-  // Todos os modos passam pelo DmenuIpc (pilha de navegação, toggle, backspace).
-  // O DmenuPopup separado no Bar.qml foi removido.
+  // Modo padrão também pode ser aberto via dmenuConfig.dmenuDefaultMode no hotkey.
   IpcHandler {
     target: "dmenu"
-    function drun() {
-      dmenuIpc.openNative("drun", bar._dmenuLaunchCmd)
-    }
-    function run() {
-      dmenuIpc.openNative("run", bar._dmenuLaunchCmd)
-    }
-    function window() {
-      dmenuIpc.openNative("window", bar._dmenuLaunchCmd)
-    }
+    function drun()    { dmenuIpc.openNative("drun")    }
+    function run()     { dmenuIpc.openNative("run")     }
+    function window()  { dmenuIpc.openNative("window")  }
+    // Conveniente para atalho universal — abre no modo padrão configurado
+    function open()    { dmenuIpc.openNative(dmenuIpc.configRef.dmenuDefaultMode) }
   }
 
   PowerModule.PowerMenu {
@@ -98,9 +86,10 @@ Scope {
 
   ConfigModule.ConfigWindow {
     id: configWin
-    panelOpen: configOpen
-    config:    bar.configRef
-    colors:    Colors
+    panelOpen:   configOpen
+    config:      bar.configRef
+    dmenuConfig: dmenuIpc.configRef   // ← novo: config separado para a aba dmenu
+    colors:      Colors
     onCloseRequested: configOpen = false
   }
 

@@ -27,7 +27,11 @@ Item {
   id: root
 
   property var  barRoot:   null
-  property bool showIcons: true
+
+  // ── DmenuConfig — configuração persistente deste módulo ──────────────────
+  // Instanciado aqui e exposto como configRef para o ConfigWindow.
+  // Shell.qml passa configRef para o ConfigWindow.dmenuConfig.
+  readonly property DmenuConfig configRef: DmenuConfig { id: dmenuConfig }
 
   property color colorPanelBg:  "#1f1f1f"
   property color colorText:     "#e2e2e2"
@@ -42,7 +46,7 @@ Item {
   //              Cada entry: { mode, entries, prompt, label, sep, fifo,
   //                            launchCmd, callback }
   //              Para modos nativos, fifo = "" e callback = null.
-  // _closing:    true durante a animação de fechamento (cooldown 450ms).
+  // _closing:    true durante a animação de fechamento (cooldown ms).
   //              Bloqueia novos requests externos enquanto o painel ainda anima.
   property var    _stack:   []
   property bool   _closing: false
@@ -102,11 +106,6 @@ Item {
           callback:     null   // será preenchido em _pushAndOpen
         }
 
-        // Modo password: entries vazia é válido (campo de texto livre)
-        // Modo text-input livre: entries=[] sem password também abre o painel
-        // Só rejeita se entries=[] E não foi explicitamente solicitado (campo sem modo definido)
-        // — na prática nunca ocorre pois o bwmenu sempre envia entries ou password:true
-
         // Se fechando (cooldown pós-seleção), enfileira para depois
         if (root._closing) {
           _pendingExternal = req
@@ -119,8 +118,8 @@ Item {
 
     onRunningChanged: {
       if (!running) {
-        root._stack        = []
-        root._closing      = false
+        root._stack           = []
+        root._closing         = false
         root._pendingExternal = null
         _cooldownTimer.stop()
         restartTimer.start()
@@ -133,12 +132,12 @@ Item {
 
   Timer { id: restartTimer; interval: 1500; repeat: false; onTriggered: serverProc.running = true }
 
-  // Timer de cooldown: aguarda o painel anterior fechar completamente (~450ms)
-  // antes de processar o próximo request externo (subscript).
-  // Intervalo = animDuration(200) + safetyUnmapTimer(200) + folga(50).
+  // Timer de cooldown: aguarda o painel anterior fechar completamente antes de
+  // processar o próximo request externo (subscript).
+  // Intervalo lido do config — padrão 450ms (animDuration 200 + safetyUnmap 200 + folga 50).
   Timer {
     id: _cooldownTimer
-    interval: 450
+    interval: dmenuConfig.dmenuCooldownMs   // ← config, não hardcoded
     repeat:   false
     onTriggered: {
       root._closing = false
@@ -151,17 +150,17 @@ Item {
   }
 
   // ── openNative: abre um modo nativo (drun/run/window) como toggle ─────────
-  // Se o painel já está visível com o mesmo modo → fecha (toggle).
-  // Se está visível com outro modo → troca o modo no topo da pilha.
-  // Se está fechado → abre normalmente.
-  function openNative(mode, launchCmd) {
+  // Se dmenuToggle=false, reabrir sempre recarrega (sem fechar).
+  // Se o painel já está visível com o mesmo modo e toggle=true → fecha.
+  // Se está visível com outro modo → troca (não empilha modos nativos).
+  function openNative(mode) {
+    var launchCmd = dmenuConfig.dmenuLaunchCmd   // ← config, não parâmetro externo
+
     if (ipcPanel.panelOpen) {
-      // Toggle: mesmo modo → fecha
-      if (root.currentNativeMode === mode) {
+      if (dmenuConfig.dmenuToggle && root.currentNativeMode === mode) {
         _closeAll()
         return
       }
-      // Modo diferente: limpa pilha e abre novo modo (não empilha modos nativos)
       _stack = []
     }
 
@@ -171,11 +170,11 @@ Item {
       thumbnails:   [],
       previewImage: "",
       prompt:       mode === "drun" ? "pesquisar app..." : (mode === "run" ? "executar..." : "janela..."),
-      label:     mode === "drun" ? "APLICATIVOS" : (mode === "run" ? "HISTÓRICO" : "JANELAS"),
-      sep:       "",
-      fifo:      "",
-      launchCmd: launchCmd || "",
-      callback:  null
+      label:        mode === "drun" ? "APLICATIVOS" : (mode === "run" ? "HISTÓRICO" : "JANELAS"),
+      sep:          "",
+      fifo:         "",
+      launchCmd:    launchCmd,
+      callback:     null
     }
 
     _pushAndOpen(req)
@@ -183,32 +182,24 @@ Item {
 
   // ── _pushAndOpen: empilha um request e exibe o painel ────────────────────
   function _pushAndOpen(req) {
-    // Cria o callback de resposta para este nível da pilha
-    // (closure captura o índice da pilha para garantir que só responde ao FIFO certo)
     var fifo = req.fifo
     req.callback = function(selected, key) {
-      // Remove este item da pilha
       var s = root._stack.slice()
       s.pop()
       root._stack = s
 
       if (fifo !== "") {
-        // Modo script: responde ao FIFO e inicia cooldown
         root._closing = true
         _respondFifo(selected, key || "", fifo)
         if (s.length > 0) {
-          // Volta ao nível anterior após o cooldown
           _cooldownTimer.restart()
         } else {
           _cooldownTimer.restart()
         }
       } else {
-        // Modo nativo: fecha direto (sem FIFO)
         if (s.length > 0) {
-          // Havia um nível anterior — reexibe (ex: voltou de um script pro nativo)
           _showTop()
         }
-        // Se pilha vazia, o painel já fechou via panelOpen = false
       }
     }
 
@@ -227,13 +218,19 @@ Item {
     var activeBar = root.barRoot ? root.barRoot._activeBar() : null
 
     ipcPanel.barRef         = activeBar
-    ipcPanel.popupW         = root.barRoot ? root.barRoot.themePanelWidth : 320
-    // Aumenta altura quando há preview de imagem no topo (~180px para o preview)
-    var baseH = root.barRoot ? root.barRoot.popupHDmenu : 460
-    ipcPanel.popupH         = req.previewImage ? Math.max(baseH, 580) : baseH
-    ipcPanel.showIcons      = root.showIcons
+    // Dimensões do painel lidas do config — fallback para barRoot (retrocompatibilidade)
+    ipcPanel.popupW         = dmenuConfig.dmenuPanelWidth
+    var baseH               = dmenuConfig.dmenuPanelHeight
+    ipcPanel.popupH         = req.previewImage
+                              ? Math.max(baseH, dmenuConfig.dmenuPanelHeightImg)
+                              : baseH
+    ipcPanel.showIcons      = dmenuConfig.dmenuShowIcons
+    ipcPanel.maxVisible     = dmenuConfig.dmenuMaxVisible
+    ipcPanel.sortMode       = dmenuConfig.dmenuSortMode
+    ipcPanel.usageCount     = dmenuConfig.usageCount
+    ipcPanel.onRecordUsage  = function(exec) { dmenuConfig.recordUsage(exec) }
     ipcPanel.mode           = req.mode
-    ipcPanel.launchCmd      = req.launchCmd || "uwsm app -- {exec}"
+    ipcPanel.launchCmd      = req.launchCmd || dmenuConfig.dmenuLaunchCmd
     ipcPanel.scriptEntries  = req.entries
     ipcPanel.scriptThumbs   = req.thumbnails || []
     ipcPanel.scriptPreview  = req.previewImage || ""
@@ -249,7 +246,6 @@ Item {
       ipcPanel._callbackFired = false
       ipcPanel.panelOpen = true
     } else {
-      // Painel já aberto (voltando de submenu): reativa sem reabrir
       ipcPanel._callbackFired = false
       ipcPanel.dmenuContent.activate()
     }
@@ -257,23 +253,20 @@ Item {
 
   // ── _goBack: Backspace com query vazia — volta um nível na pilha ──────────
   function _goBack() {
+    if (!dmenuConfig.dmenuBackOnEmpty) return   // ← config
     if (_stack.length === 0) return
 
     var top = _stack[_stack.length - 1]
 
     if (_stack.length === 1) {
-      // Último nível: fecha o painel
-      // Responde null ao FIFO se for modo script
       if (top.fifo !== "") {
         root._closing = true
         _respondFifo(null, "", top.fifo)
         _cooldownTimer.restart()
       }
-      var s = []
-      root._stack = s
+      root._stack        = []
       ipcPanel.panelOpen = false
     } else {
-      // Volta ao nível anterior: descarta o topo sem responder (cancela o subscript)
       if (top.fifo !== "") {
         root._closing = true
         _respondFifo(null, "", top.fifo)
@@ -291,7 +284,6 @@ Item {
 
   // ── _closeAll: fecha tudo e cancela requests pendentes ───────────────────
   function _closeAll() {
-    // Cancela todos os FIFOs pendentes de baixo para cima
     for (var i = root._stack.length - 1; i >= 0; i--) {
       var r = root._stack[i]
       if (r.fifo !== "") _respondFifo(null, "", r.fifo)
@@ -329,7 +321,6 @@ Item {
     colorDivider:  root.colorDivider
     colorInputBg:  root.colorInputBg
 
-    // Fecha toda a pilha se o foco for perdido (Escape ou clique fora)
     onCloseRequested: {
       if (!_callbackFired) {
         _callbackFired = true

@@ -6,10 +6,13 @@ import "../bar" as Bar
 Bar.BarPopup {
   id: panel
 
-  property string mode:       "drun"   // drun | run | window | script — controlado por DmenuIpc._showTop()
+  property string mode:       "drun"   // drun | run | window | script
   property string launchCmd:  "uwsm app -- {exec}"
-  property bool   showIcons:  true
-  property int    maxVisible: 12
+  property bool   showIcons:   true
+  property int    maxVisible:  12       // ← agora passado por DmenuIpc._showTop()
+  property string sortMode:    "name"
+  property var    usageCount:  ({})
+  property var    onRecordUsage: null
 
   property var    scriptEntries:  []
   property var    scriptThumbs:   []
@@ -20,8 +23,10 @@ Bar.BarPopup {
   property var    scriptKeybinds: {}
   property bool   scriptPassword: false
   property var    scriptCallback: null
-  property var    backCallback:    null   // chamado quando usuário pressiona Backspace com query vazia
+  property var    backCallback:   null
 
+  // popupW/popupH injetados por DmenuIpc._showTop() a partir do DmenuConfig.
+  // Mantemos o fallback via barRef para o caso de uso standalone (ex: testes).
   popupW: barRef ? barRef.parent.themePanelWidth : 320
   popupH: barRef ? barRef.parent.popupHDmenu     : 460
 
@@ -32,22 +37,15 @@ Bar.BarPopup {
   property color colorDivider:  "#474747"
   property color colorInputBg:  "#1f1f1f"
 
-  // ── Garante que o callback é chamado exatamente uma vez ──────────────────
   property bool _callbackFired: false
 
-  function open() {
-    _callbackFired = false
-    panelOpen = true
-  }
+  function open()  { _callbackFired = false; panelOpen = true  }
   function close() { panelOpen = false }
 
   onPanelOpenChanged: {
     if (panelOpen) content.activate()
   }
 
-  // ── FocusGrab.onCleared → BarPopup emite closeRequested() ────────────────
-  // Só chama callback se DmenuContent ainda não o chamou (seleção com Enter/click).
-  // _callbackFired já estará true se o usuário selecionou algo — guarda re-entrada.
   onCloseRequested: {
     if (!_callbackFired) {
       _callbackFired = true
@@ -63,15 +61,18 @@ Bar.BarPopup {
 
     mode:       panel.mode
     launchCmd:  panel.launchCmd
-    showIcons:  panel.showIcons
-    maxVisible: panel.maxVisible
+    showIcons:     panel.showIcons
+    maxVisible:    panel.maxVisible
+    sortMode:      panel.sortMode
+    usageCount:    panel.usageCount
+    onRecordUsage: panel.onRecordUsage
 
-    scriptEntries: panel.scriptEntries
-    scriptThumbs:  panel.scriptThumbs
-    scriptPreview: panel.scriptPreview
-    scriptPrompt:  panel.scriptPrompt
-    scriptLabel:   panel.scriptLabel
-    scriptSep:     panel.scriptSep
+    scriptEntries:  panel.scriptEntries
+    scriptThumbs:   panel.scriptThumbs
+    scriptPreview:  panel.scriptPreview
+    scriptPrompt:   panel.scriptPrompt
+    scriptLabel:    panel.scriptLabel
+    scriptSep:      panel.scriptSep
     scriptKeybinds: panel.scriptKeybinds
     scriptPassword: panel.scriptPassword
 
@@ -89,8 +90,8 @@ Bar.BarPopup {
 
     onCloseRequested: (selected, key) => {
       if (!panel._callbackFired) {
-        panel._callbackFired = true           // ← guarda PRIMEIRO
-        panel.panelOpen = false               // ← fecha painel (pode emitir closeRequested)
+        panel._callbackFired = true
+        panel.panelOpen = false
         if (panel.scriptCallback) panel.scriptCallback(selected, key || "")
       }
     }

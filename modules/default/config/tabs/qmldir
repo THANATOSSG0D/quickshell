@@ -11,3 +11,4 @@ BarTabNotifications bar/BarTabNotifications.qml
 BarTabPaleta        bar/BarTabPaleta.qml
 BarTabModulos        bar/BarTabModulos.qml
 TabWallpaper  wallpaper/TabWallpaper.qml
+DmenuTabConfig  dmenu/DmenuTabConfig.qml

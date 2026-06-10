@@ -12,6 +12,12 @@ Item {
   property string launchCmd:  "uwsm app -- {exec}"
   property bool   showIcons:  true
   property int    maxVisible: 12
+  // Ordenação dos resultados drun — "name" | "desc" | "usage"
+  property string sortMode:   "name"
+  // Contagens de uso — passado de DmenuConfig.usageCount (leitura apenas)
+  property var    usageCount: ({})
+  // Callback para registrar uso — ligado a DmenuConfig.recordUsage
+  property var    onRecordUsage: null
 
   // Props do modo script (entries já prontas, vindas do DmenuIpc)
   property var    scriptEntries:  []
@@ -80,7 +86,18 @@ Item {
       list.push({ name: name, comment: (a.comment || "").trim(),
                   icon: a.icon || "", exec: exec, app: a })
     }
-    list.sort(function(a, b) { return a.name.localeCompare(b.name) })
+    // Ordenação base da lista completa (sem query)
+    // "usage": apps mais usados primeiro; qualquer outro: alfabético
+    if (sortMode === "usage") {
+      list.sort(function(a, b) {
+        var ua = usageCount[a.exec] || 0
+        var ub = usageCount[b.exec] || 0
+        if (ua !== ub) return ub - ua
+        return a.name.localeCompare(b.name)
+      })
+    } else {
+      list.sort(function(a, b) { return a.name.localeCompare(b.name) })
+    }
     return list
   }
 
@@ -141,6 +158,8 @@ Item {
       } else {
         sel.app.execute()
       }
+      // Registra uso para sortMode="usage"
+      if (onRecordUsage && sel.exec !== "") onRecordUsage(sel.exec)
       root.closeRequested(null, "")
       return
     }
@@ -186,16 +205,45 @@ Item {
   }
 
   // ── Filtro com ranking ─────────────────────────────────────────────────────
+  // Scores base (independente de sortMode):
+  //   0 = nome exato
+  //   1 = nome começa com q
+  //   2 = palavra interna do nome começa com q
+  //   3 = nome contém q em qualquer posição
+  //   4 = descrição/comment contém q
+  //   99 = sem match
+  //
+  // sortMode "name":  desempate por nome alfabético
+  // sortMode "desc":  match em comment sobe para score 2.5 (entre palavra e substring)
+  //                   na prática: comment match → score 2, nome-substring → score 3
+  // sortMode "usage": desempate por usageCount[exec] desc (mais usados primeiro)
   function _score(item, q) {
-    var name = (mode === "drun" ? item.name : item.display).toLowerCase()
+    if (mode !== "drun") {
+      var d = item.display.toLowerCase()
+      if (d === q)             return 0
+      if (d.startsWith(q))     return 1
+      if (d.indexOf(q) !== -1) return 3
+      return 99
+    }
+
+    var name    = item.name.toLowerCase()
+    var comment = (item.comment || "").toLowerCase()
+
     if (name === q)             return 0
     if (name.startsWith(q))     return 1
+
     var words = name.split(/[\s\-_]+/)
     for (var i = 1; i < words.length; i++)
       if (words[i].startsWith(q)) return 2
-    if (name.indexOf(q) !== -1) return 3
-    if (mode === "drun" && item.comment &&
-        item.comment.toLowerCase().indexOf(q) !== -1) return 4
+
+    // sortMode "desc": match em comment tem prioridade sobre substring do nome
+    if (sortMode === "desc") {
+      if (comment.indexOf(q) !== -1) return 3
+      if (name.indexOf(q)    !== -1) return 4
+    } else {
+      if (name.indexOf(q)    !== -1) return 3
+      if (comment.indexOf(q) !== -1) return 4
+    }
     return 99
   }
 
@@ -209,6 +257,12 @@ Item {
     }
     scored.sort(function(a, b) {
       if (a.score !== b.score) return a.score - b.score
+      // Desempate por sortMode
+      if (mode === "drun" && sortMode === "usage") {
+        var ua = usageCount[a.item.exec] || 0
+        var ub = usageCount[b.item.exec] || 0
+        if (ua !== ub) return ub - ua   // mais usado primeiro
+      }
       var na = mode === "drun" ? a.item.name : a.item.display
       var nb = mode === "drun" ? b.item.name : b.item.display
       return na.localeCompare(nb)

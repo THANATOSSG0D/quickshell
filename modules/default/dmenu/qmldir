@@ -2,3 +2,4 @@ DmenuContent   DmenuContent.qml
 DmenuPanel     DmenuPanel.qml
 DmenuPopup     DmenuPopup.qml
 DmenuIpc       DmenuIpc.qml
+DmenuConfig    DmenuConfig.qml

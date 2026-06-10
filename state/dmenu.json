@@ -1,0 +1,16 @@
+{
+  "dmenuDefaultMode": "drun",
+  "dmenuShowIcons": false,
+  "dmenuMaxVisible": 12,
+  "dmenuLaunchCmd": "uwsm app -- {exec}",
+  "dmenuPanelWidth": 320,
+  "dmenuPanelHeight": 460,
+  "dmenuPanelHeightImg": 580,
+  "dmenuPanelRadius": 14,
+  "dmenuToggle": true,
+  "dmenuBackOnEmpty": true,
+  "dmenuPasswordMask": true,
+  "dmenuCooldownMs": 450,
+  "dmenuSortMode": "usage",
+  "usageCount": {}
+}

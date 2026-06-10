@@ -26,8 +26,9 @@ PanelWindow {
 
   // ── API pública ───────────────────────────────────────────────────────
   property bool panelOpen: false
-  property var  config:    null
-  property var  colors:    null
+  property var  config:      null
+  property var  colors:      null
+  property var  dmenuConfig: null   // DmenuConfig instanciado em DmenuIpc
 
   readonly property var _effectiveColors: colors
 
@@ -111,7 +112,7 @@ PanelWindow {
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "widgets",    icon: "\uf2d2", label: "Widgets",    subtabs: [] },
-    { id: "dmenu",      icon: "\uf0ca", label: "Dmenu",      subtabs: [] },
+    { id: "dmenu",      icon: "\uf0ca", label: "Dmenu",      subtabs: ["Configurar"] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 
@@ -596,10 +597,34 @@ PanelWindow {
             }
           }
 
+          // ── DMENU ────────────────────────────────────────────────────
+          Loader {
+            id: loaderDmenu
+            anchors.fill: parent
+            active: win.activeModule === 3 && win.subtab(3) === 0
+            sourceComponent: Component {
+              Tabs.DmenuTabConfig {
+                id: tabDmenuConfig
+                config: win.dmenuConfig; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            // DmenuTabConfig emite changed(opts) com chaves flat → dmenuConfig.saveAll()
+            // É um config totalmente separado do BarConfig.
+            Connections {
+              target: loaderDmenu.item
+              function onChanged(opts) {
+                if (win.dmenuConfig) win.dmenuConfig.saveAll(opts)
+              }
+            }
+          }
+
           // ── Placeholder para módulos ainda não implementados ─────────
           Loader {
             anchors.fill: parent
-            active: win.activeModule > 1
+            active: win.activeModule === 2 || win.activeModule === 4
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14
