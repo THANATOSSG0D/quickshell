@@ -280,6 +280,101 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ dmenuPanelRadius: v })
   }
 
+  // ── POSIÇÃO ───────────────────────────────────────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "POSIÇÃO"; colorTextDim: root.colorTextDim }
+
+  // Alinhamento horizontal
+  Column {
+    width: parent.width; spacing: 6
+
+    Text {
+      text: "Alinhamento horizontal"
+      color: root.colorText; font.pixelSize: 11; font.weight: Font.Medium
+    }
+    Row {
+      spacing: 6
+      Repeater {
+        model: [
+          { id: "left",   label: "Esquerda", icon: "󰅃" },
+          { id: "center", label: "Centro",   icon: "󰉸" },
+          { id: "right",  label: "Direita",  icon: "󰅂" },
+        ]
+        delegate: C.CfgChip {
+          required property var modelData
+          label:  modelData.label
+          icon:   modelData.icon
+          active: root.gd("dmenuPopupXAlign", "center") === modelData.id
+          colorAccent:  root.colorAccent
+          colorTextDim: root.colorTextDim
+          onChipClicked: root.changed({ dmenuPopupXAlign: modelData.id })
+        }
+      }
+    }
+  }
+
+  // Offset horizontal (só relevante quando left ou right)
+  C.CfgSlider {
+    label:   "Offset horizontal"
+    value:   root.gd("dmenuPopupXOffset", 0)
+    from:    0; to: 400; step: 4; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ dmenuPopupXOffset: v })
+  }
+
+  // Âncora vertical
+  Column {
+    width: parent.width; spacing: 6
+
+    Text {
+      text: "Posição vertical"
+      color: root.colorText; font.pixelSize: 11; font.weight: Font.Medium
+    }
+    Row {
+      spacing: 6
+      Repeater {
+        model: [
+          { id: "bar",    label: "Junto da barra", icon: "󱂬" },
+          { id: "top",    label: "Topo",            icon: "󰁝" },
+          { id: "bottom", label: "Base",            icon: "󰁅" },
+        ]
+        delegate: C.CfgChip {
+          required property var modelData
+          label:  modelData.label
+          icon:   modelData.icon
+          active: root.gd("dmenuPopupYAnchor", "bar") === modelData.id
+          colorAccent:  root.colorAccent
+          colorTextDim: root.colorTextDim
+          onChipClicked: root.changed({ dmenuPopupYAnchor: modelData.id })
+        }
+      }
+    }
+
+    // Hint dinâmico
+    Text {
+      width: parent.width
+      property var _hints: ({
+        "bar":    "Popup encosta na barra, como todos os outros painéis.",
+        "top":    "Popup flutua no topo do monitor com o offset abaixo.",
+        "bottom": "Popup flutua na base do monitor com o offset acima."
+      })
+      text: _hints[root.gd("dmenuPopupYAnchor", "bar")] || _hints["bar"]
+      color: root.colorTextDim; font.pixelSize: 9
+      wrapMode: Text.WordWrap; opacity: 0.6
+    }
+  }
+
+  // Offset vertical (só relevante quando top ou bottom)
+  C.CfgSlider {
+    label:   "Offset vertical"
+    value:   root.gd("dmenuPopupYOffset", 0)
+    from:    0; to: 200; step: 4; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ dmenuPopupYOffset: v })
+  }
+
   // ── COMPORTAMENTO ─────────────────────────────────────────────────────────
   C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "COMPORTAMENTO"; colorTextDim: root.colorTextDim }

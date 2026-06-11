@@ -224,6 +224,10 @@ Item {
     ipcPanel.popupH         = req.previewImage
                               ? Math.max(baseH, dmenuConfig.dmenuPanelHeightImg)
                               : baseH
+    ipcPanel.popupXAlign    = dmenuConfig.dmenuPopupXAlign
+    ipcPanel.popupYAnchor   = dmenuConfig.dmenuPopupYAnchor
+    ipcPanel.popupXOffset   = dmenuConfig.dmenuPopupXOffset
+    ipcPanel.popupYOffset   = dmenuConfig.dmenuPopupYOffset
     ipcPanel.showIcons      = dmenuConfig.dmenuShowIcons
     ipcPanel.maxVisible     = dmenuConfig.dmenuMaxVisible
     ipcPanel.sortMode       = dmenuConfig.dmenuSortMode

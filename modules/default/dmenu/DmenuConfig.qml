@@ -39,6 +39,16 @@ QtObject {
   property int    dmenuPanelHeightImg: 580
   property int    dmenuPanelRadius:    14
 
+  // Posicionamento do popup
+  // popupXAlign:  "center" | "left" | "right"
+  // popupYAnchor: "bar"    | "top"  | "bottom"
+  // popupXOffset: px do lado (left/right) ou deslocamento do centro
+  // popupYOffset: px do topo ou da base do monitor (quando yAnchor != "bar")
+  property string dmenuPopupXAlign:  "center"
+  property string dmenuPopupYAnchor: "bar"
+  property int    dmenuPopupXOffset: 0
+  property int    dmenuPopupYOffset: 0
+
   property bool   dmenuToggle:         true
   property bool   dmenuBackOnEmpty:    true
   property bool   dmenuPasswordMask:   true
@@ -97,6 +107,10 @@ QtObject {
     if (obj.dmenuPanelHeight    !== undefined) root.dmenuPanelHeight    = obj.dmenuPanelHeight   | 0
     if (obj.dmenuPanelHeightImg !== undefined) root.dmenuPanelHeightImg = obj.dmenuPanelHeightImg| 0
     if (obj.dmenuPanelRadius    !== undefined) root.dmenuPanelRadius    = obj.dmenuPanelRadius   | 0
+    if (obj.dmenuPopupXAlign    !== undefined) root.dmenuPopupXAlign    = obj.dmenuPopupXAlign
+    if (obj.dmenuPopupYAnchor   !== undefined) root.dmenuPopupYAnchor   = obj.dmenuPopupYAnchor
+    if (obj.dmenuPopupXOffset   !== undefined) root.dmenuPopupXOffset   = obj.dmenuPopupXOffset  | 0
+    if (obj.dmenuPopupYOffset   !== undefined) root.dmenuPopupYOffset   = obj.dmenuPopupYOffset  | 0
     if (obj.dmenuToggle         !== undefined) root.dmenuToggle         = !!obj.dmenuToggle
     if (obj.dmenuBackOnEmpty    !== undefined) root.dmenuBackOnEmpty    = !!obj.dmenuBackOnEmpty
     if (obj.dmenuPasswordMask   !== undefined) root.dmenuPasswordMask   = !!obj.dmenuPasswordMask
@@ -133,6 +147,10 @@ QtObject {
       dmenuPanelHeight:    root.dmenuPanelHeight,
       dmenuPanelHeightImg: root.dmenuPanelHeightImg,
       dmenuPanelRadius:    root.dmenuPanelRadius,
+      dmenuPopupXAlign:    root.dmenuPopupXAlign,
+      dmenuPopupYAnchor:   root.dmenuPopupYAnchor,
+      dmenuPopupXOffset:   root.dmenuPopupXOffset,
+      dmenuPopupYOffset:   root.dmenuPopupYOffset,
       dmenuToggle:         root.dmenuToggle,
       dmenuBackOnEmpty:    root.dmenuBackOnEmpty,
       dmenuPasswordMask:   root.dmenuPasswordMask,

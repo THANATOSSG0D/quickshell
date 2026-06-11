@@ -38,6 +38,18 @@ PanelWindow {
   property int  popupW: 300
   property int  popupH: 400
 
+  // ── Posicionamento override (usado pelo DmenuPanel, ignorado pelos demais) ─
+  // popupXAlign:  "center" | "left" | "right"  — alinhamento horizontal na tela
+  //               "center" = padrão original ((sw - popupW) / 2)
+  // popupYAnchor: "bar" | "top" | "bottom"     — âncora vertical
+  //               "bar" = padrão original (junto da barra)
+  // popupXOffset: px adicionais a partir da borda (left/right) ou deslocamento do centro
+  // popupYOffset: px do topo ou da base (quando popupYAnchor != "bar")
+  property string popupXAlign:  "center"
+  property string popupYAnchor: "bar"
+  property int    popupXOffset: 0
+  property int    popupYOffset: 0
+
   property bool panelOpen: false
 
   property color colorPanelBg: "#1f1f1f"
@@ -69,8 +81,11 @@ PanelWindow {
   }
   readonly property real _slideY: {
     if (_isVertical) return 0
-    if ( _barTop && !_barBottom) return -_slideAmt
-    if (!_barTop  &&  _barBottom) return  _slideAmt
+    // Override YAnchor altera direção do slide
+    if (popupYAnchor === "top")    return -_slideAmt
+    if (popupYAnchor === "bottom") return  _slideAmt
+    if ( _barTop && !_barBottom)   return -_slideAmt
+    if (!_barTop  &&  _barBottom)  return  _slideAmt
     return -_slideAmt
   }
 
@@ -121,10 +136,16 @@ PanelWindow {
 
   margins.left: {
     if (!barRef) return 0
+    // Barra vertical esquerda: encosta sempre na barra (sem override de XAlign)
     if (_isVertical && _barLeft)
       return barRef.implicitWidth + (barRef.margins.left || 0)
     var sw = barRef.screen ? barRef.screen.width : 1920
-    return Math.max(0, Math.floor((sw - popupW) / 2))
+    if (popupXAlign === "left")
+      return Math.max(0, popupXOffset)
+    if (popupXAlign === "right")
+      return Math.max(0, sw - popupW - popupXOffset)
+    // "center" (padrão)
+    return Math.max(0, Math.floor((sw - popupW) / 2) + popupXOffset)
   }
   margins.right: {
     if (!barRef) return 0
@@ -135,6 +156,14 @@ PanelWindow {
   margins.top: {
     if (!barRef) return 0
     var sh = barRef.screen ? barRef.screen.height : 1080
+
+    // Override: flutuar no topo ou base do monitor
+    if (popupYAnchor === "top")
+      return Math.max(0, popupYOffset)
+    if (popupYAnchor === "bottom")
+      return Math.max(0, sh - popupH - popupYOffset)
+
+    // "bar" (padrão): encosta na barra
     if (_barTop && !_barBottom)
       return (barRef.implicitHeight || 0) + (barRef.margins.top || 0)
     if (_barBottom && !_barTop)
