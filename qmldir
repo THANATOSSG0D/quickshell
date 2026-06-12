@@ -1,4 +1,5 @@
 module qs
 
-singleton Colors 1.0 Colors.qml
-singleton BarSchema 1.0 BarSchema.qml
+singleton Colors      1.0 singletons/Colors.qml
+singleton BarSchema   1.0 singletons/BarSchema.qml
+singleton PopupConfig 1.0 singletons/PopupConfig.qml

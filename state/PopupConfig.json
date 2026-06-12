@@ -1,0 +1,10 @@
+{
+    "globals": {
+        "animationStyle": "slide",
+        "bgRadius": 5,
+        "colorPanelBg": "background",
+        "shadowEnabled": true
+    },
+    "overrides": {
+    }
+}

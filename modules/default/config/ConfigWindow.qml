@@ -111,7 +111,9 @@ PanelWindow {
       subtabs: ["Geral", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações", "Paleta"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
-    { id: "widgets",    icon: "\uf2d2", label: "Widgets",    subtabs: [] },
+    { id: "paineis",    icon: "\uf2d2", label: "Painéis",
+      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
+    { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: [] },
     { id: "dmenu",      icon: "\uf0ca", label: "Dmenu",      subtabs: ["Configurar"] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
@@ -371,6 +373,29 @@ PanelWindow {
                 }
               }
             }
+
+            // Botão Limpar (só para painéis)
+            Rectangle {
+              visible: win.activeModule === 2
+              height: 28; width: clrLbl.implicitWidth + 18; radius: 6
+              color: clrHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+              border.color: Qt.rgba(1,1,1,0.1); border.width: 1
+              Behavior on color { ColorAnimation { duration: 80 } }
+              Row { anchors.centerIn: parent; spacing: 6
+                Text { text: "\uf0e2"; color: win.colorTextDim; font.pixelSize: 10
+                  font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+                Text { id: clrLbl
+                  text: win.subtab(2) === 0 ? "Limpar global" : "Limpar override"
+                  color: win.colorTextDim; font.pixelSize: 10
+                  anchors.verticalCenter: parent.verticalCenter }
+              }
+              MouseArea { id: clrHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (loaderPaineis.item) loaderPaineis.item.resetCurrent()
+                  win._savedFlash = true; _savedTimer.restart()
+                }
+              }
+            }
           }
 
           // Divisor inferior
@@ -597,11 +622,31 @@ PanelWindow {
             }
           }
 
+          // ── PAINÉIS ──────────────────────────────────────────────────
+          Loader {
+            id: loaderPaineis
+            anchors.fill: parent
+            active: win.activeModule === 2
+            sourceComponent: Component {
+              Tabs.PanelTab {
+                activeSubtab:    win.subtab(2)
+                overlay:         popupOverlay
+                colors:          win._effectiveColors
+                colorAccent:     win.colorAccent
+                colorTextDim:    win.colorTextDim
+                colorText:       win.colorText
+                colorDivider:    win.colorDivider
+                colorSidebar:    win.colorSidebar
+                colorProgressBg: win.colorProgressBg
+              }
+            }
+          }
+
           // ── DMENU ────────────────────────────────────────────────────
           Loader {
             id: loaderDmenu
             anchors.fill: parent
-            active: win.activeModule === 3 && win.subtab(3) === 0
+            active: win.activeModule === 4 && win.subtab(4) === 0
             sourceComponent: Component {
               Tabs.DmenuTabConfig {
                 id: tabDmenuConfig
@@ -611,8 +656,6 @@ PanelWindow {
                 colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
               }
             }
-            // DmenuTabConfig emite changed(opts) com chaves flat → dmenuConfig.saveAll()
-            // É um config totalmente separado do BarConfig.
             Connections {
               target: loaderDmenu.item
               function onChanged(opts) {
@@ -624,7 +667,7 @@ PanelWindow {
           // ── Placeholder para módulos ainda não implementados ─────────
           Loader {
             anchors.fill: parent
-            active: win.activeModule === 2 || win.activeModule === 4
+            active: win.activeModule === 3 || win.activeModule === 5
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14

@@ -1,1 +1,1 @@
-/home/antonio/.config/quickshell/Colors.qml
+../../../Colors.qml

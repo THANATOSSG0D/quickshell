@@ -52,6 +52,8 @@ Item {
   // Refs coletadas do layout carregado — Bar.qml lê estas props
   property var mediaPlayer:   null
   property var volumeWidget:  null
+  property var sinkWidget:    null
+  property var sourceWidget:  null
   property var clock:         null
   property var notifWidget:   null
 
@@ -170,6 +172,8 @@ Item {
     if (!lay) return
     root.mediaPlayer  = lay.mediaPlayer  || null
     root.volumeWidget = lay.volumeWidget || null
+    root.sinkWidget   = lay.sinkWidget   || null
+    root.sourceWidget = lay.sourceWidget || null
     root.clock        = lay.clock        || null
     root.notifWidget  = lay.notifWidget  || null
     root.refsUpdated()
@@ -244,6 +248,8 @@ Item {
       // Refs expostas — só uma será não-nula por instância
       readonly property var mediaPlayer:  mpLoader.active  && mpLoader.item  ? mpLoader.item  : null
       readonly property var volumeWidget: volLoader.active && volLoader.item ? volLoader.item : null
+      readonly property var sinkWidget:   skLoader.active  && skLoader.item  ? skLoader.item  : null
+      readonly property var sourceWidget: srLoader.active  && srLoader.item  ? srLoader.item  : null
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
 
@@ -264,6 +270,8 @@ Item {
       readonly property var _activeLoader: {
         if (modId === "mediaplayer")    return mpLoader
         if (modId === "volume")         return volLoader
+        if (modId === "sink")           return skLoader
+        if (modId === "source")         return srLoader
         if (modId === "clock")          return ckLoader
         if (modId === "quicksettings")  return qsLoader
         if (modId === "workspaces")     return wsLoader
@@ -332,6 +340,50 @@ Item {
             mutedColor:             root.cfgVolMuted
             showSink:               root.cfgVolShowSink
             showSource:             root.cfgVolShowSource
+            barPosition:            root.barPosition
+            onSinkPanelRequested:   root.sinkPanelRequested()
+            onSourcePanelRequested: root.sourcePanelRequested()
+          }
+        }
+        onItemChanged: if (item) root._updateRefs()
+      }
+
+      // ── Som solo (sink only) ──────────────────────────────────────────
+      Loader {
+        id: skLoader
+        active:           modId === "sink"
+        anchors.centerIn: parent
+        sourceComponent: Component {
+          Vol.Volume {
+            isHorizontal:           modItem.isH
+            textColor:              root.cfgVolTextColor
+            dimColor:               root.cfgVolDimColor
+            accentColor:            root.cfgVolAccent
+            mutedColor:             root.cfgVolMuted
+            showSink:               true
+            showSource:             false
+            barPosition:            root.barPosition
+            onSinkPanelRequested:   root.sinkPanelRequested()
+            onSourcePanelRequested: root.sourcePanelRequested()
+          }
+        }
+        onItemChanged: if (item) root._updateRefs()
+      }
+
+      // ── Mic solo (source only) ────────────────────────────────────────
+      Loader {
+        id: srLoader
+        active:           modId === "source"
+        anchors.centerIn: parent
+        sourceComponent: Component {
+          Vol.Volume {
+            isHorizontal:           modItem.isH
+            textColor:              root.cfgVolTextColor
+            dimColor:               root.cfgVolDimColor
+            accentColor:            root.cfgVolAccent
+            mutedColor:             root.cfgVolMuted
+            showSink:               false
+            showSource:             true
             barPosition:            root.barPosition
             onSinkPanelRequested:   root.sinkPanelRequested()
             onSourcePanelRequested: root.sourcePanelRequested()
@@ -521,6 +573,12 @@ Item {
       property var volumeWidget: root._findRef(leftRep,   "volumeWidget")
                                || root._findRef(centerRep, "volumeWidget")
                                || root._findRef(rightRep,  "volumeWidget")
+      property var sinkWidget:   root._findRef(leftRep,   "sinkWidget")
+                               || root._findRef(centerRep, "sinkWidget")
+                               || root._findRef(rightRep,  "sinkWidget")
+      property var sourceWidget: root._findRef(leftRep,   "sourceWidget")
+                               || root._findRef(centerRep, "sourceWidget")
+                               || root._findRef(rightRep,  "sourceWidget")
       property var clock:        root._findRef(leftRep,   "clock")
                                || root._findRef(centerRep, "clock")
                                || root._findRef(rightRep,  "clock")
@@ -663,6 +721,12 @@ Item {
       property var volumeWidget: root._findRef(topRep,    "volumeWidget")
                                || root._findRef(middleRep, "volumeWidget")
                                || root._findRef(bottomRep, "volumeWidget")
+      property var sinkWidget:   root._findRef(topRep,    "sinkWidget")
+                               || root._findRef(middleRep, "sinkWidget")
+                               || root._findRef(bottomRep, "sinkWidget")
+      property var sourceWidget: root._findRef(topRep,    "sourceWidget")
+                               || root._findRef(middleRep, "sourceWidget")
+                               || root._findRef(bottomRep, "sourceWidget")
       property var clock:        root._findRef(topRep,    "clock")
                                || root._findRef(middleRep, "clock")
                                || root._findRef(bottomRep, "clock")
