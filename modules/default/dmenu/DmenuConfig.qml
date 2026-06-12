@@ -49,6 +49,17 @@ QtObject {
   property int    dmenuPopupXOffset: 0
   property int    dmenuPopupYOffset: 0
 
+  // ── Cores do painel (chaves matugen) ─────────────────────────────────────
+  // Valor "" = usa a cor padrão injetada pelo DmenuIpc via bar.popupColorXxx
+  // Valor preenchido = sobrescreve com a cor resolvida do matugen
+  property string dmenuColorBg:       "surface_container"
+  property string dmenuColorText:     "on_surface"
+  property string dmenuColorTextDim:  "on_surface_variant"
+  property string dmenuColorAccent:   "primary"
+  property string dmenuColorSelected: "surface_container_high"
+  property string dmenuColorDivider:  "outline_variant"
+  property string dmenuColorInputBg:  "surface_container_low"
+
   property bool   dmenuToggle:         true
   property bool   dmenuBackOnEmpty:    true
   property bool   dmenuPasswordMask:   true
@@ -111,6 +122,13 @@ QtObject {
     if (obj.dmenuPopupYAnchor   !== undefined) root.dmenuPopupYAnchor   = obj.dmenuPopupYAnchor
     if (obj.dmenuPopupXOffset   !== undefined) root.dmenuPopupXOffset   = obj.dmenuPopupXOffset  | 0
     if (obj.dmenuPopupYOffset   !== undefined) root.dmenuPopupYOffset   = obj.dmenuPopupYOffset  | 0
+    if (obj.dmenuColorBg        !== undefined) root.dmenuColorBg        = obj.dmenuColorBg       || ""
+    if (obj.dmenuColorText      !== undefined) root.dmenuColorText      = obj.dmenuColorText      || ""
+    if (obj.dmenuColorTextDim   !== undefined) root.dmenuColorTextDim   = obj.dmenuColorTextDim   || ""
+    if (obj.dmenuColorAccent    !== undefined) root.dmenuColorAccent    = obj.dmenuColorAccent    || ""
+    if (obj.dmenuColorSelected  !== undefined) root.dmenuColorSelected  = obj.dmenuColorSelected  || ""
+    if (obj.dmenuColorDivider   !== undefined) root.dmenuColorDivider   = obj.dmenuColorDivider   || ""
+    if (obj.dmenuColorInputBg   !== undefined) root.dmenuColorInputBg   = obj.dmenuColorInputBg   || ""
     if (obj.dmenuToggle         !== undefined) root.dmenuToggle         = !!obj.dmenuToggle
     if (obj.dmenuBackOnEmpty    !== undefined) root.dmenuBackOnEmpty    = !!obj.dmenuBackOnEmpty
     if (obj.dmenuPasswordMask   !== undefined) root.dmenuPasswordMask   = !!obj.dmenuPasswordMask
@@ -126,6 +144,41 @@ QtObject {
     var c = Object.assign({}, root.usageCount)
     c[execKey] = (c[execKey] || 0) + 1
     root.usageCount = c
+    if (root._ready) _write()
+  }
+
+  // ── Objeto de defaults — usado em resetToDefaults() ─────────────────────
+  readonly property var _defaults: ({
+    dmenuDefaultMode:    "drun",
+    dmenuShowIcons:      true,
+    dmenuMaxVisible:     12,
+    dmenuLaunchCmd:      "uwsm app -- {exec}",
+    dmenuSortMode:       "name",
+    dmenuPanelWidth:     320,
+    dmenuPanelHeight:    460,
+    dmenuPanelHeightImg: 580,
+    dmenuPanelRadius:    14,
+    dmenuPopupXAlign:    "center",
+    dmenuPopupYAnchor:   "bar",
+    dmenuPopupXOffset:   0,
+    dmenuPopupYOffset:   0,
+    dmenuColorBg:        "surface_container",
+    dmenuColorText:      "on_surface",
+    dmenuColorTextDim:   "on_surface_variant",
+    dmenuColorAccent:    "primary",
+    dmenuColorSelected:  "surface_container_high",
+    dmenuColorDivider:   "outline_variant",
+    dmenuColorInputBg:   "surface_container_low",
+    dmenuToggle:         true,
+    dmenuBackOnEmpty:    true,
+    dmenuPasswordMask:   true,
+    dmenuCooldownMs:     450,
+  })
+
+  // ── resetToDefaults — restaura tudo ao padrão e persiste ─────────────────
+  function resetToDefaults() {
+    _applyFromJson(root._defaults)
+    root.usageCount = {}
     if (root._ready) _write()
   }
 
@@ -151,6 +204,13 @@ QtObject {
       dmenuPopupYAnchor:   root.dmenuPopupYAnchor,
       dmenuPopupXOffset:   root.dmenuPopupXOffset,
       dmenuPopupYOffset:   root.dmenuPopupYOffset,
+      dmenuColorBg:        root.dmenuColorBg,
+      dmenuColorText:      root.dmenuColorText,
+      dmenuColorTextDim:   root.dmenuColorTextDim,
+      dmenuColorAccent:    root.dmenuColorAccent,
+      dmenuColorSelected:  root.dmenuColorSelected,
+      dmenuColorDivider:   root.dmenuColorDivider,
+      dmenuColorInputBg:   root.dmenuColorInputBg,
       dmenuToggle:         root.dmenuToggle,
       dmenuBackOnEmpty:    root.dmenuBackOnEmpty,
       dmenuPasswordMask:   root.dmenuPasswordMask,

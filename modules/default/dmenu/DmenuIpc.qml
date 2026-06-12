@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
+import qs
 
 // ── DmenuIpc ──────────────────────────────────────────────────────────────────
 // Ponto único de entrada para todos os modos do dmenu.
@@ -33,13 +34,24 @@ Item {
   // Shell.qml passa configRef para o ConfigWindow.dmenuConfig.
   readonly property DmenuConfig configRef: DmenuConfig { id: dmenuConfig }
 
-  property color colorPanelBg:  "#1f1f1f"
-  property color colorText:     "#e2e2e2"
-  property color colorTextDim:  "#c6c6c6"
-  property color colorAccent:   "#ffb4a9"
-  property color colorSelected: "#1f1f1f"
-  property color colorDivider:  "#474747"
-  property color colorInputBg:  "#1f1f1f"
+  // Fallbacks — recebem os valores do shell.qml (bar.popupColorXxx)
+
+  property color _fallbackBg:       "#1f1f1f"
+  property color _fallbackText:     "#e2e2e2"
+  property color _fallbackTextDim:  "#c6c6c6"
+  property color _fallbackAccent:   "#ffb4a9"
+  property color _fallbackSelected: "#1f1f1f"
+  property color _fallbackDivider:  "#474747"
+  property color _fallbackInputBg:  "#1f1f1f"
+
+  // Cores efetivas — chave do config sobrescreve o fallback se preenchida
+  readonly property color colorPanelBg:  _resolveColor(dmenuConfig.dmenuColorBg,       _fallbackBg)
+  readonly property color colorText:     _resolveColor(dmenuConfig.dmenuColorText,      _fallbackText)
+  readonly property color colorTextDim:  _resolveColor(dmenuConfig.dmenuColorTextDim,   _fallbackTextDim)
+  readonly property color colorAccent:   _resolveColor(dmenuConfig.dmenuColorAccent,    _fallbackAccent)
+  readonly property color colorSelected: _resolveColor(dmenuConfig.dmenuColorSelected,  _fallbackSelected)
+  readonly property color colorDivider:  _resolveColor(dmenuConfig.dmenuColorDivider,   _fallbackDivider)
+  readonly property color colorInputBg:  _resolveColor(dmenuConfig.dmenuColorInputBg,   _fallbackInputBg)
 
   // ── Estado ───────────────────────────────────────────────────────────────
   // _stack:      pilha de requests — o topo é o request em exibição.
@@ -178,6 +190,52 @@ Item {
     }
 
     _pushAndOpen(req)
+  }
+
+  // ── _resolveColor: resolve chave matugen → cor, com fallback ────────────
+  // Map explícito — bracket notation não funciona em singletons QML.
+  function _resolveColor(key, fallback) {
+    if (!key || key === "") return fallback
+    var map = {
+      "background":                Colors.background,
+      "error":                     Colors.error,
+      "error_container":           Colors.error_container,
+      "inverse_on_surface":        Colors.inverse_on_surface,
+      "inverse_primary":           Colors.inverse_primary,
+      "inverse_surface":           Colors.inverse_surface,
+      "on_background":             Colors.on_background,
+      "on_error":                  Colors.on_error,
+      "on_primary":                Colors.on_primary,
+      "on_primary_container":      Colors.on_primary_container,
+      "on_secondary":              Colors.on_secondary,
+      "on_secondary_container":    Colors.on_secondary_container,
+      "on_surface":                Colors.on_surface,
+      "on_surface_variant":        Colors.on_surface_variant,
+      "on_tertiary":               Colors.on_tertiary,
+      "on_tertiary_container":     Colors.on_tertiary_container,
+      "outline":                   Colors.outline,
+      "outline_variant":           Colors.outline_variant,
+      "primary":                   Colors.primary,
+      "primary_container":         Colors.primary_container,
+      "scrim":                     Colors.scrim,
+      "secondary":                 Colors.secondary,
+      "secondary_container":       Colors.secondary_container,
+      "shadow":                    Colors.shadow,
+      "source_color":              Colors.source_color,
+      "surface":                   Colors.surface,
+      "surface_bright":            Colors.surface_bright,
+      "surface_container":         Colors.surface_container,
+      "surface_container_high":    Colors.surface_container_high,
+      "surface_container_highest": Colors.surface_container_highest,
+      "surface_container_low":     Colors.surface_container_low,
+      "surface_container_lowest":  Colors.surface_container_lowest,
+      "surface_dim":               Colors.surface_dim,
+      "surface_variant":           Colors.surface_variant,
+      "tertiary":                  Colors.tertiary,
+      "tertiary_container":        Colors.tertiary_container,
+    }
+    var v = map[key]
+    return (v !== undefined && v !== null) ? v : fallback
   }
 
   // ── _pushAndOpen: empilha um request e exibe o painel ────────────────────

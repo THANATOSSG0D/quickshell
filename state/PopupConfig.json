@@ -1,10 +1,17 @@
 {
     "globals": {
-        "animationStyle": "slide",
+        "animDuration": 500,
+        "animationStyle": "scale-slide",
         "bgRadius": 5,
         "colorPanelBg": "background",
         "shadowEnabled": true
     },
     "overrides": {
+        "DmenuPopup": {
+            "colorPanelBg": "background"
+        },
+        "VolumePopupTabbed": {
+            "colorPanelBg": "background"
+        }
     }
 }

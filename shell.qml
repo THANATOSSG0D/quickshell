@@ -55,14 +55,14 @@ Scope {
     id: dmenuIpc
     barRoot:   bar
 
-    // Cores lidas do tema do Bar — atualizam automaticamente com matugen
-    colorPanelBg:  bar.popupColorBg
-    colorText:     bar.popupColorText
-    colorTextDim:  bar.popupColorTextDim
-    colorAccent:   bar.popupColorAccent
-    colorSelected: bar.popupColorBg
-    colorDivider:  bar.popupColorDivider
-    colorInputBg:  bar.popupColorBg
+    // Fallbacks de cor — quando dmenuConfig não tem override, usa as cores da barra
+    _fallbackBg:       bar.popupColorBg
+    _fallbackText:     bar.popupColorText
+    _fallbackTextDim:  bar.popupColorTextDim
+    _fallbackAccent:   bar.popupColorAccent
+    _fallbackSelected: bar.popupColorBg
+    _fallbackDivider:  bar.popupColorDivider
+    _fallbackInputBg:  bar.popupColorBg
     // showIcons, launchCmd, maxVisible, panelWidth/Height, etc. → dmenuIpc.configRef
   }
 

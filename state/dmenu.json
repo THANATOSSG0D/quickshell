@@ -7,10 +7,24 @@
   "dmenuPanelHeight": 460,
   "dmenuPanelHeightImg": 580,
   "dmenuPanelRadius": 14,
+  "dmenuPopupXAlign": "center",
+  "dmenuPopupYAnchor": "bar",
+  "dmenuPopupXOffset": 0,
+  "dmenuPopupYOffset": 0,
+  "dmenuColorBg": "inverse_primary",
+  "dmenuColorText": "on_surface",
+  "dmenuColorTextDim": "on_surface_variant",
+  "dmenuColorAccent": "primary",
+  "dmenuColorSelected": "surface_container_high",
+  "dmenuColorDivider": "outline_variant",
+  "dmenuColorInputBg": "surface_container_low",
   "dmenuToggle": true,
   "dmenuBackOnEmpty": true,
   "dmenuPasswordMask": true,
   "dmenuCooldownMs": 450,
-  "dmenuSortMode": "usage",
-  "usageCount": {}
+  "dmenuSortMode": "name",
+  "usageCount": {
+    "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 2,
+    "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 3
+  }
 }

@@ -409,9 +409,133 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ dmenuCooldownMs: v })
   }
 
-  // ── INFO / STATUS ─────────────────────────────────────────────────────────
+  // ── CORES ─────────────────────────────────────────────────────────────────
   C.CfgDiv { colorDivider: root.colorDivider }
-  C.CfgSection { title: "INFO"; colorTextDim: root.colorTextDim }
+  C.CfgSection { title: "CORES"; colorTextDim: root.colorTextDim }
+
+  // helper local para reduzir repetição
+  // cada entrada: { configKey, label, desc, default }
+  Column {
+    width: parent.width
+    spacing: 0
+
+    Repeater {
+      model: [
+        { key: "dmenuColorBg",       label: "Fundo do painel",
+          desc: "Cor de fundo do popup inteiro.",
+          def: "surface_container" },
+        { key: "dmenuColorInputBg",  label: "Fundo do campo de busca",
+          desc: "Fundo da caixa de texto onde você digita.",
+          def: "surface_container_low" },
+        { key: "dmenuColorSelected", label: "Fundo do item selecionado",
+          desc: "Destaque de fundo na linha em foco.",
+          def: "surface_container_high" },
+        { key: "dmenuColorText",     label: "Texto principal",
+          desc: "Nome do app, comandos, entradas de script.",
+          def: "on_surface" },
+        { key: "dmenuColorTextDim",  label: "Texto secundário",
+          desc: "Descrição do app, prompt, label de seção.",
+          def: "on_surface_variant" },
+        { key: "dmenuColorAccent",   label: "Accent / seleção",
+          desc: "Cor do texto selecionado e swatches de cor.",
+          def: "primary" },
+        { key: "dmenuColorDivider",  label: "Divisor",
+          desc: "Linha separadora entre grupos de entradas.",
+          def: "outline_variant" },
+      ]
+      delegate: Column {
+        required property var modelData
+        width: parent.width
+        spacing: 2
+        bottomPadding: 10
+
+        // Label + descrição
+        Text {
+          text: modelData.label
+          color: root.colorText; font.pixelSize: 11; font.weight: Font.Medium
+        }
+        Text {
+          width: parent.width
+          text: modelData.desc
+          color: root.colorTextDim; font.pixelSize: 9; opacity: 0.65
+          wrapMode: Text.WordWrap
+          bottomPadding: 4
+        }
+
+        C.CfgPalette {
+          width: parent.width
+          label: ""
+          value: root.gd(modelData.key, modelData.def)
+          colors: root.colors; overlay: root.overlay
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorSidebar: root.colorSidebar
+          colorDivider: root.colorDivider
+          onEdited: (v) => root.changed(
+            (function(k,v){ var o={}; o[k]=v; return o })(modelData.key, v)
+          )
+        }
+      }
+    }
+  }
+
+  // ── INFO / STATUS — com botão reset inline ───────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider }
+
+  Row {
+    width: parent.width
+    // Título à esquerda
+    Text {
+      id: infoLabel
+      text: "INFO"
+      color: root.colorTextDim; font.pixelSize: 9
+      font.weight: Font.Medium; font.family: "JetBrainsMono Nerd Font"
+      anchors.verticalCenter: parent.verticalCenter
+    }
+    // Empurra o botão para a direita
+    Item { width: parent.width - infoLabel.implicitWidth - resetBtn.implicitWidth - 4; height: 1 }
+
+    // Botão reset pequeno
+    Rectangle {
+      id: resetBtn
+      height: 18
+      width: resetRow.implicitWidth + 12
+      radius: 5
+      anchors.verticalCenter: parent.verticalCenter
+      color: resetBtnMa.containsMouse
+        ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
+        : "transparent"
+      border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b,
+                            resetBtnMa.containsMouse ? 0.5 : 0.25)
+      border.width: 1
+      Behavior on color        { ColorAnimation { duration: 60 } }
+      Behavior on border.color { ColorAnimation { duration: 60 } }
+
+      Row {
+        id: resetRow
+        anchors.centerIn: parent
+        spacing: 4
+        Text {
+          text: "󰑙"
+          color: root.colorAccent
+          font { family: "JetBrainsMono Nerd Font"; pixelSize: 9 }
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          text: "restaurar padrões"
+          color: root.colorAccent; font.pixelSize: 9
+          anchors.verticalCenter: parent.verticalCenter
+        }
+      }
+
+      MouseArea {
+        id: resetBtnMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: { if (root.config) root.config.resetToDefaults() }
+      }
+    }
+  }
 
   // Box informativa sobre o socket IPC
   Rectangle {

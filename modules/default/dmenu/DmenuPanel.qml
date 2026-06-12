@@ -5,6 +5,7 @@ import "../bar" as Bar
 
 Bar.BarPopup {
   id: panel
+  objectName: "DmenuPopup"
 
   property string mode:       "drun"   // drun | run | window | script
   property string launchCmd:  "uwsm app -- {exec}"
@@ -25,10 +26,8 @@ Bar.BarPopup {
   property var    scriptCallback: null
   property var    backCallback:   null
 
-  // popupW/popupH injetados por DmenuIpc._showTop() a partir do DmenuConfig.
-  // Mantemos o fallback via barRef para o caso de uso standalone (ex: testes).
-  popupW: barRef ? barRef.parent.themePanelWidth : 320
-  popupH: barRef ? barRef.parent.popupHDmenu     : 460
+  // popupW / popupH / bgRadius injetados imperativamente por DmenuIpc._showTop().
+  // Sem binding declarativo — binding compete com assignment e vence ao barRef mudar.
 
   property color colorText:     "#e2e2e2"
   property color colorTextDim:  "#c6c6c6"
@@ -43,7 +42,12 @@ Bar.BarPopup {
   function close() { panelOpen = false }
 
   onPanelOpenChanged: {
-    if (panelOpen) content.activate()
+    if (panelOpen) {
+      // Delay: HyprlandFocusGrab.active = panelOpen é um Binding reativo que processa
+      // DEPOIS dos handlers. Se chamarmos forceActiveFocus antes do FocusGrab estar
+      // ativo, o foco é devolvido para o Hyprland no próximo frame.
+      Qt.callLater(function() { Qt.callLater(function() { content.activate() }) })
+    }
   }
 
   onCloseRequested: {

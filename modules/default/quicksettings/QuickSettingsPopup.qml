@@ -8,6 +8,7 @@ import "../bar" as Bar
 
 Bar.BarPopup {
     id: popup
+    objectName: "QuickSettingsPopup"
 
     popupW: 320
     popupH: 540

@@ -8,6 +8,7 @@ import "../bar" as Bar
 
 Bar.BarPopup {
   id: popup
+  objectName: "MediaPlayerPopup"
 
   property var barMediaPlayer: null
 

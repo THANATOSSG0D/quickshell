@@ -11,6 +11,7 @@ import "../bar" as Bar
 
 Bar.BarPopup {
   id: popup
+  objectName: "ClockPopup"
 
   popupW: 280
   popupH: 480

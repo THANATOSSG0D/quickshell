@@ -63,7 +63,7 @@ PanelWindow {
   property int    popupYOffset: 0
   property bool   panelOpen:    false
   property color  colorPanelBg: Colors.surface_container
-  property int    animDuration: 200
+  property int    animDuration: 280
   property int    bgRadius:     12
   property real   bgOpacity:    0.95
   signal closeRequested()
@@ -194,7 +194,7 @@ PanelWindow {
   }
 
   // ── Novas props — animação ─────────────────────────────────────────────────
-  property string animationStyle: "slide"  // "slide"|"fade"|"scale"|"scale-slide"|"none"
+  property string animationStyle: "scale-slide"  // "slide"|"fade"|"scale"|"scale-slide"|"none"
 
   // ── Novas props — sombra ───────────────────────────────────────────────────
   property bool  shadowEnabled:  false
@@ -230,7 +230,7 @@ PanelWindow {
   readonly property bool _isVertical: _barPos === 2 || _barPos === 4
 
   // ── Slide: direção (idêntica ao original) ─────────────────────────────────
-  readonly property real _slideAmt: 14
+  readonly property real _slideAmt: 20
 
   readonly property real _slideX: {
     if (!_isVertical) return 0
@@ -286,7 +286,7 @@ PanelWindow {
 
   anchors.top:    true
   anchors.bottom: false
-  anchors.left:   _barLeft
+  anchors.left:   !_isVertical || _barLeft  // barra horizontal: sempre ancora à esquerda
   anchors.right:  _barRight
 
   // ── Margens (idênticas ao original, com padding de sombra) ────────────────
@@ -378,10 +378,11 @@ PanelWindow {
   // ── Animações (idênticas ao original) ─────────────────────────────────────
   NumberAnimation {
     id: openAnim
-    target:      popup
-    property:    "_animProg"
-    duration:    popup.animDuration
-    easing.type: Easing.OutCubic
+    target:           popup
+    property:         "_animProg"
+    duration:         popup.animDuration
+    easing.type:      Easing.OutBack
+    easing.overshoot: 0.5
   }
 
   NumberAnimation {
@@ -427,8 +428,8 @@ PanelWindow {
   }
   readonly property real _bgScale: {
     switch (animationStyle) {
-      case "scale":       return 0.88 + 0.12 * _animProg
-      case "scale-slide": return 0.92 + 0.08 * _animProg
+      case "scale":       return 0.82 + 0.18 * _animProg
+      case "scale-slide": return 0.87 + 0.13 * _animProg
       default:            return 1.0
     }
   }
@@ -490,7 +491,12 @@ PanelWindow {
         Translate { x: popup._bgTransX; y: popup._bgTransY },
         Scale {
           xScale: popup._bgScale; yScale: popup._bgScale
-          origin.x: bg.width / 2; origin.y: bg.height / 2
+          origin.x: popup._barLeft  ? 0 :
+                    popup._barRight ? bg.width : bg.width / 2
+          origin.y: (popup._barTop && !popup._barBottom)  ? 0 :
+                    (!popup._barTop && popup._barBottom)  ? bg.height :
+                    popup.popupYAnchor === "bottom"       ? bg.height :
+                    popup.popupYAnchor === "top"          ? 0 : bg.height / 2
         }
       ]
 
