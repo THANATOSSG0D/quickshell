@@ -14,7 +14,7 @@
                 "dimColor": "on_surface_variant",
                 "dimColorActive": "on_surface_variant",
                 "textColor": "on_surface",
-                "textColorActive": "on_primary_container"
+                "textColorActive": "primary"
             },
             "palette": {
                 "accent": "primary",
@@ -28,6 +28,16 @@
                 "progressFg": "primary",
                 "text": "on_surface",
                 "textDim": "on_surface_variant"
+            },
+            "quicksettings": {
+                "textColor": "on_surface"
+            },
+            "volume": {
+                "maxVol": 1.4000000000000001,
+                "mutedColor": "error",
+                "showSink": true,
+                "showSource": true,
+                "textColor": "on_surface"
             },
             "workspaces": {
                 "bgBorderColor": "on_surface",

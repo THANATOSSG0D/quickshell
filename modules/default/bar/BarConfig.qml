@@ -147,6 +147,21 @@ Item {
     console.log("[BarConfig] set " + moduleId + "." + (useStyle ? style+"." : "") + key + " = " + value + " (tema:" + th + ")")
   }
 
+  // clearModule(moduleId) — remove todos os overrides de um módulo no tema atual.
+  // Após o clear, get() retorna os defaults do schema → paleta global volta a valer.
+  function clearModule(moduleId) {
+    var th = root.theme
+    var o  = {}
+    try { o = JSON.parse(JSON.stringify(stateAdapter.overrides)) } catch(e) {}
+    if (o[th] && o[th][moduleId]) {
+      delete o[th][moduleId]
+      stateAdapter.overrides = o
+      stateFile.writeAdapter()
+      _bump()
+      console.log("[BarConfig] clearModule " + moduleId + " (tema:" + th + ")")
+    }
+  }
+
   // saveAll(opts) — chamado pelo ConfigWindow com pacote de mudanças
   // opts = { moduleId: { key: value, ... }, ... }  OU o formato legado flat
   function saveAll(opts) {
@@ -397,6 +412,7 @@ Item {
   // volume
   readonly property bool volShowSink:   get("volume","showSink")   !== false
   readonly property bool volShowSource: get("volume","showSource")  !== false
+  readonly property real volMaxVol:     get("volume","maxVol")      || 1.5
 
   // ══════════════════════════════════════════════════════════════════════
   // FILE 1 — Bar.json (estrutura + defaults de tema)

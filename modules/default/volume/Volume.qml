@@ -10,10 +10,12 @@ Item {
   property bool isHorizontal: true
   property int  barPosition:  2
 
-  property color textColor:   "white"
-  property color dimColor:    Qt.rgba(1, 1, 1, 0.5)
-  property color accentColor: "white"
-  property color mutedColor:  "red"
+  property color textColor:    "white"
+  property color dimColor:     Qt.rgba(1, 1, 1, 0.5)
+  property color accentColor:  "white"
+  property color mutedColor:   "red"
+  property color progressColor: "#474747"
+  property real  maxVol:        1.5
 
   property bool showSink:   true
   property bool showSource: true
@@ -61,7 +63,7 @@ Item {
     // return prematuro. sink.audio.volume já está disponível e é suficiente
     // para ler e escrever o volume do sink.
     if (!sink || !sink.audio) return
-    sink.audio.volume = Math.max(0, Math.min(1.5, sink.audio.volume + delta))
+    sink.audio.volume = Math.max(0, Math.min(volumeRoot.maxVol, sink.audio.volume + delta))
     if (sink.audio.volume > 0) sink.audio.muted = false
     if (osdService) osdService.sinkShow()
   }

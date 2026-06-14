@@ -565,10 +565,21 @@ Scope {
         // volume
         _set("cfgVolShowSink",   barState.config.volShowSink   !== undefined ? barState.config.volShowSink   : true)
         _set("cfgVolShowSource", barState.config.volShowSource !== undefined ? barState.config.volShowSource : true)
-        _set("cfgVolTextColor",  barState.config.paletteText)
-        _set("cfgVolDimColor",   barState.config.paletteTextDim)
-        _set("cfgVolAccent",     barState.config.paletteAccent)
-        _set("cfgVolMuted",      barState.config.paletteWsDotUrgentColor)
+        _set("cfgVolMaxVol",     barState.config.volMaxVol)
+        _set("cfgVolTextColor",  barState.config.paletteVolText)
+        _set("cfgVolDimColor",   barState.config.paletteVolDim)
+        _set("cfgVolAccent",     barState.config.paletteVolAccent)
+        _set("cfgVolMuted",      barState.config.paletteVolMuted)
+        _set("cfgVolProgress",   barState.config.paletteVolProgress)
+        // quicksettings
+        _set("cfgQsTextColor",   barState.config.paletteQsText)
+        _set("cfgQsDimColor",    barState.config.paletteQsDim)
+        _set("cfgQsAccent",      barState.config.paletteQsAccent)
+        // notifications
+        _set("cfgNotifTextColor", barState.config.paletteNotifText)
+        _set("cfgNotifDimColor",  barState.config.paletteNotifDim)
+        _set("cfgNotifAccent",    barState.config.paletteNotifAccent)
+        _set("cfgNotifMuted",     barState.config.paletteNotifMuted)
         // clock
         _set("cfgClkTextColor",    barState.config.paletteClkTextColor)
         _set("cfgClkDimColor",     barState.config.paletteClkDimColor)
@@ -612,12 +623,9 @@ Scope {
         // paleta
         function onPaletteBarBgChanged()                { bar._set("colBarBg",          barState.config.paletteBarBg)                 }
         function onPaletteBarBgPillChanged()            { bar._set("colBarBgPill",      barState.config.paletteBarBgPill)             }
-        function onPaletteTextChanged()                 { bar._set("colText",           barState.config.paletteText)
-                                                          bar._set("cfgVolTextColor",   barState.config.paletteText)                  }
-        function onPaletteTextDimChanged()              { bar._set("colTextDim",        barState.config.paletteTextDim)
-                                                          bar._set("cfgVolDimColor",    barState.config.paletteTextDim)               }
-        function onPaletteAccentChanged()               { bar._set("colAccent",         barState.config.paletteAccent)
-                                                          bar._set("cfgVolAccent",      barState.config.paletteAccent)                }
+        function onPaletteTextChanged()                 { bar._set("colText",           barState.config.paletteText)                  }
+        function onPaletteTextDimChanged()              { bar._set("colTextDim",        barState.config.paletteTextDim)               }
+        function onPaletteAccentChanged()               { bar._set("colAccent",         barState.config.paletteAccent)                }
         function onPaletteAccentBgChanged()             { bar._set("colAccentBg",       barState.config.paletteAccentBg)              }
         function onPaletteAccentTextChanged()           { bar._set("colAccentText",     barState.config.paletteAccentText)            }
         function onPaletteWsBgColorChanged()            { bar._set("colWsBg",           barState.config.paletteWsBgColor)             }
@@ -625,10 +633,27 @@ Scope {
         function onPaletteWsDotColorChanged()           { bar._set("colWsDot",          barState.config.paletteWsDotColor)            }
         function onPaletteWsDotActiveColorChanged()     { bar._set("colWsDotActive",    barState.config.paletteWsDotActiveColor)      }
         function onPaletteWsDotOccupiedColorChanged()   { bar._set("colWsDotOccupied",  barState.config.paletteWsDotOccupiedColor)    }
-        function onPaletteWsDotUrgentColorChanged()     { bar._set("colWsDotUrgent",    barState.config.paletteWsDotUrgentColor)
-                                                          bar._set("cfgVolMuted",       barState.config.paletteWsDotUrgentColor)      }
+        function onPaletteWsDotUrgentColorChanged()     { bar._set("colWsDotUrgent",    barState.config.paletteWsDotUrgentColor)      }
         function onPaletteWsIconMonoColorChanged()      { bar._set("colIconMono",       barState.config.paletteWsIconMonoColor)       }
         function onPaletteWsIconMonoColorActiveChanged(){ bar._set("colIconMonoActive", barState.config.paletteWsIconMonoColorActive) }
+        // volume — per-module (override individual tem prioridade sobre paleta global)
+        function onPaletteVolTextChanged()     { bar._set("cfgVolTextColor",   barState.config.paletteVolText)     }
+        function onPaletteVolDimChanged()      { bar._set("cfgVolDimColor",    barState.config.paletteVolDim)      }
+        function onPaletteVolAccentChanged()   { bar._set("cfgVolAccent",      barState.config.paletteVolAccent)   }
+        function onPaletteVolMutedChanged()    { bar._set("cfgVolMuted",       barState.config.paletteVolMuted)    }
+        function onPaletteVolProgressChanged() { bar._set("cfgVolProgress",    barState.config.paletteVolProgress) }
+        function onVolShowSinkChanged()        { bar._set("cfgVolShowSink",    barState.config.volShowSink)        }
+        function onVolShowSourceChanged()      { bar._set("cfgVolShowSource",  barState.config.volShowSource)      }
+        function onVolMaxVolChanged()          { bar._set("cfgVolMaxVol",      barState.config.volMaxVol)          }
+        // quicksettings — per-module
+        function onPaletteQsTextChanged()      { bar._set("cfgQsTextColor",    barState.config.paletteQsText)     }
+        function onPaletteQsDimChanged()       { bar._set("cfgQsDimColor",     barState.config.paletteQsDim)      }
+        function onPaletteQsAccentChanged()    { bar._set("cfgQsAccent",       barState.config.paletteQsAccent)   }
+        // notifications — per-module
+        function onPaletteNotifTextChanged()   { bar._set("cfgNotifTextColor", barState.config.paletteNotifText)  }
+        function onPaletteNotifDimChanged()    { bar._set("cfgNotifDimColor",  barState.config.paletteNotifDim)   }
+        function onPaletteNotifAccentChanged() { bar._set("cfgNotifAccent",    barState.config.paletteNotifAccent) }
+        function onPaletteNotifMutedChanged()  { bar._set("cfgNotifMuted",     barState.config.paletteNotifMuted)  }
         // workspaces
         function onWsStyleChanged()          { bar._set("cfgWsStyle",          barState.config.wsStyle)          }
         function onWsIconsSortChanged()      { bar._set("cfgWsIconsSort",      barState.config.wsIconsSort)      }

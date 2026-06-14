@@ -31,6 +31,7 @@ import "../bar" as Bar
 
 Bar.BarPopup {
   id: popup
+  objectName: "VolumePopupTabbed"
 
   // panelOpen — herdado do BarPopup, controlado exclusivamente por Bar.qml.
   // Não redefinir aqui: o BarPopup usa panelOpen para disparar a animação.

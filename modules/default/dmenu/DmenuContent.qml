@@ -142,25 +142,44 @@ Item {
 
   Process { id: execProc; running: false }
 
+  // Guard contra duplo disparo — reset em activate()
+  property bool _launched: false
+
   // ── Launch ─────────────────────────────────────────────────────────────────
   function _launch() {
+    // Guard contra duplo disparo (ex: TypeError em recordUsage reprocessando o handler)
+    if (_launched) {
+      console.warn("[dmenu] _launch ignorado — _launched=true (duplo disparo bloqueado)")
+      return
+    }
+    _launched = true
+
     var items = _displayList
     var sel   = items[_selectedIdx]
 
     if (mode === "drun") {
       if (!sel) return
-      var finalCmd = ""
-      if (sel.exec !== "" && launchCmd !== "")
-        finalCmd = launchCmd.replace("{exec}", sel.exec)
-      if (finalCmd !== "") {
-        execProc.command = ["bash", "-c", finalCmd + " &"]
+      var _t0 = Date.now()
+      console.log("[dmenu][T+" + _t0 + "] _launch drun — app:", sel.name,
+                  "| exec:", sel.exec, "| launchCmd:", launchCmd)
+      var isDefaultUwsm = (launchCmd === "uwsm app -- {exec}" || launchCmd === "")
+      if (!isDefaultUwsm && sel.exec !== "") {
+        var finalCmd = launchCmd.replace("{exec}", sel.exec)
+        console.log("[dmenu][T+" + Date.now() + "] execProc launch — cmd:", finalCmd)
+        execProc.running = false
+        execProc.command = ["bash", "-c",
+          "nohup " + finalCmd + " </dev/null >/dev/null 2>&1 &"]
         execProc.running = true
+        console.log("[dmenu][T+" + Date.now() + "] execProc.running=true (dt=" + (Date.now()-_t0) + "ms)")
       } else {
+        console.log("[dmenu][T+" + Date.now() + "] sel.app.execute() — dt=" + (Date.now()-_t0) + "ms")
         sel.app.execute()
+        console.log("[dmenu][T+" + Date.now() + "] sel.app.execute() RETORNOU — dt=" + (Date.now()-_t0) + "ms")
       }
-      // Registra uso para sortMode="usage"
       if (onRecordUsage && sel.exec !== "") onRecordUsage(sel.exec)
+      console.log("[dmenu][T+" + Date.now() + "] emitindo closeRequested — dt=" + (Date.now()-_t0) + "ms")
       root.closeRequested(null, "")
+      console.log("[dmenu][T+" + Date.now() + "] _launch drun FIM — dt=" + (Date.now()-_t0) + "ms")
       return
     }
 
@@ -169,6 +188,7 @@ Item {
       var cmd   = (typed !== "" && (!sel || sel.display !== typed))
         ? typed : (sel ? sel.display : typed)
       if (cmd === "") return
+      execProc.running = false
       execProc.command = ["bash", "-c", cmd + " &"]
       execProc.running = true
       root.closeRequested(null, "")
@@ -180,6 +200,7 @@ Item {
       var parts = sel.display.split("\t")
       var addr  = parts.length > 2 ? parts[2].trim() : ""
       if (addr === "") return
+      execProc.running = false
       execProc.command = ["bash", "-c",
         "hyprctl dispatch focuswindow address:" + addr]
       execProc.running = true
@@ -420,6 +441,7 @@ Item {
 
   // ── Activate — chamado pelo painel ao abrir ────────────────────────────────
   function activate() {
+    _launched = false   // reset guard — novo ciclo de uso
     _query = ""
     inputField.text = ""
     _selectedIdx = 0

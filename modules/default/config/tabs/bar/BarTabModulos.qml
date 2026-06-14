@@ -6,17 +6,19 @@ import '../../components' as C
 C.CfgScroll {
   id: root
 
-  required property bool   isH
-  required property var    slotLeft
-  required property var    slotCenter
-  required property var    slotRight
-  required property var    slotTop
-  required property var    slotMiddle
-  required property var    slotBottom
-  required property color  colorAccent
-  required property color  colorTextDim
-  required property color  colorText
-  required property color  colorDivider
+  // config não é passado pelo ConfigWindow — declarado como opcional para compatibilidade futura
+  property var  config:   null
+  required property bool  isH
+  required property var   slotLeft
+  required property var   slotCenter
+  required property var   slotRight
+  required property var   slotTop
+  required property var   slotMiddle
+  required property var   slotBottom
+  required property color colorAccent
+  required property color colorTextDim
+  required property color colorText
+  required property color colorDivider
 
   // drag state (propagado do ConfigWindow)
   property string dragId:   ""
@@ -55,11 +57,11 @@ C.CfgScroll {
       workspaces:    { icon: "\uf0c8", label: "Workspaces"   },
       clock:         { icon: "\uf017", label: "Relógio"      },
       volume:        { icon: "\ufa7d", label: "Volume"       },
-      sink:          { icon: "\uf028", label: "Som"          },
-      source:        { icon: "\uf130", label: "Mic"          },
       mediaplayer:   { icon: "\uf001", label: "Mídia"        },
       quicksettings: { icon: "\uf013", label: "Config"       },
       notifications: { icon: "\uf0f3", label: "Notificações" },
+      sink:          { icon: "\uf028", label: "Saída"        },
+      source:        { icon: "\uf130", label: "Entrada"      },
       separator:     { icon: "\uf07e", label: "Sep"          },
       spacer:        { icon: "\uf047", label: "Espaço"       },
     }
@@ -68,7 +70,7 @@ C.CfgScroll {
 
   // ── Slots ─────────────────────────────────────────────────────────────
   C.CfgSection {
-    title:       root.isH ? "SLOTS — HORIZONTAL" : "SLOTS — VERTICAL"
+    title:        root.isH ? "SLOTS — HORIZONTAL" : "SLOTS — VERTICAL"
     colorTextDim: root.colorTextDim
   }
 
@@ -79,7 +81,7 @@ C.CfgScroll {
       id: slotDel
       required property var    modelData
       readonly property string slotName: modelData.slot
-      width: parent.width
+      width:  parent.width
       height: slotCol.implicitHeight + 22
 
       Rectangle {
@@ -128,7 +130,7 @@ C.CfgScroll {
           }
 
           Flow {
-            width: parent.width
+            width:   parent.width
             spacing: 5
 
             Repeater {
@@ -157,14 +159,25 @@ C.CfgScroll {
                     id: chipRow
                     anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
                     spacing: 5
-                    Text { text: chip.info.icon; color: root.colorAccent; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: chip.info.label; color: root.colorText; font.pixelSize: 10; anchors.verticalCenter: parent.verticalCenter }
+                    Text {
+                      text: chip.info.icon; color: root.colorAccent
+                      font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"
+                      anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                      text: chip.info.label; color: root.colorText
+                      font.pixelSize: 10; anchors.verticalCenter: parent.verticalCenter
+                    }
                     Rectangle {
                       width: 16; height: 16; radius: 8; color: "transparent"
                       anchors.verticalCenter: parent.verticalCenter
-                      Text { anchors.centerIn: parent; text: "\uf00d"; font.pixelSize: 7; font.family: "JetBrainsMono Nerd Font"
-                        color: Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.55) }
-                      MouseArea { anchors.fill: parent
+                      Text {
+                        anchors.centerIn: parent; text: "\uf00d"
+                        font.pixelSize: 7; font.family: "JetBrainsMono Nerd Font"
+                        color: Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.55)
+                      }
+                      MouseArea {
+                        anchors.fill: parent
                         onClicked: (m) => {
                           m.accepted = true
                           var a = root.slotModel(slotDel.slotName).slice()
@@ -189,8 +202,12 @@ C.CfgScroll {
                   Drag.keys:      ["cfgmod"]
                   Drag.hotSpot.x: width / 2
                   Drag.hotSpot.y: height / 2
-                  Text { anchors.centerIn: parent; text: chip.info.icon + "  " + chip.info.label
-                    color: root.colorText; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
+                  Text {
+                    anchors.centerIn: parent
+                    text:  chip.info.icon + "  " + chip.info.label
+                    color: root.colorText
+                    font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"
+                  }
                 }
 
                 MouseArea {
@@ -208,10 +225,10 @@ C.CfgScroll {
             }
 
             Text {
-              visible:        root.slotModel(slotDel.slotName).length === 0
-              text:           "arrastar aqui"
-              font.pixelSize: 9; height: 28
-              color:          Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.3)
+              visible:           root.slotModel(slotDel.slotName).length === 0
+              text:              "arrastar aqui"
+              font.pixelSize:    9; height: 28
+              color:             Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.3)
               verticalAlignment: Text.AlignVCenter
             }
           }
@@ -220,12 +237,15 @@ C.CfgScroll {
     }
   }
 
-  C.CfgDiv { colorDivider: root.colorTextDim }
-  C.CfgSection { title: "POOL — CLIQUE PARA ADICIONAR / ARRASTE PARA SLOT"; colorTextDim: root.colorTextDim }
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection {
+    title:        "POOL — CLIQUE PARA ADICIONAR / ARRASTE PARA SLOT"
+    colorTextDim: root.colorTextDim
+  }
 
   // ── Pool ──────────────────────────────────────────────────────────────
   Flow {
-    width: parent.width
+    width:   parent.width
     spacing: 6
 
     Repeater {
@@ -233,8 +253,8 @@ C.CfgScroll {
         { id: "workspaces",    icon: "\uf0c8", label: "Workspaces"   },
         { id: "clock",         icon: "\uf017", label: "Relógio"      },
         { id: "volume",        icon: "\ufa7d", label: "Volume"       },
-        { id: "sink",          icon: "\uf028", label: "Som"          },
-        { id: "source",        icon: "\uf130", label: "Mic"          },
+        { id: "sink",          icon: "\uf028", label: "Saída"        },
+        { id: "source",        icon: "\uf130", label: "Entrada"      },
         { id: "mediaplayer",   icon: "\uf001", label: "Mídia"        },
         { id: "quicksettings", icon: "\uf013", label: "Config"       },
         { id: "notifications", icon: "\uf0f3", label: "Notificações" },
@@ -257,8 +277,15 @@ C.CfgScroll {
 
           Row {
             id: poolRow; anchors.centerIn: parent; spacing: 6
-            Text { text: pool.modelData.icon; color: root.colorAccent; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
-            Text { text: pool.modelData.label; color: root.colorText; font.pixelSize: 10; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+              text: pool.modelData.icon; color: root.colorAccent
+              font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+              text: pool.modelData.label; color: root.colorText
+              font.pixelSize: 10; anchors.verticalCenter: parent.verticalCenter
+            }
           }
         }
 
@@ -267,17 +294,20 @@ C.CfgScroll {
           visible: poolMa.drag.active
           color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.3)
           border.color: root.colorAccent; border.width: 1
-          Drag.active: poolMa.drag.active; Drag.keys: ["cfgmod"]
-          Drag.hotSpot.x: width/2; Drag.hotSpot.y: height/2
-          Text { anchors.centerIn: parent; text: pool.modelData.icon+"  "+pool.modelData.label
-            color: root.colorText; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
+          Drag.active:    poolMa.drag.active; Drag.keys: ["cfgmod"]
+          Drag.hotSpot.x: width / 2; Drag.hotSpot.y: height / 2
+          Text {
+            anchors.centerIn: parent
+            text:  pool.modelData.icon + "  " + pool.modelData.label
+            color: root.colorText; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"
+          }
         }
 
         MouseArea { id: poolHov; anchors.fill: parent; hoverEnabled: true }
         MouseArea {
           id: poolMa; anchors.fill: parent; drag.target: pghost; drag.threshold: 8
-          onPressed:  { pghost.x=0; pghost.y=0; root.dragId=pool.modelData.id; root.dragSlot="pool"; root.dragIdx=-1 }
-          onReleased: { if (drag.active) pghost.Drag.drop(); pghost.x=0; pghost.y=0 }
+          onPressed:  { pghost.x = 0; pghost.y = 0; root.dragId = pool.modelData.id; root.dragSlot = "pool"; root.dragIdx = -1 }
+          onReleased: { if (drag.active) pghost.Drag.drop(); pghost.x = 0; pghost.y = 0 }
           onClicked:  root.moduleAdded(root.isH ? "right" : "bottom", pool.modelData.id)
         }
       }

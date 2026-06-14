@@ -24,7 +24,11 @@
   "dmenuCooldownMs": 450,
   "dmenuSortMode": "name",
   "usageCount": {
-    "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 2,
-    "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 3
+    "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 4,
+    "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 19,
+    "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 15,
+    "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beekeeper-studio --file-forwarding io.beekeeperstudio.Studio @@u  @@": 2,
+    "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=gnome-firmware org.gnome.Firmware": 2,
+    "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv": 1
   }
 }

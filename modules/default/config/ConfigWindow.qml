@@ -112,9 +112,8 @@ PanelWindow {
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
-      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
+      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor", "Dmenu Config"] },
     { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: [] },
-    { id: "dmenu",      icon: "\uf0ca", label: "Dmenu",      subtabs: ["Configurar"] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 
@@ -343,8 +342,27 @@ PanelWindow {
 
             Item { Layout.fillWidth: true }
 
-            // Botão Padrão (só para barra)
+            // Botão Padrão — comportamento por subtab
             Rectangle {
+              // Mapa subtab → moduleId para clearModule; null = reset estrutural da barra
+              readonly property var _barSubtabModule: [
+                null,              // 0 Geral       → reset estrutural
+                null,              // 1 Módulos     → reset estrutural
+                "workspaces",      // 2 Workspaces
+                "mediaplayer",     // 3 Mídia
+                "clock",           // 4 Relógio
+                "volume",          // 5 Volume
+                "quicksettings",   // 6 Config Rápida
+                "notifications",   // 7 Notificações
+                null,              // 8 Paleta → não limpa override (paleta é global)
+              ]
+              readonly property string _moduleId: {
+                if (win.activeModule !== 0) return ""
+                var m = _barSubtabModule[win.subtab(0)]
+                return m !== undefined && m !== null ? m : ""
+              }
+              readonly property string _label: _moduleId !== "" ? "Limpar override" : "Padrão"
+
               visible: win.activeModule === 0
               height: 28; width: rstLbl.implicitWidth + 18; radius: 6
               color: rstHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
@@ -353,30 +371,37 @@ PanelWindow {
               Row { anchors.centerIn: parent; spacing: 6
                 Text { text: "\uf0e2"; color: win.colorTextDim; font.pixelSize: 10
                   font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
-                Text { id: rstLbl; text: "Padrão"; color: win.colorTextDim; font.pixelSize: 10
+                Text { id: rstLbl; text: parent.parent._label; color: win.colorTextDim; font.pixelSize: 10
                   anchors.verticalCenter: parent.verticalCenter }
               }
               MouseArea { id: rstHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: {
                   if (!win.config) return
-                  win.config.saveAll({
-                    theme: "Pill", position: 3, autoHide: true, silence: false,
-                    barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
-                    modulesLeft:   ["mediaplayer","separator","quicksettings"],
-                    modulesCenter: ["workspaces"],
-                    modulesRight:  ["clock","separator","volume","separator","notifications"],
-                    modulesTop:    ["mediaplayer","separator","quicksettings"],
-                    modulesMiddle: ["workspaces"],
-                    modulesBottom: ["clock","separator","volume","separator","notifications"],
-                  })
+                  var modId = parent._moduleId
+                  if (modId !== "") {
+                    // Limpa overrides do módulo desta aba → paleta global volta a valer
+                    win.config.clearModule(modId)
+                  } else {
+                    // Geral / Módulos / Paleta → reset estrutural da barra
+                    win.config.saveAll({
+                      theme: "Pill", position: 3, autoHide: true, silence: false,
+                      barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
+                      modulesLeft:   ["mediaplayer","separator","quicksettings"],
+                      modulesCenter: ["workspaces"],
+                      modulesRight:  ["clock","separator","volume","separator","notifications"],
+                      modulesTop:    ["mediaplayer","separator","quicksettings"],
+                      modulesMiddle: ["workspaces"],
+                      modulesBottom: ["clock","separator","volume","separator","notifications"],
+                    })
+                  }
                   win._savedFlash = true; _savedTimer.restart()
                 }
               }
             }
 
-            // Botão Limpar (só para painéis)
+            // Botão Limpar (só para painéis, subtabs 0–7)
             Rectangle {
-              visible: win.activeModule === 2
+              visible: win.activeModule === 2 && win.subtab(2) <= 7
               height: 28; width: clrLbl.implicitWidth + 18; radius: 6
               color: clrHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
@@ -416,7 +441,7 @@ PanelWindow {
             sourceComponent: Component {
               Tabs.BarTabGeral {
                 id: tabGeral
-                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                config: win.config; 
                 colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
                 colorText: win.colorText; colorDivider: win.colorDivider
                 colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
@@ -424,7 +449,8 @@ PanelWindow {
             }
             Connections {
               target: loaderGeral.item
-              function onStructuralChange(opts) { win.applyStructural(opts) }
+              // BarTabGeral emite "changed", não "structuralChange" — rotear para applyStructural
+              function onChanged(opts) { win.applyStructural(opts) }
             }
           }
 
@@ -638,28 +664,7 @@ PanelWindow {
                 colorDivider:    win.colorDivider
                 colorSidebar:    win.colorSidebar
                 colorProgressBg: win.colorProgressBg
-              }
-            }
-          }
-
-          // ── DMENU ────────────────────────────────────────────────────
-          Loader {
-            id: loaderDmenu
-            anchors.fill: parent
-            active: win.activeModule === 4 && win.subtab(4) === 0
-            sourceComponent: Component {
-              Tabs.DmenuTabConfig {
-                id: tabDmenuConfig
-                config: win.dmenuConfig; overlay: popupOverlay; colors: win._effectiveColors
-                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
-                colorText: win.colorText; colorDivider: win.colorDivider
-                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
-              }
-            }
-            Connections {
-              target: loaderDmenu.item
-              function onChanged(opts) {
-                if (win.dmenuConfig) win.dmenuConfig.saveAll(opts)
+                dmenuConfig:     win.dmenuConfig
               }
             }
           }
@@ -667,7 +672,7 @@ PanelWindow {
           // ── Placeholder para módulos ainda não implementados ─────────
           Loader {
             anchors.fill: parent
-            active: win.activeModule === 3 || win.activeModule === 5
+            active: win.activeModule === 3 || win.activeModule === 4
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14

@@ -242,18 +242,18 @@ Item {
   function _pushAndOpen(req) {
     var fifo = req.fifo
     req.callback = function(selected, key) {
+      var _t0 = Date.now()
+      console.log("[dmenu][T+" + _t0 + "] _pushAndOpen.callback — selected:", JSON.stringify(selected), "fifo:", fifo)
       var s = root._stack.slice()
       s.pop()
       root._stack = s
 
       if (fifo !== "") {
         root._closing = true
+        console.log("[dmenu][T+" + Date.now() + "] chamando _respondFifo (dt=" + (Date.now()-_t0) + "ms)")
         _respondFifo(selected, key || "", fifo)
-        if (s.length > 0) {
-          _cooldownTimer.restart()
-        } else {
-          _cooldownTimer.restart()
-        }
+        console.log("[dmenu][T+" + Date.now() + "] _respondFifo RETORNOU, reiniciando cooldown (dt=" + (Date.now()-_t0) + "ms)")
+        _cooldownTimer.restart()
       } else {
         if (s.length > 0) {
           _showTop()
@@ -357,18 +357,34 @@ Item {
   }
 
   // ── _respondFifo: escreve o resultado na FIFO exclusiva do request ────────
-  Process { id: responseProc; running: false }
+  Process {
+    id: responseProc
+    running: false
+    onRunningChanged: {
+      if (!running) {
+        console.log("[dmenu][T+" + Date.now() + "] responseProc terminou (FIFO escrito)")
+      }
+    }
+  }
 
   function _respondFifo(selected, key, fifoPath) {
     if (!fifoPath) return
-    if (responseProc.running) responseProc.running = false
+    var _t0 = Date.now()
+    console.log("[dmenu][T+" + _t0 + "] _respondFifo — fifo:", fifoPath, "| running:", responseProc.running)
+    if (responseProc.running) {
+      console.log("[dmenu][T+" + Date.now() + "] responseProc ainda rodando, parando (dt=" + (Date.now()-_t0) + "ms)")
+      responseProc.running = false
+      console.log("[dmenu][T+" + Date.now() + "] responseProc parado (dt=" + (Date.now()-_t0) + "ms)")
+    }
     var payload = JSON.stringify({
       selected: (selected !== null && selected !== undefined) ? selected : null,
       key:      (key      !== null && key      !== undefined) ? key      : ""
     })
+    console.log("[dmenu][T+" + Date.now() + "] escrevendo FIFO payload:", payload, "(dt=" + (Date.now()-_t0) + "ms)")
     responseProc.command = ["bash", "-c",
-      "printf '%s\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(fifoPath)]
+      "printf '%s\\\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(fifoPath)]
     responseProc.running = true
+    console.log("[dmenu][T+" + Date.now() + "] responseProc.running=true (dt=" + (Date.now()-_t0) + "ms)")
   }
 
   // ── Painel ────────────────────────────────────────────────────────────────

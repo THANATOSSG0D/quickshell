@@ -77,8 +77,14 @@ def _handle_locked(conn, lock):
         _handle(conn)
 
 # ── Tratamento de um request ───────────────────────────────────────────────────
+def _ts():
+    """Timestamp em ms desde epoch para os logs."""
+    import time
+    return int(time.time() * 1000)
+
 def _handle(conn):
     with conn:
+        t_recv = _ts()
         # Lê o JSON do cliente (até \n)
         data = b""
         while b"\n" not in data:
@@ -90,6 +96,7 @@ def _handle(conn):
         if not data:
             return
 
+        t_parsed = _ts()
         line = data.split(b"\n")[0].decode().strip()
         try:
             req = json.loads(line)
@@ -97,12 +104,16 @@ def _handle(conn):
             conn.sendall(b'{"selected":null}\n')
             return
 
-        # preview_image, keybinds e password são passados adiante transparentemente (se presentes)
+        mode  = req.get("mode", "?")
+        entry = req.get("entries", ["?"])[0] if req.get("entries") else req.get("prompt", "?")
+        print(f"[dmenu-server][T+{t_recv}] conexão recebida — mode={mode!r} | parse em {t_parsed-t_recv}ms", file=sys.stderr, flush=True)
 
         # Cria FIFO exclusivo para este request
         req_id    = _next_id()
         fifo_path = os.path.join(RD, f"qs-dmenu-out-{req_id}")
         _make_fifo(fifo_path)
+        t_fifo = _ts()
+        print(f"[dmenu-server][T+{t_fifo}] req {req_id}: FIFO criado em {t_fifo-t_recv}ms — {fifo_path}", file=sys.stderr, flush=True)
 
         # Injeta o path do FIFO no request → QML saberá onde escrever a resposta
         req["_fifo"] = fifo_path
@@ -110,11 +121,13 @@ def _handle(conn):
         # Envia request aumentado ao QML via stdout
         sys.stdout.write(json.dumps(req) + "\n")
         sys.stdout.flush()
-        print(f"[dmenu-server] req {req_id}: enviado ao QML, aguardando FIFO {fifo_path}", file=sys.stderr, flush=True)
+        t_sent = _ts()
+        print(f"[dmenu-server][T+{t_sent}] req {req_id}: enviado ao QML em {t_sent-t_recv}ms total", file=sys.stderr, flush=True)
 
         # Aguarda resposta do QML via FIFO exclusivo (com timeout de 60s)
         response = _read_fifo(fifo_path, timeout=60)
-        print(f"[dmenu-server] req {req_id}: resposta={response!r}", file=sys.stderr, flush=True)
+        t_resp = _ts()
+        print(f"[dmenu-server][T+{t_resp}] req {req_id}: FIFO lido em {t_resp-t_sent}ms (total {t_resp-t_recv}ms) — resp={response!r}", file=sys.stderr, flush=True)
 
         # Limpa o FIFO (seja qual for o resultado)
         try:
@@ -123,6 +136,8 @@ def _handle(conn):
             pass
 
         conn.sendall(((response or '{"selected":null}') + "\n").encode())
+        t_done = _ts()
+        print(f"[dmenu-server][T+{t_done}] req {req_id}: cliente notificado em {t_done-t_recv}ms total", file=sys.stderr, flush=True)
 
 # ── FIFO helpers ───────────────────────────────────────────────────────────────
 def _make_fifo(path):

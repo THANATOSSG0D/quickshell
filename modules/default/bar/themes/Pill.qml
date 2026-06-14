@@ -111,12 +111,25 @@ Item {
   property color  cfgMpDimColorActive:  Qt.rgba(1,1,1,0.5)
 
   // ── Configs Volume ─────────────────────────────────────────────────────
-  property bool  cfgVolShowSink:   true
-  property bool  cfgVolShowSource: true
-  property color cfgVolTextColor:  Qt.rgba(1,1,1,1.0)
-  property color cfgVolDimColor:   Qt.rgba(1,1,1,0.5)
-  property color cfgVolAccent:     Qt.rgba(1,1,1,1.0)
-  property color cfgVolMuted:      "#cf6679"
+  property bool  cfgVolShowSink:    true
+  property bool  cfgVolShowSource:  true
+  property real  cfgVolMaxVol:      1.5
+  property color cfgVolTextColor:   Qt.rgba(1,1,1,1.0)
+  property color cfgVolDimColor:    Qt.rgba(1,1,1,0.5)
+  property color cfgVolAccent:      Qt.rgba(1,1,1,1.0)
+  property color cfgVolMuted:       "#cf6679"
+  property color cfgVolProgress:    "#474747"
+
+  // ── Configs QuickSettings ──────────────────────────────────────────────
+  property color cfgQsTextColor:    Qt.rgba(1,1,1,1.0)
+  property color cfgQsDimColor:     Qt.rgba(1,1,1,0.5)
+  property color cfgQsAccent:       Qt.rgba(1,1,1,1.0)
+
+  // ── Configs Notifications ──────────────────────────────────────────────
+  property color cfgNotifTextColor: Qt.rgba(1,1,1,1.0)
+  property color cfgNotifDimColor:  Qt.rgba(1,1,1,0.5)
+  property color cfgNotifAccent:    Qt.rgba(1,1,1,1.0)
+  property color cfgNotifMuted:     "#cf6679"
 
   // ── Configs Clock ──────────────────────────────────────────────────────
   property color cfgClkTextColor:    Qt.rgba(1,1,1,1.0)
@@ -338,6 +351,8 @@ Item {
             dimColor:               root.cfgVolDimColor
             accentColor:            root.cfgVolAccent
             mutedColor:             root.cfgVolMuted
+            progressColor:          root.cfgVolProgress
+            maxVol:                 root.cfgVolMaxVol
             showSink:               root.cfgVolShowSink
             showSource:             root.cfgVolShowSource
             barPosition:            root.barPosition
@@ -360,6 +375,8 @@ Item {
             dimColor:               root.cfgVolDimColor
             accentColor:            root.cfgVolAccent
             mutedColor:             root.cfgVolMuted
+            progressColor:          root.cfgVolProgress
+            maxVol:                 root.cfgVolMaxVol
             showSink:               true
             showSource:             false
             barPosition:            root.barPosition
@@ -382,6 +399,8 @@ Item {
             dimColor:               root.cfgVolDimColor
             accentColor:            root.cfgVolAccent
             mutedColor:             root.cfgVolMuted
+            progressColor:          root.cfgVolProgress
+            maxVol:                 root.cfgVolMaxVol
             showSink:               false
             showSource:             true
             barPosition:            root.barPosition
@@ -418,9 +437,9 @@ Item {
           QsModule.QuickSettings {
             isHorizontal:     modItem.isH
             barPosition:      root.barPosition
-            textColor:        root.cfgVolTextColor
-            dimColor:         root.cfgVolDimColor
-            accentColor:      root.colAccent
+            textColor:        root.cfgQsTextColor
+            dimColor:         root.cfgQsDimColor
+            accentColor:      root.cfgQsAccent
             onPanelRequested: root.quickSettingsPanelRequested()
           }
         }
@@ -434,10 +453,10 @@ Item {
           NotifModule.Notifications {
             isHorizontal: modItem.isH
             barPosition:  root.barPosition
-            textColor:    root.colText
-            dimColor:     root.colTextDim
-            accentColor:  root.colAccent
-            mutedColor:   root.colWsDotUrgent
+            textColor:    root.cfgNotifTextColor
+            dimColor:     root.cfgNotifDimColor
+            accentColor:  root.cfgNotifAccent
+            mutedColor:   root.cfgNotifMuted
             service:      root.notifService
             onPanelRequested: root.notificationsPanelRequested()
           }

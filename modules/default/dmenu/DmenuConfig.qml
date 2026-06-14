@@ -218,6 +218,6 @@ QtObject {
       dmenuSortMode:       root.dmenuSortMode,
       usageCount:          root.usageCount,
     }, null, 2))
-    _file.write()
+    _file.save()
   }
 }

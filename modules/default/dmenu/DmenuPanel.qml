@@ -94,9 +94,18 @@ Bar.BarPopup {
 
     onCloseRequested: (selected, key) => {
       if (!panel._callbackFired) {
+        var _t0 = Date.now()
         panel._callbackFired = true
+        console.log("[dmenu][T+" + _t0 + "] DmenuPanel.onCloseRequested — selected:", JSON.stringify(selected), "key:", key)
+        console.log("[dmenu][T+" + Date.now() + "] panelOpen = false (dt=" + (Date.now()-_t0) + "ms)")
         panel.panelOpen = false
-        if (panel.scriptCallback) panel.scriptCallback(selected, key || "")
+        console.log("[dmenu][T+" + Date.now() + "] panelOpen FALSE OK — agora scriptCallback (dt=" + (Date.now()-_t0) + "ms)")
+        if (panel.scriptCallback) {
+          panel.scriptCallback(selected, key || "")
+          console.log("[dmenu][T+" + Date.now() + "] scriptCallback RETORNOU (dt=" + (Date.now()-_t0) + "ms)")
+        } else {
+          console.log("[dmenu][T+" + Date.now() + "] sem scriptCallback")
+        }
       }
     }
   }

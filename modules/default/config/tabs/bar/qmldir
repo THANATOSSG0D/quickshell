@@ -9,3 +9,6 @@ BarTabClock         BarTabClock.qml
 BarTabVolume        BarTabVolume.qml
 BarTabMidia         BarTabMidia.qml
 BarTabPaleta        BarTabPaleta.qml
+BarTabBar           1.0 BarTabBar.qml
+BarTabNotifications 1.0 BarTabNotifications.qml
+BarTabQuickSettings 1.0 BarTabQuickSettings.qml

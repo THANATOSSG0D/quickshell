@@ -7,3 +7,4 @@ CfgToggle      CfgToggle.qml
 CfgSlider      CfgSlider.qml
 CfgPalette     CfgPalette.qml
 CfgVolumeSlider CfgVolumeSlider.qml
+CfgCollapsible 1.0 CfgCollapsible.qml
