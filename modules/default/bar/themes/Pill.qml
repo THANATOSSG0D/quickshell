@@ -94,6 +94,7 @@ Item {
   property real   cfgWsBgRadiusActive:       99
 
   // ── Configs MediaPlayer ────────────────────────────────────────────────
+  property bool   cfgMpShowText:        true
   property string cfgMpTextMode:        "artistAndTitle"
   property int    cfgMpScrollSpeed:     40
   property int    cfgMpScrollPauseMs:   1800
@@ -317,6 +318,7 @@ Item {
         sourceComponent: Component {
           Media.MediaPlayer {
             isHorizontal:    modItem.isH
+            showText:        root.cfgMpShowText
             textColor:       root.cfgMpTextColor
             dimColor:        root.cfgMpDimColor
             accentColor:     root.colAccent

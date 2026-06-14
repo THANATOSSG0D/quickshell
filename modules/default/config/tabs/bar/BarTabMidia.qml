@@ -23,6 +23,16 @@ C.CfgScroll {
     return (v !== undefined && v !== null) ? v : def
   }
 
+  // ── Mostrar texto ─────────────────────────────────────────────────────
+  C.CfgSection { title: "GERAL"; colorTextDim: root.colorTextDim }
+  C.CfgToggle {
+    label:   "Mostrar texto"
+    checked: root.g("showText", true) !== false
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "mediaplayer", key: "showText", value: !(root.g("showText", true) !== false) })
+  }
+
   // ── Modo de texto ─────────────────────────────────────────────────────
   C.CfgSection { title: "MODO DE TEXTO"; colorTextDim: root.colorTextDim }
   Row {
@@ -32,6 +42,7 @@ C.CfgScroll {
         { id: "artistAndTitle", label: "Artista + Título" },
         { id: "title",          label: "Só título"        },
         { id: "artist",         label: "Só artista"       },
+        { id: "album",          label: "Só álbum"         },
       ]
       delegate: C.CfgChip {
         required property var modelData

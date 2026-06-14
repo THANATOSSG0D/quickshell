@@ -547,6 +547,7 @@ Scope {
         _set("cfgWsBgRadiusActive",      barState.config.wsBgRadiusActive)
         _set("colWsBgActive",            barState.config.paletteWsBgColorActive)
         // mediaPlayer
+        _set("cfgMpShowText",       barState.config.mpShowText)
         _set("cfgMpTextMode",        barState.config.mpTextMode)
         _set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)
         _set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)
@@ -673,6 +674,7 @@ Scope {
         function onWsBgPaddingVActiveChanged()           { bar._set("cfgWsBgPaddingVActive",    barState.config.wsBgPaddingVActive)           }
         function onWsBgRadiusActiveChanged()             { bar._set("cfgWsBgRadiusActive",      barState.config.wsBgRadiusActive)             }
         // mediaPlayer
+        function onMpShowTextChanged()               { bar._set("cfgMpShowText",       barState.config.mpShowText)            }
         function onMpTextModeChanged()               { bar._set("cfgMpTextMode",        barState.config.mpTextMode)            }
         function onMpScrollSpeedChanged()            { bar._set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)         }
         function onMpScrollPauseMsChanged()          { bar._set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)       }

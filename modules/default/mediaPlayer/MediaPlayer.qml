@@ -16,6 +16,7 @@ Item {
   property color accentColor:     "white"
 
   // ── Configs de scroll (via Bar.json → BarConfig → tema → aqui) ────────
+  property bool   showText:      true
   property string textMode:      "artistAndTitle"
   property int    scrollSpeed:   40
   property int    scrollPauseMs: 1800
@@ -59,7 +60,18 @@ Item {
     return null
   }
 
-  visible: player !== null
+  // Colapsa completamente quando não há player ativo (não ocupa espaço na pill)
+  visible:       player !== null
+  implicitWidth: player === null ? 0 : (
+    isHorizontal
+      ? (bgEnabled ? hRow.implicitWidth  + bgPaddingH * 2 : hRow.implicitWidth  + 16)
+      : 30
+  )
+  implicitHeight: player === null ? 0 : (
+    isHorizontal
+      ? (bgEnabled ? hRow.implicitHeight + bgPaddingV * 2 : hRow.implicitHeight + 8)
+      : vCol.implicitHeight + 16
+  )
 
   // ── Estado ativo ───────────────────────────────────────────────────────
   readonly property bool isActive: player !== null && player.isPlaying
@@ -68,12 +80,7 @@ Item {
   readonly property color effectiveTextColor: isActive ? textColorActive : textColor
   readonly property color effectiveDimColor:  isActive ? dimColorActive  : dimColor
 
-  implicitWidth:  isHorizontal
-    ? (bgEnabled ? hRow.implicitWidth  + bgPaddingH * 2 : hRow.implicitWidth  + 16)
-    : 30
-  implicitHeight: isHorizontal
-    ? (bgEnabled ? hRow.implicitHeight + bgPaddingV * 2 : hRow.implicitHeight + 8)
-    : vCol.implicitHeight + 16
+
 
   signal clicked()
 
@@ -105,11 +112,13 @@ Item {
     var artist = player.trackArtist || ""
     var title  = player.trackTitle  || ""
     var app    = player.identity    || ""
+    var album = player.trackAlbum || ""
     switch (textMode) {
-      case "artistOnly": return artist || app || ""
-      case "titleOnly":  return title  || ""
+      case "artist":     return artist || app || ""
+      case "title":      return title  || ""
+      case "album":      return album  || title || ""
       case "appOnly":    return app    || ""
-      default:
+      default:           // "artistAndTitle"
         if (artist && title) return artist + "  ·  " + title
         return artist || title || app || ""
     }
@@ -277,7 +286,7 @@ Item {
     spacing: 8
 
     Loader { sourceComponent: artworkComp }
-    Loader { anchors.verticalCenter: parent.verticalCenter; sourceComponent: hScrollComp }
+    Loader { visible: root.showText; anchors.verticalCenter: parent.verticalCenter; sourceComponent: root.showText ? hScrollComp : null }
 
     // play/pause
     Item {
@@ -324,7 +333,8 @@ Item {
     Loader { anchors.horizontalCenter: parent.horizontalCenter; sourceComponent: artworkComp }
 
     Item {
-      id: vScroll; width: 22; height: 80; clip: true
+      id: vScroll; width: 22; height: root.showText ? 80 : 0; clip: true
+      visible: root.showText
       anchors.horizontalCenter: parent.horizontalCenter
 
       readonly property real overflowH: Math.max(0, vText.implicitHeight - height)

@@ -119,11 +119,14 @@ C.CfgScroll {
     onToggled: root.changed({ moduleId: "volume", key: "showSource", value: !(root.g("showSource") !== false) })
   }
   C.CfgSlider {
-    label: "Volume máximo"; value: Math.round((root.g("maxVol") || 1.5) * 10) / 10
-    from: 1.0; to: 2.0; step: 0.1; unit: "×"
+    label: "Volume máximo"
+    // Trabalha em % inteira (100–200) para evitar erro de ponto flutuante no snap
+    value: Math.round((root.g("maxVol") || 1.5) * 100)
+    from: 100; to: 200; step: 10; unit: "%"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ moduleId: "volume", key: "maxVol", value: v })
+    // Converte de volta para multiplicador (ex: 150 → 1.5) ao salvar
+    onMoved: (v) => root.changed({ moduleId: "volume", key: "maxVol", value: v / 100 })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

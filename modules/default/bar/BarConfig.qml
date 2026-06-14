@@ -396,6 +396,7 @@ Item {
   readonly property int    wsSpacing:        get("workspaces","spacing")        || 2
 
   // mediaplayer genérico
+  readonly property bool   mpShowText:       get("mediaplayer","showText")       !== false
   readonly property string mpTextMode:       get("mediaplayer","textMode")       || "artistAndTitle"
   readonly property int    mpScrollSpeed:    get("mediaplayer","scrollSpeed")    || 40
   readonly property int    mpScrollWidth:    get("mediaplayer","scrollWidth")    || 140

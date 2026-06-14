@@ -59,8 +59,9 @@ QtObject {
       id: "mediaplayer", label: "Mídia", perTheme: true, perStyle: false,
       props: [
         // genérico (não por tema)
+        { key:"showText",    type:"bool", default:true, label:"Mostrar texto", section:"GERAL" },
         { key:"textMode",    type:"enum", default:"artistAndTitle", label:"Modo de texto", section:"GERAL",
-          options:[{id:"artistAndTitle",label:"Artista + Título"},{id:"title",label:"Só título"},{id:"artist",label:"Só artista"}] },
+          options:[{id:"artistAndTitle",label:"Artista + Título"},{id:"title",label:"Só título"},{id:"artist",label:"Só artista"},{id:"album",label:"Só álbum"}] },
         { key:"scrollSpeed", type:"int",  default:40,   min:10,  max:200, step:5,  label:"Velocidade scroll", section:"GERAL", unit:"px/s" },
         { key:"scrollWidth", type:"int",  default:140,  min:60,  max:400, step:10, label:"Largura scroll",    section:"GERAL", unit:"px" },
         // visual (por tema)

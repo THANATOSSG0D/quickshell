@@ -13,8 +13,10 @@
                 "bgEnabled": false,
                 "dimColor": "on_surface_variant",
                 "dimColorActive": "on_surface_variant",
+                "showText": false,
                 "textColor": "on_surface",
-                "textColorActive": "primary"
+                "textColorActive": "primary",
+                "textMode": "artist"
             },
             "palette": {
                 "accent": "primary",
@@ -33,7 +35,7 @@
                 "textColor": "on_surface"
             },
             "volume": {
-                "maxVol": 1.4000000000000001,
+                "maxVol": 1.3,
                 "mutedColor": "error",
                 "showSink": true,
                 "showSource": true,
@@ -58,7 +60,8 @@
                 "dotUrgentColor": "error",
                 "iconMonoColor": "on_surface",
                 "iconMonoColorActive": "primary",
-                "showAddButton": true
+                "iconMonochrome": true,
+                "showAddButton": false
             }
         }
     }
