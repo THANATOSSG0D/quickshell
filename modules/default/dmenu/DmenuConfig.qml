@@ -79,33 +79,33 @@ QtObject {
 
   // ── I/O ───────────────────────────────────────────────────────────────────
   property FileView _file: FileView {
+    id: _fileView
     path:         root._configPath
     watchChanges: false
 
-    onLoaded: {
-      if (root._parsing) return
-      root._parsing = true
+    JsonAdapter {
+      id: _adapter
+      // Propriedade única que carrega o JSON inteiro
+      property var cfg: ({})
 
-      var raw = this.text().trim()
-      if (raw !== "") {
-        try {
-          _applyFromJson(JSON.parse(raw))
-        } catch(e) {
-          console.warn("[DmenuConfig] JSON inválido em", root._configPath, "—", e)
-        }
+      onCfgChanged: {
+        if (root._parsing) return
+        var obj = cfg
+        if (!obj || typeof obj !== "object" || Object.keys(obj).length === 0) return
+        root._parsing = true
+        root._applyFromJson(obj)
+        root._configLoaded = true
+        root._parsing      = false
+        root._ready        = true
       }
-
-      root._configLoaded = true
-      root._parsing      = false
-      root._ready        = true
     }
   }
 
   Component.onCompleted: {
-    // Defaults já são válidos — marca ready imediatamente
-    // Se o arquivo existir, onLoaded sobrescreve com os valores persistidos
+    // Defaults já são válidos — pronto imediatamente.
+    // Se o arquivo existir, onCfgChanged sobrescreve com os valores persistidos.
     root._ready = true
-    _file.reload()
+    _fileView.reload()
   }
 
   // ── _applyFromJson ────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ QtObject {
 
   // ── _write ────────────────────────────────────────────────────────────────
   function _write() {
-    _file.setText(JSON.stringify({
+    _adapter.cfg = {
       dmenuDefaultMode:    root.dmenuDefaultMode,
       dmenuShowIcons:      root.dmenuShowIcons,
       dmenuMaxVisible:     root.dmenuMaxVisible,
@@ -217,7 +217,7 @@ QtObject {
       dmenuCooldownMs:     root.dmenuCooldownMs,
       dmenuSortMode:       root.dmenuSortMode,
       usageCount:          root.usageCount,
-    }, null, 2))
-    _file.save()
+    }
+    _fileView.writeAdapter()
   }
 }

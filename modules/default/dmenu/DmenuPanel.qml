@@ -43,10 +43,9 @@ Bar.BarPopup {
 
   onPanelOpenChanged: {
     if (panelOpen) {
-      // Delay: HyprlandFocusGrab.active = panelOpen é um Binding reativo que processa
-      // DEPOIS dos handlers. Se chamarmos forceActiveFocus antes do FocusGrab estar
-      // ativo, o foco é devolvido para o Hyprland no próximo frame.
-      Qt.callLater(function() { Qt.callLater(function() { content.activate() }) })
+      // Um callLater é suficiente para deixar o HyprlandFocusGrab processar
+      // antes de ativar o input, sem o overhead do duplo deferral.
+      Qt.callLater(function() { content.activate() })
     }
   }
 

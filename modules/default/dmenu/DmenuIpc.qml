@@ -382,7 +382,7 @@ Item {
     })
     console.log("[dmenu][T+" + Date.now() + "] escrevendo FIFO payload:", payload, "(dt=" + (Date.now()-_t0) + "ms)")
     responseProc.command = ["bash", "-c",
-      "printf '%s\\\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(fifoPath)]
+      "printf '%s\\n' " + JSON.stringify(payload) + " > " + JSON.stringify(fifoPath)]
     responseProc.running = true
     console.log("[dmenu][T+" + Date.now() + "] responseProc.running=true (dt=" + (Date.now()-_t0) + "ms)")
   }
