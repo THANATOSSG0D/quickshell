@@ -274,8 +274,12 @@ PanelWindow {
     }
   }
 
-  // ── Configuração da janela (idêntica ao original) ─────────────────────────
-  screen:         barRef ? barRef.screen : null
+  // ── Configuração da janela ─────────────────────────────────────────────────
+  // screen nunca deve ser null — null faz o compositor Wayland ignorar as anchors
+  // e posicionar a janela no output padrão sem margens corretas.
+  // Fallback para Quickshell.screens[0] garante que sempre há um output válido.
+  screen: barRef ? barRef.screen
+                 : (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
   color:          "transparent"
   implicitWidth:  popupW + (shadowEnabled ? shadowBlur * 2 : 0)
   implicitHeight: popupH + (shadowEnabled ? shadowBlur * 2 : 0)
@@ -284,58 +288,84 @@ PanelWindow {
   WlrLayershell.exclusionMode: ExclusionMode.Ignore
   WlrLayershell.exclusiveZone: 0
 
-  anchors.top:    true
-  anchors.bottom: false
-  anchors.left:   !_isVertical || _barLeft  // barra horizontal: sempre ancora à esquerda
-  anchors.right:  _barRight
+  // ── Anchors do layer shell ─────────────────────────────────────────────────
+  // Modo "bar" (ancora na barra): comportamento original.
+  // Modo "top":    âncora topo+esquerda  → margins.top = dist. do topo, margins.left = pos X.
+  // Modo "bottom": âncora base+esquerda  → margins.bottom = dist. da base, margins.left = pos X.
+  // No modo flutuante, ignoramos a posição da barra e sempre ancoramos à esquerda
+  // para controlar a posição X via margins.left (centro, esquerda ou direita do monitor).
+  readonly property bool _floating:    popupYAnchor === "top" || popupYAnchor === "bottom"
+  readonly property bool _floatBottom: popupYAnchor === "bottom"
+  readonly property bool _floatTop:    popupYAnchor === "top"
 
-  // ── Margens (idênticas ao original, com padding de sombra) ────────────────
+  anchors.top:    !_floatBottom
+  anchors.bottom: _floatBottom
+  anchors.left:   _floating ? true : (!_isVertical || _barLeft)
+  anchors.right:  _floating ? false : _barRight
+
+  // ── Margens (com padding de sombra) ──────────────────────────────────────
   // _shadowPad: usa Math.ceil seguro — shadowBlur é sempre um number inicializado
   readonly property int _shadowPad: (shadowEnabled && shadowBlur > 0) ? Math.ceil(shadowBlur) : 0
 
+  // _screenW / _screenH lidos via `screen` do próprio PanelWindow (não via barRef.screen).
+  // Isso garante que as margens sejam reativas e corretas mesmo quando barRef ainda não
+  // tem a screen resolvida — eliminando o bug de canto esquerdo no modo flutuante.
+  readonly property int _screenW: screen ? (screen.width  || 1920) : 1920
+  readonly property int _screenH: screen ? (screen.height || 1080) : 1080
+
   margins.left: {
-    if (!barRef || !barRef.screen) return 0
     var pad = popup._shadowPad
-    var ml  = barRef.margins ? (barRef.margins.left  || 0) : 0
-    var mr  = barRef.margins ? (barRef.margins.right || 0) : 0
-    var biw = barRef.implicitWidth || 0
-    if (_isVertical && _barLeft)
+    var sw  = popup._screenW
+    // Modo flutuante: ignora posição da barra, calcula pelo alinhamento X do monitor
+    // Modo barra vertical esquerda: popup gruda logo à direita da barra
+    if (!popup._floating && _isVertical && _barLeft) {
+      var ml  = barRef && barRef.margins ? (barRef.margins.left || 0) : 0
+      var biw = barRef ? (barRef.implicitWidth || 0) : 0
       return Math.max(0, biw + ml - pad)
-    var sw = barRef.screen.width || 1920
+    }
     if (popupXAlign === "left")
       return Math.max(0, popupXOffset - pad)
     if (popupXAlign === "right")
       return Math.max(0, sw - popupW - popupXOffset - pad)
+    // center (padrão)
     return Math.max(0, Math.floor((sw - popupW) / 2) + popupXOffset - pad)
   }
   margins.right: {
-    if (!barRef || !barRef.screen) return 0
     var pad = popup._shadowPad
-    var mr  = barRef.margins ? (barRef.margins.right || 0) : 0
-    var biw = barRef.implicitWidth || 0
-    if (_isVertical && _barRight)
+    // Modo flutuante: não ancora à direita, margem direita ignorada
+    if (!popup._floating && _isVertical && _barRight) {
+      var mr  = barRef && barRef.margins ? (barRef.margins.right || 0) : 0
+      var biw = barRef ? (barRef.implicitWidth || 0) : 0
       return Math.max(0, biw + mr - pad)
+    }
     return 0
   }
   margins.top: {
-    if (!barRef || !barRef.screen) return 0
-    var sh  = barRef.screen.height || 1080
+    var sh  = popup._screenH
     var pad = popup._shadowPad
-    var mt  = barRef.margins ? (barRef.margins.top    || 0) : 0
-    var mb  = barRef.margins ? (barRef.margins.bottom || 0) : 0
-    var bih = barRef.implicitHeight || 0
-    if (popupYAnchor === "top")
-      return Math.max(0, popupYOffset - pad)
-    if (popupYAnchor === "bottom")
-      return Math.max(0, sh - popupH - popupYOffset - pad)
+    var mt  = barRef && barRef.margins ? (barRef.margins.top    || 0) : 0
+    var mb  = barRef && barRef.margins ? (barRef.margins.bottom || 0) : 0
+    var bih = barRef ? (barRef.implicitHeight || 0) : 0
+    // Modo "bottom": âncora está na base, margins.bottom é usado — margins.top irrelevante.
+    if (popup._floatBottom) return 0
+    // Modo "top": âncora no topo, margins.top = distância do topo do output.
+    if (popup._floatTop)
+      return Math.max(0, popup.popupYOffset - pad)
+    // Modo "bar": ancora na barra
     if (_barTop && !_barBottom)
       return Math.max(0, bih + mt - pad)
     if (_barBottom && !_barTop)
-      return Math.max(0, sh - bih - mb - popupH - pad)
+      return Math.max(0, sh - bih - mb - popup.popupH - pad)
     var usable = sh - mt - mb
-    return Math.max(0, mt + Math.floor((usable - popupH) / 2) - pad)
+    return Math.max(0, mt + Math.floor((usable - popup.popupH) / 2) - pad)
   }
-  margins.bottom: 0
+  margins.bottom: {
+    var pad = popup._shadowPad
+    // Modo "bottom": âncora na base, margins.bottom = distância da base do output.
+    if (popup._floatBottom)
+      return Math.max(0, popup.popupYOffset - pad)
+    return 0
+  }
 
   // ── Focus grab ────────────────────────────────────────────────────────────
   HyprlandFocusGrab {

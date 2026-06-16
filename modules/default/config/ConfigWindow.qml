@@ -112,7 +112,7 @@ PanelWindow {
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
-      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor", "Dmenu Config"] },
+      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
     { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: [] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]

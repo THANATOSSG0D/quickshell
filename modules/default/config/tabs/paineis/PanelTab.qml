@@ -47,7 +47,6 @@ Item {
     "NotificationsPopup",
     "DmenuPopup",
     "BarEditorPopup",
-    null,   // subtab 8 = Dmenu Config — não usa PopupConfig
   ]
   readonly property string _name: _popupNames[activeSubtab] || ""
 
@@ -164,7 +163,7 @@ Item {
     active: true
     sourceComponent: {
       if (root.activeSubtab === 0) return _compGlobal
-      if (root.activeSubtab === 8) return _compDmenuConfig
+      if (root.activeSubtab === 6) return _compDmenu
       return _compPopup
     }
   }
@@ -450,12 +449,161 @@ Item {
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // DMENU CONFIG (subtab 8) — seções retráteis
+  // DMENU UNIFICADO (subtab 6) — aparência (BarPopup/PopupConfig) +
+  //                               comportamento (DmenuConfig) em seções
+  //                               retráteis
   // ══════════════════════════════════════════════════════════════════════
   Component {
-    id: _compDmenuConfig
+    id: _compDmenu
 
     C.CfgScroll {
+
+      // ── Banner info ─────────────────────────────────────────────────
+      Rectangle {
+        width: parent.width; height: 34; radius: 8
+        color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.07)
+        border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.25)
+        border.width: 1
+        Row {
+          anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 12 }
+          spacing: 8
+          Text { text: "\uf05a"; color: root.colorAccent; font.pixelSize: 11
+            font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+          Text { text: "Aparência sobrescreve apenas o Dmenu. Vazio = herda o global."
+            color: root.colorTextDim; font.pixelSize: 9; anchors.verticalCenter: parent.verticalCenter }
+        }
+      }
+
+      // ── 1. APARÊNCIA (BarPopup) ─────────────────────────────────────
+      C.CfgCollapsible {
+        title: "APARÊNCIA"; expanded: true
+        colorTextDim: root.colorTextDim; colorAccent: root.colorAccent; colorDivider: root.colorDivider
+
+        C.CfgSlider {
+          label: "Largura do painel"; from: 160; to: 800; step: 4; unit: " px"
+          value: root.g("popupW", 320)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("popupW", v)
+        }
+        C.CfgSlider {
+          label: "Altura do painel"; from: 120; to: 900; step: 4; unit: " px"
+          value: root.g("popupH", 400)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("popupH", v)
+        }
+        C.CfgSlider {
+          label: "Opacidade do fundo"; from: 0.3; to: 1.0; step: 0.01; unit: ""
+          value: root.g("bgOpacity", 0.95)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("bgOpacity", v)
+        }
+        C.CfgSlider {
+          label: "Raio de borda"; from: 0; to: 28; step: 1; unit: " px"
+          value: root.g("bgRadius", 12)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("bgRadius", v)
+        }
+        C.CfgSlider {
+          label: "Espessura da borda"; from: 0; to: 4; step: 1; unit: " px"
+          value: root.g("borderWidth", 0)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("borderWidth", v)
+        }
+      }
+
+      // ── 2. ANIMAÇÃO ─────────────────────────────────────────────────
+      C.CfgCollapsible {
+        title: "ANIMAÇÃO"; expanded: false
+        colorTextDim: root.colorTextDim; colorAccent: root.colorAccent; colorDivider: root.colorDivider
+
+        Row {
+          spacing: 6
+          Repeater {
+            model: [
+              { id: "slide",       label: "Slide"       },
+              { id: "fade",        label: "Fade"        },
+              { id: "scale",       label: "Scale"       },
+              { id: "scale-slide", label: "Scale+Slide" },
+              { id: "none",        label: "Nenhuma"     },
+            ]
+            delegate: C.CfgChip {
+              required property var modelData
+              label:  modelData.label
+              active: root.g("animationStyle", "slide") === modelData.id
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              onChipClicked: root.s("animationStyle", modelData.id)
+            }
+          }
+        }
+        C.CfgSlider {
+          label: "Duração da animação"; from: 80; to: 500; step: 10; unit: " ms"
+          value: root.g("animDuration", 200)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("animDuration", v)
+        }
+      }
+
+      // ── 3. SOMBRA ───────────────────────────────────────────────────
+      C.CfgCollapsible {
+        title: "SOMBRA"; expanded: false
+        colorTextDim: root.colorTextDim; colorAccent: root.colorAccent; colorDivider: root.colorDivider
+
+        C.CfgToggle {
+          label: "Ativar sombra"
+          checked: root.g("shadowEnabled", false)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          onToggled: root.s("shadowEnabled", !root.g("shadowEnabled", false))
+        }
+        C.CfgSlider {
+          label: "Blur da sombra"; from: 4; to: 40; step: 2; unit: " px"
+          value: root.g("shadowBlur", 16)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("shadowBlur", v)
+        }
+        C.CfgSlider {
+          label: "Deslocamento vertical da sombra"; from: 0; to: 20; step: 1; unit: " px"
+          value: root.g("shadowOffsetY", 4)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("shadowOffsetY", v)
+        }
+        C.CfgSlider {
+          label: "Opacidade da sombra"; from: 0.05; to: 0.8; step: 0.05; unit: ""
+          value: root.g("shadowOpacity", 0.45)
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          colorText: root.colorText; colorProgressBg: root.colorProgressBg
+          onMoved: (v) => root.s("shadowOpacity", v)
+        }
+      }
+
+      // ── 4. CORES DO PAINEL (BarPopup) ───────────────────────────────
+      C.CfgCollapsible {
+        title: "CORES DO PAINEL"; expanded: false
+        colorTextDim: root.colorTextDim; colorAccent: root.colorAccent; colorDivider: root.colorDivider
+
+        Repeater {
+          model: root._colorDefs
+          delegate: C.CfgPalette {
+            required property var modelData
+            label:    modelData.label
+            value:    root.g(modelData.key, modelData.def)
+            colors:   root.colors; overlay: root.overlay
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorSidebar: root.colorSidebar
+            colorDivider: root.colorDivider
+            onEdited: (v) => root.s(modelData.key, v)
+          }
+        }
+      }
+
+      C.CfgDiv { colorDivider: root.colorDivider }
 
       // ── Aviso quando dmenuConfig não está conectado ─────────────────
       Rectangle {
@@ -474,7 +622,7 @@ Item {
         }
       }
 
-      // ── 1. LANÇADOR ─────────────────────────────────────────────────
+      // ── 5. LANÇADOR ─────────────────────────────────────────────────
       C.CfgCollapsible {
         title:        "LANÇADOR"
         expanded:     true
@@ -482,7 +630,6 @@ Item {
         colorAccent:  root.colorAccent
         colorDivider: root.colorDivider
 
-        // Modo padrão
         Column {
           width: parent.width; spacing: 6
 
@@ -530,7 +677,7 @@ Item {
         }
       }
 
-      // ── 2. ORDENAÇÃO ─────────────────────────────────────────────────
+      // ── 6. ORDENAÇÃO ─────────────────────────────────────────────────
       C.CfgCollapsible {
         title:        "ORDENAÇÃO"
         expanded:     false
@@ -573,7 +720,7 @@ Item {
         }
       }
 
-      // ── 3. COMANDO DE LANÇAMENTO ──────────────────────────────────────
+      // ── 7. COMANDO DE LANÇAMENTO ──────────────────────────────────────
       C.CfgCollapsible {
         title:        "COMANDO DE LANÇAMENTO"
         expanded:     false
@@ -599,44 +746,8 @@ Item {
                 active: _launchCol._cmd === modelData.cmd
                 colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
                 onChipClicked: {
-                  _launchCol._cmd     = modelData.cmd
-                  _launchInput.text   = modelData.cmd
+                  _launchCol._cmd = modelData.cmd
                   root.ds({ dmenuLaunchCmd: modelData.cmd })
-                }
-              }
-            }
-          }
-
-          Rectangle {
-            width: parent.width; height: 34; radius: 7
-            color: Qt.rgba(root.colorSidebar.r, root.colorSidebar.g, root.colorSidebar.b, 0.7)
-            border.color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.5)
-            border.width: 1
-            RowLayout {
-              anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-              spacing: 8
-              Text {
-                text: "󰆍"; color: root.colorTextDim
-                font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
-                Layout.alignment: Qt.AlignVCenter
-              }
-              TextInput {
-                id: _launchInput
-                Layout.fillWidth: true
-                Component.onCompleted: text = _launchCol._cmd
-                color: root.colorText
-                selectionColor: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.3)
-                selectedTextColor: root.colorText
-                font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
-                verticalAlignment: TextInput.AlignVCenter
-                height: parent.height
-                onEditingFinished: {
-                  var v = text.trim()
-                  if (v === "") { text = _launchCol._cmd; return }
-                  if (v !== _launchCol._cmd) {
-                    _launchCol._cmd = v
-                    root.ds({ dmenuLaunchCmd: v })
-                  }
                 }
               }
             }
@@ -651,10 +762,10 @@ Item {
         }
       }
 
-      // ── 4. PAINEL ─────────────────────────────────────────────────────
+      // ── 8. PAINEL ─────────────────────────────────────────────────────
       C.CfgCollapsible {
-        title:        "PAINEL"
-        expanded:     true
+        title:        "PAINEL (DMENU)"
+        expanded:     false
         colorTextDim: root.colorTextDim
         colorAccent:  root.colorAccent
         colorDivider: root.colorDivider
@@ -692,10 +803,10 @@ Item {
         }
       }
 
-      // ── 5. POSIÇÃO ────────────────────────────────────────────────────
+      // ── 9. POSIÇÃO ────────────────────────────────────────────────────
       C.CfgCollapsible {
         title:        "POSIÇÃO"
-        expanded:     false
+        expanded:     true
         colorTextDim: root.colorTextDim
         colorAccent:  root.colorAccent
         colorDivider: root.colorDivider
@@ -774,7 +885,7 @@ Item {
         }
       }
 
-      // ── 6. COMPORTAMENTO ──────────────────────────────────────────────
+      // ── 10. COMPORTAMENTO ─────────────────────────────────────────────
       C.CfgCollapsible {
         title:        "COMPORTAMENTO"
         expanded:     false
@@ -812,9 +923,9 @@ Item {
         }
       }
 
-      // ── 7. CORES ──────────────────────────────────────────────────────
+      // ── 11. CORES PRÓPRIAS DO DMENU ───────────────────────────────────
       C.CfgCollapsible {
-        title:        "CORES"
+        title:        "CORES PRÓPRIAS DO DMENU"
         expanded:     false
         colorTextDim: root.colorTextDim
         colorAccent:  root.colorAccent
@@ -863,7 +974,7 @@ Item {
         }
       }
 
-      // ── 8. INFO / SOCKET IPC ──────────────────────────────────────────
+      // ── 12. INFO / SOCKET IPC ─────────────────────────────────────────
       C.CfgCollapsible {
         title:        "INFO / SOCKET IPC"
         expanded:     false
@@ -987,4 +1098,5 @@ Item {
       }
     }
   }
+
 }
