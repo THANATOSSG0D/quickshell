@@ -53,6 +53,9 @@ QtObject {
   // ── Defaults hardcoded (usados quando o JSON não tem o campo) ─────────────
   readonly property var _defaults: ({
     animationStyle: "slide",
+    animDuration:   220,
+    bgRadius:       12,
+    cornerMode:     "all",
     borderWidth:    0,
     borderColor:    "auto",
     shadowEnabled:  false,

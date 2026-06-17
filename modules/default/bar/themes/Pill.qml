@@ -25,21 +25,49 @@ Item {
   // Ex: 20px → o centro nunca chega a menos de 20px do left ou do right.
   property int pillMinSpacing: 20
 
-  // contentWidth: largura mínima necessária para que os três slots
-  // caibam sem colisão.
+  // ── Expansão da pill quando popup está aberto ───────────────────────────
+  // activePopupW: largura do popup atualmente visível (0 quando nenhum está aberto).
+  // anyPanelOpen: true quando qualquer popup da barra está aberto.
+  // Injetadas reativamente pelo Bar.qml via Binding.
+  property int  activePopupW: 0
+  property bool anyPanelOpen: false
+
+  // popupPillPadding: margem extra além da largura do popup para que a pill
+  // fique visivelmente maior e "abrace" o popup dos dois lados.
+  property int popupPillPadding: 32
+
+  // _naturalW: largura mínima da pill quando nenhum popup está aberto.
+  // _targetWidth: cresce para activePopupW + padding quando popup aberto,
+  //               volta para _naturalW quando fecha.
+  readonly property int _naturalW: Math.max(minPillWidth, _measuredContentWidth)
+  readonly property int _targetWidth: {
+    if (anyPanelOpen && activePopupW > 0) {
+      var expanded = activePopupW + popupPillPadding
+      if (expanded > _naturalW) return expanded
+    }
+    return _naturalW
+  }
+
+  implicitWidth:  _targetWidth
+  implicitHeight: barSize
+
+  Behavior on implicitWidth {
+    NumberAnimation {
+      duration: 400
+      easing.type:      Easing.OutBack
+      easing.overshoot: 0.35
+    }
+  }
+
+  // _measuredContentWidth: largura mínima necessária para que os três slots
+  // caibam sem colisão — calculada pelos Repeaters do layout.
   //
   // Raciocínio geométrico (pill horizontal simétrica):
   //   • O centro fica ancorado ao meio da pill.
   //   • Para que não colida com os laterais, o lado mais largo (left ou right)
   //     precisa de espaço em ambos os lados do centro.
   //   • Largura mínima = max(leftW, rightW)*2 + centerW + margens + espaçamentos.
-  //
-  // Isso garante que mesmo que left e right tenham tamanhos diferentes,
-  // o centro nunca sobrepõe nenhum dos dois.
   property int _measuredContentWidth: 0
-
-  implicitWidth:  Math.max(minPillWidth, _measuredContentWidth)
-  implicitHeight: barSize
 
   signal sinkPanelRequested()
   signal sourcePanelRequested()

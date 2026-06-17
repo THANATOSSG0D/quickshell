@@ -66,6 +66,48 @@ PanelWindow {
   property int    animDuration: 280
   property int    bgRadius:     12
   property real   bgOpacity:    0.95
+
+  // ── Modo de cantos ────────────────────────────────────────────────────────
+  // "all"    — todos os 4 cantos arredondados (padrão original)
+  // "bar"    — o(s) canto(s) que tocam a barra ficam retos, os outros arredondados
+  // "screen" — o(s) canto(s) que tocam a borda do monitor ficam retos
+  property string cornerMode: "all"
+
+  // Raios por canto calculados de acordo com cornerMode + posição da barra
+  readonly property int _rTL: _cornerR(true,  false)  // top-left
+  readonly property int _rTR: _cornerR(true,  true)   // top-right
+  readonly property int _rBL: _cornerR(false, false)  // bottom-left
+  readonly property int _rBR: _cornerR(false, true)   // bottom-right
+
+  // _cornerR(isTop, isRight): retorna 0 se o canto toca o elemento de referência,
+  // bgRadius caso contrário.
+  function _cornerR(isTop, isRight) {
+    if (cornerMode === "all") return bgRadius
+    var r = bgRadius
+    if (cornerMode === "bar") {
+      // Zera o(s) canto(s) que tocam a barra
+      if (_barTop    && isTop   ) r = 0
+      if (_barBottom && !isTop  ) r = 0
+      if (_barLeft   && !isRight) r = 0
+      if (_barRight  && isRight ) r = 0
+    } else if (cornerMode === "screen") {
+      // Zera o(s) canto(s) que tocam a borda do monitor (como na screenshot)
+      // Modo "bar" na borda esquerda: popup fica encostado na barra à esquerda,
+      // então o canto esquerdo (top-left e bottom-left) toca a barra/borda.
+      // No modo flutuante (top/bottom), os cantos que tocam a borda do monitor
+      // são os que ficam na direção da âncora.
+      if (!_floating) {
+        if (_barTop    && isTop   ) r = 0
+        if (_barBottom && !isTop  ) r = 0
+        if (_barLeft   && !isRight) r = 0
+        if (_barRight  && isRight ) r = 0
+      } else {
+        if (_floatTop    && isTop   ) r = 0
+        if (_floatBottom && !isTop  ) r = 0
+      }
+    }
+    return r
+  }
   signal closeRequested()
 
   // ── Cores de conteúdo — passadas pelo Bar.qml ──────────────────────────────
@@ -497,7 +539,11 @@ PanelWindow {
     Rectangle {
       id: bg
       anchors.fill: parent
-      radius: popup.bgRadius
+      // Raios por canto — controlados por cornerMode + posição da barra
+      topLeftRadius:     popup._rTL
+      topRightRadius:    popup._rTR
+      bottomLeftRadius:  popup._rBL
+      bottomRightRadius: popup._rBR
       clip:   true
 
       opacity: popup._bgOpacity
@@ -537,7 +583,10 @@ PanelWindow {
         height:  popup._headerH
         visible: popup.popupTitle.length > 0
         color:   Qt.darker(popup.colorPanelBg, 1.12)
-        radius:  popup.bgRadius
+        topLeftRadius:    popup._rTL
+        topRightRadius:   popup._rTR
+        bottomLeftRadius: 0
+        bottomRightRadius: 0
 
         Rectangle {
           anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
@@ -598,7 +647,10 @@ PanelWindow {
             Rectangle {
               anchors.fill: parent
               color:  Qt.darker(popup.colorPanelBg, 1.10)
-              radius: popup.bgRadius
+              topLeftRadius:     popup._rTL
+              topRightRadius:    0
+              bottomLeftRadius:  popup._rBL
+              bottomRightRadius: 0
               Rectangle {
                 anchors { top: parent.top; right: parent.right; bottom: parent.bottom }
                 width: popup.bgRadius; color: parent.color
@@ -623,7 +675,11 @@ PanelWindow {
   }
 
   // ── Aplicação de PopupConfig ao completar ─────────────────────────────────
-  Component.onCompleted: {
+  // ── Aplicação de config do PopupConfig ────────────────────────────────────
+  // Roda no onCompleted E sempre que PopupConfig muda (_dep sobe).
+  // Isso garante que mudar cornerMode/bgRadius/animação no ConfigWindow
+  // reflete imediatamente no popup sem precisar fechar e reabrir.
+  function _applyConfig() {
     var name = popup.configName || popup.objectName
     if (!name || name.length === 0) return
 
@@ -642,11 +698,20 @@ PanelWindow {
     applyIfSet("shadowOpacity",  function(v){ popup.shadowOpacity  = v })
     applyIfSet("bgOpacity",      function(v){ popup.bgOpacity      = v })
     applyIfSet("bgRadius",       function(v){ popup.bgRadius       = v })
+    applyIfSet("cornerMode",     function(v){ popup.cornerMode     = v })
     applyIfSet("layoutMode",     function(v){ popup.layoutMode     = v })
     applyIfSet("sidebarWidth",   function(v){ popup.sidebarWidth   = v })
     applyIfSet("popupW",         function(v){ popup.popupW         = v })
     applyIfSet("popupH",         function(v){ popup.popupH         = v })
     applyIfSet("popupTitle",     function(v){ popup.popupTitle     = v })
     applyIfSet("popupIcon",      function(v){ popup.popupIcon      = v })
+  }
+
+  Component.onCompleted: popup._applyConfig()
+
+  // Reaplica sempre que PopupConfig._dep muda (save no ConfigWindow)
+  Connections {
+    target: PopupConfig
+    function on_DepChanged() { popup._applyConfig() }
   }
 }

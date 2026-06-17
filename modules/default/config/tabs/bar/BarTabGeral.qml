@@ -19,7 +19,9 @@ C.CfgScroll {
 
   function g(key, def) {
     if (!config) return def
-    var v = config.get("bar", key)
+    // Props estruturais (theme, position, autoHide, silenceMode, barSize…)
+    // vivem como props diretas no BarConfig — não no sistema get(moduleId, key).
+    var v = config[key]
     return (v !== undefined && v !== null) ? v : def
   }
 

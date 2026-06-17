@@ -8,9 +8,11 @@
                 "textColor": "on_surface"
             },
             "mediaplayer": {
-                "bgColor": "surface_variant",
+                "bgColor": "background",
                 "bgColorActive": "primary_container",
                 "bgEnabled": false,
+                "bgPaddingH": 10,
+                "bgPaddingV": 5,
                 "dimColor": "on_surface_variant",
                 "dimColorActive": "on_surface_variant",
                 "showText": false,
@@ -61,7 +63,9 @@
                 "iconMonoColor": "on_surface",
                 "iconMonoColorActive": "primary",
                 "iconMonochrome": true,
-                "showAddButton": false
+                "iconsSort": "position",
+                "showAddButton": false,
+                "style": "icons"
             }
         }
     }

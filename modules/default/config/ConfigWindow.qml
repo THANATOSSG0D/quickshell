@@ -108,7 +108,7 @@ PanelWindow {
   // Definição dos módulos e suas subabas
   readonly property var modules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
-      subtabs: ["Geral", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações", "Paleta"] },
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações", "Paleta"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
@@ -454,11 +454,31 @@ PanelWindow {
             }
           }
 
-          // Subtab 1: Módulos
+          // Subtab 1: Barra (dimensões: barSize, barMargin, pillWidth, pillMinSpacing)
+          Loader {
+            id: loaderBarTabBar
+            anchors.fill: parent
+            active: win.activeModule === 0 && win.subtab(0) === 1
+            sourceComponent: Component {
+              Tabs.BarTabBar {
+                id: tabBar
+                config: win.config
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderBarTabBar.item
+              function onChanged(opts) { win.applyStructural(opts) }
+            }
+          }
+
+          // Subtab 2: Módulos
           Loader {
             id: loaderModulos
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 1
+            active: win.activeModule === 0 && win.subtab(0) === 2
             sourceComponent: Component {
               Tabs.BarTabModulos {
                 id: tabModulos
@@ -495,7 +515,7 @@ PanelWindow {
           Loader {
             id: loaderWorkspaces
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 2
+            active: win.activeModule === 0 && win.subtab(0) === 3
             sourceComponent: Component {
               Tabs.BarTabWorkspaces {
                 id: tabWorkspaces
@@ -515,7 +535,7 @@ PanelWindow {
           Loader {
             id: loaderMidia
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 3
+            active: win.activeModule === 0 && win.subtab(0) === 4
             sourceComponent: Component {
               Tabs.BarTabMidia {
                 id: tabMidia
@@ -535,7 +555,7 @@ PanelWindow {
           Loader {
             id: loaderClock
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 4
+            active: win.activeModule === 0 && win.subtab(0) === 5
             sourceComponent: Component {
               Tabs.BarTabClock {
                 id: tabClock
@@ -555,7 +575,7 @@ PanelWindow {
           Loader {
             id: loaderVolume
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 5
+            active: win.activeModule === 0 && win.subtab(0) === 6
             sourceComponent: Component {
               Tabs.BarTabVolume {
                 id: tabVolume
@@ -575,7 +595,7 @@ PanelWindow {
           Loader {
             id: loaderQuickSettings
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 6
+            active: win.activeModule === 0 && win.subtab(0) === 7
             sourceComponent: Component {
               Tabs.BarTabQuickSettings {
                 id: tabQuickSettings
@@ -595,7 +615,7 @@ PanelWindow {
           Loader {
             id: loaderNotifications
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 7
+            active: win.activeModule === 0 && win.subtab(0) === 8
             sourceComponent: Component {
               Tabs.BarTabNotifications {
                 id: tabNotifications
@@ -615,7 +635,7 @@ PanelWindow {
           Loader {
             id: loaderPaleta
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 8
+            active: win.activeModule === 0 && win.subtab(0) === 9
             sourceComponent: Component {
               Tabs.BarTabPaleta {
                 id: tabPaleta

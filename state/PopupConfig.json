@@ -2,8 +2,9 @@
     "globals": {
         "animDuration": 500,
         "animationStyle": "scale-slide",
-        "bgRadius": 5,
+        "bgRadius": 10,
         "colorPanelBg": "background",
+        "cornerMode": "bar",
         "shadowEnabled": true
     },
     "overrides": {

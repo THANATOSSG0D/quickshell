@@ -68,7 +68,11 @@ Item {
   readonly property bool panelVisible: ipcPanel.panelOpen
   onPanelVisibleChanged: {
     if (root.barRoot) {
-      root.barRoot.dmenuPanelOpen = panelVisible
+      root.barRoot.dmenuPanelOpen  = panelVisible
+      // Sincroniza a largura do painel para que a Pill possa expandir corretamente.
+      // Lê dmenuPanelWidth do dmenuConfig (DmenuConfig.qml) se disponível.
+      if (panelVisible && dmenuConfig)
+        root.barRoot.dmenuPanelWidth = dmenuConfig.dmenuPanelWidth || 320
     }
   }
 
@@ -275,21 +279,17 @@ Item {
     var req = _stack[_stack.length - 1]
     var activeBar = root.barRoot ? root.barRoot._activeBar() : null
 
-    // Atribui barRef e todas as props de posição ANTES de abrir.
-    // barRef determina o `screen` do PanelWindow via binding declarativo.
     ipcPanel.barRef         = activeBar
-    ipcPanel.popupXAlign    = dmenuConfig.dmenuPopupXAlign
-    ipcPanel.popupYAnchor   = dmenuConfig.dmenuPopupYAnchor
-    ipcPanel.popupXOffset   = dmenuConfig.dmenuPopupXOffset
-    ipcPanel.popupYOffset   = dmenuConfig.dmenuPopupYOffset
-
-    // Dimensões do painel lidas do config
+    // Dimensões do painel lidas do config — fallback para barRoot (retrocompatibilidade)
     ipcPanel.popupW         = dmenuConfig.dmenuPanelWidth
     var baseH               = dmenuConfig.dmenuPanelHeight
     ipcPanel.popupH         = req.previewImage
                               ? Math.max(baseH, dmenuConfig.dmenuPanelHeightImg)
                               : baseH
-
+    ipcPanel.popupXAlign    = dmenuConfig.dmenuPopupXAlign
+    ipcPanel.popupYAnchor   = dmenuConfig.dmenuPopupYAnchor
+    ipcPanel.popupXOffset   = dmenuConfig.dmenuPopupXOffset
+    ipcPanel.popupYOffset   = dmenuConfig.dmenuPopupYOffset
     ipcPanel.showIcons      = dmenuConfig.dmenuShowIcons
     ipcPanel.maxVisible     = dmenuConfig.dmenuMaxVisible
     ipcPanel.sortMode       = dmenuConfig.dmenuSortMode
@@ -310,15 +310,7 @@ Item {
 
     if (!ipcPanel.panelOpen) {
       ipcPanel._callbackFired = false
-      // Qt.callLater garante que o binding `screen: barRef ? barRef.screen : null`
-      // no BarPopup/PanelWindow seja avaliado e propagado ao compositor Wayland
-      // ANTES de mapear a janela (panelOpen = true → _alive = true).
-      // Sem isso, a janela pode ser mapeada com screen=null e as ancoras de posição
-      // nao sao negociadas corretamente — resultando no popup sempre no canto esquerdo
-      // quando popupYAnchor é "top" ou "bottom".
-      Qt.callLater(function() {
-        ipcPanel.panelOpen = true
-      })
+      ipcPanel.panelOpen = true
     } else {
       ipcPanel._callbackFired = false
       ipcPanel.dmenuContent.activate()

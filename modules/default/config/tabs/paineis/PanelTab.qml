@@ -222,6 +222,25 @@ Item {
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("bgRadius", v)
+      C.CfgSection { title: "CANTOS"; colorTextDim: root.colorTextDim }
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "all",    label: "Todos"      },
+            { id: "bar",    label: "Pill/Barra" },
+            { id: "screen", label: "Monitor"    },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label: modelData.label
+            active: root.g("cornerMode", "all") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("cornerMode", modelData.id)
+          }
+        }
+      }
+
       }
 
       C.CfgDiv { colorDivider: root.colorDivider }
@@ -382,6 +401,25 @@ Item {
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("bgRadius", v)
+      C.CfgSection { title: "CANTOS"; colorTextDim: root.colorTextDim }
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "all",    label: "Todos"      },
+            { id: "bar",    label: "Pill/Barra" },
+            { id: "screen", label: "Monitor"    },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label: modelData.label
+            active: root.g("cornerMode", "all") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("cornerMode", modelData.id)
+          }
+        }
+      }
+
       }
 
       C.CfgDiv { colorDivider: root.colorDivider }
@@ -506,6 +544,25 @@ Item {
           colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
           colorText: root.colorText; colorProgressBg: root.colorProgressBg
           onMoved: (v) => root.s("bgRadius", v)
+      C.CfgSection { title: "CANTOS"; colorTextDim: root.colorTextDim }
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "all",    label: "Todos"      },
+            { id: "bar",    label: "Pill/Barra" },
+            { id: "screen", label: "Monitor"    },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label: modelData.label
+            active: root.g("cornerMode", "all") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("cornerMode", modelData.id)
+          }
+        }
+      }
+
         }
         C.CfgSlider {
           label: "Espessura da borda"; from: 0; to: 4; step: 1; unit: " px"

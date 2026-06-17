@@ -38,7 +38,8 @@ Scope {
 
   // Escrito pelo DmenuIpc.onPanelVisibleChanged para que cada instância de
   // bar (por monitor) possa incluir o dmenu no cálculo de anyPanelOpen.
-  property bool dmenuPanelOpen: false
+  property bool dmenuPanelOpen:  false
+  property int  dmenuPanelWidth: 320  // sincronizado pelo DmenuIpc quando abre
 
   // ── Cores dos popups — expostas publicamente para que componentes externos
   // (ex: DmenuIpc no shell.qml) usem exatamente as mesmas cores que o bar,
@@ -273,6 +274,17 @@ Scope {
       readonly property bool anyPanelOpen:
           activePanel !== barRoot.panelNone || barRoot.dmenuPanelOpen
 
+      // Largura do popup atualmente aberto — usada pela Pill para expandir.
+      // A Pill adiciona popupPillPadding internamente para ficar maior que o popup.
+      readonly property int activePopupW: {
+        if (barRoot.dmenuPanelOpen)              return barRoot.dmenuPanelWidth
+        if (activePanel === barRoot.panelNone)   return 0
+        if (activePanel === barRoot.panelEditor) return barRoot.popupWEditor
+        if (activePanel === barRoot.panelQs)     return barRoot.popupWQs
+        if (activePanel === barRoot.panelNotif)  return barRoot.popupWNotif
+        return barRoot.themePanelWidth
+      }
+
       function openPanel(panelId) {
         // Em silence: só editor e dmenu são permitidos
         if (barState.silenceMode) {
@@ -436,6 +448,10 @@ Scope {
         Binding { target: loader.item; property: "cfgModulesTop";    value: barState.modulesTop;    when: loader.item !== null; restoreMode: Binding.RestoreNone }
         Binding { target: loader.item; property: "cfgModulesMiddle"; value: barState.modulesMiddle; when: loader.item !== null; restoreMode: Binding.RestoreNone }
         Binding { target: loader.item; property: "cfgModulesBottom"; value: barState.modulesBottom; when: loader.item !== null; restoreMode: Binding.RestoreNone }
+
+        // Expande/contrai a pill de acordo com o popup aberto
+        Binding { target: loader.item; property: "activePopupW";  value: bar.activePopupW;  when: loader.item !== null; restoreMode: Binding.RestoreNone }
+        Binding { target: loader.item; property: "anyPanelOpen";  value: bar.anyPanelOpen;  when: loader.item !== null; restoreMode: Binding.RestoreNone }
 
         onLoaded: {
           // Lê tamanho base do tema
