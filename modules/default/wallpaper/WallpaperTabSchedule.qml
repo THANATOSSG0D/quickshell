@@ -171,11 +171,7 @@ Item {
       " WP_PATH=" + JSON.stringify(wallpaperPath) +
       " python3 \"$tmp\""
     ]
-    if (!assignProc.running) {
-      // processo não iniciou — reseta imediatamente
-      root.running = false
-      return
-    }
+    assignProc.running = true
     var arr = root.slots.slice()
     var sl = {}
     for (var k in arr[slotIndex]) sl[k] = arr[slotIndex][k]
