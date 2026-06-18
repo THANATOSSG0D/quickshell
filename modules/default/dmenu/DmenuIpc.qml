@@ -280,12 +280,16 @@ Item {
     var activeBar = root.barRoot ? root.barRoot._activeBar() : null
 
     ipcPanel.barRef         = activeBar
-    // Dimensões do painel lidas do config — fallback para barRoot (retrocompatibilidade)
-    ipcPanel.popupW         = dmenuConfig.dmenuPanelWidth
-    var baseH               = dmenuConfig.dmenuPanelHeight
-    ipcPanel.popupH         = req.previewImage
-                              ? Math.max(baseH, dmenuConfig.dmenuPanelHeightImg)
-                              : baseH
+    // Lê popupW/popupH do PopupConfig (mesma fonte que BarPopup._applyConfig),
+    // com fallback para dmenuConfig. Isso garante que o slider do ConfigWindow
+    // (que grava em PopupConfig via root.s("popupW")) seja refletido aqui também.
+    var _pcW  = PopupConfig.get("DmenuPopup", "popupW",  undefined)
+    var _pcH  = PopupConfig.get("DmenuPopup", "popupH",  undefined)
+    ipcPanel.popupW = (_pcW  !== undefined) ? _pcW  : dmenuConfig.dmenuPanelWidth
+    var baseH       = (_pcH  !== undefined) ? _pcH  : dmenuConfig.dmenuPanelHeight
+    ipcPanel.popupH = req.previewImage
+                      ? Math.max(baseH, dmenuConfig.dmenuPanelHeightImg)
+                      : baseH
     ipcPanel.popupXAlign    = dmenuConfig.dmenuPopupXAlign
     ipcPanel.popupYAnchor   = dmenuConfig.dmenuPopupYAnchor
     ipcPanel.popupXOffset   = dmenuConfig.dmenuPopupXOffset

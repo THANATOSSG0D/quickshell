@@ -463,9 +463,13 @@ Item {
 
   // mediaplayer genérico
   readonly property bool   mpShowText:       get("mediaplayer","showText")       !== false
+  readonly property bool   mpTextStatic:     get("mediaplayer","textStatic")     === true
   readonly property string mpTextMode:       get("mediaplayer","textMode")       || "artistAndTitle"
   readonly property int    mpScrollSpeed:    get("mediaplayer","scrollSpeed")    || 40
   readonly property int    mpScrollWidth:    get("mediaplayer","scrollWidth")    || 140
+  readonly property real   mpVolumeStep:     get("mediaplayer","volumeStep")     || 0.05
+  readonly property int    mpArtworkSize:    get("mediaplayer","artworkSize")    || 22
+  readonly property int    mpArtworkRadius:  get("mediaplayer","artworkRadius") !== undefined && get("mediaplayer","artworkRadius") !== null ? get("mediaplayer","artworkRadius") : 11
   readonly property bool   mpBgEnabled:      get("mediaplayer","bgEnabled")      === true
   readonly property real   mpBgOpacity:      get("mediaplayer","bgOpacity")      || 0.5
   readonly property real   mpBgOpacityActive:get("mediaplayer","bgOpacityActive")|| 0.8

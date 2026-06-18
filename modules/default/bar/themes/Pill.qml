@@ -123,10 +123,14 @@ Item {
 
   // ── Configs MediaPlayer ────────────────────────────────────────────────
   property bool   cfgMpShowText:        true
+  property bool   cfgMpTextStatic:      false
   property string cfgMpTextMode:        "artistAndTitle"
   property int    cfgMpScrollSpeed:     40
+  property real   cfgMpVolumeStep:      0.05
   property int    cfgMpScrollPauseMs:   1800
   property int    cfgMpScrollWidth:     140
+  property int    cfgMpArtworkSize:     22
+  property int    cfgMpArtworkRadius:   11
   property bool   cfgMpBgEnabled:       false
   property real   cfgMpBgOpacity:       0.5
   property real   cfgMpBgOpacityActive: 0.8
@@ -346,14 +350,19 @@ Item {
         sourceComponent: Component {
           Media.MediaPlayer {
             isHorizontal:    modItem.isH
+            barPosition:     root.barPosition
             showText:        root.cfgMpShowText
+            textStatic:      root.cfgMpTextStatic
             textColor:       root.cfgMpTextColor
             dimColor:        root.cfgMpDimColor
             accentColor:     root.colAccent
             textMode:        root.cfgMpTextMode
             scrollSpeed:     root.cfgMpScrollSpeed
+            volumeStep:      root.cfgMpVolumeStep
             scrollPauseMs:   root.cfgMpScrollPauseMs
             scrollWidth:     root.cfgMpScrollWidth
+            artworkSize:     root.cfgMpArtworkSize
+            artworkRadius:   root.cfgMpArtworkRadius
             bgEnabled:       root.cfgMpBgEnabled
             bgOpacity:       root.cfgMpBgOpacity
             bgOpacityActive: root.cfgMpBgOpacityActive

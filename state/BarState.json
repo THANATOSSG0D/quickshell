@@ -20,7 +20,7 @@
                         "quicksettings"
                     ]
                 },
-                "position": 4
+                "position": 1
             },
             "clock": {
                 "accentColor": "primary",
@@ -29,17 +29,21 @@
                 "textColor": "on_surface"
             },
             "mediaplayer": {
+                "artworkRadius": 7,
+                "artworkSize": 14,
                 "bgColor": "background",
                 "bgColorActive": "primary_container",
-                "bgEnabled": false,
+                "bgEnabled": true,
                 "bgPaddingH": 10,
-                "bgPaddingV": 5,
+                "bgPaddingV": 2,
                 "dimColor": "on_surface_variant",
                 "dimColorActive": "on_surface_variant",
+                "scrollSpeed": 50,
+                "scrollWidth": 90,
                 "showText": false,
                 "textColor": "on_surface",
                 "textColorActive": "primary",
-                "textMode": "artist"
+                "textMode": "artistAndTitle"
             },
             "palette": {
                 "accent": "primary",

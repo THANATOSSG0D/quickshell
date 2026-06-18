@@ -1,18 +1,36 @@
 {
     "globals": {
         "animDuration": 500,
-        "animationStyle": "scale-slide",
+        "animationStyle": "slide",
         "bgRadius": 10,
         "colorPanelBg": "background",
         "cornerMode": "bar",
         "shadowEnabled": true
     },
     "overrides": {
+        "BarEditorPopup": {
+            "popupW": 400
+        },
+        "ClockPopup": {
+            "popupW": 400
+        },
         "DmenuPopup": {
-            "colorPanelBg": "background"
+            "colorPanelBg": "background",
+            "popupH": 460,
+            "popupW": 460
+        },
+        "MediaPlayerPopup": {
+            "popupW": 400
+        },
+        "NotificationsPopup": {
+            "popupW": 400
+        },
+        "QuickSettingsPopup": {
+            "popupW": 400
         },
         "VolumePopupTabbed": {
-            "colorPanelBg": "background"
+            "colorPanelBg": "background",
+            "popupW": 400
         }
     }
 }

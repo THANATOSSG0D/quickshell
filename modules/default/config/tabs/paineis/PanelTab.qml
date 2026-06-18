@@ -832,7 +832,7 @@ Item {
           from: 240; to: 600; step: 10; unit: "px"
           colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
           colorText: root.colorText; colorProgressBg: root.colorProgressBg
-          onMoved: (v) => root.ds({ dmenuPanelWidth: v })
+          onMoved: (v) => { root.ds({ dmenuPanelWidth: v }); root.s("popupW", v) }
         }
 
         C.CfgSlider {
@@ -840,7 +840,7 @@ Item {
           from: 300; to: 800; step: 10; unit: "px"
           colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
           colorText: root.colorText; colorProgressBg: root.colorProgressBg
-          onMoved: (v) => root.ds({ dmenuPanelHeight: v })
+          onMoved: (v) => { root.ds({ dmenuPanelHeight: v }); root.s("popupH", v) }
         }
 
         C.CfgSlider {

@@ -79,10 +79,15 @@ QtObject {
       props: [
         // genérico (não por tema)
         { key:"showText",    type:"bool", default:true, label:"Mostrar texto", section:"GERAL" },
+        { key:"textStatic",  type:"bool", default:false, label:"Texto estático (sem carretel)", section:"GERAL" },
         { key:"textMode",    type:"enum", default:"artistAndTitle", label:"Modo de texto", section:"GERAL",
           options:[{id:"artistAndTitle",label:"Artista + Título"},{id:"title",label:"Só título"},{id:"artist",label:"Só artista"},{id:"album",label:"Só álbum"}] },
         { key:"scrollSpeed", type:"int",  default:40,   min:10,  max:200, step:5,  label:"Velocidade scroll", section:"GERAL", unit:"px/s" },
         { key:"scrollWidth", type:"int",  default:140,  min:60,  max:400, step:10, label:"Largura scroll",    section:"GERAL", unit:"px" },
+        { key:"volumeStep",  type:"real", default:0.05, min:0.01, max:0.2, step:0.01, label:"Passo de volume (scroll)", section:"GERAL", unit:"%" },
+        // capa do álbum (por tema, como o resto do módulo)
+        { key:"artworkSize",   type:"int", default:22, min:14, max:48, step:1, label:"Tamanho da capa", section:"CAPA" },
+        { key:"artworkRadius", type:"int", default:11, min:0,  max:24, step:1, label:"Arredondamento",  section:"CAPA" },
         // visual (por tema)
         { key:"bgEnabled",       type:"bool",    default:false,               label:"Fundo habilitado",  section:"FUNDO" },
         { key:"bgOpacity",       type:"real",    default:0.5,   min:0, max:1, step:0.05, label:"Opacidade",          section:"FUNDO", unit:"%" },

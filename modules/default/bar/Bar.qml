@@ -564,10 +564,14 @@ Scope {
         _set("colWsBgActive",            barState.config.paletteWsBgColorActive)
         // mediaPlayer
         _set("cfgMpShowText",       barState.config.mpShowText)
+        _set("cfgMpTextStatic",      barState.config.mpTextStatic)
         _set("cfgMpTextMode",        barState.config.mpTextMode)
         _set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)
         _set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)
         _set("cfgMpScrollWidth",     barState.config.mpScrollWidth)
+        _set("cfgMpVolumeStep",      barState.config.mpVolumeStep)
+        _set("cfgMpArtworkSize",     barState.config.mpArtworkSize)
+        _set("cfgMpArtworkRadius",   barState.config.mpArtworkRadius)
         _set("cfgMpBgEnabled",       barState.config.mpBgEnabled)
         _set("cfgMpBgOpacity",       barState.config.mpBgOpacity)
         _set("cfgMpBgOpacityActive", barState.config.mpBgOpacityActive)
@@ -695,6 +699,10 @@ Scope {
         function onMpScrollSpeedChanged()            { bar._set("cfgMpScrollSpeed",     barState.config.mpScrollSpeed)         }
         function onMpScrollPauseMsChanged()          { bar._set("cfgMpScrollPauseMs",   barState.config.mpScrollPauseMs)       }
         function onMpScrollWidthChanged()            { bar._set("cfgMpScrollWidth",     barState.config.mpScrollWidth)         }
+        function onMpTextStaticChanged()             { bar._set("cfgMpTextStatic",      barState.config.mpTextStatic)          }
+        function onMpVolumeStepChanged()             { bar._set("cfgMpVolumeStep",      barState.config.mpVolumeStep)          }
+        function onMpArtworkSizeChanged()            { bar._set("cfgMpArtworkSize",     barState.config.mpArtworkSize)         }
+        function onMpArtworkRadiusChanged()          { bar._set("cfgMpArtworkRadius",   barState.config.mpArtworkRadius)       }
         function onMpBgEnabledChanged()              { bar._set("cfgMpBgEnabled",       barState.config.mpBgEnabled)           }
         function onMpBgOpacityChanged()              { bar._set("cfgMpBgOpacity",       barState.config.mpBgOpacity)           }
         function onMpBgOpacityActiveChanged()        { bar._set("cfgMpBgOpacityActive", barState.config.mpBgOpacityActive)     }

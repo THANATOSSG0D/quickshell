@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
+import qs
 import "../bar" as Bar
 
 Bar.BarPopup {
@@ -10,7 +11,7 @@ Bar.BarPopup {
   property string mode:       "drun"   // drun | run | window | script
   property string launchCmd:  "uwsm app -- {exec}"
   property bool   showIcons:   true
-  property int    maxVisible:  12       // ← agora passado por DmenuIpc._showTop()
+  property int    maxVisible:  12
   property string sortMode:    "name"
   property var    usageCount:  ({})
   property var    onRecordUsage: null
@@ -26,8 +27,10 @@ Bar.BarPopup {
   property var    scriptCallback: null
   property var    backCallback:   null
 
-  // popupW / popupH / bgRadius injetados imperativamente por DmenuIpc._showTop().
-  // Sem binding declarativo — binding compete com assignment e vence ao barRef mudar.
+  // popupW / popupH são controlados pelo PopupConfig (via BarPopup._applyConfig),
+  // exatamente como todos os outros popups. O PanelTab grava em PopupConfig.set("popupW")
+  // ao mover o slider, o _dep sobe, e o BarPopup reaplica automaticamente.
+  // Sem necessidade de sentinels ou dmenuConfigRef aqui.
 
   property color colorText:     "#e2e2e2"
   property color colorTextDim:  "#c6c6c6"
@@ -43,8 +46,6 @@ Bar.BarPopup {
 
   onPanelOpenChanged: {
     if (panelOpen) {
-      // Um callLater é suficiente para deixar o HyprlandFocusGrab processar
-      // antes de ativar o input, sem o overhead do duplo deferral.
       Qt.callLater(function() { content.activate() })
     }
   }
@@ -62,8 +63,8 @@ Bar.BarPopup {
     id: content
     anchors.fill: parent
 
-    mode:       panel.mode
-    launchCmd:  panel.launchCmd
+    mode:          panel.mode
+    launchCmd:     panel.launchCmd
     showIcons:     panel.showIcons
     maxVisible:    panel.maxVisible
     sortMode:      panel.sortMode

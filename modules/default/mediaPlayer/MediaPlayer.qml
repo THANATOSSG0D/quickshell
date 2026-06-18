@@ -17,10 +17,18 @@ Item {
 
   // ── Configs de scroll (via Bar.json → BarConfig → tema → aqui) ────────
   property bool   showText:      true
+  property bool   textStatic:    false   // true = texto fixo (elide), sem carretel
   property string textMode:      "artistAndTitle"
   property int    scrollSpeed:   40
   property int    scrollPauseMs: 1800
   property int    scrollWidth:   140
+
+  // ── Configs da capa do álbum (módulo na barra) ─────────────────────────
+  property int artworkSize:   22
+  property int artworkRadius: 11   // 11 = metade de 22 (círculo perfeito)
+
+  // ── Posição da barra — necessário para o MediaTooltip saltar do lado certo
+  property int barPosition: 2   // 1=top, 2=right(default), 3=bottom, 4=left
 
   // ── Fundo (independente do Workspaces) ─────────────────────────────────
   property bool  bgEnabled:         false
@@ -65,12 +73,12 @@ Item {
   implicitWidth: player === null ? 0 : (
     isHorizontal
       ? (bgEnabled ? hRow.implicitWidth  + bgPaddingH * 2 : hRow.implicitWidth  + 16)
-      : 30
+      : (bgEnabled ? vCol.implicitWidth  + bgPaddingH * 2 : Math.max(vCol.implicitWidth, artworkSize) + 8)
   )
   implicitHeight: player === null ? 0 : (
     isHorizontal
       ? (bgEnabled ? hRow.implicitHeight + bgPaddingV * 2 : hRow.implicitHeight + 8)
-      : vCol.implicitHeight + 16
+      : (bgEnabled ? vCol.implicitHeight + bgPaddingV * 2 : vCol.implicitHeight + 16)
   )
 
   // ── Estado ativo ───────────────────────────────────────────────────────
@@ -84,8 +92,26 @@ Item {
 
   signal clicked()
 
+  onPlayerChanged: if (player === null) MediaTooltip.hide()
+
   // Referência ao OsdService injetada pelo Bar.qml.
   property var osdService: null
+
+  // ── Volume via scroll do mouse na capa ──────────────────────────────────
+  property real volumeStep: 0.05   // 5% por "clique" de scroll
+
+  function _adjustVolume(delta) {
+    if (!player) return
+    if (player.volumeSupported === false) return
+    var cur = (player.volume !== undefined && player.volume !== null) ? player.volume : 1.0
+    var next = Math.max(0.0, Math.min(1.0, cur + delta))
+    player.volume = next
+    if (osdService) {
+      var appName = player.identity || ""
+      var label   = appName ? (appName + " — " + Math.round(next * 100) + "%") : (Math.round(next * 100) + "%")
+      osdService.media("\uf028", label)
+    }
+  }
 
   function _mediaLabel() {
     if (!player) return ""
@@ -129,7 +155,7 @@ Item {
     id: artworkComp
     Item {
       id: art
-      width: 22; height: 22
+      width: root.artworkSize; height: root.artworkSize
 
       readonly property string appId: root.player
         ? (root.player.identity || "").toLowerCase().replace(/\s+/g, "-") : ""
@@ -180,18 +206,26 @@ Item {
       onAppIconPathsChanged: { appIconAttempt = 0; appIconExhausted = false }
 
       // camada 1 — capa do álbum
+      // Rectangle.clip com cor de fundo SÓLIDA (não transparente) — testando
+      // a hipótese de que color:"transparent" quebra o clip arredondado.
       Rectangle {
-        anchors.fill: parent; radius: width / 2; clip: true; color: "transparent"
+        id: artBg
+        anchors.fill: parent
+        radius: root.artworkRadius
+        clip:   true
+        color:  "#2a2a2a"   // cor sólida de teste — sempre visível por trás da capa
+
         Image {
           id: artImg; anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-          source:  (root.player && root.player.trackArtUrl && root.player.trackArtUrl.length > 0) ? root.player.trackArtUrl : ""
+          source: (root.player && root.player.trackArtUrl && root.player.trackArtUrl.length > 0) ? root.player.trackArtUrl : ""
           visible: status === Image.Ready
         }
       }
 
       // camada 2 — ícone do app
       Rectangle {
-        anchors.fill: parent; radius: width / 2; clip: true
+        id: artFallbackBg
+        anchors.fill: parent; radius: root.artworkRadius; clip: true
         color:   Qt.rgba(1, 1, 1, 0.08)
         visible: artImg.status !== Image.Ready
 
@@ -215,7 +249,7 @@ Item {
           visible:        art.appIconExhausted || art.appIconPaths.length === 0
           text:           "\uf001"
           color:          root.effectiveDimColor
-          font.pixelSize: 12
+          font.pixelSize: Math.round(root.artworkSize * 0.55)
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }
         }
@@ -223,10 +257,17 @@ Item {
 
       MouseArea {
           anchors.fill: parent
+          hoverEnabled: true
           acceptedButtons: Qt.LeftButton | Qt.RightButton
           onClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton) root.clicked()
             if (mouse.button === Qt.RightButton) root.clicked()
+          }
+          onEntered: MediaTooltip.show(art, root.player, root.barPosition)
+          onExited:  MediaTooltip.hide()
+          onWheel: (wheel) => {
+            root._adjustVolume(wheel.angleDelta.y > 0 ? root.volumeStep : -root.volumeStep)
+            wheel.accepted = true
           }
       }
     }
@@ -237,10 +278,10 @@ Item {
     id: hScrollComp
     Item {
       id: hScroll
-      width: root.scrollWidth; height: 16; clip: true
+      width: root.scrollWidth; height: 16; clip: !root.textStatic
 
       readonly property real overflowW: Math.max(0, hText.implicitWidth - width)
-      readonly property bool needsScroll: overflowW > 0.5
+      readonly property bool needsScroll: !root.textStatic && overflowW > 0.5
 
       function restart() {
         scrollAnim.stop(); resetTimer.stop(); pauseTimer.stop()
@@ -263,6 +304,8 @@ Item {
         font.pixelSize: 12
         text: root.scrollText
         x: 0
+        width:  root.textStatic ? hScroll.width : implicitWidth
+        elide:  root.textStatic ? Text.ElideRight : Text.ElideNone
         color: root.effectiveTextColor
         Behavior on color { ColorAnimation { duration: 200 } }
       }
@@ -272,6 +315,7 @@ Item {
         target: root
         function onScrollTextChanged()  { hScroll.restart() }
         function onScrollWidthChanged() { hScroll.restart() }
+        function onTextStaticChanged()  { hScroll.restart() }
       }
       Component.onCompleted: hScroll.restart()
       MouseArea { anchors.fill: parent; onClicked: root.clicked() }
@@ -285,7 +329,7 @@ Item {
     anchors.centerIn: parent
     spacing: 8
 
-    Loader { sourceComponent: artworkComp }
+    Loader { anchors.verticalCenter: parent.verticalCenter; sourceComponent: artworkComp }
     Loader { visible: root.showText; anchors.verticalCenter: parent.verticalCenter; sourceComponent: root.showText ? hScrollComp : null }
 
     // play/pause
@@ -333,12 +377,12 @@ Item {
     Loader { anchors.horizontalCenter: parent.horizontalCenter; sourceComponent: artworkComp }
 
     Item {
-      id: vScroll; width: 22; height: root.showText ? 80 : 0; clip: true
+      id: vScroll; width: Math.max(22, root.artworkSize); height: root.showText ? (root.textStatic ? Math.min(vText.implicitHeight, 80) : 80) : 0; clip: true
       visible: root.showText
       anchors.horizontalCenter: parent.horizontalCenter
 
       readonly property real overflowH: Math.max(0, vText.implicitHeight - height)
-      readonly property bool needsScroll: overflowH > 0.5
+      readonly property bool needsScroll: !root.textStatic && overflowH > 0.5
 
       function restart() {
         vScrollAnim.stop(); vResetTimer.stop(); vPauseTimer.stop()
@@ -366,7 +410,11 @@ Item {
       }
 
       onNeedsScrollChanged: vScroll.restart()
-      Connections { target: root; function onScrollTextChanged() { vScroll.restart() } }
+      Connections {
+        target: root
+        function onScrollTextChanged() { vScroll.restart() }
+        function onTextStaticChanged() { vScroll.restart() }
+      }
       Component.onCompleted: vScroll.restart()
       MouseArea { anchors.fill: parent; onClicked: root.clicked() }
     }

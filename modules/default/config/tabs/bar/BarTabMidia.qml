@@ -32,6 +32,14 @@ C.CfgScroll {
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "mediaplayer", key: "showText", value: !(root.g("showText", true) !== false) })
   }
+  C.CfgToggle {
+    label:   "Texto estático (sem carretel)"
+    checked: root.g("textStatic", false) === true
+    visible: root.g("showText", true) !== false
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "mediaplayer", key: "textStatic", value: !(root.g("textStatic", false) === true) })
+  }
 
   // ── Modo de texto ─────────────────────────────────────────────────────
   C.CfgSection { title: "MODO DE TEXTO"; colorTextDim: root.colorTextDim }
@@ -56,11 +64,30 @@ C.CfgScroll {
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
-  C.CfgSection { title: "SCROLL"; colorTextDim: root.colorTextDim }
+  C.CfgSection { title: "CAPA"; colorTextDim: root.colorTextDim }
+
+  C.CfgSlider {
+    label: "Tamanho"; value: root.g("artworkSize", 22)
+    from: 14; to: 48; step: 1; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "artworkSize", value: v })
+  }
+  C.CfgSlider {
+    label: "Arredondamento"; value: root.g("artworkRadius", 11)
+    from: 0; to: 24; step: 1; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "artworkRadius", value: v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.g("textStatic", false) !== true }
+  C.CfgSection { title: "SCROLL"; colorTextDim: root.colorTextDim; visible: root.g("textStatic", false) !== true }
 
   C.CfgSlider {
     label: "Velocidade"; value: root.g("scrollSpeed", 40)
     from: 10; to: 120; step: 5; unit: "px/s"
+    visible: root.g("textStatic", false) !== true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "scrollSpeed", value: v })
@@ -68,9 +95,21 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Largura"; value: root.g("scrollWidth", 140)
     from: 60; to: 300; step: 10; unit: "px"
+    visible: root.g("textStatic", false) !== true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "scrollWidth", value: v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "VOLUME"; colorTextDim: root.colorTextDim }
+
+  C.CfgSlider {
+    label: "Passo do scroll"; value: Math.round(root.g("volumeStep", 0.05) * 100)
+    from: 1; to: 20; step: 1; unit: "%"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "volumeStep", value: v / 100 })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

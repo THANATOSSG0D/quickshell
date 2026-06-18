@@ -1,6 +1,7 @@
 import Quickshell
 import QtQuick
 import "../bar" as Bar
+import "../dmenu" as DmenuModule
 
 Bar.BarPopup {
   id: popup
@@ -9,8 +10,20 @@ Bar.BarPopup {
   property string launchCmd: "uwsm app -- {exec}"
   property bool   showIcons: true
 
-  popupW: 320
-  popupH: 460
+  // Dimensões lidas do DmenuConfig — mesma fonte que o DmenuPanel/IPC.
+  // onCompleted seta os valores iniciais; Connections mantém em sync se mudar.
+  Component.onCompleted: {
+    popup.popupW = _cfg.dmenuPanelWidth
+    popup.popupH = _cfg.dmenuPanelHeight
+  }
+
+  DmenuModule.DmenuConfig { id: _cfg }
+
+  Connections {
+    target: _cfg
+    function onDmenuPanelWidthChanged()  { popup.popupW = _cfg.dmenuPanelWidth  }
+    function onDmenuPanelHeightChanged() { popup.popupH = _cfg.dmenuPanelHeight }
+  }
 
   property color colorText:    "#e2e2e2"
   property color colorTextDim: "#c6c6c6"
