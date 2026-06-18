@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import QtQuick
 import QtQuick.Layouts
@@ -206,14 +207,14 @@ Item {
       onAppIconPathsChanged: { appIconAttempt = 0; appIconExhausted = false }
 
       // camada 1 — capa do álbum
-      // Rectangle.clip com cor de fundo SÓLIDA (não transparente) — testando
-      // a hipótese de que color:"transparent" quebra o clip arredondado.
-      Rectangle {
+      // ClippingRectangle (Quickshell.Widgets) usa shader próprio para recortar
+      // seguindo o radius — Rectangle.clip comum NUNCA respeita radius, só
+      // recorta em bounding-box reto (limitação documentada do Qt Quick).
+      ClippingRectangle {
         id: artBg
         anchors.fill: parent
         radius: root.artworkRadius
-        clip:   true
-        color:  "#2a2a2a"   // cor sólida de teste — sempre visível por trás da capa
+        color:  "transparent"
 
         Image {
           id: artImg; anchors.fill: parent; fillMode: Image.PreserveAspectCrop
@@ -223,9 +224,9 @@ Item {
       }
 
       // camada 2 — ícone do app
-      Rectangle {
+      ClippingRectangle {
         id: artFallbackBg
-        anchors.fill: parent; radius: root.artworkRadius; clip: true
+        anchors.fill: parent; radius: root.artworkRadius
         color:   Qt.rgba(1, 1, 1, 0.08)
         visible: artImg.status !== Image.Ready
 

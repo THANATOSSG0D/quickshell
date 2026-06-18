@@ -25,7 +25,6 @@ Singleton {
   property color accentColor:  "#ffb4a9"
 
   property int artSize:   84
-  property int artRadius: 14
 
   property var _anchorItem: null
   property var _player:     null
@@ -118,9 +117,7 @@ Singleton {
           Rectangle {
             id: tooltipArtBg
             anchors.fill: parent
-            radius: root.artRadius
-            clip:   true
-            color:  "#2a2a2a"   // cor sólida — garante que o clip arredondado funcione
+            color: "transparent"
 
             Image {
               id: tooltipArt

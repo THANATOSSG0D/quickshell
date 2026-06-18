@@ -29,7 +29,7 @@
                 "textColor": "on_surface"
             },
             "mediaplayer": {
-                "artworkRadius": 7,
+                "artworkRadius": 23,
                 "artworkSize": 14,
                 "bgColor": "background",
                 "bgColorActive": "primary_container",
