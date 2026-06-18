@@ -1,6 +1,27 @@
 {
     "overrides": {
         "Pill": {
+            "bar": {
+                "autoHide": false,
+                "modules": {
+                    "bottom": [
+                        "clock",
+                        "separator",
+                        "volume",
+                        "separator",
+                        "notifications"
+                    ],
+                    "middle": [
+                        "workspaces"
+                    ],
+                    "top": [
+                        "mediaplayer",
+                        "separator",
+                        "quicksettings"
+                    ]
+                },
+                "position": 4
+            },
             "clock": {
                 "accentColor": "primary",
                 "dimColor": "on_surface_variant",

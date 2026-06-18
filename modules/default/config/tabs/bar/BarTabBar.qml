@@ -4,8 +4,6 @@ import '../../components' as C
 C.CfgScroll {
   id: root
   required property var   config
-  required property var   overlay
-  required property var   colors
   required property color colorAccent
   required property color colorTextDim
   required property color colorText

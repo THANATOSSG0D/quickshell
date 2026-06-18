@@ -33,6 +33,25 @@ QtObject {
   readonly property var modules: [
 
     // ══════════════════════════════════════════════
+    // BAR — estrutura/dimensões/posição do bar por tema
+    // (modules.{left,center,right,top,middle,bottom} são tratados fora
+    //  deste schema — são listas de ids, não props tipadas — mas vivem
+    //  no mesmo bloco themes[tema].bar dentro de Bar.json)
+    // ══════════════════════════════════════════════
+    {
+      id: "bar", label: "Barra", perTheme: true, perStyle: false,
+      props: [
+        { key:"autoHide",       type:"bool", default:false, label:"Auto-ocultar",      section:"COMPORTAMENTO" },
+        { key:"position",       type:"enum", default:4,     label:"Posição",           section:"POSIÇÃO",
+          options:[{id:1,label:"Topo"},{id:3,label:"Baixo"},{id:4,label:"Esquerda"},{id:2,label:"Direita"}] },
+        { key:"barSize",        type:"int",  default:30,  min:20,  max:60,   step:2,  unit:"px", label:"Tamanho",          section:"DIMENSÕES" },
+        { key:"barMargin",      type:"int",  default:3,   min:0,   max:20,   step:1,  unit:"px", label:"Margem",           section:"DIMENSÕES" },
+        { key:"pillWidth",      type:"int",  default:400, min:200, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
+        { key:"pillMinSpacing", type:"int",  default:20,  min:0,   max:100,  step:5,  unit:"px", label:"Espaçamento mín.", section:"DIMENSÕES" },
+      ]
+    },
+
+    // ══════════════════════════════════════════════
     // PALETTE — cores globais do bar por tema
     // ══════════════════════════════════════════════
     {

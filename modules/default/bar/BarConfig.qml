@@ -30,22 +30,52 @@ Item {
   id: root
   visible: false
 
-  // ── Props estruturais (não por tema) ───────────────────────────────────
-  property string theme:          "Pill"
-  property bool   autoHide:       false
-  property bool   silenceMode:    false
-  property int    position:       4
-  property int    barSize:        30
-  property int    barMargin:      3
-  property int    pillWidth:      400
-  property int    pillMinSpacing: 20
+  // ── Props globais (não por tema) ────────────────────────────────────────
+  property string theme:       "Pill"
+  property bool   silenceMode: false
 
-  property var modulesLeft:   ["mediaplayer","separator","quicksettings"]
-  property var modulesCenter: ["workspaces"]
-  property var modulesRight:  ["clock","separator","volume","separator","notifications"]
-  property var modulesTop:    ["mediaplayer","separator","quicksettings"]
-  property var modulesMiddle: ["workspaces"]
-  property var modulesBottom: ["clock","separator","volume","separator","notifications"]
+  // ── Props "bar" — por tema ───────────────────────────────────────────────
+  // NOTA: estas são properties ARMAZENADAS (não bindings calculados via
+  // get()/getModules() direto). Usar "readonly property X: get(...)" aqui
+  // causava "Binding loop detected" no boot — 12 properties calculadas pela
+  // mesma função, lidas em cascata durante a inicialização do componente,
+  // levavam o motor de bindings do QtQuick a detectar reentrância. A solução
+  // estável é recalcular explicitamente via _recalcBar(), chamada sempre que
+  // theme/_dep mudam — mesmo padrão que o resto do arquivo já usa para
+  // garantir previsibilidade (ver _syncBar nas versões anteriores deste
+  // arquivo, que existia exatamente por este motivo).
+  property bool autoHide:       false
+  property int  position:       4
+  property int  barSize:        30
+  property int  barMargin:      3
+  property int  pillWidth:      400
+  property int  pillMinSpacing: 20
+
+  property var modulesLeft:   []
+  property var modulesCenter: []
+  property var modulesRight:  []
+  property var modulesTop:    []
+  property var modulesMiddle: []
+  property var modulesBottom: []
+
+  // Recalcula as 12 properties acima a partir do tema atual.
+  // Chamada após theme mudar, após _bump(), e uma vez no boot.
+  function _recalcBar() {
+    root.autoHide       = get("bar", "autoHide")
+    root.position       = get("bar", "position")
+    root.barSize        = get("bar", "barSize")
+    root.barMargin      = get("bar", "barMargin")
+    root.pillWidth      = get("bar", "pillWidth")
+    root.pillMinSpacing = get("bar", "pillMinSpacing")
+
+    root.modulesLeft   = getModules("left")
+    root.modulesCenter = getModules("center")
+    root.modulesRight  = getModules("right")
+    root.modulesTop    = getModules("top")
+    root.modulesMiddle = getModules("middle")
+    root.modulesBottom = getModules("bottom")
+  }
+  onThemeChanged: _recalcBar()
 
   signal modulesUpdated()
 
@@ -56,7 +86,7 @@ Item {
 
   // ── Dep token — força reavaliação de get() quando tema/overrides mudam ─
   property int _dep: 0
-  function _bump() { _dep++ }
+  function _bump() { _dep++; _recalcBar() }
 
   // ══════════════════════════════════════════════════════════════════════
   // API PÚBLICA — get / set / saveAll
@@ -120,6 +150,46 @@ Item {
     return BarSchema.defaultValue(moduleId, key)
   }
 
+  // getModules(slot) → array de ids de módulo para um slot do layout
+  // (left/center/right/top/middle/bottom). Mesma cascata de get():
+  // BarState.json[tema].bar.modules[slot] → Bar.json themes[tema].bar.modules[slot] → []
+  function getModules(slot) {
+    var _ = root._dep
+    var th = root.theme
+
+    try {
+      var ov = stateAdapter.overrides
+      var bar_ov = ov && ov[th] ? ov[th].bar : null
+      if (bar_ov && bar_ov.modules && bar_ov.modules[slot] !== undefined)
+        return bar_ov.modules[slot].slice()
+    } catch(e) {}
+
+    try {
+      var themes = barAdapter.themes
+      var bar_def = themes && themes[th] ? themes[th].bar : null
+      if (bar_def && bar_def.modules && bar_def.modules[slot] !== undefined)
+        return bar_def.modules[slot].slice()
+    } catch(e) {}
+
+    return []
+  }
+
+  // setModules(slot, list) → grava override do usuário para um slot do layout
+  function setModules(slot, list) {
+    var th = root.theme
+    var o = {}
+    try { o = JSON.parse(JSON.stringify(stateAdapter.overrides)) } catch(e) {}
+    if (!o[th])              o[th]              = {}
+    if (!o[th].bar)          o[th].bar           = {}
+    if (!o[th].bar.modules)  o[th].bar.modules   = {}
+    o[th].bar.modules[slot] = list.slice()
+
+    stateAdapter.overrides = o
+    stateFile.writeAdapter()
+    _bump()
+    console.log("[BarConfig] setModules " + slot + " (tema:" + th + ")")
+  }
+
   // set(moduleId, key, value, style?) → grava override do usuário e emite sinal
   function set(moduleId, key, value, style) {
     var th = root.theme
@@ -168,23 +238,27 @@ Item {
     console.log("[BarConfig] saveAll()")
     root._parsing = true
 
-    // ── Estruturais (não por tema) ─────────────────────────────────────
-    if (opts.theme          !== undefined) root.theme          = opts.theme
-    if (opts.autoHide       !== undefined) root.autoHide       = opts.autoHide
-    if (opts.silence        !== undefined) root.silenceMode    = opts.silence
-    if (opts.position       !== undefined) root.position       = opts.position
-    if (opts.barSize        !== undefined) root.barSize        = opts.barSize
-    if (opts.barMargin      !== undefined) root.barMargin      = opts.barMargin
-    if (opts.pillWidth      !== undefined) root.pillWidth      = opts.pillWidth
-    if (opts.pillMinSpacing !== undefined) root.pillMinSpacing = opts.pillMinSpacing
-    if (opts.modulesLeft    !== undefined) root.modulesLeft    = opts.modulesLeft.slice()
-    if (opts.modulesCenter  !== undefined) root.modulesCenter  = opts.modulesCenter.slice()
-    if (opts.modulesRight   !== undefined) root.modulesRight   = opts.modulesRight.slice()
-    if (opts.modulesTop     !== undefined) root.modulesTop     = opts.modulesTop.slice()
-    if (opts.modulesMiddle  !== undefined) root.modulesMiddle  = opts.modulesMiddle.slice()
-    if (opts.modulesBottom  !== undefined) root.modulesBottom  = opts.modulesBottom.slice()
+    // ── Globais (não por tema) ──────────────────────────────────────────
+    if (opts.theme   !== undefined) root.theme       = opts.theme
+    if (opts.silence !== undefined) root.silenceMode = opts.silence
 
-    // ── Por módulo ─────────────────────────────────────────────────────
+    // ── "bar" — por tema, via set() (mesma cascata dos demais módulos) ──
+    if (opts.autoHide       !== undefined) set("bar", "autoHide",       opts.autoHide)
+    if (opts.position       !== undefined) set("bar", "position",       opts.position)
+    if (opts.barSize        !== undefined) set("bar", "barSize",        opts.barSize)
+    if (opts.barMargin      !== undefined) set("bar", "barMargin",      opts.barMargin)
+    if (opts.pillWidth      !== undefined) set("bar", "pillWidth",      opts.pillWidth)
+    if (opts.pillMinSpacing !== undefined) set("bar", "pillMinSpacing", opts.pillMinSpacing)
+
+    // ── Listas de módulos do layout — por tema, via setModules() ───────
+    if (opts.modulesLeft    !== undefined) setModules("left",   opts.modulesLeft)
+    if (opts.modulesCenter  !== undefined) setModules("center", opts.modulesCenter)
+    if (opts.modulesRight   !== undefined) setModules("right",  opts.modulesRight)
+    if (opts.modulesTop     !== undefined) setModules("top",    opts.modulesTop)
+    if (opts.modulesMiddle  !== undefined) setModules("middle", opts.modulesMiddle)
+    if (opts.modulesBottom  !== undefined) setModules("bottom", opts.modulesBottom)
+
+    // ── Por módulo (palette, mediaplayer, workspaces, etc) ──────────────
     // opts.modules = { mediaplayer: { bgColor: "primary", ... },
     //                  workspaces:  { common: {...}, icons: {...} } }
     if (opts.modules) {
@@ -225,16 +299,8 @@ Item {
       _bump()
     }
 
-    // ── Grava estrutura no Bar.json — preserva themes ───────────────────
-    barAdapter.bar = {
-      theme: root.theme, autoHide: root.autoHide, silence: root.silenceMode,
-      position: root.position, barSize: root.barSize, barMargin: root.barMargin,
-      pillWidth: root.pillWidth, pillMinSpacing: root.pillMinSpacing
-    }
-    barAdapter.modules = {
-      left: root.modulesLeft, center: root.modulesCenter, right: root.modulesRight,
-      top: root.modulesTop, middle: root.modulesMiddle, bottom: root.modulesBottom
-    }
+    // ── Grava globais no Bar.json — preserva themes ─────────────────────
+    barAdapter.bar = { theme: root.theme, silence: root.silenceMode }
     // Garante que themes não foi zerado antes de gravar
     if (!barAdapter.themes || Object.keys(barAdapter.themes).length === 0) {
       console.warn("[BarConfig] AVISO: barAdapter.themes está vazio antes de writeAdapter — themes serão perdidos")
@@ -416,7 +482,7 @@ Item {
   readonly property real volMaxVol:     get("volume","maxVol")      || 1.5
 
   // ══════════════════════════════════════════════════════════════════════
-  // FILE 1 — Bar.json (estrutura + defaults de tema)
+  // FILE 1 — Bar.json (globais + defaults de tema)
   // ══════════════════════════════════════════════════════════════════════
   FileView {
     id: barFile
@@ -425,42 +491,25 @@ Item {
 
     JsonAdapter {
       id: barAdapter
-      property var bar:     ({})
-      property var modules: ({})
-      property var themes:  ({})
+      property var bar:    ({})
+      property var themes: ({})
 
       onBarChanged: {
         var b = bar
         if (!b || Object.keys(b).length === 0) return
-        if (b.theme          !== undefined) root.theme          = b.theme
-        if (b.autoHide       !== undefined) root.autoHide       = b.autoHide
-        if (b.silence        !== undefined) root.silenceMode    = b.silence
-        if (b.position       !== undefined) root.position       = b.position
-        if (b.barSize        !== undefined) root.barSize        = b.barSize
-        if (b.barMargin      !== undefined) root.barMargin      = b.barMargin
-        if (b.pillWidth      !== undefined) root.pillWidth      = b.pillWidth
-        if (b.pillMinSpacing !== undefined) root.pillMinSpacing = b.pillMinSpacing
+        if (b.theme   !== undefined) root.theme       = b.theme
+        if (b.silence !== undefined) root.silenceMode = b.silence
         root._bump()
       }
 
-      onModulesChanged: {
-        var m = JSON.parse(JSON.stringify(modules))
-        if (!m) return
-        var hasAny = ["left","center","right","top","middle","bottom"]
-          .some(function(k){ return m[k] && m[k].length > 0 })
-        if (!hasAny) return
-        if (m.left   && m.left.length   > 0) root.modulesLeft   = m.left
-        if (m.center && m.center.length > 0) root.modulesCenter = m.center
-        if (m.right  && m.right.length  > 0) root.modulesRight  = m.right
-        if (m.top    && m.top.length    > 0) root.modulesTop    = m.top
-        if (m.middle && m.middle.length > 0) root.modulesMiddle = m.middle
-        if (m.bottom && m.bottom.length > 0) root.modulesBottom = m.bottom
-        root.configLoaded = true
-        startupTimer.stop()
-        Qt.callLater(function() { root.modulesUpdated() })
+      onThemesChanged: {
+        root._bump()
+        if (themes && Object.keys(themes).length > 0) {
+          root.configLoaded = true
+          startupTimer.stop()
+          Qt.callLater(function() { root.modulesUpdated() })
+        }
       }
-
-      onThemesChanged: root._bump()
     }
   }
 
@@ -475,85 +524,12 @@ Item {
     JsonAdapter {
       id: stateAdapter
       // overrides[tema][moduleId][key]  ou  overrides[tema][moduleId][style][key]
+      // overrides[tema].bar.{autoHide,position,barSize,...} e
+      // overrides[tema].bar.modules[slot] seguem a mesma convenção.
       property var overrides: ({})
-      onOverridesChanged: {
-        // Migração automática: formato legado (chaves flat em overrides{})
-        // para o novo formato (overrides[tema][moduleId][key])
-        var o = overrides
-        if (o && typeof o === "object") {
-          var keys = Object.keys(o)
-          // Detecta formato legado: chaves que não são nomes de temas conhecidos
-          // (temas são strings começando com maiúscula como "Pill", "Minimal")
-          var isLegacy = keys.length > 0 && keys.some(function(k) {
-            return k.charAt(0) === k.charAt(0).toLowerCase() || k.startsWith("pk") || k.startsWith("ws")
-          })
-          if (isLegacy) {
-            console.log("[BarConfig] Migrando BarState.json do formato legado...")
-            // Descarta o formato antigo — será regravado no novo formato quando
-            // o usuário fizer a próxima alteração via ConfigWindow
-            stateAdapter.overrides = {}
-            stateFile.writeAdapter()
-            return
-          }
-        }
-        root._bump()
-      }
+      onOverridesChanged: root._bump()
     }
   }
-
-  // ── Sync Bar.json estrutural ───────────────────────────────────────────
-  function _syncBar() {
-    if (!root._ready || root._parsing) return
-    root._parsing = true
-    // Preserva modules existentes — só atualiza bar{}
-    barAdapter.bar = {
-      theme: root.theme, autoHide: root.autoHide, silence: root.silenceMode,
-      position: root.position, barSize: root.barSize, barMargin: root.barMargin,
-      pillWidth: root.pillWidth, pillMinSpacing: root.pillMinSpacing
-    }
-    if (!barAdapter.modules || Object.keys(barAdapter.modules).length === 0) {
-      barAdapter.modules = {
-        left: root.modulesLeft, center: root.modulesCenter, right: root.modulesRight,
-        top: root.modulesTop, middle: root.modulesMiddle, bottom: root.modulesBottom
-      }
-    }
-    barFile.writeAdapter()
-    root._parsing = false
-    root._bump()
-  }
-  onThemeChanged:          _syncBar()
-  onAutoHideChanged:       _syncBar()
-  onSilenceModeChanged:    _syncBar()
-  onPositionChanged:       _syncBar()
-  onBarSizeChanged:        _syncBar()
-  onBarMarginChanged:      _syncBar()
-  onPillWidthChanged:      _syncBar()
-  onPillMinSpacingChanged: _syncBar()
-
-  function _syncModules() {
-    if (!root._ready || root._parsing) return
-    root._parsing = true
-    barAdapter.modules = {
-      left: root.modulesLeft, center: root.modulesCenter, right: root.modulesRight,
-      top: root.modulesTop, middle: root.modulesMiddle, bottom: root.modulesBottom
-    }
-    // Preserva bar existente
-    if (!barAdapter.bar || Object.keys(barAdapter.bar).length === 0) {
-      barAdapter.bar = {
-        theme: root.theme, autoHide: root.autoHide, silence: root.silenceMode,
-        position: root.position, barSize: root.barSize, barMargin: root.barMargin,
-        pillWidth: root.pillWidth, pillMinSpacing: root.pillMinSpacing
-      }
-    }
-    barFile.writeAdapter()
-    root._parsing = false
-  }
-  onModulesLeftChanged:   _syncModules()
-  onModulesCenterChanged: _syncModules()
-  onModulesRightChanged:  _syncModules()
-  onModulesTopChanged:    _syncModules()
-  onModulesMiddleChanged: _syncModules()
-  onModulesBottomChanged: _syncModules()
 
   // ── Startup ────────────────────────────────────────────────────────────
   Process {
@@ -562,23 +538,18 @@ Item {
     onExited: { root._ready = true; startupTimer.start() }
   }
 
+  // Fallback: se themes já vier populado antes do Process terminar, ou se
+  // por algum motivo onThemesChanged não disparar (valores idênticos),
+  // garante que configLoaded seja liberado mesmo assim.
   Timer {
     id: startupTimer
     interval: 600; repeat: false
     onTriggered: {
       if (root._parsing) root._parsing = false
       if (root.configLoaded) return
-      var m = barAdapter.modules
-      var hasAny = ["left","center","right","top","middle","bottom"]
-        .some(function(k){ return m[k] && m[k].length > 0 })
-      if (hasAny) {
-        if (m.left   && m.left.length   > 0) root.modulesLeft   = m.left
-        if (m.center && m.center.length > 0) root.modulesCenter = m.center
-        if (m.right  && m.right.length  > 0) root.modulesRight  = m.right
-        if (m.top    && m.top.length    > 0) root.modulesTop    = m.top
-        if (m.middle && m.middle.length > 0) root.modulesMiddle = m.middle
-        if (m.bottom && m.bottom.length > 0) root.modulesBottom = m.bottom
+      if (barAdapter.themes && Object.keys(barAdapter.themes).length > 0) {
         root.configLoaded = true
+        root._recalcBar()
         Qt.callLater(function() { root.modulesUpdated() })
       }
     }

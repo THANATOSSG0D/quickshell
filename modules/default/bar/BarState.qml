@@ -100,10 +100,13 @@ QtObject {
     }
   }
 
+  // NOTA: autoHide e position agora são readonly no BarConfig (calculados
+  // por tema via get("bar", key)) — não dá pra atribuir direto, então
+  // propagamos via set("bar", key, value), que grava no tema atual.
   onCurrentThemeChanged: if (_configReady) barConfig.theme       = currentTheme
-  onAutoHideChanged:     if (_configReady) barConfig.autoHide    = autoHide
+  onAutoHideChanged:     if (_configReady) barConfig.set("bar", "autoHide", autoHide)
   onSilenceModeChanged:  if (_configReady) barConfig.silenceMode = silenceMode
-  onPositionChanged:     if (_configReady) barConfig.position    = position
+  onPositionChanged:     if (_configReady) barConfig.set("bar", "position", position)
 
   property var _proc: Process {
     id: cursorProc
