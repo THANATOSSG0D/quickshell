@@ -98,6 +98,21 @@ Item {
   // Referência ao OsdService injetada pelo Bar.qml.
   property var osdService: null
 
+  // ── Hover/tooltip + scroll de volume em todo o módulo ───────────────────
+  // Fica embaixo (declarado antes dos Row/Column) para não roubar clique
+  // dos botões de play/pause/next, que ficam por cima na pilha de z-order.
+  MouseArea {
+    anchors.fill: parent
+    hoverEnabled: true
+    acceptedButtons: Qt.NoButton   // só hover + wheel; clique passa pro item de cima
+    onEntered: MediaTooltip.show(root, root.player, root.barPosition)
+    onExited:  MediaTooltip.hide()
+    onWheel: (wheel) => {
+      root._adjustVolume(wheel.angleDelta.y > 0 ? root.volumeStep : -root.volumeStep)
+      wheel.accepted = true
+    }
+  }
+
   // ── Volume via scroll do mouse na capa ──────────────────────────────────
   property real volumeStep: 0.05   // 5% por "clique" de scroll
 
@@ -256,17 +271,10 @@ Item {
 
       MouseArea {
           anchors.fill: parent
-          hoverEnabled: true
           acceptedButtons: Qt.LeftButton | Qt.RightButton
           onClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton) root.clicked()
             if (mouse.button === Qt.RightButton) root.clicked()
-          }
-          onEntered: MediaTooltip.show(art, root.player, root.barPosition)
-          onExited:  MediaTooltip.hide()
-          onWheel: (wheel) => {
-            root._adjustVolume(wheel.angleDelta.y > 0 ? root.volumeStep : -root.volumeStep)
-            wheel.accepted = true
           }
       }
     }
