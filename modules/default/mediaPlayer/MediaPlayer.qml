@@ -108,9 +108,7 @@ Item {
     var next = Math.max(0.0, Math.min(1.0, cur + delta))
     player.volume = next
     if (osdService) {
-      var appName = player.identity || ""
-      var label   = appName ? (appName + " — " + Math.round(next * 100) + "%") : (Math.round(next * 100) + "%")
-      osdService.media("\uf028", label)
+      osdService.mediaVolume("\uf001", Math.round(next * 100) + "%", next, player.trackArtUrl)
     }
   }
 

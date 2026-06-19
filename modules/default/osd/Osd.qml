@@ -115,6 +115,7 @@ Scope {
       property string osdIcon:         "\uf028"
       property real   osdValue:        0.0
       property string osdLabel:        ""
+      property string osdArtUrl:       ""
       property bool   osdMuted:        false
       property string osdTimerLabel:   ""
       property string osdTimerPhase:   ""
@@ -145,6 +146,7 @@ Scope {
           osdWin.osdType    = data.type  || "volume"
           osdWin.osdIcon    = data.icon  || ""
           osdWin.osdLabel   = data.label || ""
+          osdWin.osdArtUrl  = data.artUrl || ""
           osdWin.osdValue   = data.value !== undefined ? data.value : 0
           osdWin.osdMuted   = data.muted || false
 
@@ -194,6 +196,7 @@ Scope {
           anchors.fill: parent
 
           icon:   osdWin.osdIcon
+          artUrl: osdWin.osdArtUrl
           value:  osdWin.osdValue
           label:  osdWin.osdLabel
           muted:  osdWin.osdMuted

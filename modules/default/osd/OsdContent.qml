@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Widgets
 import "../../.." // Colors singleton
 
 // ── OsdContent ────────────────────────────────────────────────────────────
@@ -16,6 +17,7 @@ Item {
 
   // ── Props de dados ─────────────────────────────────────────────────────
   property string icon:      "\uf028"
+  property string artUrl:    ""     // capa do álbum (modo mediaVolume) — quando presente, substitui o glyph
   property real   value:     0.75   // fração: 0.0–1.5+  (< 0 = modo media)
   property string label:     "75%"
   property bool   muted:     false
@@ -109,16 +111,46 @@ Item {
     anchors.bottomMargin: 16
     spacing:              10
 
-    // Ícone
-    Text {
+    // Ícone — ou capa do álbum quando em modo mediaVolume
+    Item {
       Layout.alignment: Qt.AlignHCenter
-      text:           root.icon
-      font.pixelSize: 22
-      font.family:    "JetBrainsMono Nerd Font"
-      color: root.muted
-        ? Qt.rgba(Colors.on_surface.r, Colors.on_surface.g, Colors.on_surface.b, 0.28)
-        : (root.overload ? Colors.error : root.colorIcon)
-      Behavior on color { ColorAnimation { duration: 200 } }
+      implicitWidth:  28
+      implicitHeight: 28
+
+      // ClippingRectangle (Quickshell.Widgets) — único jeito de arredondar
+      // de fato seguindo o radius; Rectangle.clip não respeita radius.
+      ClippingRectangle {
+        id: osdArtClip
+        anchors.fill: parent
+        radius:       width / 2
+        color:        "transparent"
+        visible:      root.artUrl !== ""
+        border.width: 1
+        border.color: root.muted
+          ? root.colorMuted
+          : (root.overload ? Colors.error : root.colorAccent)
+        Behavior on border.color { ColorAnimation { duration: 200 } }
+
+        Image {
+          anchors.fill:    parent
+          anchors.margins: osdArtClip.border.width
+          source:          root.artUrl
+          fillMode:        Image.PreserveAspectCrop
+          smooth:          true
+        }
+      }
+
+      Text {
+        anchors.centerIn: parent
+        visible:        root.artUrl === ""
+        text:           root.icon
+        font.pixelSize: 20
+        font.family:    "JetBrainsMono Nerd Font"
+        color: root.muted
+          ? Qt.rgba(Colors.on_surface.r, Colors.on_surface.g, Colors.on_surface.b, 0.28)
+          : (root.overload ? Colors.error : root.colorIcon)
+        Behavior on color { ColorAnimation { duration: 200 } }
+      }
     }
 
     // Barra

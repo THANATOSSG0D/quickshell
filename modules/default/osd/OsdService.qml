@@ -47,6 +47,13 @@ QtObject {
     showRequested({ type: "media", icon: icon, label: label, value: -1, muted: false })
   }
 
+  // Volume do player de mídia (MPRIS) via scroll na capa.
+  // Usa o mesmo layout vertical com barra do volume de sistema,
+  // mas com a capa do álbum (ou ícone do player) em vez do ícone de som.
+  function mediaVolume(icon, label, value, artUrl) {
+    showRequested({ type: "mediaVolume", icon: icon, label: label, value: value, muted: false, artUrl: artUrl || "" })
+  }
+
   // ── API pública — Timer ───────────────────────────────────────────────
   // Chamado pelo Osd.qml quando ClockContent emite timerElapsed.
   // remaining: segundos restantes já na nova fase (para mostrar no OSD)
