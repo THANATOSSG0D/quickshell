@@ -85,6 +85,8 @@ QtObject {
         { key:"scrollSpeed", type:"int",  default:40,   min:10,  max:200, step:5,  label:"Velocidade scroll", section:"GERAL", unit:"px/s" },
         { key:"scrollWidth", type:"int",  default:140,  min:60,  max:400, step:10, label:"Largura scroll",    section:"GERAL", unit:"px" },
         { key:"volumeStep",  type:"real", default:0.05, min:0.01, max:0.2, step:0.01, label:"Passo de volume (scroll)", section:"GERAL", unit:"%" },
+        { key:"playerPriority", type:"string", default:"spotify,ncspot,vivaldi,brave", label:"Prioridade de players", section:"PRIORIDADE DE PLAYERS" },
+        { key:"idleInhibit",    type:"bool",   default:true,                           label:"Impedir tela de dormir enquanto toca", section:"IDLE INHIBITOR" },
         // capa do álbum (por tema, como o resto do módulo)
         { key:"artworkSize",   type:"int", default:22, min:14, max:48, step:1, label:"Tamanho da capa", section:"CAPA" },
         { key:"artworkRadius", type:"int", default:11, min:0,  max:24, step:1, label:"Arredondamento",  section:"CAPA" },

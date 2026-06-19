@@ -26,9 +26,9 @@
         "dmenuToggle": true,
         "usageCount": {
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://chatgpt.com": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 2,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 2,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 1,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 5,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 3,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 3,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 1,
             "foot": 1,
             "inkscape": 1

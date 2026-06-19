@@ -142,6 +142,8 @@ Item {
   property color  cfgMpDimColor:        Qt.rgba(1,1,1,0.5)
   property color  cfgMpTextColorActive: Qt.rgba(1,1,1,1.0)
   property color  cfgMpDimColorActive:  Qt.rgba(1,1,1,0.5)
+  property string cfgMpPlayerPriority:  "spotify,ncspot,vivaldi,brave"
+  property bool   cfgMpIdleInhibit:     true
 
   // ── Configs Volume ─────────────────────────────────────────────────────
   property bool  cfgVolShowSink:    true
@@ -372,6 +374,8 @@ Item {
             bgColorActive:   root.cfgMpBgColorActive
             textColorActive: root.cfgMpTextColorActive
             dimColorActive:  root.cfgMpDimColorActive
+            playerPriority:  root.cfgMpPlayerPriority
+            idleInhibit:     root.cfgMpIdleInhibit
             onClicked:       root.mediaPlayerClicked()
           }
         }

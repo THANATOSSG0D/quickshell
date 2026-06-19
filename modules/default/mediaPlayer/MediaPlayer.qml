@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Widgets
+import Quickshell.Wayland
 import Quickshell.Services.Mpris
 import QtQuick
 import QtQuick.Layouts
@@ -41,32 +42,118 @@ Item {
   property real  bgPaddingV:        4
 
   // ── Seleção de player ──────────────────────────────────────────────────
+  // pinnedPlayer (clique manual) só vence quando NENHUM player está
+  // tocando — se algo começa a tocar (mesmo outro app), a prioridade
+  // configurada assume e o pin é ignorado (mas não é limpo: volta a
+  // valer se tudo parar de tocar de novo).
   property var pinnedPlayer: null
+
+  // Prioridade de players — usada tanto para decidir entre vários tocando
+  // ao mesmo tempo quanto, na ausência de qualquer um tocando, para
+  // escolher entre os disponíveis. String separada por vírgula, em ordem
+  // de preferência. Cada item é tratado como REGEX (case-insensitive),
+  // testado contra desktopEntry/identity — necessário porque instâncias
+  // MPRIS reais vêm com sufixos variáveis, ex: "vivaldi.instance2898207"
+  // (Vivaldi com várias abas/janelas) ou "brave.instance2". Um item
+  // simples como "vivaldi" já funciona como regex parcial (match em
+  // qualquer parte da string); para casar só o início, use "^vivaldi".
+  // Configurável em Config > Mídia > Prioridade de players.
+  property string playerPriority: "spotify,ncspot,vivaldi,brave"
+
+  function _priorityList() {
+    return playerPriority.split(",")
+      .map(function(s) { return s.trim() })
+      .filter(function(s) { return s.length > 0 })
+  }
+
+  function _playerName(p) {
+    return ((p.desktopEntry || p.identity || "") + "").toLowerCase()
+  }
+
+  function _isPlayerctld(p) {
+    return _playerName(p).startsWith("playerctld")
+  }
+
+  // Retorna o índice de prioridade (menor = mais prioritário) do player,
+  // ou Infinity se nenhum padrão da lista casar — assim players fora da
+  // lista sempre ficam depois dos que estão, mas ainda participam do
+  // fallback (primeiro tocando / primeiro disponível, na ordem natural).
+  // Regex inválida na lista é ignorada silenciosamente (try/catch),
+  // pra um erro de digitação na config não travar o módulo inteiro.
+  function _priorityRank(p) {
+    var name = _playerName(p)
+    var list = _priorityList()
+    for (var i = 0; i < list.length; i++) {
+      try {
+        var re = new RegExp(list[i], "i")
+        if (re.test(name)) return i
+      } catch (e) {
+        // padrão regex inválido — ignora essa entrada
+      }
+    }
+    return Infinity
+  }
+
+  // Escolhe o de maior prioridade (menor rank) dentro de uma lista de
+  // players; em empate de rank, mantém a ordem natural recebida.
+  function _pickByPriority(list) {
+    if (list.length === 0) return null
+    var best = list[0]
+    var bestRank = _priorityRank(best)
+    for (var i = 1; i < list.length; i++) {
+      var rank = _priorityRank(list[i])
+      if (rank < bestRank) { best = list[i]; bestRank = rank }
+    }
+    return best
+  }
 
   readonly property var player: {
     var all = Mpris.players.values
-    // pinnedPlayer ainda na lista e não é playerctld?
+    var candidates = []
+    for (var j = 0; j < all.length; j++) {
+      if (!_isPlayerctld(all[j])) candidates.push(all[j])
+    }
+
+    var playing = candidates.filter(function(p) { return p.isPlaying })
+
+    // 1) Algo tocando → prioridade decide (mesmo com 1 só tocando, já
+    //    cobre o caso "1 player ativo aparece" — rank é só usado como
+    //    critério de desempate quando há 2+).
+    if (playing.length > 0) {
+      return _pickByPriority(playing)
+    }
+
+    // 2) Nada tocando → pin manual vence, se ainda existir na lista.
     if (pinnedPlayer) {
       for (var i = 0; i < all.length; i++) {
-        if (all[i] === pinnedPlayer) {
-          var pe = (all[i].desktopEntry || all[i].identity || "").toLowerCase()
-          if (!pe.startsWith("playerctld")) return pinnedPlayer
-        }
+        if (all[i] === pinnedPlayer && !_isPlayerctld(all[i])) return pinnedPlayer
       }
-      // pinnedPlayer saiu da lista — limpa fora do binding
+      // pinnedPlayer saiu da lista de players — limpa fora do binding
       pinnedPlayer = null
     }
-    // primeiro não-playerctld que esteja tocando
-    for (var j = 0; j < all.length; j++) {
-      var je = (all[j].desktopEntry || all[j].identity || "").toLowerCase()
-      if (!je.startsWith("playerctld") && all[j].isPlaying) return all[j]
+
+    // 3) Nada tocando e sem pin → prioridade decide entre os disponíveis.
+    return _pickByPriority(candidates)
+  }
+
+  // ── Idle inhibitor — impede o sistema de dormir/bloquear enquanto QUALQUER
+  // player MPRIS (não só o ativo/exibido) estiver tocando. Mais seguro: você
+  // não quer a tela travando enquanto um podcast toca em segundo plano numa
+  // aba que não é a exibida na barra.
+  readonly property bool anyPlaying: {
+    var all = Mpris.players.values
+    for (var i = 0; i < all.length; i++) {
+      if (!_isPlayerctld(all[i]) && all[i].isPlaying) return true
     }
-    // primeiro não-playerctld disponível
-    for (var k = 0; k < all.length; k++) {
-      var ke = (all[k].desktopEntry || all[k].identity || "").toLowerCase()
-      if (!ke.startsWith("playerctld")) return all[k]
-    }
-    return null
+    return false
+  }
+
+  // Toggle de config — permite desligar o idle inhibitor mesmo com mídia tocando.
+  property bool idleInhibit: true
+
+  IdleInhibitor {
+    window:  root.QsWindow.window
+    enabled: root.idleInhibit && root.anyPlaying
   }
 
   // Colapsa completamente quando não há player ativo (não ocupa espaço na pill)
@@ -98,21 +185,6 @@ Item {
   // Referência ao OsdService injetada pelo Bar.qml.
   property var osdService: null
 
-  // ── Hover/tooltip + scroll de volume em todo o módulo ───────────────────
-  // Fica embaixo (declarado antes dos Row/Column) para não roubar clique
-  // dos botões de play/pause/next, que ficam por cima na pilha de z-order.
-  MouseArea {
-    anchors.fill: parent
-    hoverEnabled: true
-    acceptedButtons: Qt.NoButton   // só hover + wheel; clique passa pro item de cima
-    onEntered: MediaTooltip.show(root, root.player, root.barPosition)
-    onExited:  MediaTooltip.hide()
-    onWheel: (wheel) => {
-      root._adjustVolume(wheel.angleDelta.y > 0 ? root.volumeStep : -root.volumeStep)
-      wheel.accepted = true
-    }
-  }
-
   // ── Volume via scroll do mouse na capa ──────────────────────────────────
   property real volumeStep: 0.05   // 5% por "clique" de scroll
 
@@ -123,7 +195,9 @@ Item {
     var next = Math.max(0.0, Math.min(1.0, cur + delta))
     player.volume = next
     if (osdService) {
-      osdService.mediaVolume("\uf001", Math.round(next * 100) + "%", next, player.trackArtUrl)
+      var appName = player.identity || ""
+      var label   = appName ? (appName + " — " + Math.round(next * 100) + "%") : (Math.round(next * 100) + "%")
+      osdService.media("\uf028", label)
     }
   }
 
@@ -271,10 +345,17 @@ Item {
 
       MouseArea {
           anchors.fill: parent
+          hoverEnabled: true
           acceptedButtons: Qt.LeftButton | Qt.RightButton
           onClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton) root.clicked()
             if (mouse.button === Qt.RightButton) root.clicked()
+          }
+          onEntered: MediaTooltip.show(art, root.player, root.barPosition)
+          onExited:  MediaTooltip.hide()
+          onWheel: (wheel) => {
+            root._adjustVolume(wheel.angleDelta.y > 0 ? root.volumeStep : -root.volumeStep)
+            wheel.accepted = true
           }
       }
     }

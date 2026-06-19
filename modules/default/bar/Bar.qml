@@ -583,6 +583,8 @@ Scope {
         _set("cfgMpDimColor",        barState.config.paletteMpDimColor)
         _set("cfgMpTextColorActive", barState.config.paletteMpTextColorActive)
         _set("cfgMpDimColorActive",  barState.config.paletteMpDimColorActive)
+        _set("cfgMpPlayerPriority",  barState.config.mpPlayerPriority)
+        _set("cfgMpIdleInhibit",     barState.config.mpIdleInhibit)
         // volume
         _set("cfgVolShowSink",   barState.config.volShowSink   !== undefined ? barState.config.volShowSink   : true)
         _set("cfgVolShowSource", barState.config.volShowSource !== undefined ? barState.config.volShowSource : true)
@@ -714,6 +716,8 @@ Scope {
         function onPaletteMpDimColorChanged()        { bar._set("cfgMpDimColor",        barState.config.paletteMpDimColor)        }
         function onPaletteMpTextColorActiveChanged() { bar._set("cfgMpTextColorActive", barState.config.paletteMpTextColorActive) }
         function onPaletteMpDimColorActiveChanged()  { bar._set("cfgMpDimColorActive",  barState.config.paletteMpDimColorActive)  }
+        function onMpPlayerPriorityChanged()         { bar._set("cfgMpPlayerPriority",  barState.config.mpPlayerPriority)         }
+        function onMpIdleInhibitChanged()            { bar._set("cfgMpIdleInhibit",     barState.config.mpIdleInhibit)            }
         // clock
         function onPaletteClkTextColorChanged()   { bar._set("cfgClkTextColor",    barState.config.paletteClkTextColor)   }
         function onPaletteClkDimColorChanged()     { bar._set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }

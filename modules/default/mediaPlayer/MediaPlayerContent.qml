@@ -103,6 +103,32 @@ Item {
       Item { Layout.fillWidth: true }
     }
 
+    // ── Reset de pin — ícone de alfinete no canto, sempre visível quando
+    // há pin ativo, mesmo que o player pinado não seja o activePlayer no
+    // momento (ex: pin no Spotify enquanto o Vivaldi está tocando e por
+    // prioridade aparece no lugar dele) ou quando só resta 1 player real
+    // conectado (o seletor acima fica oculto nesse caso).
+    RowLayout {
+      Layout.fillWidth: true
+      visible: root.barMediaPlayer && root.barMediaPlayer.pinnedPlayer !== null
+      spacing: 0
+
+      Item { Layout.fillWidth: true }
+
+      Text {
+        text:           "\uf08d"   // nf-fa-thumb_tack
+        color:          root.colorAccent
+        font.pixelSize: 13
+        font.family:    "JetBrainsMono Nerd Font"
+
+        MouseArea {
+          anchors.fill:    parent
+          anchors.margins: -4   // alvo de clique maior que o glyph
+          onClicked: if (root.barMediaPlayer) root.barMediaPlayer.pinnedPlayer = null
+        }
+      }
+    }
+
     // ── Artwork ──────────────────────────────────────────────────────────
     Item {
       Layout.fillWidth:     true

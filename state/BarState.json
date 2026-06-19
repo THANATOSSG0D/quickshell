@@ -38,6 +38,7 @@
                 "bgPaddingV": 2,
                 "dimColor": "on_surface_variant",
                 "dimColorActive": "on_surface_variant",
+                "playerPriority": "spotify,vivaldi,brave",
                 "scrollSpeed": 50,
                 "scrollWidth": 90,
                 "showText": false,

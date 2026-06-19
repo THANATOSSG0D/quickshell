@@ -476,6 +476,8 @@ Item {
   readonly property int    mpBgPaddingH:     get("mediaplayer","bgPaddingH")     || 8
   readonly property int    mpBgPaddingV:     get("mediaplayer","bgPaddingV")     || 4
   readonly property int    mpScrollPauseMs:  1800   // fixo — não exposto no schema ainda
+  readonly property string mpPlayerPriority: get("mediaplayer","playerPriority") || "spotify,ncspot,vivaldi,brave"
+  readonly property bool   mpIdleInhibit:    get("mediaplayer","idleInhibit")    !== false
 
   // clock
   readonly property int clkDismissDelayMs: get("clock","dismissDelayMs") || 8000

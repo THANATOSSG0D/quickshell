@@ -25,7 +25,53 @@ Item {
   width:  implicitWidth
   height: implicitHeight
 
+  // Contador "bumpado" manualmente. Dois problemas precisam ser
+  // corrigidos juntos:
+  //
+  // 1) HyprlandToplevel.lastIpcObject só atualiza quando o Quickshell
+  //    busca o objeto de novo do Hyprland — não é automático a cada
+  //    movimento de janela. Por isso é preciso chamar
+  //    Hyprland.refreshToplevels() explicitamente (ver docs do Quickshell:
+  //    "Many actions that will invalidate workspace state don't send
+  //    events, so this function is available if required" — reorganização
+  //    de tiling é justamente um desses casos sem evento dedicado).
+  //
+  // 2) Mesmo com lastIpcObject atualizado, sortedToplevels usa
+  //    Array.sort() com callback JS — o QML não rastreia leituras de
+  //    propriedade feitas dentro desse callback como dependência do
+  //    binding. Por isso o _sortDirty é lido fora do sort, só para
+  //    forçar a reavaliação do binding inteiro.
+  property int _sortDirty: 0
+
+  // Reage a QUALQUER evento bruto do Hyprland — filtrar por nome (ex:
+  // só "movewindow"/"windowtitle") é frágil: o evento real para título
+  // é "windowtitlev2" (com endereço), e reorganizações de tiling puro
+  // (mover janela dentro do mesmo workspace sem mudar foco/monitor)
+  // muitas vezes não emitem evento dedicado nenhum.
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      Hyprland.refreshToplevels()
+      root._sortDirty++
+    }
+  }
+
+  // Rede de segurança: cobre os casos em que nem o evento bruto chega
+  // (reorganização interna de tiling sem socket event). Custo baixo —
+  // é só refreshToplevels() + comparação de array já em memória.
+  Timer {
+    interval: 800
+    running:  root.visible
+    repeat:   true
+    onTriggered: {
+      Hyprland.refreshToplevels()
+      root._sortDirty++
+    }
+  }
+
   property var sortedToplevels: {
+    /* dependência intencional p/ forçar reavaliação em eventos do Hyprland */
+    var _dep = root._sortDirty
     if (!root.modelData) return []
     var list = root.modelData.toplevels.values.slice()
     if (sortOrder === "alphabetical") {

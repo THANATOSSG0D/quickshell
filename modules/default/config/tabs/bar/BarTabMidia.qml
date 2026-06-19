@@ -113,6 +113,51 @@ C.CfgScroll {
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "PRIORIDADE DE PLAYERS"; colorTextDim: root.colorTextDim }
+
+  Text {
+    text: "Decide qual player aparece quando mais de um está tocando ao mesmo tempo (e, na ausência de qualquer um tocando, qual aparece entre os disponíveis). Separe por vírgula, em ordem de preferência. Cada item é tratado como REGEX (case-insensitive) contra o desktopEntry/identity do player — útil porque algumas instâncias MPRIS vêm com sufixo, ex: \"vivaldi.instance2898207\" ou \"brave.instance2\". Um termo simples como \"vivaldi\" já casa com qualquer parte do nome; use \"^vivaldi\" para casar só o início."
+    color: root.colorTextDim
+    font.pixelSize: 11
+    wrapMode: Text.WordWrap
+    width: parent.width
+  }
+
+  Rectangle {
+    width:  parent.width
+    height: 34
+    radius: 6
+    color:  root.colorSidebar
+    border.width: 1
+    border.color: root.colorDivider
+
+    TextInput {
+      id: priorityInput
+      anchors.fill: parent
+      anchors.leftMargin: 10
+      anchors.rightMargin: 10
+      verticalAlignment: TextInput.AlignVCenter
+      color: root.colorText
+      font.pixelSize: 12
+      selectByMouse: true
+      text: root.g("playerPriority", "spotify,ncspot,vivaldi,brave")
+
+      onEditingFinished: root.changed({ moduleId: "mediaplayer", key: "playerPriority", value: text })
+    }
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "IDLE INHIBITOR"; colorTextDim: root.colorTextDim }
+
+  C.CfgToggle {
+    label:   "Impedir tela de dormir/bloquear enquanto algo estiver tocando"
+    checked: root.g("idleInhibit", true) !== false
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "mediaplayer", key: "idleInhibit", value: !(root.g("idleInhibit", true) !== false) })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "FUNDO"; colorTextDim: root.colorTextDim }
 
   C.CfgToggle {
