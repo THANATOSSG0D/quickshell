@@ -140,44 +140,62 @@ Singleton {
 
         // ── Textos ───────────────────────────────────────────────────────
         Column {
+          id: textCol
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
 
+          // Largura única para toda a coluna — cresce com o texto mais
+          // longo (até um teto), e o slider de volume ocupa essa mesma
+          // largura inteira, em vez de ficar fixo em 60px.
+          readonly property int textColWidth: Math.max(
+            120,
+            Math.min(220, Math.max(
+              titleText.implicitWidth,
+              artistText.implicitWidth,
+              albumText.implicitWidth,
+              appText.implicitWidth
+            ))
+          )
+
           Text {
+            id: titleText
             text:           root._title || root._app || "—"
             color:          root.fgColor
             font.pixelSize: 12
             font.weight:    Font.Medium
             font.family:    "JetBrainsMono Nerd Font"
             elide:          Text.ElideRight
-            width:          Math.min(implicitWidth, 220)
+            width:          textCol.textColWidth
           }
           Text {
+            id: artistText
             visible:        root._artist.length > 0
             text:           root._artist
             color:          root.accentColor
             font.pixelSize: 11
             font.family:    "JetBrainsMono Nerd Font"
             elide:          Text.ElideRight
-            width:          Math.min(implicitWidth, 220)
+            width:          textCol.textColWidth
           }
           Text {
+            id: albumText
             visible:        root._album.length > 0
             text:           root._album
             color:          root.fgDimColor
             font.pixelSize: 10
             font.family:    "JetBrainsMono Nerd Font"
             elide:          Text.ElideRight
-            width:          Math.min(implicitWidth, 220)
+            width:          textCol.textColWidth
           }
           Text {
+            id: appText
             visible:        root._app.length > 0
             text:           root._app
             color:          root.fgDimColor
             font.pixelSize: 9
             font.family:    "JetBrainsMono Nerd Font"
             elide:          Text.ElideRight
-            width:          Math.min(implicitWidth, 220)
+            width:          textCol.textColWidth
           }
 
           // ── Volume ───────────────────────────────────────────────────
@@ -185,15 +203,20 @@ Singleton {
             visible: root._volSupported
             spacing: 5
             topPadding: 3
+            width: textCol.textColWidth
 
             Text {
+              id: volIcon
               text:           "\uf028"   // nf-fa-volume_up
               color:          root.fgDimColor
               font.pixelSize: 9
               font.family:    "JetBrainsMono Nerd Font"
+              anchors.verticalCenter: parent.verticalCenter
             }
             Rectangle {
-              width: 60; height: 4; radius: 2
+              id: volTrack
+              width:  textCol.textColWidth - volIcon.implicitWidth - volPct.implicitWidth - parent.spacing * 2
+              height: 4; radius: 2
               color: Qt.rgba(1, 1, 1, 0.15)
               anchors.verticalCenter: parent.verticalCenter
 
@@ -206,6 +229,7 @@ Singleton {
               }
             }
             Text {
+              id: volPct
               text:           Math.round(root._volume * 100) + "%"
               color:          root.fgDimColor
               font.pixelSize: 9
