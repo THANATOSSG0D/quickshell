@@ -1,16 +1,32 @@
 module QuickSettings.components
 
-QsToggleTile       1.0 QsToggleTile.qml
-QsVolumeSlider     1.0 QsVolumeSlider.qml
-QsBrightnessSlider 1.0 QsBrightnessSlider.qml
-QsNightMode        1.0 QsNightMode.qml
-QsThermalSection   1.0 QsThermalSection.qml
-QsTabBar           1.0 QsTabBar.qml
-QsTabNetworks      1.0 QsTabNetworks.qml
-QsTabBluetooth     1.0 QsTabBluetooth.qml
-QsTabSystem        1.0 QsTabSystem.qml
-QsTabTray          1.0 QsTabTray.qml
-QsTabTrayImpl      1.0 QsTabTrayImpl.qml
-QsFooter           1.0 QsFooter.qml
-QsInlineDropdown 1.0 QsInlineDropdown.qml
-
+QsSystemStats   1.0 QsSystemStats.qml
+QsPowerProfile  1.0 QsPowerProfile.qml
+QsShaderStatus  1.0 QsShaderStatus.qml
+QsMicSlider        1.0 QsMicSlider.qml
+QsCollapsibleCard  1.0 QsCollapsibleCard.qml
+QsAudioDevices    1.0 QsAudioDevices.qml
+QsBrightnessSlider    1.0 QsBrightnessSlider.qml
+QsCalendar    1.0 QsCalendar.qml
+QsEasyEffects    1.0 QsEasyEffects.qml
+QsEthernetList    1.0 QsEthernetList.qml
+QsFooter    1.0 QsFooter.qml
+QsInlineDropdown    1.0 QsInlineDropdown.qml
+QsMediaPlayerFull    1.0 QsMediaPlayerFull.qml
+QsMiniPlayer    1.0 QsMiniPlayer.qml
+QsNavRow    1.0 QsNavRow.qml
+QsNightMode    1.0 QsNightMode.qml
+QsPageHeader    1.0 QsPageHeader.qml
+QsPresetList    1.0 QsPresetList.qml
+QsSwitch    1.0 QsSwitch.qml
+QsTabBar    1.0 QsTabBar.qml
+QsTabBluetooth    1.0 QsTabBluetooth.qml
+QsTabNetworks    1.0 QsTabNetworks.qml
+QsTabSystem    1.0 QsTabSystem.qml
+QsTabTray    1.0 QsTabTray.qml
+QsTabTrayImpl    1.0 QsTabTrayImpl.qml
+QsThermalSection    1.0 QsThermalSection.qml
+QsToggleTile    1.0 QsToggleTile.qml
+QsVolumeSlider    1.0 QsVolumeSlider.qml
+QsWeather    1.0 QsWeather.qml
+QsWifiList    1.0 QsWifiList.qml

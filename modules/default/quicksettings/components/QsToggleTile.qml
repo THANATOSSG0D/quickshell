@@ -1,9 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
 
-// ── Tile de toggle genérico (WiFi, Bluetooth, DND, etc.) ────────────────────
-// Expõe: icon, label, badge, active, onToggled()
-// Cores são todas injetadas pelo pai.
+// ── Tile de toggle genérico (WiFi, Bluetooth, Caffeine, etc.) ───────────────
+// Card inteiro clicável: onClicked() é disparado em qualquer ponto do card.
+// O toggle real (ligar/desligar) acontece DENTRO da página de detalhe, não
+// aqui — este tile só navega e reflete o estado visualmente (cor + borda).
+//
+// Expõe: icon, label, badge, active, onClicked()
 Item {
     id: root
 
@@ -18,7 +21,7 @@ Item {
     property color colorText:    "#e2e2e2"
     property color colorTextDim: "#c6c6c6"
 
-    signal toggled()
+    signal clicked()
 
     // ── Visual ─────────────────────────────────────────────────────────────
     Rectangle {
@@ -39,32 +42,36 @@ Item {
             anchors.margins: 10
             spacing: 3
 
-            // ── Ícone ──────────────────────────────────────────────────
-            Text {
-                text:            root.icon
-                color:           root.active ? root.colorAccent : root.colorText
-                font.pixelSize:  13
-                font.family:     "JetBrainsMono Nerd Font"
-                Behavior on color { ColorAnimation { duration: 150 } }
-            }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 6
 
-            // ── Label principal ────────────────────────────────────────
-            Text {
-                text:           root.label
-                color:          root.active ? root.colorAccent : root.colorText
-                font.pixelSize: 10
-                Behavior on color { ColorAnimation { duration: 150 } }
-            }
+                Text {
+                    text:            root.icon
+                    color:           root.active ? root.colorAccent : root.colorText
+                    font.pixelSize:  13
+                    font.family:     "JetBrainsMono Nerd Font"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
 
-            // ── Badge de estado ────────────────────────────────────────
-            Text {
-                visible:        root.badge !== ""
-                text:           root.badge
-                color:          root.active ? root.colorAccent : root.colorTextDim
-                font.pixelSize: 9
-                elide:          Text.ElideRight
-                Layout.fillWidth: true
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Text {
+                    text:           root.label
+                    color:          root.active ? root.colorAccent : root.colorText
+                    font.pixelSize: 10
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    visible:        root.badge !== ""
+                    text:           root.badge
+                    color:          root.active ? root.colorAccent : root.colorTextDim
+                    font.pixelSize: 8
+                    elide:          Text.ElideRight
+                    Layout.maximumWidth: 64
+                    horizontalAlignment: Text.AlignRight
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
             }
 
             Item { Layout.fillHeight: true }
@@ -72,7 +79,9 @@ Item {
 
         MouseArea {
             anchors.fill: parent
-            onClicked:    root.toggled()
+            hoverEnabled: true
+            cursorShape:  Qt.PointingHandCursor
+            onClicked:    root.clicked()
         }
     }
 }

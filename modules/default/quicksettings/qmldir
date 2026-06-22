@@ -1,5 +1,5 @@
 module QuickSettings
-
+singleton QsTooltip 1.0 QsTooltip.qml
 QuickSettings        1.0 QuickSettings.qml
 QuickSettingsContent 1.0 QuickSettingsContent.qml
 QuickSettingsPanel   1.0 QuickSettingsPanel.qml

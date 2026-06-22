@@ -25,8 +25,6 @@ Item {
     property string shaderCurrent:    ""
     property bool   shaderAutoActive: false
     property bool   shaderDaemonOn:   false   // qualquer serviço do shader ativo
-    property var    shaderList:       []
-    property var    _shaderBuf:       []
 
     property bool   tempAutoActive:   false
     property bool   tempDaemonOn:     false   // hyprsunset-daemon.service ativo
@@ -37,7 +35,10 @@ Item {
     property int    tempSlider:       4500
     property bool   _userControl:     false
 
-    property bool   shaderDropOpen:   false
+    property int    gammaFromLog:     0
+    property int    gammaFromFile:    0
+    property int    gammaSlider:      100
+    property bool   _gammaUserControl: false
 
     // ─────────────────────────────────────────────────────────────────────────
     // Modo do shader: "auto" | "manual:<shader>" | "off"
@@ -49,22 +50,6 @@ Item {
         if (shaderCurrent.length > 0)          return "manual:" + shaderCurrent
         return "off"
     }
-
-    Process {
-        id: procSaveShaderMode
-        // command é setado dinamicamente antes de rodar
-    }
-
-    function saveShaderMode() {
-        var mode = root.shaderMode
-        procSaveShaderMode.command = ["bash", "-c",
-            "mkdir -p ~/.cache/hyprnight" +
-            " && echo '" + mode + "' > ~/.cache/hyprnight/shader-mode"]
-        if (!procSaveShaderMode.running) procSaveShaderMode.running = true
-    }
-
-    // Dispara save sempre que o modo efetivo mudar
-    onShaderModeChanged: Qt.callLater(saveShaderMode)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Processo de status único — checa tudo num único bash para evitar
@@ -101,7 +86,10 @@ Item {
                         root.shaderDaemonOn   = val === "active"; break
                     case "TEMP_TIMER":
                         root.tempAutoActive   = val === "active"
-                        if (val === "active") root._userControl = false
+                        if (val === "active") {
+                            root._userControl      = false
+                            root._gammaUserControl = false
+                        }
                         break
                     case "TEMP_DAEMON":
                         root.tempDaemonOn     = val === "active"; break
@@ -114,24 +102,6 @@ Item {
     readonly property bool shaderOn: shaderCurrent.length > 0
                                   || shaderAutoActive
                                   || shaderDaemonOn
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Lista de shaders
-    // ─────────────────────────────────────────────────────────────────────────
-
-    Process {
-        id: procShaderList
-        command: ["bash", "-c",
-            "hyprshade ls 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$'"]
-        stdout: SplitParser {
-            onRead: line => {
-                var t = line.trim()
-                if (t.length > 0 && !root._shaderBuf.includes(t))
-                    root._shaderBuf = root._shaderBuf.concat([t])
-            }
-        }
-        onExited: { root.shaderList = root._shaderBuf.slice(); root._shaderBuf = [] }
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Log de temperatura
@@ -149,10 +119,35 @@ Item {
             if (line.length === 0) return
             var mt = line.match(/\btemp=(\d+)K\b/)
             var mp = line.match(/\bphase=(\w+)\b/)
+            var mg = line.match(/\bgamma=(\d+)\b/)
             if (mt) root.tempFromLog = parseInt(mt[1])
             if (mp) root.tempPhase   = mp[1]
+            if (mg) root.gammaFromLog = parseInt(mg[1])
             if (root.tempAutoActive && !root._userControl && root.tempFromLog > 0)
                 root.tempSlider = root.tempFromLog
+            // Gamma sempre reflete o log real (fonte de verdade do que está
+            // de fato aplicado), exceto enquanto o usuário está arrastando o
+            // slider — diferente da temperatura, gamma não depende do modo
+            // auto/manual para ser populado a partir do log.
+            if (!root._gammaUserControl && mg)
+                root.gammaSlider = root.gammaFromLog
+        }
+    }
+
+    Process {
+        id: procGammaManualFile
+        command: ["bash", "-c", "cat /tmp/hyprnight-manual-gamma 2>/dev/null"]
+        property string _val: ""
+        stdout: SplitParser { onRead: line => { procGammaManualFile._val = line.trim() } }
+        onExited: {
+            var v = parseInt(_val); _val = ""
+            if (!isNaN(v) && v > 0) {
+                root.gammaFromFile = v
+                // Fallback: só usa o arquivo manual se o log ainda não deu
+                // nenhum valor (ex.: daemon parado, sem linha de log recente)
+                if (root.gammaFromLog <= 0 && !root._gammaUserControl)
+                    root.gammaSlider = v
+            }
         }
     }
 
@@ -174,64 +169,6 @@ Item {
     // ─────────────────────────────────────────────────────────────────────────
     // Processos de ação
     // ─────────────────────────────────────────────────────────────────────────
-
-    // Shader: aplica manualmente e salva em ml4w/settings
-    Process {
-        id: procShaderApply
-        onExited: { Qt.callLater(() => { if (!procStatus.running) procStatus.running = true }) }
-    }
-
-    // Delay para checar shader após serviço aplicar
-    Timer {
-        id: shaderRefreshTimer; interval: 1800; repeat: false
-        onTriggered: { if (!procStatus.running) procStatus.running = true }
-    }
-
-    Process {
-        id: procShaderEnableAuto
-        command: ["bash", "-c",
-            "systemctl --user start hyprshade.timer hyprshader-updater.timer hyprshade.service 2>/dev/null"]
-        onExited: shaderRefreshTimer.restart()
-    }
-
-    Process {
-        id: procShaderDisableAuto
-        command: ["bash", "-c",
-            "systemctl --user stop hyprshade.timer hyprshader-updater.timer hyprshade.service 2>/dev/null"]
-        onExited: { if (!procStatus.running) procStatus.running = true }
-    }
-
-    // Toggle power do shader
-    Process {
-        id: procShaderToggle
-        onExited: { if (!procStatus.running) procStatus.running = true }
-    }
-
-    function toggleShader() {
-        if (root.shaderOn) {
-            procShaderToggle.command = ["bash", "-c",
-                "systemctl --user stop hyprshade.timer hyprshader-updater.timer hyprshade.service 2>/dev/null" +
-                " ; hyprshade off 2>/dev/null" +
-                " && echo 'hyprshade_filter=\"off\"' > ~/.config/ml4w/settings/hyprshade.sh"]
-            if (!procShaderToggle.running) procShaderToggle.running = true
-        } else {
-            procShaderToggle.command = ["bash", "-c",
-                "f=~/.config/ml4w/settings/hyprshade.sh" +
-                " ; [ -f \"$f\" ] && source \"$f\" || hyprshade_filter=blue-light-filter" +
-                " ; [ \"$hyprshade_filter\" = off ] && hyprshade_filter=blue-light-filter" +
-                " ; hyprshade on \"$hyprshade_filter\" 2>/dev/null"]
-            if (!procShaderToggle.running) procShaderToggle.running = true
-        }
-    }
-
-    // Shader: seleciona manualmente
-    function applyShader(name) {
-        shaderDropOpen = false
-        var save  = "echo 'hyprshade_filter=\"" + name + "\"' > ~/.config/ml4w/settings/hyprshade.sh"
-        var apply = name === "off" ? "hyprshade off" : "hyprshade on \"" + name + "\""
-        procShaderApply.command = ["bash", "-c", save + " && " + apply + " 2>/dev/null"]
-        if (!procShaderApply.running) procShaderApply.running = true
-    }
 
     // Temperatura: liga/desliga auto
     Process {
@@ -266,21 +203,30 @@ Item {
         if (root.tempDaemonOn) {
             procTempToggle.command = ["bash", "-c",
                 "systemctl --user stop hyprsunset.timer hyprsunset.service hyprsunset-daemon.service 2>/dev/null" +
-                " ; rm -f /tmp/hyprnight-manual-temp"]
-            root.tempAutoActive = false
-            root._userControl   = false
-            root.tempSlider     = 6500
+                " ; rm -f /tmp/hyprnight-manual-temp /tmp/hyprnight-manual-gamma"]
+            root.tempAutoActive      = false
+            root._userControl        = false
+            root.tempSlider          = 6500
+            root._gammaUserControl   = false
+            root.gammaSlider         = 100
         } else {
             var lastTemp = root.tempFromFile > 0 ? root.tempFromFile
                          : root.tempFromLog  > 0 ? root.tempFromLog
                          : 4500
+            var lastGamma = root.gammaFromFile > 0 ? root.gammaFromFile
+                          : root.gammaFromLog  > 0 ? root.gammaFromLog
+                          : 100
             procTempToggle.command = ["bash", "-c",
                 "systemctl --user start hyprsunset-daemon.service 2>/dev/null" +
                 " && sleep 0.3" +
                 " && hyprctl hyprsunset temperature " + lastTemp + " 2>/dev/null" +
-                " && echo " + lastTemp + " > /tmp/hyprnight-manual-temp"]
-            root.tempSlider   = lastTemp
-            root._userControl = true
+                " && echo " + lastTemp + " > /tmp/hyprnight-manual-temp" +
+                " ; hyprctl hyprsunset gamma " + lastGamma + " 2>/dev/null" +
+                " && echo " + lastGamma + " > /tmp/hyprnight-manual-gamma"]
+            root.tempSlider        = lastTemp
+            root._userControl      = true
+            root.gammaSlider       = lastGamma
+            root._gammaUserControl = true
         }
         if (!procTempToggle.running) procTempToggle.running = true
     }
@@ -291,12 +237,26 @@ Item {
         onExited: { if (!procTempManualFile.running) procTempManualFile.running = true }
     }
 
+    // Gamma: aplica valor manual
+    Process {
+        id: procGammaApply
+        onExited: { if (!procGammaManualFile.running) procGammaManualFile.running = true }
+    }
+
     function applyManualTemp(temp) {
         procTempApply.command = ["bash", "-c",
             "systemctl --user start hyprsunset-daemon.service 2>/dev/null" +
             " ; hyprctl hyprsunset temperature " + temp + " 2>/dev/null" +
             " && echo " + temp + " > /tmp/hyprnight-manual-temp"]
         if (!procTempApply.running) procTempApply.running = true
+    }
+
+    function applyManualGamma(gamma) {
+        procGammaApply.command = ["bash", "-c",
+            "systemctl --user start hyprsunset-daemon.service 2>/dev/null" +
+            " ; hyprctl hyprsunset gamma " + gamma + " 2>/dev/null" +
+            " && echo " + gamma + " > /tmp/hyprnight-manual-gamma"]
+        if (!procGammaApply.running) procGammaApply.running = true
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -323,10 +283,10 @@ Item {
     // ─────────────────────────────────────────────────────────────────────────
 
     function refreshAll() {
-        if (!procStatus.running)         procStatus.running         = true
-        if (!procShaderList.running)     procShaderList.running     = true
-        if (!procTempLog.running)        procTempLog.running        = true
-        if (!procTempManualFile.running) procTempManualFile.running = true
+        if (!procStatus.running)          procStatus.running          = true
+        if (!procTempLog.running)         procTempLog.running         = true
+        if (!procTempManualFile.running)  procTempManualFile.running  = true
+        if (!procGammaManualFile.running) procGammaManualFile.running = true
     }
 
     Component.onCompleted: refreshAll()
@@ -356,129 +316,130 @@ Item {
         spacing: 10
 
         // ╔══════════════════════════════════════════════════════════════════╗
-        // ║  SHADER                                                          ║
+        // ║  CABEÇALHO ÚNICO — controla Gamma + Temperatura juntos           ║
         // ╚══════════════════════════════════════════════════════════════════╝
 
         RowLayout {
             Layout.fillWidth: true; spacing: 6
 
             Text {
-                text: "\uf0eb"
+                text: "\uf185"
                 font { pixelSize: 12; family: "JetBrainsMono Nerd Font" }
-                color: root.shaderOn ? root.colorAccent : root.colorTextDim
-                Behavior on color { ColorAnimation { duration: 200 } }
+                color: root.tempDaemonOn
+                    ? (root.tempAutoActive ? root.phaseColor(root.tempPhase) : root.colorAccent)
+                    : root.colorTextDim
+                Behavior on color { ColorAnimation { duration: 300 } }
             }
-            Text { text: "Shader"; color: root.colorText; font.pixelSize: 11 }
+            Text { text: "Filtro de cor"; color: root.colorText; font.pixelSize: 11 }
+
+            Text {
+                visible: root.tempAutoActive && root.tempPhase.length > 0
+                text: "· " + root.tempPhase
+                color: root.phaseColor(root.tempPhase); font.pixelSize: 9
+                Behavior on color { ColorAnimation { duration: 300 } }
+            }
+
             Item { Layout.fillWidth: true }
 
-            // AUTO
+            // AUTO — afeta gamma e temperatura juntos (mesmo ciclo dia/noite)
             AutoPill {
-                active: root.shaderAutoActive
-                accentColor: root.colorAccent
-                onClicked: root.shaderAutoActive
-                    ? (procShaderDisableAuto.running ? null : (procShaderDisableAuto.running = true))
-                    : (procShaderEnableAuto.running  ? null : (procShaderEnableAuto.running  = true))
+                active: root.tempAutoActive
+                accentColor: "#ff7043"
+                onClicked: root.tempAutoActive
+                    ? (procTempDisableAuto.running ? null : (procTempDisableAuto.running = true))
+                    : (procTempEnableAuto.running  ? null : (procTempEnableAuto.running  = true))
             }
 
-            // POWER toggle
+            // POWER — liga/desliga o daemon (gamma + temperatura juntos)
             PowerButton {
-                active: root.shaderOn
-                onClicked: root.toggleShader()
+                active: root.tempDaemonOn
+                onClicked: root.toggleTemp()
             }
         }
 
-        // Selector dropdown
+        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1,1,1,0.06) }
+
+        // ╔══════════════════════════════════════════════════════════════════╗
+        // ║  GAMMA                                                           ║
+        // ╚══════════════════════════════════════════════════════════════════╝
+
+        RowLayout {
+            Layout.fillWidth: true; spacing: 6
+
+            Text {
+                text: "\uf042"
+                font { pixelSize: 12; family: "JetBrainsMono Nerd Font" }
+                color: root.tempDaemonOn ? root.colorAccent : root.colorTextDim
+                Behavior on color { ColorAnimation { duration: 200 } }
+            }
+            Text { text: "Gamma"; color: root.colorText; font.pixelSize: 11 }
+
+            Text {
+                text: root.gammaSlider + "%"
+                color: root.colorAccent; font.pixelSize: 11; font.weight: Font.Light
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        // Slider único
         Item {
-            Layout.fillWidth: true; implicitHeight: 28
+            Layout.fillWidth: true; implicitHeight: 24
 
             Rectangle {
-                anchors.fill: parent; radius: 6
-                color: selectorMA.containsMouse ? Qt.rgba(1,1,1,0.1) : Qt.rgba(1,1,1,0.07)
-                border {
-                    color: root.shaderDropOpen
-                        ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.5)
-                        : Qt.rgba(1,1,1,0.12)
-                    width: 1
-                }
-                Behavior on color        { ColorAnimation { duration: 100 } }
-                Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                RowLayout {
-                    anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
-                    spacing: 6
-                    Text {
-                        text: root.shaderCurrent.length > 0 ? root.shaderCurrent : "off"
-                        color: root.shaderCurrent.length > 0 ? root.colorAccent : root.colorTextDim
-                        font.pixelSize: 11
-                        Layout.fillWidth: true; elide: Text.ElideRight
-                    }
-                    Text {
-                        text: "\uf078"
-                        font { pixelSize: 8; family: "JetBrainsMono Nerd Font" }
-                        color: root.colorTextDim
-                        rotation: root.shaderDropOpen ? 180 : 0
-                        Behavior on rotation { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    }
-                }
+                id: gammaTrack
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width; height: 4; radius: 2
+                color: Qt.rgba(1, 1, 1, 0.12)
             }
+
+            Rectangle {
+                anchors.verticalCenter: gammaTrack.verticalCenter
+                width: Math.max(gammaThumb.width / 2, (root.gammaSlider / 100) * gammaTrack.width)
+                height: gammaTrack.height; radius: gammaTrack.radius
+                color: root.colorAccent
+                Behavior on width { NumberAnimation { duration: gammaSliderMA.pressed ? 0 : 500; easing.type: Easing.OutCubic } }
+            }
+
+            Rectangle {
+                id: gammaThumb
+                x: (root.gammaSlider / 100) * (gammaTrack.width - width)
+                anchors.verticalCenter: gammaTrack.verticalCenter
+                width: 14; height: 14; radius: 7
+                color: "white"
+                border { color: Qt.rgba(1,1,1,0.3); width: 1 }
+                scale: gammaSliderMA.pressed ? 1.2 : 1.0
+                Behavior on x     { NumberAnimation { duration: gammaSliderMA.pressed ? 0 : 500; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 80 } }
+            }
+
             MouseArea {
-                id: selectorMA; anchors.fill: parent
-                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    root.shaderDropOpen = !root.shaderDropOpen
-                    if (root.shaderDropOpen && !procShaderList.running)
-                        procShaderList.running = true
+                id: gammaSliderMA
+                anchors { fill: gammaTrack; margins: -10 }
+                preventStealing: true
+                cursorShape: Qt.SizeHorCursor
+                onPressed:         m => _drag(m.x)
+                onPositionChanged: m => _drag(m.x)
+                onReleased: m => {
+                    _drag(m.x)
+                    root._gammaUserControl = true
+                    root.applyManualGamma(root.gammaSlider)
+                }
+                function _drag(mx) {
+                    var r = Math.max(0, Math.min(1, mx / gammaTrack.width))
+                    root.gammaSlider = Math.round(r * 100)
                 }
             }
-        }
 
-        // Dropdown animado
-        Item {
-            Layout.fillWidth: true
-            implicitHeight: dropH
-            clip: true
-            visible: dropH > 0
-
-            property real dropH: 0
-            readonly property real targetH: root.shaderDropOpen
-                ? Math.min(dropContent.implicitHeight, 150) : 0
-            Behavior on dropH { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            onTargetHChanged: dropH = targetH
-
-            Rectangle {
-                width: parent.width
-                height: Math.min(dropContent.implicitHeight, 150)
-                radius: 6
-                color:  Qt.rgba(root.colorPanelBg.r, root.colorPanelBg.g, root.colorPanelBg.b, 0.97)
-                border { color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.25); width: 1 }
-                clip: true
-
-                Flickable {
-                    anchors.fill: parent; clip: true
-                    contentHeight: dropContent.implicitHeight
-                    boundsMovement: Flickable.StopAtBounds
-
-                    ColumnLayout {
-                        id: dropContent; width: parent.width; spacing: 0
-
-                        DropItem {
-                            Layout.fillWidth: true; label: "off"
-                            active: root.shaderCurrent === ""
-                            accentColor: root.colorAccent; textColor: root.colorText; dimColor: root.colorTextDim
-                            onPicked: root.applyShader("off")
-                        }
-                        Repeater {
-                            model: root.shaderList
-                            DropItem {
-                                required property string modelData
-                                Layout.fillWidth: true; label: modelData
-                                active: root.shaderCurrent === modelData
-                                accentColor: root.colorAccent; textColor: root.colorText; dimColor: root.colorTextDim
-                                onPicked: root.applyShader(modelData)
-                            }
-                        }
-                    }
-                }
+            Text {
+                anchors { left: gammaTrack.left; top: gammaTrack.bottom; topMargin: 4 }
+                text: "0%"; font.pixelSize: 8
+                color: Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.4)
+            }
+            Text {
+                anchors { right: gammaTrack.right; top: gammaTrack.bottom; topMargin: 4 }
+                text: "100%"; font.pixelSize: 8
+                color: Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.4)
             }
         }
 
@@ -506,29 +467,7 @@ Item {
                 color: root.colorAccent; font.pixelSize: 11; font.weight: Font.Light
             }
 
-            Text {
-                visible: root.tempAutoActive && root.tempPhase.length > 0
-                text: "· " + root.tempPhase
-                color: root.phaseColor(root.tempPhase); font.pixelSize: 9
-                Behavior on color { ColorAnimation { duration: 300 } }
-            }
-
             Item { Layout.fillWidth: true }
-
-            // AUTO
-            AutoPill {
-                active: root.tempAutoActive
-                accentColor: "#ff7043"
-                onClicked: root.tempAutoActive
-                    ? (procTempDisableAuto.running ? null : (procTempDisableAuto.running = true))
-                    : (procTempEnableAuto.running  ? null : (procTempEnableAuto.running  = true))
-            }
-
-            // POWER toggle
-            PowerButton {
-                active: root.tempDaemonOn
-                onClicked: root.toggleTemp()
-            }
         }
 
         // Slider único

@@ -33,9 +33,77 @@ Item {
     signal closeRequested()
     property bool   panelOpen:    false
     property var    parentWindow: null
-    property string activeTab:    "tray"
+    // Aba fixa no topo: "dashboard" | "media" | "performance" | "system"
+    property string activeTab:    "dashboard"
+    // Sub-tela com botão voltar, válida dentro da aba ativa:
+    //   Dashboard:   "" | "wifi" | "ethernet" | "bluetooth"
+    //   Mídia:       "" | "devices" | "easyeffects"
+    //   Performance: "" | "power" | "shader"
+    property string subPage:      ""
     // Verdadeiro enquanto um menu de tray estiver aberto — suspende FocusGrab
     readonly property bool trayMenuOpen: tabTray.menuOpen
+
+    // ── Resumo leve do shader, só para exibir no QsNavRow da home ───────────
+    // (a leitura completa — incluindo lista de shaders e gamma — vive dentro
+    // do QsShaderStatus, instanciado só quando a sub-tela abre)
+    property string shaderSummary: "Carregando…"
+
+    Process {
+        id: shaderSummaryProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => shaderSummaryProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (running) return
+            var parts = shaderSummaryProc._buf.split("---")
+            shaderSummaryProc._buf = ""
+            if (parts.length < 2) return
+            var shader = parts[0].trim()
+            var mode   = parts[1].trim()
+            var modeLabel = mode === "auto" ? "Automático" : mode === "off" ? "Desligado" : "Manual"
+            root.shaderSummary = (shader !== "" ? shader : "Nenhum shader") + " · " + modeLabel
+        }
+    }
+    function _refreshShaderSummary() {
+        if (shaderSummaryProc.running) return
+        shaderSummaryProc.command = ["bash", "-c",
+            "hyprshade current 2>/dev/null; echo '---'; cat ~/.cache/hyprnight/shader-mode 2>/dev/null"]
+        shaderSummaryProc.running = true
+    }
+
+    // ── Resumo leve do perfil de energia ativo, só para exibir no QsNavRow ──
+    property string powerProfileSummary: "Carregando…"
+
+    readonly property var _powerProfileLabels: ({
+        "performance":   "Performance",
+        "gaming":        "Gaming",
+        "balanced":      "Balanced",
+        "balanced_cool": "Balanced Cool",
+        "cool":          "Cool"
+    })
+
+    Process {
+        id: powerProfileSummaryProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => powerProfileSummaryProc._buf += l }
+        onRunningChanged: {
+            if (running) return
+            var out = powerProfileSummaryProc._buf.trim()
+            powerProfileSummaryProc._buf = ""
+            if (out === "") { root.powerProfileSummary = "Indisponível"; return }
+            try {
+                var data = JSON.parse(out)
+                var id = (data.class || "").replace("-", "_")
+                root.powerProfileSummary = root._powerProfileLabels[id] || id || "—"
+            } catch (e) {
+                root.powerProfileSummary = "Indisponível"
+            }
+        }
+    }
+    function _refreshPowerProfileSummary() {
+        if (powerProfileSummaryProc.running) return
+        powerProfileSummaryProc.command = ["bash", "-c", "thermal-profile waybar 2>/dev/null"]
+        powerProfileSummaryProc.running = true
+    }
 
     readonly property string ctl: Quickshell.shellDir + "/scripts/network-ctl.sh"
 
@@ -291,172 +359,516 @@ Item {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // UI
+    // UI — abas fixas no topo + sub-telas (Wi-Fi/Bluetooth) dentro do Dashboard
     // ═══════════════════════════════════════════════════════════════════════
-    Flickable {
-        anchors.fill: parent; clip: true
-        contentWidth:  width
-        contentHeight: mainCol.implicitHeight + 28
-        boundsMovement: Flickable.StopAtBounds
+    // activeTab nunca usa botão de voltar — é navegação principal, sempre
+    // visível. subPage é usado SOMENTE dentro da aba Dashboard, para abrir
+    // detalhes de Wi-Fi/Ethernet/Bluetooth com um cabeçalho + botão voltar.
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 8
 
-        ColumnLayout {
-            id: mainCol; x: 14; y: 14
-            width: parent.width - 28; spacing: 10
+        // ── Barra de abas fixa ──────────────────────────────────────────────
+        Qs.QsTabBar {
+            Layout.fillWidth: true
+            Layout.margins: 10
+            Layout.topMargin: 10
+            Layout.bottomMargin: 0
+            activeTab: root.activeTab
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            tabs: [
+                { id: "dashboard",   label: "\uf2dc  Dashboard"   },
+                { id: "media",       label: "\uf001  Mídia"       },
+                { id: "performance", label: "\uf2db  Performance" },
+                { id: "system",      label: "\uf108  Sistema"     }
+            ]
+            onTabClicked: (id) => { root.activeTab = id; root.subPage = "" }
+        }
 
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2; rowSpacing: 8; columnSpacing: 8
+        Rectangle { Layout.fillWidth: true; Layout.leftMargin: 10; Layout.rightMargin: 10
+            height: 1; color: root.colorDivider; opacity: 0.4 }
 
-                Qs.QsToggleTile {
-                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                    icon: "\uf1eb"; label: "Wi-Fi"
-                    badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
-                    active: root.wifiEnabled
-                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                    onToggled: root._toggleWifi()
-                }
-                Qs.QsToggleTile {
-                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                    icon: "\uf6ff"; label: "Ethernet"
-                    badge: root.ethConnected
-                        ? (root.ethDevice || "cabo")
-                        : (root.ethDevice ? "desconectado" : "indisponível")
-                    active: root.ethConnected
-                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                    onToggled: root._toggleEth()
-                }
-                Qs.QsToggleTile {
-                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                    icon: "\uf294"; label: "Bluetooth"
-                    badge: root.btEnabled ? "ligado" : "desligado"
-                    active: root.btEnabled
-                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                    onToggled: root._toggleBluetooth()
-                }
-                Qs.QsToggleTile {
-                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                    icon: root.caffeineActive ? "\uf0f4" : "\uf017"
-                    label: "Caffeine"
-                    badge: root.caffeineActive ? "suspensão off" : ""
-                    active: root.caffeineActive
-                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                    onToggled: root._toggleCaffeine()
-                }
-            }
+        // ── Conteúdo das abas ────────────────────────────────────────────────
+        Item {
+            Layout.fillWidth: true; Layout.fillHeight: true
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-            RowLayout {
-                Layout.fillWidth: true; spacing: 8
-                Text {
-                    text: root.volIcon; font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
-                    color: root.muted ? root.colorMuted : root.colorAccent
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                    MouseArea { anchors.fill: parent
-                        onClicked: { if (root.sink && root.sink.audio) root.sink.audio.muted = !root.sink.audio.muted } }
-                }
-                Text { text: "Volume"; color: root.colorText; font.pixelSize: 10; Layout.fillWidth: true }
-                Text { text: Math.round(root.vol * 100) + "%"; color: root.colorTextDim; font.pixelSize: 10 }
-            }
+            // ── ABA: Dashboard ──────────────────────────────────────────────
             Item {
-                Layout.fillWidth: true; height: 18
-                readonly property real maxV: 1.5
-                readonly property real pct:  Math.min(1.0, root.vol) / maxV
-                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 4; radius: 2
-                    color: Qt.rgba(root.colorProgressBg.r, root.colorProgressBg.g, root.colorProgressBg.b, 0.5) }
-                Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 4; radius: 2
-                    width: parent.width * parent.pct; color: root.muted ? root.colorMuted : root.colorAccent
-                    Behavior on color { ColorAnimation { duration: 150 } } }
-                Rectangle { anchors.verticalCenter: parent.verticalCenter
-                    x: parent.width*(1.0/parent.maxV)-1; width:1; height:6; radius:1; color:Qt.rgba(1,1,1,0.2) }
-                Rectangle {
-                    id: volThumb; anchors.verticalCenter: parent.verticalCenter
-                    x: Math.min(parent.width-width, Math.max(0, (root.vol/parent.maxV)*parent.width - width/2))
-                    width:12; height:12; radius:6
-                    color: root.muted ? root.colorMuted : root.colorAccent
-                    visible: volMA.containsMouse
-                    scale: volMA.pressed ? 0.85 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 80 } } }
-                MouseArea { id: volMA; anchors.fill: parent; hoverEnabled: true; enabled: root.sink !== null
-                    onClicked: (m) => _sv(m.x); onPositionChanged: (m) => { if (pressed) _sv(m.x) }
-                    function _sv(x) {
-                        var n = root.sink; if (!n || !n.audio) return
-                        n.audio.volume = Math.max(0, Math.min(1.5, x/width*1.5))
-                        if (n.audio.volume > 0) n.audio.muted = false } }
-            }
+                anchors.fill: parent
+                visible: root.activeTab === "dashboard"
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+                // ── Tela principal do Dashboard (tiles, tray, footer) ────────
+                Flickable {
+                    anchors.fill: parent; clip: true
+                    visible: root.subPage === ""
+                    contentWidth:  width
+                    contentHeight: dashCol.implicitHeight + 24
+                    boundsMovement: Flickable.StopAtBounds
 
-            Qs.QsNightMode {
-                Layout.fillWidth: true; panelOpen: root.panelOpen
-                colorAccent: root.colorAccent; colorText: root.colorText
-                colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
-            }
+                    ColumnLayout {
+                        id: dashCol; x: 14; y: 10
+                        width: parent.width - 28; spacing: 10
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+                        // ── Clima + Mídia (mesma linha) ─────────────────────────
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
 
-            Qs.QsThermalSection {
-                Layout.fillWidth: true; panelOpen: root.panelOpen
-                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-            }
+                            Qs.QsWeather {
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                compact: true
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            }
+                            Qs.QsMiniPlayer {
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                compact: true
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            }
+                        }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+                        // ── Calendário (compacto, sem card de fundo) ────────────
+                        Qs.QsCalendar {
+                            Layout.fillWidth: true
+                            compact: true
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                        }
 
-            Qs.QsTabBar {
-                Layout.fillWidth: true; activeTab: root.activeTab
-                colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-                tabs: [
-                    { id: "networks",  label: "\uf1eb  Redes"   },
-                    { id: "bluetooth", label: "\uf294  BT"       },
-                    { id: "system",    label: "\uf108  Sistema"  },
-                    { id: "tray",      label: "\uf0c9  Tray"     }
-                ]
-                onTabClicked: (id) => root.activeTab = id
-            }
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
 
-            Item {
-                Layout.fillWidth: true; height: 165; clip: true
+                        // ── Tiles ────────────────────────────────────────────────
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 2; rowSpacing: 6; columnSpacing: 6
 
-                Qs.QsTabNetworks {
+                            Qs.QsToggleTile {
+                                Layout.fillWidth: true; Layout.preferredHeight: 50
+                                icon: "\uf1eb"; label: "Wi-Fi"
+                                badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
+                                active: root.wifiEnabled
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.subPage = "wifi"
+                            }
+                            Qs.QsToggleTile {
+                                Layout.fillWidth: true; Layout.preferredHeight: 50
+                                icon: "\uf6ff"; label: "Ethernet"
+                                badge: root.ethConnected
+                                    ? (root.ethDevice || "cabo")
+                                    : (root.ethDevice ? "desconectado" : "indisponível")
+                                active: root.ethConnected
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.subPage = "ethernet"
+                            }
+                            Qs.QsToggleTile {
+                                Layout.fillWidth: true; Layout.preferredHeight: 50
+                                icon: "\uf294"; label: "Bluetooth"
+                                badge: root.btEnabled ? "ligado" : "desligado"
+                                active: root.btEnabled
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.subPage = "bluetooth"
+                            }
+                            Qs.QsToggleTile {
+                                Layout.fillWidth: true; Layout.preferredHeight: 50
+                                icon: root.caffeineActive ? "\uf0f4" : "\uf017"
+                                label: "Caffeine"
+                                badge: root.caffeineActive ? "suspensão off" : ""
+                                active: root.caffeineActive
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root._toggleCaffeine()   // sem sub-página — alterna direto
+                            }
+                        }
+
+                        // ── Tray inline (compacto, sem divisor próprio) ───────────
+                        Qs.QsTabTray {
+                            id: tabTray
+                            Layout.fillWidth: true; Layout.preferredHeight: 36
+                            colorText: root.colorText; colorTextDim: root.colorTextDim
+                            parentWindow: root.parentWindow
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsFooter {
+                            Layout.fillWidth: true
+                            colorText: root.colorText; colorMuted: root.colorMuted
+                        }
+
+                        Item { height: 0 }
+                    }
+                }
+
+                // ── Sub-tela: Wi-Fi ──────────────────────────────────────────
+                Item {
                     anchors.fill: parent
-                    visible: root.activeTab === "networks"
-                    colorAccent:  root.colorAccent
-                    colorText:    root.colorText
-                    colorTextDim: root.colorTextDim
-                    colorMuted:   root.colorMuted
-                    wifiEnabled:  root.wifiEnabled
-                    wifiListRaw:  root.wifiListRaw
-                    wifiScanning: root.wifiScanning
-                    ethListRaw:   root.ethListRaw
-                    onRequestWifiScan:    root._requestWifiScan()
-                    onRequestRefreshWifi: root._refreshWifiList()
-                    onRequestRefreshEth:  root._refreshEthList()
+                    visible: root.subPage === "wifi"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "Wi-Fi"; icon: "\uf1eb"
+                            actionIcon: "\uf021"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked:   root.subPage = ""
+                            onActionClicked: root._refreshWifiList()
+                        }
+
+                        // Toggle real do Wi-Fi — vive aqui, não no tile da home
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+                            Text { text: "Wi-Fi"; color: root.colorText; font.pixelSize: 11; Layout.fillWidth: true }
+                            Qs.QsSwitch {
+                                checked: root.wifiEnabled
+                                colorAccent: root.colorAccent
+                                onToggled: root._toggleWifi()
+                            }
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsWifiList {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            colorAccent:  root.colorAccent
+                            colorText:    root.colorText
+                            colorTextDim: root.colorTextDim
+                            colorMuted:   root.colorMuted
+                            wifiEnabled:  root.wifiEnabled
+                            wifiListRaw:  root.wifiListRaw
+                            wifiScanning: root.wifiScanning
+                            onRequestScan:    root._requestWifiScan()
+                            onRequestRefresh: root._refreshWifiList()
+                        }
+                    }
                 }
-                Qs.QsTabBluetooth {
-                    anchors.fill: parent; visible: root.activeTab === "bluetooth"
-                    colorAccent: root.colorAccent; colorText: root.colorText
-                    colorTextDim: root.colorTextDim; colorMuted: root.colorMuted
+
+                // ── Sub-tela: Ethernet ───────────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === "ethernet"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "Ethernet"; icon: "\uf6ff"
+                            actionIcon: "\uf021"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked:   root.subPage = ""
+                            onActionClicked: root._refreshEthList()
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+                            visible: root.ethDevice !== ""
+                            Text { text: "Conexão principal"; color: root.colorText; font.pixelSize: 11; Layout.fillWidth: true }
+                            Qs.QsSwitch {
+                                checked: root.ethConnected
+                                colorAccent: root.colorAccent
+                                onToggled: root._toggleEth()
+                            }
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsEthernetList {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            colorAccent:  root.colorAccent
+                            colorText:    root.colorText
+                            colorTextDim: root.colorTextDim
+                            colorMuted:   root.colorMuted
+                            ethConnected: root.ethConnected
+                            ethDevice:    root.ethDevice
+                            ethConnName:  root.ethConnName
+                            ethListRaw:   root.ethListRaw
+                            onRequestRefresh:  root._refreshEthList()
+                        }
+                    }
                 }
+
+                // ── Sub-tela: Bluetooth ──────────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === "bluetooth"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "Bluetooth"; icon: "\uf294"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked: root.subPage = ""
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+                            Text { text: "Bluetooth"; color: root.colorText; font.pixelSize: 11; Layout.fillWidth: true }
+                            Qs.QsSwitch {
+                                checked: root.btEnabled
+                                colorAccent: root.colorAccent
+                                onToggled: root._toggleBluetooth()
+                            }
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsTabBluetooth {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            colorAccent: root.colorAccent; colorText: root.colorText
+                            colorTextDim: root.colorTextDim; colorMuted: root.colorMuted
+                            btEnabled: root.btEnabled
+                        }
+                    }
+                }
+            }
+
+            // ── ABA: Mídia ────────────────────────────────────────────────────
+            Item {
+                anchors.fill: parent
+                visible: root.activeTab === "media"
+
+                // ── Tela principal (compacta, sempre cabe sem rolar) ────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === ""
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 12
+
+                        Qs.QsMediaPlayerFull {
+                            Layout.fillWidth: true
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsVolumeSlider {
+                            Layout.fillWidth: true
+                            colorAccent: root.colorAccent; colorText: root.colorText
+                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                            colorMuted: root.colorMuted
+                        }
+                        Qs.QsMicSlider {
+                            Layout.fillWidth: true
+                            colorAccent: root.colorAccent; colorText: root.colorText
+                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                            colorMuted: root.colorMuted
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        // ── Navegação para sub-telas ───────────────────────────
+                        Qs.QsNavRow {
+                            Layout.fillWidth: true
+                            icon: "\uf2db"; label: "Dispositivos"
+                            sub:  "Saída e entrada padrão"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onClicked: root.subPage = "devices"
+                        }
+                        Qs.QsNavRow {
+                            Layout.fillWidth: true
+                            icon: "\uf028"; label: "EasyEffects"
+                            sub:  "Status, bypass e presets"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onClicked: root.subPage = "easyeffects"
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+
+                // ── Sub-tela: Dispositivos ────────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === "devices"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "Dispositivos"; icon: "\uf2db"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked: root.subPage = ""
+                        }
+
+                        Flickable {
+                            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                            contentWidth: width
+                            contentHeight: devCol.implicitHeight
+                            boundsMovement: Flickable.StopAtBounds
+
+                            Qs.QsAudioDevices {
+                                id: devCol
+                                width: parent.width
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            }
+                        }
+                    }
+                }
+
+                // ── Sub-tela: EasyEffects ──────────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === "easyeffects"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "EasyEffects"; icon: "\uf028"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked: root.subPage = ""
+                        }
+
+                        Flickable {
+                            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                            contentWidth: width
+                            contentHeight: eeCol.implicitHeight
+                            boundsMovement: Flickable.StopAtBounds
+
+                            Qs.QsEasyEffects {
+                                id: eeCol
+                                width: parent.width
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── ABA: Performance ──────────────────────────────────────────────
+            Item {
+                anchors.fill: parent
+                visible: root.activeTab === "performance"
+
+                // ── Tela principal (compacta) ───────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === ""
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 12
+
+                        Qs.QsSystemStats {
+                            Layout.fillWidth: true
+                            active: root.activeTab === "performance" && root.subPage === ""
+                            colorAccent: root.colorAccent; colorText: root.colorText
+                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsNightMode {
+                            Layout.fillWidth: true; panelOpen: root.panelOpen && root.activeTab === "performance"
+                            colorAccent: root.colorAccent; colorText: root.colorText
+                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                        }
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+                        Qs.QsBrightnessSlider {
+                            Layout.fillWidth: true
+                            colorAccent: root.colorAccent; colorText: root.colorText
+                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        Qs.QsNavRow {
+                            Layout.fillWidth: true
+                            icon: "\uf2db"; label: "Perfil de energia"
+                            sub:  root.powerProfileSummary
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onClicked: root.subPage = "power"
+
+                            Component.onCompleted: root._refreshPowerProfileSummary()
+                        }
+                        Qs.QsNavRow {
+                            Layout.fillWidth: true
+                            icon: "\uf185"; label: "Shader"
+                            sub:  root.shaderSummary
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onClicked: root.subPage = "shader"
+
+                            Component.onCompleted: root._refreshShaderSummary()
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+
+                // ── Sub-tela: Perfil de energia ─────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === "power"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "Perfil de energia"; icon: "\uf2db"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked: { root.subPage = ""; root._refreshPowerProfileSummary() }
+                        }
+
+                        Qs.QsPowerProfile {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                        }
+                    }
+                }
+
+                // ── Sub-tela: Shader ─────────────────────────────────────────────
+                Item {
+                    anchors.fill: parent
+                    visible: root.subPage === "shader"
+
+                    ColumnLayout {
+                        anchors { fill: parent; margins: 14 }
+                        spacing: 10
+
+                        Qs.QsPageHeader {
+                            Layout.fillWidth: true
+                            title: "Shader"; icon: "\uf185"
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onBackClicked: { root.subPage = ""; root._refreshShaderSummary() }
+                        }
+
+                        Flickable {
+                            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                            contentWidth: width
+                            contentHeight: shCol.implicitHeight
+                            boundsMovement: Flickable.StopAtBounds
+
+                            Qs.QsShaderStatus {
+                                id: shCol
+                                width: parent.width
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── ABA: Sistema ──────────────────────────────────────────────────
+            Item {
+                anchors.fill: parent
+                visible: root.activeTab === "system"
+
                 Qs.QsTabSystem {
-                    anchors.fill: parent; visible: root.activeTab === "system"
+                    anchors.fill: parent; anchors.margins: 14
                     colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                 }
-                Qs.QsTabTray {
-                    id: tabTray
-                    anchors.fill: parent; visible: root.activeTab === "tray"
-                    colorText: root.colorText; colorTextDim: root.colorTextDim
-                    parentWindow: root.parentWindow
-                }
             }
-
-            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-            Qs.QsFooter {
-                Layout.fillWidth: true
-                colorText: root.colorText; colorMuted: root.colorMuted
-            }
-
-            Item { height: 0 }
         }
     }
 }
