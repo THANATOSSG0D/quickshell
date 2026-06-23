@@ -1,0 +1,3 @@
+module bar.delegates
+
+singleton WsTooltip 1.0 WsTooltip.qml

@@ -4,6 +4,8 @@ Rectangle {
   id: root
 
   property var modelData: null
+  property int  barPosition: 2
+  property bool showTooltip: true
 
   property color dotColor:         "white"
   property color dotActiveColor:   "white"
@@ -65,6 +67,9 @@ Rectangle {
 
   MouseArea {
     anchors.fill: parent
-    onClicked:    root.modelData && root.modelData.activate()
+    hoverEnabled: root.showTooltip
+    onClicked: root.modelData && root.modelData.activate()
+    onEntered: if (root.showTooltip) WsTooltip.show(root, root.modelData, root.barPosition)
+    onExited:  WsTooltip.hide()
   }
 }

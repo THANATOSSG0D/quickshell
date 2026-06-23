@@ -306,6 +306,9 @@ Item {
 
     onClicked: root.panelRequested()
 
+    onEntered: ClockTooltip.show(root, root.clockContent, root.barPosition)
+    onExited:  ClockTooltip.hide()
+
     onWheel: (event) => {
       if (!root.clockContent) return
       var dy = event.angleDelta.y

@@ -459,6 +459,7 @@ Item {
   readonly property bool   wsIconMonochrome: get("workspaces","iconMonochrome") !== false
   readonly property int    wsIconSpacing:    get("workspaces","iconSpacing")    || 4
   readonly property bool   wsShowAddButton:  get("workspaces","showAddButton")  !== false
+  readonly property bool   wsShowTooltip:    get("workspaces","showTooltip")    !== false
   readonly property int    wsSpacing:        get("workspaces","spacing")        || 2
 
   // mediaplayer genérico

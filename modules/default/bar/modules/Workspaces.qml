@@ -12,6 +12,10 @@ Item {
   property string orientation: "horizontal"
   property string iconsSort:   "position"
 
+  // Posição da barra — necessário para o WsTooltip saltar do lado certo
+  property int barPosition: 2   // 1=top, 2=right(default), 3=bottom, 4=left
+  property bool showTooltip: true
+
   // ícones
   property bool  iconMonochrome:      false
   property color iconMonoColor:       "white"
@@ -149,6 +153,12 @@ Item {
 
         // ── modelData (todos) ────────────────────────────────────────────
         Binding { target: delegateLoader.item; property: "modelData"; value: wrapper.modelData; when: delegateLoader.item !== null }
+
+        // ── posição da barra (todos) — necessário para o WsTooltip ───────
+        Binding { target: delegateLoader.item; property: "barPosition"; value: root.barPosition; when: delegateLoader.item !== null }
+
+        // ── habilitar/desabilitar tooltip (todos) ─────────────────────────
+        Binding { target: delegateLoader.item; property: "showTooltip"; value: root.showTooltip; when: delegateLoader.item !== null }
 
         // ── cores Dot / Number / Hybrid ─────────────────────────────────
         Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && root.style !== "icons" }

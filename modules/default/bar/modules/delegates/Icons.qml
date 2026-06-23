@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Qt5Compat.GraphicalEffects
+import "IconLookup.js" as IconLookup
 
 Item {
   id: root
@@ -19,11 +20,26 @@ Item {
   property int   iconSpacing:     3
   property string sortOrder:      "position"
   property string fallbackIcon:   ""
+  property int    barPosition:    2
+  property bool   showTooltip:    true
 
   implicitWidth:  isHorizontal ? layout.implicitWidth  : iconSize + 4
   implicitHeight: isHorizontal ? iconSize + 4          : layout.implicitHeight
   width:  implicitWidth
   height: implicitHeight
+
+  // Hover no nível do workspace inteiro (não por ícone individual) — mesma
+  // experiência de tooltip dos outros estilos (Dot/Number/Hybrid). Fica
+  // atrás de tudo (z negativo) e não aceita clique, já que cada ícone já
+  // tem sua própria MouseArea para focar a janela específica.
+  MouseArea {
+    anchors.fill: parent
+    z: -1
+    hoverEnabled: root.showTooltip
+    acceptedButtons: Qt.NoButton
+    onEntered: if (root.showTooltip) WsTooltip.show(root, root.modelData, root.barPosition)
+    onExited:  WsTooltip.hide()
+  }
 
   // Contador "bumpado" manualmente. Dois problemas precisam ser
   // corrigidos juntos:
@@ -113,119 +129,12 @@ Item {
           var _loaded = DesktopEntries.applications.values.length
           if (_loaded === 0) return null
           if (!modelData.wayland) return null
-          var appId = modelData.wayland.appId
-
-          var result = DesktopEntries.byId(appId)
-                    || DesktopEntries.byId(appId.toLowerCase())
-                    || null
-
-          if (!result) result = DesktopEntries.heuristicLookup(appId) || null
-
-          if (!result) {
-            var ignoreParts = ["www", "com", "org", "net", "io", "app", "web",
-                               "default", "stable", "beta", "dev", "nightly"]
-
-            var cleaned = appId
-                            .replace(/-[Dd]efault$/, "")
-                            .replace(/^vivaldi-/,    "")
-                            .replace(/^brave-/,      "")
-                            .replace(/^chrome-/,     "")
-                            .replace(/^chromium-/,   "")
-                            .replace(/^msedge-/,     "")
-                            .replace(/^firefox-/,    "")
-                            .replace(/__+/g,         "")
-                            .replace(/[0-9a-f]{8,}/gi, "")
-                            .toLowerCase()
-
-            var hostCandidates = []
-            var domainParts = cleaned.split(".")
-            for (var d = 0; d < domainParts.length; d++) {
-              var dp = domainParts[d].replace(/[-_\s]+/g, "").trim()
-              if (dp.length >= 3 && ignoreParts.indexOf(dp) === -1) {
-                hostCandidates.push(dp)
-                hostCandidates.push(dp.charAt(0).toUpperCase() + dp.slice(1))
-              }
-            }
-
-            for (var c = 0; c < hostCandidates.length; c++) {
-              result = DesktopEntries.byId(hostCandidates[c]) || null
-              if (result) break
-            }
-
-            if (!result) {
-              var parts = cleaned
-                            .replace(/\./g, " ")
-                            .split(/[-_\s]+/)
-                            .filter(function(p) {
-                              return p.length >= 3 && ignoreParts.indexOf(p) === -1
-                            })
-
-              for (var i = 0; i < DesktopEntries.applications.values.length; i++) {
-                var app = DesktopEntries.applications.values[i]
-                var appName        = (app.name || "").toLowerCase().replace(/\s+/g, "")
-                var appNameSpaced  = (app.name || "").toLowerCase()
-                var appIdLower     = (app.id   || "").toLowerCase().replace(/\s+/g, "")
-
-                for (var j = 0; j < parts.length; j++) {
-                  var p = parts[j]
-                  if (appName.includes(p) || appNameSpaced.includes(p) || appIdLower.includes(p)) {
-                    result = app
-                    break
-                  }
-                  if (p.length >= 6 && (p.includes(appName) || appName.includes(p.slice(0, -1)))) {
-                    result = app
-                    break
-                  }
-                }
-                if (result) break
-              }
-            }
-          }
-
-          return result
+          return IconLookup.findDesktopEntry(modelData.wayland.appId, DesktopEntries)
         }
 
-        property string iconName: {
-          if (!entry) return ""
-          var icon = entry.icon || ""
-          if (!icon) return ""
-          if (icon.startsWith("/")) return icon
-          return icon.replace(/-launcher$/, "").replace(/-client$/, "")
-        }
+        property string iconName: IconLookup.resolveIconName(entry)
 
-        function toFileUri(path) {
-          if (!path) return ""
-          return "file://" + path.split("/").map(function(seg) {
-            return seg.replace(/ /g, "%20")
-          }).join("/")
-        }
-
-        readonly property var iconPaths: {
-          if (!iconName) return []
-          if (iconName.startsWith("/")) return [toFileUri(iconName)]
-
-          var home = root.homeDir
-          var n    = iconName
-          return [
-            "file:///usr/share/icons/Papirus/48x48/apps/" + n + ".svg",
-            "file:///usr/share/icons/Papirus/32x32/apps/" + n + ".svg",
-            "file:///usr/share/icons/Papirus/64x64/apps/" + n + ".svg",
-            "file:///usr/share/icons/hicolor/scalable/apps/"  + n + ".svg",
-            "file:///usr/share/icons/hicolor/256x256/apps/"   + n + ".png",
-            "file:///usr/share/icons/hicolor/128x128/apps/"   + n + ".png",
-            "file:///usr/share/icons/hicolor/48x48/apps/"     + n + ".png",
-            "file:///usr/share/pixmaps/" + n + ".png",
-            "file:///usr/share/pixmaps/" + n + ".svg",
-            "file://" + home + "/.local/share/icons/hicolor/scalable/apps/" + n + ".svg",
-            "file://" + home + "/.local/share/icons/hicolor/256x256/apps/"  + n + ".png",
-            "file://" + home + "/.local/share/icons/hicolor/128x128/apps/"  + n + ".png",
-            "file://" + home + "/.local/share/icons/hicolor/96x96/apps/"    + n + ".png",
-            "file://" + home + "/.local/share/icons/hicolor/64x64/apps/"    + n + ".png",
-            "file://" + home + "/.local/share/icons/hicolor/48x48/apps/"    + n + ".png",
-            "file://" + home + "/.local/share/pixmaps/" + n + ".png",
-            "file://" + home + "/.local/share/pixmaps/" + n + ".svg",
-          ]
-        }
+        readonly property var iconPaths: IconLookup.buildIconPaths(iconName, root.homeDir)
 
         property int  attempt:   0
         property bool exhausted: false

@@ -180,6 +180,7 @@ QtObject {
         { key:"iconMonochrome", type:"bool",  default:true, label:"Monocromático", section:"ÍCONES", visibleWhen:"_hasIcons" },
         { key:"iconSpacing",    type:"int",   default:4, min:0, max:16, step:1, unit:"px", label:"Espaçamento ícones", section:"ÍCONES", visibleWhen:"_hasIcons" },
         { key:"showAddButton",  type:"bool",  default:true, label:"Mostrar botão +", section:"GERAL" },
+        { key:"showTooltip",    type:"bool",  default:true, label:"Mostrar tooltip ao passar o mouse", section:"GERAL" },
         { key:"spacing",        type:"int",   default:2, min:0, max:16, step:1, unit:"px", label:"Espaçamento entre ws", section:"GERAL" },
       ],
       // props por estilo (isoladas entre dots/icons/hybrid/number)

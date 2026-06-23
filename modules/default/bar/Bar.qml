@@ -553,6 +553,7 @@ Scope {
         _set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)
         _set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
+        _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)
@@ -686,6 +687,7 @@ Scope {
         function onWsBgPaddingHChanged()     { bar._set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)     }
         function onWsBgPaddingVChanged()     { bar._set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)     }
         function onWsShowAddButtonChanged()  { bar._set("cfgWsShowAddButton",  barState.config.wsShowAddButton)  }
+        function onWsShowTooltipChanged()    { bar._set("cfgWsShowTooltip",    barState.config.wsShowTooltip)    }
         // workspace ativa
         function onPaletteWsBgColorActiveChanged()       { bar._set("cfgWsBgColorActive",      barState.config.paletteWsBgColorActive)
                                                            bar._set("colWsBgActive",            barState.config.paletteWsBgColorActive)       }

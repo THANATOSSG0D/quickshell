@@ -113,6 +113,7 @@ Item {
   property real   cfgWsBgPaddingH:          8
   property real   cfgWsBgPaddingV:          2
   property bool   cfgWsShowAddButton:       true
+  property bool   cfgWsShowTooltip:         true
   property color  cfgWsBgColorActive:        Qt.rgba(1,1,1,0.12)
   property real   cfgWsBgOpacityActive:      0.85
   property color  cfgWsBgBorderColorActive:  "transparent"
@@ -515,6 +516,7 @@ Item {
           Modules.Workspaces {
             monitorName:         modItem.monName
             orientation:         modItem.isH ? "horizontal" : "vertical"
+            barPosition:         root.barPosition
             style:               root.cfgWsStyle
             iconsSort:           root.cfgWsIconsSort
             iconMonochrome:      root.cfgWsIconMonochrome
@@ -524,6 +526,7 @@ Item {
             bgPaddingH:          root.cfgWsBgPaddingH
             bgPaddingV:          root.cfgWsBgPaddingV
             showAddButton:       root.cfgWsShowAddButton
+            showTooltip:         root.cfgWsShowTooltip
             bgColor:             root.colWsBg
             bgColorActive:       root.colWsBgActive
             bgBorderColor:       Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)

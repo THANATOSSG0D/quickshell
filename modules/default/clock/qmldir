@@ -2,3 +2,4 @@ Clock 1.0 Clock.qml
 ClockContent 1.0 ClockContent.qml
 ClockPanel 1.0 ClockPanel.qml
 ClockPopup 1.0 ClockPopup.qml
+singleton ClockTooltip 1.0 ClockTooltip.qml
