@@ -21,6 +21,23 @@ Item {
   property color iconMonoColor:       "white"
   property color iconMonoColorActive: "red"
   property int   iconSpacing:         3
+  property int   iconSize:            18
+  property bool  showNumber:          false
+
+  // número da workspace (estilo "icons") — cor do texto e fundo opcional
+  property color numberColor:         "white"
+  property color numberColorActive:   "red"
+  property bool  numberBgEnabled:     false
+  property color numberBgColor:       "transparent"
+  property color numberBgColorActive: "transparent"
+  property int   numberBgRadius:      4
+  property int   numberBgPaddingH:    4
+  property int   numberBgPaddingV:    2
+
+  // tamanho dos itens — dots (diâmetro do dot ativo) / number e hybrid
+  // (tamanho da fonte do número). Não tem efeito no estilo "icons" (ver iconSize acima).
+  property int   dotSize:  8
+  property int   fontSize: 10
 
   // espaçamento entre workspaces no GridLayout
   property int wsSpacing: 2
@@ -176,6 +193,21 @@ Item {
         Binding { target: delegateLoader.item; property: "monoColor";       value: root.iconMonoColor;       when: delegateLoader.item !== null && root.style === "icons" }
         Binding { target: delegateLoader.item; property: "monoColorActive"; value: root.iconMonoColorActive; when: delegateLoader.item !== null && root.style === "icons" }
         Binding { target: delegateLoader.item; property: "iconSpacing";     value: root.iconSpacing;         when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "iconSize";       value: root.iconSize;            when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "showNumber";    value: root.showNumber;          when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberColor";         value: root.numberColor;         when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberColorActive";   value: root.numberColorActive;   when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberBgEnabled";     value: root.numberBgEnabled;     when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberBgColor";       value: root.numberBgColor;       when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberBgColorActive"; value: root.numberBgColorActive; when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberBgRadius";      value: root.numberBgRadius;      when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberBgPaddingH";    value: root.numberBgPaddingH;    when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberBgPaddingV";    value: root.numberBgPaddingV;    when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "urgentColor";   value: root.dotUrgentColor;      when: delegateLoader.item !== null && root.style === "icons" }
+
+        // ── tamanho dot/número (Dot / Number / Hybrid) ───────────────────
+        Binding { target: delegateLoader.item; property: "dotSize";  value: root.dotSize;  when: delegateLoader.item !== null && root.style === "dots" }
+        Binding { target: delegateLoader.item; property: "fontSize"; value: root.fontSize; when: delegateLoader.item !== null && (root.style === "number" || root.style === "hybrid") }
       }
 
       Behavior on implicitWidth  { enabled: root.visible; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }

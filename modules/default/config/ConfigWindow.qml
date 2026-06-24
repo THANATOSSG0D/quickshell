@@ -356,14 +356,21 @@ PanelWindow {
                 "notifications",   // 7 Notificações
                 null,              // 8 Paleta → não limpa override (paleta é global)
               ]
-              readonly property string _moduleId: {
+              // "estrutural"  → subtabs Geral/Módulos: o saveAll() de reset faz sentido
+              // <moduleId>    → módulo real (clearModule isolado por aba)
+              // "noop"        → Paleta: não há ação de reset aqui (paleta é global)
+              readonly property string _mode: {
                 if (win.activeModule !== 0) return ""
-                var m = _barSubtabModule[win.subtab(0)]
-                return m !== undefined && m !== null ? m : ""
+                var st = win.subtab(0)
+                if (st === 8) return "noop"
+                var m = _barSubtabModule[st]
+                return (m !== undefined && m !== null) ? m : "estrutural"
               }
-              readonly property string _label: _moduleId !== "" ? "Limpar override" : "Padrão"
+              readonly property string _moduleId: (_mode !== "estrutural" && _mode !== "noop") ? _mode : ""
+              readonly property string _label: (_mode === "estrutural" || _mode === "noop") ? "Padrão" : "Limpar override"
 
-              visible: win.activeModule === 0
+              // Esconde o botão na aba Paleta — não existe override de módulo pra limpar ali
+              visible: win.activeModule === 0 && _mode !== "noop"
               height: 28; width: rstLbl.implicitWidth + 18; radius: 6
               color: rstHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
@@ -382,7 +389,8 @@ PanelWindow {
                     // Limpa overrides do módulo desta aba → paleta global volta a valer
                     win.config.clearModule(modId)
                   } else {
-                    // Geral / Módulos / Paleta → reset estrutural da barra
+                    // Geral / Módulos → reset estrutural da barra
+                    // (Paleta nunca chega aqui: o botão fica oculto nessa aba)
                     win.config.saveAll({
                       theme: "Pill", position: 3, autoHide: true, silence: false,
                       barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,

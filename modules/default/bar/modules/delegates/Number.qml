@@ -12,13 +12,17 @@ Rectangle {
   property color dotOccupiedColor: Qt.rgba(1, 1, 1, 0.6)
   property color dotUrgentColor:   "#f38ba8"
 
+  // Tamanho da fonte do número (default 10 — mantém o visual original).
+  property int fontSize: 10
+
   readonly property bool   _active:   modelData ? modelData.active : false
   readonly property bool   _urgent:   modelData ? modelData.urgent : false
   readonly property bool   _occupied: modelData ? (modelData.toplevels && modelData.toplevels.values.length > 0) : false
   readonly property string _name:     modelData ? modelData.name   : ""
 
   // Círculo adapta ao número de dígitos — ws "10" cabe sem truncar
-  readonly property real _minSize: 22
+  // _minSize escala com fontSize (10px → 22, igual ao hardcode original)
+  readonly property real _minSize: root.fontSize * 2.2
   readonly property real _textPad: 10
   implicitWidth:  Math.max(_minSize, labelText.implicitWidth + _textPad)
   implicitHeight: _minSize
@@ -48,7 +52,7 @@ Rectangle {
     id: labelText
     anchors.centerIn: parent
     text:           root._name
-    font.pixelSize: 10
+    font.pixelSize: root.fontSize
     font.weight:    root._active ? Font.Medium : Font.Normal
 
     color: root._active ? root._contrastColor()

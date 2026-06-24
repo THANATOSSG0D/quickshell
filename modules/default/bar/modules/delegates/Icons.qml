@@ -23,6 +23,26 @@ Item {
   property int    barPosition:    2
   property bool   showTooltip:    true
 
+  // Número da workspace antes do primeiro ícone
+  property bool  showNumber:  false
+  property color urgentColor: "#f38ba8"
+
+  // Cores do número — independentes das cores do ícone monocromático
+  property color numberColor:       "white"
+  property color numberColorActive: "red"
+
+  // Fundo (quadrado/pílula) atrás do número — opcional, com raio e padding
+  // ajustáveis, e cor diferente para workspace ativa/inativa.
+  property bool  numberBgEnabled:     false
+  property color numberBgColor:       "transparent"
+  property color numberBgColorActive: "transparent"
+  property int   numberBgRadius:      4
+  property int   numberBgPaddingH:    4
+  property int   numberBgPaddingV:    2
+
+  readonly property bool _wsActive: root.modelData ? root.modelData.active : false
+  readonly property bool _wsUrgent: root.modelData ? root.modelData.urgent : false
+
   implicitWidth:  isHorizontal ? layout.implicitWidth  : iconSize + 4
   implicitHeight: isHorizontal ? iconSize + 4          : layout.implicitHeight
   width:  implicitWidth
@@ -113,6 +133,40 @@ Item {
     rows:          root.isHorizontal ? 1  : -1
     columnSpacing: root.isHorizontal ? root.iconSpacing : 0
     rowSpacing:    root.isHorizontal ? 0 : root.iconSpacing
+
+    // ── Número da workspace — sempre antes do primeiro ícone ────────────
+    // Quando "numberBgEnabled" está desligado o Rectangle fica transparente
+    // e sem padding extra, então o número se comporta como um texto solto
+    // (igual ao comportamento original). Ligado, ganha um fundo
+    // quadrado/pílula (raio ajustável) com cor própria por estado.
+    Rectangle {
+      id: numberBadge
+      visible:          root.showNumber
+      Layout.alignment: Qt.AlignCenter
+      radius:           root.numberBgEnabled ? root.numberBgRadius : 0
+      color:            root.numberBgEnabled
+                          ? (root._wsActive ? root.numberBgColorActive : root.numberBgColor)
+                          : "transparent"
+      implicitWidth:  numberLabel.implicitWidth  + (root.numberBgEnabled ? root.numberBgPaddingH * 2 : 0)
+      implicitHeight: numberLabel.implicitHeight + (root.numberBgEnabled ? root.numberBgPaddingV * 2 : 0)
+
+      Behavior on color { ColorAnimation { duration: 150 } }
+
+      Text {
+        id: numberLabel
+        anchors.centerIn: parent
+        text:           root.modelData ? root.modelData.name : ""
+        font.pixelSize: Math.max(9, Math.round(root.iconSize * 0.55))
+        font.weight:    Font.Medium
+        color:            root._wsUrgent ? root.urgentColor
+                         : root._wsActive ? root.numberColorActive
+                         : root.numberColor
+        opacity:          root._wsUrgent ? 0.95 : (root._wsActive ? 0.95 : 0.55)
+
+        Behavior on color   { ColorAnimation  { duration: 150 } }
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+      }
+    }
 
     Repeater {
       model: root.sortedToplevels

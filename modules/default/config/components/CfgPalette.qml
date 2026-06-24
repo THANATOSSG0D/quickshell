@@ -112,21 +112,51 @@ Item {
   property bool _open: false
 
   // Recalcula posição do popup usando mapToGlobal → mapFromGlobal
-  // para cruzar a fronteira do Loader/layer corretamente
+  // para cruzar a fronteira do Loader/layer corretamente.
+  //
+  // ANTES: só clampava X. O popup tem altura fixa (260px) e, quando a
+  // box estava perto do fim da página (ex: últimas linhas da aba
+  // Workspaces), popup.y + 260 passava do overlay.height e o popup
+  // ficava cortado por baixo, sem nenhum ajuste.
+  //
+  // AGORA: calcula a posição "abaixo da box" e, se não houver espaço
+  // suficiente até o fim do overlay, abre "acima da box" em vez disso.
+  // Em qualquer um dos dois casos, ainda clampa X/Y nas bordas do
+  // overlay como rede de segurança final (ex: box muito colada no
+  // topo E sem espaço suficiente nem acima nem abaixo).
   function _placePopup() {
     if (!root.overlay || !root._open) return
-    // Ponto bottom-left da box em coordenadas globais (da tela)
-    var globalPt = box.mapToGlobal(0, box.height + 4)
-    // Converte para coordenadas locais do overlay
-    var localPt  = root.overlay.mapFromGlobal(globalPt.x, globalPt.y)
-    popup.x = localPt.x
-    popup.y = localPt.y
-    // Garante que não sai pela direita da janela
-    var maxX = root.overlay.width - popup.width - 4
-    if (popup.x > maxX) popup.x = maxX
+
+    var margin = 4
+
+    // Posição candidata: imediatamente abaixo da box
+    var belowGlobal = box.mapToGlobal(0, box.height + margin)
+    var belowLocal  = root.overlay.mapFromGlobal(belowGlobal.x, belowGlobal.y)
+
+    var fitsBelow = (belowLocal.y + popup.height) <= (root.overlay.height - margin)
+
+    var targetX, targetY
+    if (fitsBelow) {
+      targetX = belowLocal.x
+      targetY = belowLocal.y
+    } else {
+      // Não cabe abaixo → tenta acima da box
+      var aboveGlobal = box.mapToGlobal(0, -popup.height - margin)
+      var aboveLocal  = root.overlay.mapFromGlobal(aboveGlobal.x, aboveGlobal.y)
+      targetX = aboveLocal.x
+      targetY = aboveLocal.y
+    }
+
+    // Clamp final em ambos os eixos — garante que o popup nunca fica
+    // cortado pelas bordas do overlay, seja qual for o ramo acima.
+    var maxX = root.overlay.width  - popup.width  - margin
+    var maxY = root.overlay.height - popup.height - margin
+    popup.x = Math.max(margin, Math.min(targetX, maxX))
+    popup.y = Math.max(margin, Math.min(targetY, maxY))
+
     console.log("[CfgPalette '" + root.label + "'] popup pos:",
       popup.x, popup.y,
-      "| globalPt:", globalPt.x, globalPt.y,
+      "| fitsBelow:", fitsBelow,
       "| overlay size:", root.overlay.width, "x", root.overlay.height)
   }
 

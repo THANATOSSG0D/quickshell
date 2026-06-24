@@ -83,10 +83,87 @@ Item {
   property bool _ready:       false
   property bool _parsing:     false
   property bool configLoaded: false
+  property bool _migrated:    false  // migração de overrides perStyle já rodou
 
   // ── Dep token — força reavaliação de get() quando tema/overrides mudam ─
   property int _dep: 0
   function _bump() { _dep++; _recalcBar() }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MIGRAÇÃO — overrides perStyle "soltos" no formato antigo
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // Antes da introdução do isolamento perStyle, módulos como "workspaces"
+  // gravavam todas as props no nível raiz do módulo:
+  //   overrides[tema].workspaces.bgOpacity = 1
+  //
+  // Hoje, get()/set() esperam que props NÃO-comuns de módulos perStyle:true
+  // fiquem aninhadas sob o estilo atual:
+  //   overrides[tema].workspaces.icons.bgOpacity = 1
+  //
+  // Overrides salvos no formato antigo não dão erro — apenas são
+  // SILENCIOSAMENTE IGNORADOS por get() (cai no default do tema/schema).
+  // Esta função roda uma vez após o primeiro load de BarState.json e
+  // realoca qualquer prop solta para dentro do estilo correto.
+  function _migratePerStyleOverrides() {
+    if (root._migrated) return
+    var ov = stateAdapter.overrides
+    if (!ov || Object.keys(ov).length === 0) return
+    root._migrated = true
+
+    var o = {}
+    try { o = JSON.parse(JSON.stringify(ov)) } catch(e) { return }
+    var changed = false
+
+    for (var th in o) {
+      var themeObj = o[th]
+      if (!themeObj || typeof themeObj !== "object") continue
+
+      for (var modId in themeObj) {
+        var m = BarSchema.module(modId)
+        if (!m || !m.perStyle) continue   // só nos interessa módulos perStyle
+
+        var modData = themeObj[modId]
+        if (!modData || typeof modData !== "object") continue
+
+        // Estilo ativo deste módulo neste tema (fallback pro default do schema)
+        var styleKey = modData.style !== undefined
+          ? modData.style
+          : BarSchema.defaultValue(modId, "style")
+        if (!styleKey) continue
+
+        var knownStyles = m.styles || []
+        var staleKeys = []
+
+        for (var key in modData) {
+          // já é um bucket de estilo (ex: "icons": {...}) → não toca
+          if (knownStyles.indexOf(key) !== -1) continue
+          // prop comum → correta no nível raiz, não migra
+          if (BarSchema.isCommonProp(modId, key)) continue
+          // chave desconhecida no schema → não migra (evita lixo)
+          if (!BarSchema.prop(modId, key)) continue
+
+          // prop perStyle solta no nível raiz → pertence a modData[styleKey][key]
+          if (!modData[styleKey]) modData[styleKey] = {}
+          if (modData[styleKey][key] === undefined) {
+            modData[styleKey][key] = modData[key]
+            changed = true
+          }
+          staleKeys.push(key)
+        }
+
+        for (var i = 0; i < staleKeys.length; i++)
+          delete modData[staleKeys[i]]
+      }
+    }
+
+    if (changed) {
+      console.log("[BarConfig] Migração: overrides perStyle antigos realocados para o formato aninhado (BarState.json).")
+      stateAdapter.overrides = o
+      stateFile.writeAdapter()
+      _bump()
+    }
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // API PÚBLICA — get / set / saveAll
@@ -374,6 +451,10 @@ Item {
     paletteWsIconMonoColorActive = resolve(pkWsIconMonoColorActive)
     paletteWsBgColorActive       = resolve(pkWsBgColorActive)
     paletteWsBgBorderColorActive = resolve(pkWsBgBorderColorActive)
+    paletteWsNumberColor         = resolve(pkWsNumberColor)
+    paletteWsNumberColorActive   = resolve(pkWsNumberColorActive)
+    paletteWsNumberBgColor       = resolve(pkWsNumberBgColor)
+    paletteWsNumberBgColorActive = resolve(pkWsNumberBgColorActive)
   }
 
   property color paletteBarBg:          "#1a1a1a"
@@ -429,6 +510,10 @@ Item {
   property color paletteWsIconMonoColorActive: "#ffb4a9"
   property color paletteWsBgColorActive:       "#5f3229"
   property color paletteWsBgBorderColorActive: "#ffb4a9"
+  property color paletteWsNumberColor:         "#9e9e9e"
+  property color paletteWsNumberColorActive:   "#1a1a1a"
+  property color paletteWsNumberBgColor:       "#2a2a2a"
+  property color paletteWsNumberBgColorActive: "#ffb4a9"
 
   // workspaces — lidos do estilo atual
   property string wsStyle: get("workspaces","style") || "icons"
@@ -438,6 +523,9 @@ Item {
   readonly property real   wsBgOpacity:             wsGet("bgOpacity")
   readonly property real   wsBgPaddingH:            wsGet("bgPaddingH")
   readonly property real   wsBgPaddingV:            wsGet("bgPaddingV")
+  readonly property real   wsBgBorderWidth:         wsGet("bgBorderWidth")
+  readonly property int    wsDotSize:               wsGet("dotSize")
+  readonly property int    wsFontSize:              wsGet("fontSize")
   readonly property string pkWsBgColor:             wsGet("bgColor")
   readonly property string pkWsBgBorderColor:       wsGet("bgBorderColor")
   readonly property string pkWsDotColor:            wsGet("dotColor")
@@ -458,6 +546,16 @@ Item {
   readonly property string wsIconsSort:      get("workspaces","iconsSort")     || "position"
   readonly property bool   wsIconMonochrome: get("workspaces","iconMonochrome") !== false
   readonly property int    wsIconSpacing:    get("workspaces","iconSpacing")    || 4
+  readonly property int    wsIconSize:       get("workspaces","iconSize")       || 18
+  readonly property bool   wsShowNumber:     get("workspaces","showNumber")     === true
+  readonly property bool   wsNumberBgEnabled:   get("workspaces","numberBgEnabled")   === true
+  readonly property int    wsNumberBgRadius:    get("workspaces","numberBgRadius")    || 4
+  readonly property int    wsNumberBgPaddingH:  get("workspaces","numberBgPaddingH")  || 4
+  readonly property int    wsNumberBgPaddingV:  get("workspaces","numberBgPaddingV")  || 2
+  readonly property string pkWsNumberColor:         get("workspaces","numberColor")         || "on_surface_variant"
+  readonly property string pkWsNumberColorActive:   get("workspaces","numberColorActive")   || "on_primary"
+  readonly property string pkWsNumberBgColor:       get("workspaces","numberBgColor")       || "surface_variant"
+  readonly property string pkWsNumberBgColorActive: get("workspaces","numberBgColorActive") || "primary"
   readonly property bool   wsShowAddButton:  get("workspaces","showAddButton")  !== false
   readonly property bool   wsShowTooltip:    get("workspaces","showTooltip")    !== false
   readonly property int    wsSpacing:        get("workspaces","spacing")        || 2
@@ -534,7 +632,10 @@ Item {
       // overrides[tema].bar.{autoHide,position,barSize,...} e
       // overrides[tema].bar.modules[slot] seguem a mesma convenção.
       property var overrides: ({})
-      onOverridesChanged: root._bump()
+      onOverridesChanged: {
+        root._migratePerStyleOverrides()
+        root._bump()
+      }
     }
   }
 

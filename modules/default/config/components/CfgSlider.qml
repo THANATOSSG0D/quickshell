@@ -21,6 +21,24 @@ RowLayout {
   width:   parent ? parent.width : 0
   spacing: 10
 
+  // ── Casas decimais derivadas do step ────────────────────────────────────
+  // ANTES: o texto sempre usava Math.round(value), então sliders com
+  // step decimal (ex: opacidade, step:0.05) mostravam só o inteiro —
+  // impossível ver/ajustar com precisão. Além disso, o MouseArea fazia
+  // Math.round(raw / step) * step sem corrigir erro de ponto flutuante
+  // do JS, gerando valores como 0.30000000000000004 (visíveis nos logs).
+  //
+  // AGORA: a quantidade de casas decimais é derivada do próprio step
+  // (0.05 → 2 casas; 1 → 0 casas) e usada tanto para exibir quanto para
+  // arredondar o valor após o snap, eliminando o ruído de float.
+  readonly property int _decimals: {
+    if (!root.step || root.step <= 0) return 0
+    var s = root.step.toString()
+    if (s.indexOf("e-") !== -1) return parseInt(s.split("e-")[1], 10)
+    var dot = s.indexOf(".")
+    return dot === -1 ? 0 : (s.length - dot - 1)
+  }
+
   Text {
     text:                  root.label
     color:                 root.colorTextDim
@@ -31,7 +49,7 @@ RowLayout {
   Item { Layout.fillWidth: true }
 
   Text {
-    text:                  Math.round(root.value) + root.unit
+    text:                  root.value.toFixed(root._decimals) + root.unit
     color:                 root.colorText
     font.pixelSize:        10
     font.family:           "JetBrainsMono Nerd Font"
@@ -71,7 +89,10 @@ RowLayout {
       function apply(mx) {
         var r   = Math.max(0, Math.min(1, mx / parent.width))
         var raw = root.from + r * (root.to - root.from)
-        root.moved(Math.round(raw / root.step) * root.step)
+        var snapped = Math.round(raw / root.step) * root.step
+        // Corrige o erro de ponto flutuante do passo anterior
+        // (ex: 0.30000000000000004 → 0.3) antes de emitir.
+        root.moved(parseFloat(snapped.toFixed(root._decimals)))
       }
       onPositionChanged: (m) => apply(m.x)
       onClicked:         (m) => apply(m.x)

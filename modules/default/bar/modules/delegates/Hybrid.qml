@@ -13,6 +13,11 @@ Item {
   property color dotOccupiedColor: Qt.rgba(1, 1, 1, 0.55)
   property color dotUrgentColor:   "#f38ba8"
 
+  // Tamanho da fonte do número (default 10 — mantém o visual original).
+  // Dot indicador e dimensões do item escalam junto, na mesma proporção
+  // que tinham com o hardcode antigo (vertical -1px/dot 60%, horizontal dot 50%).
+  property int fontSize: 10
+
   readonly property bool   _active:   modelData ? modelData.active  : false
   readonly property bool   _urgent:   modelData ? modelData.urgent  : false
   readonly property bool   _occupied: modelData
@@ -39,9 +44,9 @@ Item {
 
   implicitWidth:  isHorizontal
     ? dot.width + (_active ? label.implicitWidth + 6 : 0) + _padH * 2
-    : 26
+    : root.fontSize + 16
   implicitHeight: isHorizontal
-    ? 22
+    ? root.fontSize + 12
     : dot.height + (_active ? label.implicitHeight + 4 : 0) + _padV * 2
 
   Behavior on implicitWidth  { NumberAnimation { duration: 160; easing.type: Easing.InOutQuad } }
@@ -81,7 +86,7 @@ Item {
 
       Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
-        width:  6; height: 6; radius: 3
+        width:  root.fontSize * 0.6; height: root.fontSize * 0.6; radius: width / 2
         color: root._fgColor
         Behavior on color { ColorAnimation { duration: 140 } }
       }
@@ -89,7 +94,7 @@ Item {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text:           root._name
-        font.pixelSize: 9
+        font.pixelSize: root.fontSize - 1
         font.weight:    Font.Medium
         color:          root._fgColor
         opacity:        root._active ? 1.0 : 0.0
@@ -112,7 +117,7 @@ Item {
       Rectangle {
         id: dot
         anchors.verticalCenter: parent.verticalCenter
-        width:  5; height: 5; radius: 3
+        width:  root.fontSize * 0.5; height: root.fontSize * 0.5; radius: width / 2
         color: root._fgColor
         Behavior on color { ColorAnimation { duration: 140 } }
       }
@@ -121,7 +126,7 @@ Item {
         id: label
         anchors.verticalCenter: parent.verticalCenter
         text:           root._name
-        font.pixelSize: 10
+        font.pixelSize: root.fontSize
         font.weight:    Font.Medium
         color:          root._fgColor
         opacity:        root._active ? 1.0 : 0.0

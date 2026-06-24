@@ -549,11 +549,21 @@ Scope {
         _set("cfgWsIconsSort",      barState.config.wsIconsSort)
         _set("cfgWsIconMonochrome", barState.config.wsIconMonochrome)
         _set("cfgWsIconSpacing",    barState.config.wsIconSpacing)
+        _set("cfgWsIconSize",       barState.config.wsIconSize)
+        _set("cfgWsShowNumber",     barState.config.wsShowNumber)
+        _set("cfgWsNumberBgEnabled",   barState.config.wsNumberBgEnabled)
+        _set("cfgWsNumberBgRadius",    barState.config.wsNumberBgRadius)
+        _set("cfgWsNumberBgPaddingH",  barState.config.wsNumberBgPaddingH)
+        _set("cfgWsNumberBgPaddingV",  barState.config.wsNumberBgPaddingV)
         _set("cfgWsBgOpacity",      barState.config.wsBgOpacity)
         _set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)
         _set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)
+        _set("cfgWsBgBorderWidth",  barState.config.wsBgBorderWidth)
+        _set("cfgWsDotSize",        barState.config.wsDotSize)
+        _set("cfgWsFontSize",       barState.config.wsFontSize)
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
         _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
+        _set("cfgWsSpacing",        barState.config.wsSpacing)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)
@@ -625,6 +635,10 @@ Scope {
         _set("colWsBorder",       barState.config.paletteWsBgBorderColor)
         _set("colIconMono",       barState.config.paletteWsIconMonoColor)
         _set("colIconMonoActive", barState.config.paletteWsIconMonoColorActive)
+        _set("colWsNumber",         barState.config.paletteWsNumberColor)
+        _set("colWsNumberActive",   barState.config.paletteWsNumberColorActive)
+        _set("colWsNumberBg",       barState.config.paletteWsNumberBgColor)
+        _set("colWsNumberBgActive", barState.config.paletteWsNumberBgColorActive)
       }
 
       // ── Propagação runtime → tema ──────────────────────────────────────
@@ -660,6 +674,10 @@ Scope {
         function onPaletteWsDotUrgentColorChanged()     { bar._set("colWsDotUrgent",    barState.config.paletteWsDotUrgentColor)      }
         function onPaletteWsIconMonoColorChanged()      { bar._set("colIconMono",       barState.config.paletteWsIconMonoColor)       }
         function onPaletteWsIconMonoColorActiveChanged(){ bar._set("colIconMonoActive", barState.config.paletteWsIconMonoColorActive) }
+        function onPaletteWsNumberColorChanged()         { bar._set("colWsNumber",         barState.config.paletteWsNumberColor)         }
+        function onPaletteWsNumberColorActiveChanged()   { bar._set("colWsNumberActive",   barState.config.paletteWsNumberColorActive)   }
+        function onPaletteWsNumberBgColorChanged()       { bar._set("colWsNumberBg",       barState.config.paletteWsNumberBgColor)       }
+        function onPaletteWsNumberBgColorActiveChanged() { bar._set("colWsNumberBgActive", barState.config.paletteWsNumberBgColorActive) }
         // volume — per-module (override individual tem prioridade sobre paleta global)
         function onPaletteVolTextChanged()     { bar._set("cfgVolTextColor",   barState.config.paletteVolText)     }
         function onPaletteVolDimChanged()      { bar._set("cfgVolDimColor",    barState.config.paletteVolDim)      }
@@ -683,11 +701,21 @@ Scope {
         function onWsIconsSortChanged()      { bar._set("cfgWsIconsSort",      barState.config.wsIconsSort)      }
         function onWsIconMonochromeChanged() { bar._set("cfgWsIconMonochrome", barState.config.wsIconMonochrome) }
         function onWsIconSpacingChanged()    { bar._set("cfgWsIconSpacing",    barState.config.wsIconSpacing)    }
+        function onWsIconSizeChanged()       { bar._set("cfgWsIconSize",       barState.config.wsIconSize)       }
+        function onWsShowNumberChanged()     { bar._set("cfgWsShowNumber",     barState.config.wsShowNumber)     }
+        function onWsNumberBgEnabledChanged()  { bar._set("cfgWsNumberBgEnabled",  barState.config.wsNumberBgEnabled)  }
+        function onWsNumberBgRadiusChanged()   { bar._set("cfgWsNumberBgRadius",   barState.config.wsNumberBgRadius)   }
+        function onWsNumberBgPaddingHChanged() { bar._set("cfgWsNumberBgPaddingH", barState.config.wsNumberBgPaddingH) }
+        function onWsNumberBgPaddingVChanged() { bar._set("cfgWsNumberBgPaddingV", barState.config.wsNumberBgPaddingV) }
         function onWsBgOpacityChanged()      { bar._set("cfgWsBgOpacity",      barState.config.wsBgOpacity)      }
         function onWsBgPaddingHChanged()     { bar._set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)     }
         function onWsBgPaddingVChanged()     { bar._set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)     }
+        function onWsBgBorderWidthChanged()  { bar._set("cfgWsBgBorderWidth",  barState.config.wsBgBorderWidth)  }
+        function onWsDotSizeChanged()        { bar._set("cfgWsDotSize",        barState.config.wsDotSize)        }
+        function onWsFontSizeChanged()       { bar._set("cfgWsFontSize",       barState.config.wsFontSize)       }
         function onWsShowAddButtonChanged()  { bar._set("cfgWsShowAddButton",  barState.config.wsShowAddButton)  }
         function onWsShowTooltipChanged()    { bar._set("cfgWsShowTooltip",    barState.config.wsShowTooltip)    }
+        function onWsSpacingChanged()        { bar._set("cfgWsSpacing",        barState.config.wsSpacing)        }
         // workspace ativa
         function onPaletteWsBgColorActiveChanged()       { bar._set("cfgWsBgColorActive",      barState.config.paletteWsBgColorActive)
                                                            bar._set("colWsBgActive",            barState.config.paletteWsBgColorActive)       }

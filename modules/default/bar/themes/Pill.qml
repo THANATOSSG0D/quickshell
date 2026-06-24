@@ -109,11 +109,21 @@ Item {
   property string cfgWsIconsSort:           "position"
   property bool   cfgWsIconMonochrome:      true
   property int    cfgWsIconSpacing:         4
+  property int    cfgWsIconSize:            18
+  property bool   cfgWsShowNumber:          false
   property real   cfgWsBgOpacity:           0.0
   property real   cfgWsBgPaddingH:          8
   property real   cfgWsBgPaddingV:          2
+  property real   cfgWsBgBorderWidth:       0
+  property int    cfgWsDotSize:             8
+  property int    cfgWsFontSize:            10
+  property bool   cfgWsNumberBgEnabled:     false
+  property int    cfgWsNumberBgRadius:      4
+  property int    cfgWsNumberBgPaddingH:    4
+  property int    cfgWsNumberBgPaddingV:    2
   property bool   cfgWsShowAddButton:       true
   property bool   cfgWsShowTooltip:         true
+  property int    cfgWsSpacing:             2
   property color  cfgWsBgColorActive:        Qt.rgba(1,1,1,0.12)
   property real   cfgWsBgOpacityActive:      0.85
   property color  cfgWsBgBorderColorActive:  "transparent"
@@ -190,6 +200,10 @@ Item {
   property color colWsBorder:       "#e2e2e2"
   property color colIconMono:       "#e2e2e2"
   property color colIconMonoActive: "#ffb4a9"
+  property color colWsNumber:         "#9e9e9e"
+  property color colWsNumberActive:   "#1a1a1a"
+  property color colWsNumberBg:       "#2a2a2a"
+  property color colWsNumberBgActive: "#ffb4a9"
 
   // ── Fundo da pill ──────────────────────────────────────────────────────
   Rectangle {
@@ -521,16 +535,21 @@ Item {
             iconsSort:           root.cfgWsIconsSort
             iconMonochrome:      root.cfgWsIconMonochrome
             iconSpacing:         root.cfgWsIconSpacing
+            iconSize:            root.cfgWsIconSize
+            showNumber:          root.cfgWsShowNumber
+            dotSize:             root.cfgWsDotSize
+            fontSize:            root.cfgWsFontSize
             bgOpacity:           root.cfgWsBgOpacity
             bgOpacityActive:     root.cfgWsBgOpacityActive
             bgPaddingH:          root.cfgWsBgPaddingH
             bgPaddingV:          root.cfgWsBgPaddingV
             showAddButton:       root.cfgWsShowAddButton
             showTooltip:         root.cfgWsShowTooltip
+            wsSpacing:           root.cfgWsSpacing
             bgColor:             root.colWsBg
             bgColorActive:       root.colWsBgActive
             bgBorderColor:       Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)
-            bgBorderWidth:       1
+            bgBorderWidth:       root.cfgWsBgBorderWidth
             bgBorderColorActive: root.cfgWsBgBorderColorActive
             bgBorderWidthActive: root.cfgWsBgBorderWidthActive
             bgPaddingHActive:    root.cfgWsBgPaddingHActive
@@ -538,6 +557,14 @@ Item {
             bgRadiusActive:      root.cfgWsBgRadiusActive
             iconMonoColor:       root.colIconMono
             iconMonoColorActive: root.colIconMonoActive
+            numberColor:         root.colWsNumber
+            numberColorActive:   root.colWsNumberActive
+            numberBgEnabled:     root.cfgWsNumberBgEnabled
+            numberBgColor:       root.colWsNumberBg
+            numberBgColorActive: root.colWsNumberBgActive
+            numberBgRadius:      root.cfgWsNumberBgRadius
+            numberBgPaddingH:    root.cfgWsNumberBgPaddingH
+            numberBgPaddingV:    root.cfgWsNumberBgPaddingV
             dotColor:            root.colWsDot
             dotActiveColor:      root.colWsDotActive
             dotOccupiedColor:    root.colWsDotOccupied
