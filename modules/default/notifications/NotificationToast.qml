@@ -133,6 +133,7 @@ PanelWindow {
                 notifId:    modelData.id
                 appName:    modelData.appName
                 appIcon:    modelData.appIcon
+                image:      modelData.image
                 summary:    modelData.summary
                 body:       modelData.body
                 urgency:    modelData.urgency
@@ -148,7 +149,7 @@ PanelWindow {
                 cardRadius:   root._bgRadius
 
                 onDismissed:     (id) => root.service.dismissToast(id)
-                onActionInvoked: (id, _identifier) => root.service.dismissToast(id)
+                onActionInvoked: (id, identifier) => root.service.invokeAction(id, identifier)
             }
 
             // Sombra — mesma fonte de config (PopupConfig.globals) usada pelos

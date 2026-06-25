@@ -252,6 +252,7 @@ Item {
                         notifId:    modelData.id
                         appName:    modelData.appName
                         appIcon:    modelData.appIcon
+                        image:      modelData.image
                         summary:    modelData.summary
                         body:       modelData.body
                         urgency:    modelData.urgency
@@ -267,7 +268,7 @@ Item {
                         cardRadius:   root.cardRadius
 
                         onDismissed:     (id) => root.service.dismissNotification(id)
-                        onActionInvoked: (id, ident) => root.service.dismissNotification(id)
+                        onActionInvoked: (id, identifier) => root.service.invokeAction(id, identifier)
                     }
                 }
 

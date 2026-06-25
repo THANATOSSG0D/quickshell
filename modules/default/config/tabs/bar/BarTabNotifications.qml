@@ -14,10 +14,15 @@ C.CfgScroll {
   required property color colorProgressBg
 
   signal changed(var opts)
-  function g(key) { return config ? config.get("notifications", key) : undefined }
+  function g(key, def) {
+    if (!config) return def
+    var v = config.get("notifications", key)
+    return (v !== undefined && v !== null) ? v : def
+  }
 
   // ── Helper: linha de enum como chips, mesmo padrão usado em outras abas ─
   component EnumRow: Column {
+    id: enumRoot
     property string label: ""
     property var    options: []
     property var    value
@@ -28,69 +33,35 @@ C.CfgScroll {
     width: parent ? parent.width : 0
     spacing: 6
 
-    Text { text: label; color: colorTextDim; font.pixelSize: 11 }
+    Text { text: enumRoot.label; color: enumRoot.colorTextDim; font.pixelSize: 11 }
 
     Flow {
       width: parent.width
       spacing: 6
       Repeater {
-        model: options
+        model: enumRoot.options
         delegate: C.CfgChip {
           required property var modelData
           label:        modelData.label
-          active:       value === modelData.id
-          colorAccent:  colorAccent
-          colorTextDim: colorTextDim
-          onChipClicked: picked(modelData.id)
+          active:       enumRoot.value === modelData.id
+          // IMPORTANTE: precisa ser enumRoot.colorAccent / enumRoot.colorTextDim
+          // aqui. "colorAccent: colorAccent" (sem qualificar) cria uma
+          // auto-referência, porque o CfgChip também tem uma prop com esse
+          // mesmo nome — o QML resolve pro próprio CfgChip, não pro EnumRow
+          // de fora, e a cor cai pro default não-inicializado (preto).
+          colorAccent:  enumRoot.colorAccent
+          colorTextDim: enumRoot.colorTextDim
+          onChipClicked: enumRoot.picked(modelData.id)
         }
       }
     }
   }
 
-  C.CfgSection { title: "CORES"; colorTextDim: root.colorTextDim }
-
-  C.CfgPalette {
-    label: "Texto"; value: root.g("textColor") || "on_surface"
-    colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId:"notifications", key:"textColor", value:v })
-  }
-  C.CfgPalette {
-    label: "Dim"; value: root.g("dimColor") || "on_surface_variant"
-    colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId:"notifications", key:"dimColor", value:v })
-  }
-  C.CfgPalette {
-    label: "Acento"; value: root.g("accentColor") || "primary"
-    colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId:"notifications", key:"accentColor", value:v })
-  }
-  C.CfgPalette {
-    label: "Urgente"; value: root.g("mutedColor") || "error"
-    colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId:"notifications", key:"mutedColor", value:v })
-  }
-  C.CfgPalette {
-    label: "Divisor"; value: root.g("divider") || "outline_variant"
-    colors: root.colors; overlay: root.overlay
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
-    onEdited: (v) => root.changed({ moduleId:"notifications", key:"divider", value:v })
-  }
-
-  C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "COMPORTAMENTO"; colorTextDim: root.colorTextDim }
 
   C.CfgToggle {
     label: "Críticas ignoram Não Perturbe"
-    checked: root.g("dndAllowCritical") ?? true
+    checked: root.g("dndAllowCritical", true)
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId:"notifications", key:"dndAllowCritical", value: !checked })
   }
@@ -98,7 +69,7 @@ C.CfgScroll {
   EnumRow {
     label: "Filtro padrão do painel"
     options: [ {id:0,label:"Todas"}, {id:1,label:"Normais"}, {id:2,label:"Críticas"} ]
-    value: root.g("defaultUrgencyFilter") ?? 0
+    value: root.g("defaultUrgencyFilter", 0)
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     onPicked: (id) => root.changed({ moduleId:"notifications", key:"defaultUrgencyFilter", value:id })
   }
@@ -119,14 +90,14 @@ C.CfgScroll {
       {id:"bottom-center",label:"Inf. centro"},
       {id:"bottom-right", label:"Inf. direito"},
     ]
-    value: root.g("toastPosition") || "top-right"
+    value: root.g("toastPosition", "top-right")
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     onPicked: (id) => root.changed({ moduleId:"notifications", key:"toastPosition", value:id })
   }
 
   C.CfgSlider {
     label: "Máx. toasts simultâneos"
-    value: root.g("maxToasts") ?? 5
+    value: root.g("maxToasts", 5)
     from: 1; to: 10; step: 1
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -134,7 +105,7 @@ C.CfgScroll {
   }
   C.CfgSlider {
     label: "Duração (normal)"
-    value: root.g("toastTimeoutMs") ?? 5000
+    value: root.g("toastTimeoutMs", 5000)
     from: 1000; to: 15000; step: 500; unit: "ms"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -142,7 +113,7 @@ C.CfgScroll {
   }
   C.CfgSlider {
     label: "Duração (baixa urgência)"
-    value: root.g("toastTimeoutLow") ?? 3000
+    value: root.g("toastTimeoutLow", 3000)
     from: 1000; to: 15000; step: 500; unit: "ms"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -150,7 +121,7 @@ C.CfgScroll {
   }
   C.CfgSlider {
     label: "Duração (crítica, 0=nunca)"
-    value: root.g("toastTimeoutCrit") ?? 0
+    value: root.g("toastTimeoutCrit", 0)
     from: 0; to: 30000; step: 1000; unit: "ms"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -162,7 +133,7 @@ C.CfgScroll {
 
   C.CfgSlider {
     label: "Máx. no histórico"
-    value: root.g("maxHistory") ?? 50
+    value: root.g("maxHistory", 50)
     from: 10; to: 200; step: 10
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -170,10 +141,52 @@ C.CfgScroll {
   }
   C.CfgSlider {
     label: "Raio dos cards"
-    value: root.g("cardRadius") ?? 10
+    value: root.g("cardRadius", 10)
     from: 0; to: 20; step: 1; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId:"notifications", key:"cardRadius", value:v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "CORES"; colorTextDim: root.colorTextDim }
+
+  C.CfgPalette {
+    label: "Texto"; value: root.g("textColor", "on_surface")
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"notifications", key:"textColor", value:v })
+  }
+  C.CfgPalette {
+    label: "Dim"; value: root.g("dimColor", "on_surface_variant")
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"notifications", key:"dimColor", value:v })
+  }
+  C.CfgPalette {
+    label: "Acento"; value: root.g("accentColor", "primary")
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"notifications", key:"accentColor", value:v })
+  }
+  C.CfgPalette {
+    // Key real é "mutedColor" — confirmado em Notifications.qml, NotifTooltip,
+    // NotificationsContent/Popup/Toast, que todos leem colorMuted a partir
+    // dela. O nome "Urgente" no label é só legado, mas a key não muda.
+    label: "Urgente"; value: root.g("mutedColor", "error")
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"notifications", key:"mutedColor", value:v })
+  }
+  C.CfgPalette {
+    label: "Divisor"; value: root.g("divider", "outline_variant")
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId:"notifications", key:"divider", value:v })
   }
 }

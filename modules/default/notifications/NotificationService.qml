@@ -68,6 +68,11 @@ Scope {
     NotificationServer {
         id: server
         keepOnReload:           true
+        // Sem isso o servidor nunca anuncia a capability "actions" no DBus,
+        // então clientes (notify-send -A, notificações web do Vivaldi/Chrome
+        // com botões, etc.) detectam que não há suporte e nem tentam enviar
+        // as ações — exatamente o erro "Actions are not supported".
+        actionsSupported:       true
         actionIconsSupported:   false
         bodyMarkupSupported:    true
         bodyHyperlinksSupported: false
@@ -159,6 +164,12 @@ Scope {
             id:        notif.id,
             appName:   notif.appName  || "",
             appIcon:   notif.appIcon  || "",
+            // Apps Electron/Chromium (Vivaldi entre eles) costumam mandar a
+            // imagem como icon_data embutido em vez de um nome de ícone de
+            // tema — o appIcon fica vazio nesse caso. O Quickshell expõe
+            // esse dado já decodificado em notif.image (path utilizável),
+            // então usamos como alternativa quando appIcon não resolve nada.
+            image:     notif.image    || "",
             summary:   notif.summary  || "",
             body:      notif.body     || "",
             urgency:   urgency,
@@ -168,6 +179,13 @@ Scope {
             actions:   _serializeActions(notif.actions)
         }
 
+        // Referência viva da notificação — precisamos dela pra invocar a
+        // ação de verdade via DBus depois (o array serializado em
+        // item.actions só guarda identifier/text pro QML, sem o vínculo
+        // com o objeto real). Antes isso não existia: clicar numa ação só
+        // dispensava a notificação, sem nunca chamar o app remetente.
+        root._liveNotifs[notif.id] = notif
+
         // Remover notificação anterior do mesmo app+summary (substituição)
         for (var k = notifModel.count - 1; k >= 0; k--) {
             var n = notifModel.get(k)
@@ -175,8 +193,11 @@ Scope {
         }
 
         // Adicionar ao histórico (mais recente primeiro)
-        if (notifModel.count >= root.maxHistory)
+        if (notifModel.count >= root.maxHistory) {
+            var old = notifModel.get(notifModel.count - 1)
+            delete root._liveNotifs[old.id]
             notifModel.remove(notifModel.count - 1)
+        }
         notifModel.insert(0, item)
 
         if (showToast) {
@@ -186,8 +207,15 @@ Scope {
         }
 
         // Conecta o fechamento pelo app-remetente
-        notif.onClosed.connect(function() { root.dismissToast(notif.id) })
+        notif.onClosed.connect(function() {
+            root.dismissToast(notif.id)
+            delete root._liveNotifs[notif.id]
+        })
     }
+
+    // Map id → objeto Notification vivo (não serializável no ListModel,
+    // por isso fica fora dele). Ver invokeAction().
+    property var _liveNotifs: ({})
 
     function _serializeActions(actions) {
         if (!actions) return []
@@ -208,6 +236,31 @@ Scope {
 
     // ── API pública ────────────────────────────────────────────────────────
 
+    // Invoca a ação de verdade no app remetente (via DBus), em vez de só
+    // remover a notificação da tela. Antes, clicar num botão de ação
+    // (ex: "Responder", "Marcar como lida") não fazia nada além de
+    // dispensar o card — agora chama notif.actions de fato.
+    function invokeAction(id, identifier) {
+        var notif = root._liveNotifs[id]
+        if (!notif || !notif.actions) {
+            console.warn("[Notifications] invokeAction: notificação", id, "não tem mais referência viva")
+            dismissNotification(id)
+            return
+        }
+        var acted = false
+        for (var i = 0; i < notif.actions.values.length; i++) {
+            var a = notif.actions.values[i]
+            if (a.identifier === identifier) {
+                if (typeof a.invoke === "function") a.invoke()
+                acted = true
+                break
+            }
+        }
+        if (!acted)
+            console.warn("[Notifications] invokeAction: identifier", identifier, "não encontrado em", id)
+        dismissNotification(id)
+    }
+
     function dismissToast(id) {
         for (var i = toastModel.count - 1; i >= 0; i--) {
             if (toastModel.get(i).id === id) {
@@ -220,6 +273,7 @@ Scope {
 
     function dismissNotification(id) {
         dismissToast(id)
+        delete root._liveNotifs[id]
         for (var i = notifModel.count - 1; i >= 0; i--) {
             if (notifModel.get(i).id === id) {
                 notifModel.remove(i)
@@ -232,6 +286,7 @@ Scope {
     function clearAll() {
         toastModel.clear()
         notifModel.clear()
+        root._liveNotifs = ({})
         root.unreadCount = 0
     }
 

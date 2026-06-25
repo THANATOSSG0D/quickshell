@@ -33,7 +33,12 @@
                 "bgEnabled": true,
                 "bgPaddingH": 4,
                 "bgPaddingV": 2,
-                "showText": false
+                "showText": false,
+                "textMode": "artistAndTitle"
+            },
+            "notifications": {
+                "dndAllowCritical": true,
+                "toastPosition": "top-right"
             },
             "palette": {
                 "accent": "primary",

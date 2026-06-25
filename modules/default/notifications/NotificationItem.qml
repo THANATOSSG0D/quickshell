@@ -16,6 +16,11 @@ Item {
     // ── Dados ──────────────────────────────────────────────────────────────
     property string appName:  ""
     property string appIcon:  ""
+    // Imagem embutida (icon_data) — apps Electron/Chromium como o Vivaldi
+    // costumam mandar a imagem assim em vez de um nome de ícone de tema,
+    // então appIcon sozinho ficava vazio e o card caía sempre no glyph
+    // genérico de sino.
+    property string image:    ""
     property string summary:  ""
     property string body:     ""
     property int    urgency:  1
@@ -60,13 +65,32 @@ Item {
 
     Component.onCompleted: Qt.callLater(function() { _visible = true })
 
+    // Hover sutil no card inteiro — antes não havia nenhum feedback visual
+    // ao passar o mouse além dos botões individuais, o que deixava o card
+    // parecendo um bloco de texto estático em vez de algo interativo.
+    property bool _hovered: false
+
+    MouseArea {
+        anchors.fill: card
+        hoverEnabled: true
+        propagateComposedEvents: true
+        z: -1
+        onContainsMouseChanged: root._hovered = containsMouse
+        onPressed: (mouse) => mouse.accepted = false
+    }
+
     // ── Card ───────────────────────────────────────────────────────────────
     Rectangle {
         id: card
         anchors.left:  parent.left
         anchors.right: parent.right
         radius: root.cardRadius
-        color:  Qt.rgba(root.colorBg.r, root.colorBg.g, root.colorBg.b, mode === "toast" ? 0.94 : 0.85)
+        color:  Qt.rgba(root.colorBg.r, root.colorBg.g, root.colorBg.b,
+                         (mode === "toast" ? 0.94 : 0.85) + (root._hovered ? 0.06 : 0))
+        border.color: Qt.rgba(1, 1, 1, root._hovered ? 0.10 : 0.0)
+        border.width: 1
+        Behavior on color        { ColorAnimation { duration: 120 } }
+        Behavior on border.color { ColorAnimation { duration: 120 } }
 
         implicitHeight: col.implicitHeight + 16
 
@@ -116,25 +140,35 @@ Item {
                 // adivinhava o ícone por uma lista fixa de ~12 nomes de app,
                 // então a maioria ficava sem ícone de verdade.
                 Item {
-                    width: 16; height: 16
+                    width: 26; height: 26
                     anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 7
+                        color:  Qt.rgba(root.urgencyColor.r, root.urgencyColor.g, root.urgencyColor.b, 0.12)
+                        visible: appIconImg.status !== Image.Ready
+                    }
 
                     Image {
                         id: appIconImg
                         anchors.fill: parent
+                        anchors.margins: appIconImg.status === Image.Ready ? 0 : 5
                         visible:      status === Image.Ready
                         fillMode:     Image.PreserveAspectFit
                         smooth:       true
                         asynchronous: true
                         source: {
+                            // Prioridade: imagem embutida (icon_data, comum em
+                            // apps web/Electron como o Vivaldi) > path direto >
+                            // nome de ícone de tema > vazio (cai no glyph).
+                            if (root.image !== "")
+                                return root.image.startsWith("/") ? IconLookup.toFileUri(root.image) : root.image
                             if (root.appIcon === "") return ""
                             if (root.appIcon.startsWith("/"))
                                 return IconLookup.toFileUri(root.appIcon)
                             if (root.appIcon.startsWith("file://") || root.appIcon.startsWith("image://"))
                                 return root.appIcon
-                            // Nome de ícone de tema (freedesktop) — tenta resolver
-                            // via Papirus/hicolor, igual o IconLookup já faz para
-                            // os ícones de aplicativo das janelas.
                             var paths = IconLookup.buildIconPaths(root.appIcon, "")
                             return paths.length > 0 ? paths[0] : ""
                         }
@@ -225,8 +259,11 @@ Item {
             }
 
             // ── Ações ──────────────────────────────────────────────────────
+            // Antes: visible só em mode === "panel" — toasts nunca mostravam
+            // nenhum botão de ação, mesmo quando a notificação tinha (ex:
+            // "Responder", "Marcar como lida", os botões -A do notify-send).
             Row {
-                visible:    root.actions && root.actions.length > 0 && mode === "panel"
+                visible:    root.actions && root.actions.length > 0
                 spacing:    6
                 topPadding: 2
 
@@ -235,12 +272,15 @@ Item {
 
                     Rectangle {
                         required property var modelData
-                        height:  26
-                        width:   Math.min(actionLabel.implicitWidth + 16, 120)
+                        height:  mode === "toast" ? 24 : 26
+                        width:   Math.min(actionLabel.implicitWidth + 16, 130)
                         radius:  6
                         color:   actionArea.containsMouse
-                                 ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.20)
-                                 : Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.10)
+                                 ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.22)
+                                 : Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.12)
+                        border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.25)
+                        border.width: 1
+                        Behavior on color { ColorAnimation { duration: 80 } }
 
                         Text {
                             id:             actionLabel
