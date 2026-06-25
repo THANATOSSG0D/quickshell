@@ -2,6 +2,8 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
+import qs
 
 // ── NotificationToast ─────────────────────────────────────────────────────────
 // PanelWindow que exibe toasts flutuantes empilhados num canto da tela.
@@ -28,13 +30,29 @@ PanelWindow {
     property int   toastMargin: 12   // margem da borda da tela
     property int   toastSpacing: 8   // espaço entre toasts
 
-    // Cores — seguem o mesmo padrão injetado do bar
-    property color colorBg:      "#1e1e2e"
-    property color colorText:    "#cdd6f4"
-    property color colorTextDim: "#9399b2"
-    property color colorAccent:  "#89b4fa"
-    property color colorMuted:   "#f38ba8"
-    property color colorDivider: "#313244"
+    // Cores — antes eram um esquema Catppuccin hardcoded, totalmente
+    // desconectado da paleta matugen (Colors) que move o resto do shell.
+    // Agora usam os mesmos tokens que os popups usam por padrão
+    // (Colors.surface_container / on_surface / ...), então o toast já
+    // nasce no tom certo do tema atual e acompanha a troca de wallpaper.
+    // Continuam sendo "property color" comuns — quem instanciar o toast
+    // ainda pode sobrescrever via BarSchema/PopupConfig se quiser.
+    property color colorBg:      Colors.surface_container
+    property color colorText:    Colors.on_surface
+    property color colorTextDim: Colors.on_surface_variant
+    property color colorAccent:  Colors.primary
+    property color colorMuted:   Colors.error
+    property color colorDivider: Colors.outline_variant
+
+    // Raio e sombra — lidos do PopupConfig.globals para combinar com o
+    // bgRadius/shadow* configurados no painel (mesma fonte que o BarPopup
+    // usa), em vez de um cantinho fixo só do toast.
+    readonly property int   _bgRadius:      PopupConfig.get(null, "bgRadius",      10)
+    readonly property bool  _shadowEnabled: PopupConfig.get(null, "shadowEnabled", true)
+    readonly property real  _shadowBlur:    PopupConfig.get(null, "shadowBlur",    16)
+    readonly property int   _shadowOffX:    PopupConfig.get(null, "shadowOffsetX", 0)
+    readonly property int   _shadowOffY:    PopupConfig.get(null, "shadowOffsetY", 4)
+    readonly property real  _shadowOpacity: PopupConfig.get(null, "shadowOpacity", 0.45)
 
     // ── Posição derivada do service ────────────────────────────────────────
     readonly property string pos:         service.toastPosition
@@ -127,9 +145,25 @@ PanelWindow {
                 colorAccent:  root.colorAccent
                 colorMuted:   root.colorMuted
                 colorDivider: root.colorDivider
+                cardRadius:   root._bgRadius
 
                 onDismissed:     (id) => root.service.dismissToast(id)
                 onActionInvoked: (id, _identifier) => root.service.dismissToast(id)
+            }
+
+            // Sombra — mesma fonte de config (PopupConfig.globals) usada pelos
+            // popups via BarPopup, então o toast deixa de ser o único elemento
+            // "chapado" sem profundidade quando o resto do shell tem sombra.
+            MultiEffect {
+                anchors.fill:           item
+                source:                 item
+                visible:                root._shadowEnabled
+                shadowEnabled:          root._shadowEnabled
+                shadowBlur:             root._shadowBlur / 64
+                shadowHorizontalOffset: root._shadowOffX
+                shadowVerticalOffset:   root._shadowOffY
+                shadowColor: Qt.rgba(0, 0, 0, root._shadowOpacity)
+                z: -1
             }
         }
     }

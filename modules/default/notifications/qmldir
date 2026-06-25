@@ -6,3 +6,4 @@ NotificationToast      1.0 NotificationToast.qml
 NotificationsContent   1.0 NotificationsContent.qml
 NotificationsPopup     1.0 NotificationsPopup.qml
 Notifications          1.0 Notifications.qml
+singleton NotifTooltip 1.0 NotifTooltip.qml

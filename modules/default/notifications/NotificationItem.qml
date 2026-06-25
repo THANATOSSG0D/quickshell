@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import "../bar/modules/delegates/IconLookup.js" as IconLookup
 
 // ── NotificationItem ──────────────────────────────────────────────────────────
 // Card de notificação individual. Usado tanto nos toasts flutuantes quanto
@@ -31,6 +33,7 @@ Item {
     property color colorAccent:  "#89b4fa"
     property color colorMuted:   "#f38ba8"
     property color colorDivider: "#313244"
+    property int   cardRadius:   10
 
     // Urgency → cor de destaque da borda esquerda
     readonly property color urgencyColor: {
@@ -62,7 +65,7 @@ Item {
         id: card
         anchors.left:  parent.left
         anchors.right: parent.right
-        radius: 10
+        radius: root.cardRadius
         color:  Qt.rgba(root.colorBg.r, root.colorBg.g, root.colorBg.b, mode === "toast" ? 0.94 : 0.85)
 
         implicitHeight: col.implicitHeight + 16
@@ -107,29 +110,44 @@ Item {
                 width: parent.width
                 spacing: 6
 
-                // Ícone do app (fallback para ícone genérico)
-                Text {
-                    text: {
-                        if (root.appIcon === "") return "\uf0f3"
-                        // Ícone por nome de app (fallback simples)
-                        var icons = {
-                            "firefox": "\uf269", "chromium": "\uf268",
-                            "discord": "\uf392", "telegram": "\uf2c6",
-                            "spotify": "\uf1bc", "vlc": "\uf03d",
-                            "code": "\ue70c", "terminal": "\uf120",
-                            "nautilus": "\uf07c", "thunar": "\uf07c",
-                            "thunderbird": "\uf0e0", "evolution": "\uf0e0",
-                            "gimp": "\uf1fc", "inkscape": "\uf1fc",
+                // Ícone do app — tenta o appIcon real (path ou nome de tema)
+                // entregue pela notificação via DBus; cai para um glyph
+                // genérico de sino só se nada resolver. Antes essa lógica
+                // adivinhava o ícone por uma lista fixa de ~12 nomes de app,
+                // então a maioria ficava sem ícone de verdade.
+                Item {
+                    width: 16; height: 16
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Image {
+                        id: appIconImg
+                        anchors.fill: parent
+                        visible:      status === Image.Ready
+                        fillMode:     Image.PreserveAspectFit
+                        smooth:       true
+                        asynchronous: true
+                        source: {
+                            if (root.appIcon === "") return ""
+                            if (root.appIcon.startsWith("/"))
+                                return IconLookup.toFileUri(root.appIcon)
+                            if (root.appIcon.startsWith("file://") || root.appIcon.startsWith("image://"))
+                                return root.appIcon
+                            // Nome de ícone de tema (freedesktop) — tenta resolver
+                            // via Papirus/hicolor, igual o IconLookup já faz para
+                            // os ícones de aplicativo das janelas.
+                            var paths = IconLookup.buildIconPaths(root.appIcon, "")
+                            return paths.length > 0 ? paths[0] : ""
                         }
-                        var lower = root.appName.toLowerCase()
-                        for (var k in icons) {
-                            if (lower.includes(k)) return icons[k]
-                        }
-                        return "\uf0f3"
                     }
-                    font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color:          root.urgencyColor
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible:        appIconImg.status !== Image.Ready
+                        text:           "\uf0f3"
+                        font.family:    "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color:          root.urgencyColor
+                    }
                 }
 
                 // Nome do app

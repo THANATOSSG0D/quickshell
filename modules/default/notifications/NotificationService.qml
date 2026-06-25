@@ -30,6 +30,11 @@ Scope {
     property int    toastTimeoutCrit: 0             // 0 = persiste até o usuário dispensar
     property int    maxHistory:       50
 
+    // Default vindo do BarConfig (aba Notificações), usado só quando ainda
+    // não existe notifications-state.json (primeira execução) — depois
+    // disso, quem manda é o valor salvo via setPosition().
+    property string configDefaultPosition: "top-right"
+
     // ── Estado DND ─────────────────────────────────────────────────────────
     property bool doNotDisturb:    false
     property bool dndAllowCritical: true    // crítico sempre aparece mesmo com DND ativo
@@ -109,7 +114,7 @@ Scope {
                 var j = JSON.parse(stateFile.text())
                 root.doNotDisturb     = j.doNotDisturb    ?? false
                 root.dndAllowCritical = j.dndAllowCritical ?? true
-                root.toastPosition    = j.toastPosition   ?? "top-right"
+                root.toastPosition    = j.toastPosition   ?? root.configDefaultPosition
             } catch (_) {}
         }
     }

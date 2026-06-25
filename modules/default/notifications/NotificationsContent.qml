@@ -20,13 +20,20 @@ Item {
     property color colorAccent:   "#89b4fa"
     property color colorMuted:    "#f38ba8"
     property color colorDivider:  "#313244"
+    property int   cardRadius:    10
+
+    // Valor inicial do filtro — configurável (aba Notificações). O usuário
+    // ainda pode trocar o filtro na hora, isso só define com o que o
+    // painel abre.
+    property int   defaultUrgencyFilter: 0
 
     // ── Sinais ─────────────────────────────────────────────────────────────
     signal closeRequested()
 
     // ── Filtro de urgência ─────────────────────────────────────────────────
     // 0=todas, 2=somente críticas
-    property int urgencyFilter: 0
+    property int urgencyFilter: defaultUrgencyFilter
+    onDefaultUrgencyFilterChanged: urgencyFilter = defaultUrgencyFilter
 
     // ── Conteúdo ───────────────────────────────────────────────────────────
     Column {
@@ -99,13 +106,6 @@ Item {
                              : Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.10)
                     colorIcon: root.service && root.service.doNotDisturb ? root.colorMuted : root.colorTextDim
                     onClicked:  root.service && root.service.toggleDnd()
-                }
-
-                // ── Botão posição ──────────────────────────────────────────
-                HeaderBtn {
-                    icon:    "\uf108"
-                    tooltip: "Posição dos toasts"
-                    onClicked: posMenu.visible = !posMenu.visible
                 }
 
                 // ── Botão limpar tudo ──────────────────────────────────────
@@ -264,6 +264,7 @@ Item {
                         colorAccent:  root.colorAccent
                         colorMuted:   root.colorMuted
                         colorDivider: root.colorDivider
+                        cardRadius:   root.cardRadius
 
                         onDismissed:     (id) => root.service.dismissNotification(id)
                         onActionInvoked: (id, ident) => root.service.dismissNotification(id)
@@ -274,105 +275,6 @@ Item {
                 footer: Item { height: 8 }
             }
         }
-    }
-
-    // ── Menu de posição de toasts ──────────────────────────────────────────
-    Rectangle {
-        id: posMenu
-        visible:  false
-        z:        10
-        anchors {
-            top:   parent.top
-            right: parent.right
-            topMargin:   52
-            rightMargin: 8
-        }
-        width:  160
-        radius: 8
-        color:  Qt.rgba(root.colorPanelBg.r, root.colorPanelBg.g, root.colorPanelBg.b, 0.97)
-
-        // Sombra via border
-        border.color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.6)
-        border.width: 1
-
-        implicitHeight: posCol.implicitHeight + 12
-
-        Column {
-            id: posCol
-            anchors { fill: parent; margins: 6 }
-            spacing: 2
-
-            Text {
-                text:           "Posição dos toasts"
-                font.pixelSize: 10
-                font.weight:    Font.Medium
-                color:          root.colorTextDim
-                leftPadding:    6
-                topPadding:     2
-                bottomPadding:  4
-            }
-
-            Repeater {
-                model: [
-                    { label: "↖  Superior esquerdo",   value: "top-left"      },
-                    { label: "↑  Superior centro",      value: "top-center"    },
-                    { label: "↗  Superior direito",     value: "top-right"     },
-                    { label: "↙  Inferior esquerdo",    value: "bottom-left"   },
-                    { label: "↓  Inferior centro",      value: "bottom-center" },
-                    { label: "↘  Inferior direito",     value: "bottom-right"  }
-                ]
-
-                delegate: Rectangle {
-                    required property var  modelData
-                    width:   parent.width
-                    height:  28
-                    radius:  6
-                    color: {
-                        if (root.service && root.service.toastPosition === modelData.value)
-                            return Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
-                        return hovered.containsMouse
-                               ? Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.08)
-                               : "transparent"
-                    }
-
-                    Text {
-                        anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 8 }
-                        text:           modelData.label
-                        font.pixelSize: 12
-                        color:          root.service && root.service.toastPosition === modelData.value
-                                        ? root.colorAccent : root.colorText
-                    }
-
-                    MouseArea {
-                        id:          hovered
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape:  Qt.PointingHandCursor
-                        onClicked: {
-                            root.service && root.service.setPosition(modelData.value)
-                            posMenu.visible = false
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fechar ao clicar fora
-        MouseArea {
-            anchors.fill:  parent
-            z:             -1
-            propagateComposedEvents: true
-            onClicked: { posMenu.visible = false; mouse.accepted = false }
-        }
-    }
-
-    // ── Fechar menu ao perder foco ─────────────────────────────────────────
-    MouseArea {
-        anchors.fill: parent
-        z:            -1
-        enabled:      posMenu.visible
-        propagateComposedEvents: true
-        onClicked: { posMenu.visible = false; mouse.accepted = false }
     }
 
     // ── Componente interno: botão do cabeçalho ─────────────────────────────
@@ -411,14 +313,18 @@ Item {
             onClicked:    hbtn.clicked()
         }
 
-        // Tooltip simples
+        // Tooltip simples — abre para baixo. Antes abria para cima
+        // (anchors.bottom: parent.top), mas o header é a primeira linha
+        // do painel (y=0): com a barra no topo, a popup não tem margem
+        // acima dela dentro da PanelWindow, então o tooltip ficava cortado.
+        // Abrindo pra baixo sempre tem espaço — o resto do painel.
         Rectangle {
             visible:    hbtnArea.containsMouse && hbtn.tooltip !== ""
             z:          20
             anchors {
-                bottom:             parent.top
+                top:                parent.bottom
                 horizontalCenter:   parent.horizontalCenter
-                bottomMargin:       4
+                topMargin:          4
             }
             width:  ttText.implicitWidth + 12
             height: 22

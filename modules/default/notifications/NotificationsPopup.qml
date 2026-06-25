@@ -20,6 +20,8 @@ Bar.BarPopup {
     property color colorAccent:  "#89b4fa"
     property color colorMuted:   "#f38ba8"
     property color colorDivider: "#313244"
+    property int   cardRadius:    10
+    property int   defaultUrgencyFilter: 0
 
     onPanelOpenChanged: {
         if (panelOpen && service) service.markAllRead()
@@ -34,6 +36,8 @@ Bar.BarPopup {
         colorAccent:   popup.colorAccent
         colorMuted:    popup.colorMuted
         colorDivider:  popup.colorDivider
+        cardRadius:    popup.cardRadius
+        defaultUrgencyFilter: popup.defaultUrgencyFilter
         onCloseRequested: popup.closeRequested()
     }
 }

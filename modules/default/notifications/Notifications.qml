@@ -4,6 +4,9 @@ import QtQuick.Layouts
 // ── Notifications ─────────────────────────────────────────────────────────────
 // Módulo da barra: ícone de sino com badge de não-lidas e indicador DND.
 // Emite panelRequested() ao clicar → Bar.qml abre o NotificationsPopup.
+// Hover mostra o NotifTooltip (estado DND + prévia das últimas notificações),
+// mesmo padrão de VolumeTooltip/QsTooltip/WsTooltip. NotifTooltip mora no
+// mesmo módulo (qmldir local), por isso não precisa de import qualificado.
 
 Item {
     id: root
@@ -60,8 +63,10 @@ Item {
 
     // ── MouseArea ──────────────────────────────────────────────────────────
     MouseArea {
+        id: bellArea
         anchors.fill:    parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
+        hoverEnabled:    true
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 // Clique direito: toggle DND rápido
@@ -69,6 +74,13 @@ Item {
             } else {
                 root.panelRequested()
             }
+            NotifTooltip.hide()
+        }
+        onContainsMouseChanged: {
+            if (containsMouse)
+                NotifTooltip.show(root, root.service, root.barPosition)
+            else
+                NotifTooltip.hide()
         }
     }
 }
