@@ -175,6 +175,62 @@ Item {
     id: _compGlobal
     C.CfgScroll {
 
+      C.CfgSection { title: "POSIÇÃO"; colorTextDim: root.colorTextDim }
+      // Default global — cada popup pode sobrescrever na própria aba.
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "bar",    label: "Na barra"     },
+            { id: "top",    label: "Topo da tela" },
+            { id: "bottom", label: "Base da tela" },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label:  modelData.label
+            active: root.g("popupYAnchor", "bar") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("popupYAnchor", modelData.id)
+          }
+        }
+      }
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "left",   label: "Esquerda" },
+            { id: "center", label: "Centro"   },
+            { id: "right",  label: "Direita"  },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label:  modelData.label
+            active: root.g("popupXAlign", "center") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("popupXAlign", modelData.id)
+          }
+        }
+      }
+      C.CfgSlider {
+        readonly property bool _barMode: root.g("popupYAnchor", "bar") === "bar"
+        label: _barMode ? "Offset de conexão (barra)" : "Offset vertical (monitor)"
+        from:  _barMode ? -20 : 0
+        to:    _barMode ?  40 : 120
+        step: 1; unit: " px"
+        value: _barMode ? root.g("attachOffset", 0) : root.g("popupYOffset", 0)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => { if (_barMode) root.s("attachOffset", v); else root.s("popupYOffset", v) }
+      }
+      C.CfgSlider {
+        label: "Offset horizontal"; from: -300; to: 300; step: 2; unit: " px"
+        value: root.g("popupXOffset", 0)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("popupXOffset", v)
+      }
+
+      C.CfgDiv { colorDivider: root.colorDivider }
       C.CfgSection { title: "ANIMAÇÃO"; colorTextDim: root.colorTextDim }
 
       Row {
@@ -185,6 +241,7 @@ Item {
             { id: "fade",        label: "Fade"        },
             { id: "scale",       label: "Scale"       },
             { id: "scale-slide", label: "Scale+Slide" },
+            { id: "reveal",      label: "Reveal"      },
             { id: "none",        label: "Nenhuma"     },
           ]
           delegate: C.CfgChip {
@@ -354,6 +411,68 @@ Item {
       }
 
       C.CfgDiv { colorDivider: root.colorDivider }
+      C.CfgSection { title: "POSIÇÃO"; colorTextDim: root.colorTextDim }
+      // Cada popup abre onde quiser — igual o dmenu já faz. "Na barra" = preso
+      // (cresce a partir da borda dela); "Topo"/"Base" = flutuante, ancorado
+      // direto na borda do monitor, ignorando onde a barra está.
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "bar",    label: "Na barra"     },
+            { id: "top",    label: "Topo da tela" },
+            { id: "bottom", label: "Base da tela" },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label:  modelData.label
+            active: root.g("popupYAnchor", "bar") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("popupYAnchor", modelData.id)
+          }
+        }
+      }
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "left",   label: "Esquerda" },
+            { id: "center", label: "Centro"   },
+            { id: "right",  label: "Direita"  },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label:  modelData.label
+            active: root.g("popupXAlign", "center") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("popupXAlign", modelData.id)
+          }
+        }
+      }
+      // Offset contextual: no modo "Na barra" controla attachOffset (gap até a
+      // barra); nos modos flutuantes controla popupYOffset (distância da
+      // borda do monitor). Troca de propriedade automaticamente conforme o
+      // modo escolhido acima — não precisa lembrar qual offset usar onde.
+      C.CfgSlider {
+        readonly property bool _barMode: root.g("popupYAnchor", "bar") === "bar"
+        label: _barMode ? "Offset de conexão (barra)" : "Offset vertical (monitor)"
+        from:  _barMode ? -20 : 0
+        to:    _barMode ?  40 : 120
+        step: 1; unit: " px"
+        value: _barMode ? root.g("attachOffset", 0) : root.g("popupYOffset", 0)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => { if (_barMode) root.s("attachOffset", v); else root.s("popupYOffset", v) }
+      }
+      C.CfgSlider {
+        label: "Offset horizontal"; from: -300; to: 300; step: 2; unit: " px"
+        value: root.g("popupXOffset", 0)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("popupXOffset", v)
+      }
+
+      C.CfgDiv { colorDivider: root.colorDivider }
       C.CfgSection { title: "ANIMAÇÃO"; colorTextDim: root.colorTextDim }
 
       Row {
@@ -364,6 +483,7 @@ Item {
             { id: "fade",        label: "Fade"        },
             { id: "scale",       label: "Scale"       },
             { id: "scale-slide", label: "Scale+Slide" },
+            { id: "reveal",      label: "Reveal"      },
             { id: "none",        label: "Nenhuma"     },
           ]
           delegate: C.CfgChip {
@@ -586,6 +706,7 @@ Item {
               { id: "fade",        label: "Fade"        },
               { id: "scale",       label: "Scale"       },
               { id: "scale-slide", label: "Scale+Slide" },
+              { id: "reveal",      label: "Reveal"      },
               { id: "none",        label: "Nenhuma"     },
             ]
             delegate: C.CfgChip {

@@ -552,6 +552,7 @@ Item {
   readonly property int    wsNumberBgRadius:    get("workspaces","numberBgRadius")    || 4
   readonly property int    wsNumberBgPaddingH:  get("workspaces","numberBgPaddingH")  || 4
   readonly property int    wsNumberBgPaddingV:  get("workspaces","numberBgPaddingV")  || 2
+  readonly property int    wsNumberSpacing:     get("workspaces","numberSpacing")     || 4
   readonly property string pkWsNumberColor:         get("workspaces","numberColor")         || "on_surface_variant"
   readonly property string pkWsNumberColorActive:   get("workspaces","numberColorActive")   || "on_primary"
   readonly property string pkWsNumberBgColor:       get("workspaces","numberBgColor")       || "surface_variant"

@@ -1,11 +1,12 @@
 {
     "globals": {
-        "animDuration": 500,
+        "animDuration": 300,
         "animationStyle": "slide",
+        "attachOffset": 0,
         "bgRadius": 10,
         "colorPanelBg": "background",
         "cornerMode": "bar",
-        "shadowEnabled": true
+        "shadowEnabled": false
     },
     "overrides": {
         "BarEditorPopup": {

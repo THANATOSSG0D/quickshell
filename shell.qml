@@ -23,6 +23,24 @@ Scope {
   NotifModule.NotificationService {
     id: notifService
     silenceMode: bar.silenceMode
+
+    // Antes esses valores eram só defaults fixos dentro do próprio
+    // NotificationService.qml — não existia nenhuma forma de configurá-los
+    // pela UI. Agora vêm do BarConfig (aba Notificações), com o mesmo
+    // fallback que o componente já usava como default.
+    dndAllowCritical: bar.configRef ? (bar.configRef.get("notifications", "dndAllowCritical") ?? true) : true
+    maxToasts:        bar.configRef ? (bar.configRef.get("notifications", "maxToasts")        ?? 5)    : 5
+    toastTimeoutMs:   bar.configRef ? (bar.configRef.get("notifications", "toastTimeoutMs")   ?? 5000) : 5000
+    toastTimeoutLow:  bar.configRef ? (bar.configRef.get("notifications", "toastTimeoutLow")  ?? 3000) : 3000
+    toastTimeoutCrit: bar.configRef ? (bar.configRef.get("notifications", "toastTimeoutCrit") ?? 0)    : 0
+    maxHistory:       bar.configRef ? (bar.configRef.get("notifications", "maxHistory")       ?? 50)   : 50
+
+    // toastPosition é persistido em notifications-state.json (estado de
+    // runtime) e sobrescrito no load — um binding direto seria destruído
+    // assim que o arquivo carregasse. Por isso o valor do config só serve
+    // de "configDefaultPosition": o NotificationService usa esse default
+    // apenas quando ainda não existe estado salvo (primeira execução).
+    configDefaultPosition: bar.configRef ? (bar.configRef.get("notifications", "toastPosition") || "top-right") : "top-right"
   }
 
   Variants {

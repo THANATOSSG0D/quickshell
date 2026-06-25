@@ -40,6 +40,12 @@ Item {
   property int   numberBgPaddingH:    4
   property int   numberBgPaddingV:    2
 
+  // Espaço entre o número e o primeiro ícone — independente do
+  // numberBgPaddingH/V (que é o padding INTERNO do fundo do número,
+  // entre o texto e a borda do próprio badge). numberSpacing é a
+  // margem EXTERNA, do lado de fora do badge até o primeiro ícone.
+  property int   numberSpacing:       4
+
   readonly property bool _wsActive: root.modelData ? root.modelData.active : false
   readonly property bool _wsUrgent: root.modelData ? root.modelData.urgent : false
 
@@ -143,6 +149,13 @@ Item {
       id: numberBadge
       visible:          root.showNumber
       Layout.alignment: Qt.AlignCenter
+      // Margem externa entre o badge e o primeiro ícone — só do lado
+      // que separa o número do resto (direita no modo horizontal,
+      // baixo no modo vertical). columnSpacing/rowSpacing do GridLayout
+      // já cuida do espaçamento ENTRE ícones; isso aqui é só o gap
+      // específico número→ícones, configurável separadamente.
+      Layout.rightMargin:  root.isHorizontal ? root.numberSpacing : 0
+      Layout.bottomMargin: root.isHorizontal ? 0 : root.numberSpacing
       radius:           root.numberBgEnabled ? root.numberBgRadius : 0
       color:            root.numberBgEnabled
                           ? (root._wsActive ? root.numberBgColorActive : root.numberBgColor)

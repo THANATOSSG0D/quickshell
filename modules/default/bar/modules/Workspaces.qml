@@ -33,6 +33,7 @@ Item {
   property int   numberBgRadius:      4
   property int   numberBgPaddingH:    4
   property int   numberBgPaddingV:    2
+  property int   numberSpacing:       4
 
   // tamanho dos itens — dots (diâmetro do dot ativo) / number e hybrid
   // (tamanho da fonte do número). Não tem efeito no estilo "icons" (ver iconSize acima).
@@ -203,6 +204,7 @@ Item {
         Binding { target: delegateLoader.item; property: "numberBgRadius";      value: root.numberBgRadius;      when: delegateLoader.item !== null && root.style === "icons" }
         Binding { target: delegateLoader.item; property: "numberBgPaddingH";    value: root.numberBgPaddingH;    when: delegateLoader.item !== null && root.style === "icons" }
         Binding { target: delegateLoader.item; property: "numberBgPaddingV";    value: root.numberBgPaddingV;    when: delegateLoader.item !== null && root.style === "icons" }
+        Binding { target: delegateLoader.item; property: "numberSpacing";       value: root.numberSpacing;       when: delegateLoader.item !== null && root.style === "icons" }
         Binding { target: delegateLoader.item; property: "urgentColor";   value: root.dotUrgentColor;      when: delegateLoader.item !== null && root.style === "icons" }
 
         // ── tamanho dot/número (Dot / Number / Hybrid) ───────────────────

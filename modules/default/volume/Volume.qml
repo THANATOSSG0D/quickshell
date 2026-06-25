@@ -2,7 +2,6 @@ import Quickshell
 import Quickshell.Services.Pipewire
 import QtQuick
 import QtQuick.Layouts
-import "../bar" as Bar
 
 Item {
   id: volumeRoot
@@ -36,17 +35,6 @@ Item {
   readonly property bool sourceMuted:  source && source.audio ? source.audio.muted  : false
   readonly property real sinkVolume:   sink   && sink.audio   ? sink.audio.volume   : 0
   readonly property real sourceVolume: source && source.audio ? source.audio.volume : 0
-
-  readonly property string sinkTooltipText: {
-    var n    = sink
-    var name = n ? (n.nickname || n.description || n.name || "Saída") : "Saída"
-    return name + "  " + Math.round(sinkVolume * 100) + "%" + (sinkMuted ? "  [mudo]" : "")
-  }
-  readonly property string sourceTooltipText: {
-    var n    = source
-    var name = n ? (n.nickname || n.description || n.name || "Microfone") : "Microfone"
-    return name + "  " + Math.round(sourceVolume * 100) + "%" + (sourceMuted ? "  [mudo]" : "")
-  }
 
   function toggleSinkMute() {
     if (sink && sink.audio) sink.audio.muted = !sink.audio.muted
@@ -84,7 +72,6 @@ Item {
     property real   iconOpacity: 1.0
     property color  iconColor:   "white"
     property bool   isSink:      true
-    property string tooltipText: ""
 
     signal leftClicked()
     signal rightClicked()
@@ -118,14 +105,15 @@ Item {
         var dx    = event.angleDelta.x
         var delta = Math.abs(dy) >= Math.abs(dx) ? dy : -dx
         iconRoot.scrolled(delta > 0 ? 0.05 : -0.05)
-        Bar.BarTooltip.update(iconRoot, iconRoot.tooltipText, volumeRoot.barPosition)
+        // Tooltip rico (mesmo padrão de MediaTooltip/ClockTooltip/QsTooltip)
+        VolumeTooltip.update(iconRoot, volumeRoot, iconRoot.isSink, volumeRoot.barPosition)
       }
 
       onContainsMouseChanged: {
-        if (containsMouse && iconRoot.tooltipText !== "")
-          Bar.BarTooltip.show(iconRoot, iconRoot.tooltipText, volumeRoot.barPosition)
+        if (containsMouse)
+          VolumeTooltip.show(iconRoot, volumeRoot, iconRoot.isSink, volumeRoot.barPosition)
         else
-          Bar.BarTooltip.hide()
+          VolumeTooltip.hide()
       }
     }
   }
@@ -153,7 +141,6 @@ Item {
       iconText:    volumeRoot.sinkIconText()
       iconOpacity: volumeRoot.sinkIconOpacity()
       iconColor:   volumeRoot.sinkIconColor()
-      tooltipText: volumeRoot.sinkTooltipText
       onLeftClicked:  volumeRoot.toggleSinkMute()
       onRightClicked: volumeRoot.sinkPanelRequested()
       onScrolled: (d) => volumeRoot.adjustSinkVolume(d)
@@ -164,7 +151,6 @@ Item {
       isSink:      false
       iconText:    volumeRoot.sourceIconText()
       iconColor:   volumeRoot.sourceIconColor()
-      tooltipText: volumeRoot.sourceTooltipText
       onLeftClicked:  volumeRoot.toggleSourceMute()
       onRightClicked: volumeRoot.sourcePanelRequested()
       onScrolled: (d) => volumeRoot.adjustSourceVolume(d)
@@ -183,7 +169,6 @@ Item {
       iconText:                 volumeRoot.sinkIconText()
       iconOpacity:              volumeRoot.sinkIconOpacity()
       iconColor:                volumeRoot.sinkIconColor()
-      tooltipText:              volumeRoot.sinkTooltipText
       anchors.horizontalCenter: parent.horizontalCenter
       onLeftClicked:  volumeRoot.toggleSinkMute()
       onRightClicked: volumeRoot.sinkPanelRequested()
@@ -195,7 +180,6 @@ Item {
       isSink:                   false
       iconText:                 volumeRoot.sourceIconText()
       iconColor:                volumeRoot.sourceIconColor()
-      tooltipText:              volumeRoot.sourceTooltipText
       anchors.horizontalCenter: parent.horizontalCenter
       onLeftClicked:  volumeRoot.toggleSourceMute()
       onRightClicked: volumeRoot.sourcePanelRequested()

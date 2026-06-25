@@ -161,6 +161,34 @@ QtObject {
         { key:"accentColor",type:"palette", default:"primary",           label:"Acento",  section:"CORES" },
         { key:"mutedColor", type:"palette", default:"error",             label:"Urgente", section:"CORES" },
         { key:"divider",    type:"palette", default:"outline_variant",   label:"Divisor", section:"CORES" },
+
+        // ── Comportamento ────────────────────────────────────────────
+        { key:"dndAllowCritical", type:"bool", default:true,
+          label:"Críticas ignoram Não Perturbe", section:"COMPORTAMENTO" },
+        { key:"defaultUrgencyFilter", type:"enum", default:0, label:"Filtro padrão do painel", section:"COMPORTAMENTO",
+          options:[{id:0,label:"Todas"},{id:1,label:"Normais"},{id:2,label:"Críticas"}] },
+
+        // ── Toasts ───────────────────────────────────────────────────
+        // Antes a posição do toast só dava pra trocar por um botão dentro
+        // do próprio painel (menu flutuante) — agora também vive aqui,
+        // então o botão de posição saiu do painel e essa é a única fonte.
+        { key:"toastPosition", type:"enum", default:"top-right", label:"Posição dos toasts", section:"TOASTS",
+          options:[
+            {id:"top-left",     label:"Superior esquerdo"},
+            {id:"top-center",   label:"Superior centro"},
+            {id:"top-right",    label:"Superior direito"},
+            {id:"bottom-left",  label:"Inferior esquerdo"},
+            {id:"bottom-center",label:"Inferior centro"},
+            {id:"bottom-right", label:"Inferior direito"},
+          ] },
+        { key:"maxToasts",        type:"int", default:5,    min:1,   max:10,    step:1,    unit:"",   label:"Máx. toasts simultâneos", section:"TOASTS" },
+        { key:"toastTimeoutMs",   type:"int", default:5000, min:1000,max:15000, step:500,  unit:"ms", label:"Duração (normal)",         section:"TOASTS" },
+        { key:"toastTimeoutLow",  type:"int", default:3000, min:1000,max:15000, step:500,  unit:"ms", label:"Duração (baixa urgência)", section:"TOASTS" },
+        { key:"toastTimeoutCrit", type:"int", default:0,    min:0,   max:30000, step:1000, unit:"ms", label:"Duração (crítica, 0=nunca)", section:"TOASTS" },
+
+        // ── Histórico e aparência dos cards ────────────────────────────
+        { key:"maxHistory", type:"int", default:50, min:10, max:200, step:10, unit:"",  label:"Máx. no histórico", section:"HISTÓRICO" },
+        { key:"cardRadius", type:"int", default:10, min:0,  max:20,  step:1,  unit:"px",label:"Raio dos cards",    section:"HISTÓRICO" },
       ]
     },
 
@@ -185,6 +213,7 @@ QtObject {
         { key:"numberBgRadius",   type:"int",  default:4, min:0, max:20, step:1, unit:"px", label:"Raio do fundo do número",      section:"NÚMERO", visibleWhen:"_hasIcons" },
         { key:"numberBgPaddingH", type:"int",  default:4, min:0, max:16, step:1, unit:"px", label:"Padding H do fundo do número", section:"NÚMERO", visibleWhen:"_hasIcons" },
         { key:"numberBgPaddingV", type:"int",  default:2, min:0, max:16, step:1, unit:"px", label:"Padding V do fundo do número", section:"NÚMERO", visibleWhen:"_hasIcons" },
+        { key:"numberSpacing",    type:"int",  default:4, min:0, max:20, step:1, unit:"px", label:"Espaço até o 1º ícone",        section:"NÚMERO", visibleWhen:"_hasIcons" },
         { key:"numberColor",         type:"palette", default:"on_surface_variant", label:"Número",                section:"CORES — NÚMERO", visibleWhen:"_hasIcons" },
         { key:"numberColorActive",   type:"palette", default:"on_primary",         label:"Número ativo",          section:"CORES — NÚMERO", visibleWhen:"_hasIcons" },
         { key:"numberBgColor",       type:"palette", default:"surface_variant",    label:"Fundo do número",       section:"CORES — NÚMERO", visibleWhen:"_hasIcons" },

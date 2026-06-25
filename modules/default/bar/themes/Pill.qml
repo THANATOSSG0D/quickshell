@@ -121,6 +121,7 @@ Item {
   property int    cfgWsNumberBgRadius:      4
   property int    cfgWsNumberBgPaddingH:    4
   property int    cfgWsNumberBgPaddingV:    2
+  property int    cfgWsNumberSpacing:       4
   property bool   cfgWsShowAddButton:       true
   property bool   cfgWsShowTooltip:         true
   property int    cfgWsSpacing:             2
@@ -565,6 +566,7 @@ Item {
             numberBgRadius:      root.cfgWsNumberBgRadius
             numberBgPaddingH:    root.cfgWsNumberBgPaddingH
             numberBgPaddingV:    root.cfgWsNumberBgPaddingV
+            numberSpacing:       root.cfgWsNumberSpacing
             dotColor:            root.colWsDot
             dotActiveColor:      root.colWsDotActive
             dotOccupiedColor:    root.colWsDotOccupied

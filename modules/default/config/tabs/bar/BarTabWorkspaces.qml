@@ -179,6 +179,14 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ moduleId: "workspaces", key: "numberBgPaddingV", value: v })
   }
   C.CfgSlider {
+    label: "Espaço entre número e 1º ícone"; value: root.g("numberSpacing", 4)
+    from: 0; to: 20; step: 1; unit: "px"
+    visible: root.isIcons && root.g("showNumber", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "workspaces", key: "numberSpacing", value: v })
+  }
+  C.CfgSlider {
     label: "Tamanho do dot"; value: root.gs("dotSize", 8)
     from: 4; to: 16; step: 1; unit: "px"
     visible: root.isDots

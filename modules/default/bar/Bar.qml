@@ -555,6 +555,7 @@ Scope {
         _set("cfgWsNumberBgRadius",    barState.config.wsNumberBgRadius)
         _set("cfgWsNumberBgPaddingH",  barState.config.wsNumberBgPaddingH)
         _set("cfgWsNumberBgPaddingV",  barState.config.wsNumberBgPaddingV)
+        _set("cfgWsNumberSpacing",     barState.config.wsNumberSpacing)
         _set("cfgWsBgOpacity",      barState.config.wsBgOpacity)
         _set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)
         _set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)
@@ -707,6 +708,7 @@ Scope {
         function onWsNumberBgRadiusChanged()   { bar._set("cfgWsNumberBgRadius",   barState.config.wsNumberBgRadius)   }
         function onWsNumberBgPaddingHChanged() { bar._set("cfgWsNumberBgPaddingH", barState.config.wsNumberBgPaddingH) }
         function onWsNumberBgPaddingVChanged() { bar._set("cfgWsNumberBgPaddingV", barState.config.wsNumberBgPaddingV) }
+        function onWsNumberSpacingChanged()    { bar._set("cfgWsNumberSpacing",    barState.config.wsNumberSpacing)    }
         function onWsBgOpacityChanged()      { bar._set("cfgWsBgOpacity",      barState.config.wsBgOpacity)      }
         function onWsBgPaddingHChanged()     { bar._set("cfgWsBgPaddingH",     barState.config.wsBgPaddingH)     }
         function onWsBgPaddingVChanged()     { bar._set("cfgWsBgPaddingV",     barState.config.wsBgPaddingV)     }
