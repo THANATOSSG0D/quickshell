@@ -22,6 +22,7 @@ Item {
     property color colorTextDim: "#c6c6c6"
 
     signal clicked()
+    signal rightClicked()
 
     // ── Visual ─────────────────────────────────────────────────────────────
     Rectangle {
@@ -81,7 +82,13 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape:  Qt.PointingHandCursor
-            onClicked:    root.clicked()
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton)
+                    root.rightClicked()
+                else
+                    root.clicked()
+            }
         }
     }
 }

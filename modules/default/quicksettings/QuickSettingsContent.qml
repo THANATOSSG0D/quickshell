@@ -355,6 +355,31 @@ Item {
             if (!caffeineStatusProc.running) caffeineStatusProc.running = true
             _refreshWifiList()
             _refreshEthList()
+        } else {
+            // Painel fechado: fecha qualquer sub-página aberta (wifi/ethernet/bluetooth/etc.)
+            root.subPage = ""
+        }
+    }
+
+    // ── Auto-refresh da sub-página ativa (1x por segundo) ──────────────────
+    // Enquanto uma sub-página com dados "vivos" estiver aberta (Wi-Fi, Ethernet,
+    // Bluetooth), atualiza status/listas periodicamente, sem precisar de ação
+    // manual do usuário (botão de refresh).
+    Timer {
+        id: subPageRefreshTimer
+        interval: 1000
+        repeat: true
+        running: root.panelOpen && (root.subPage === "wifi" || root.subPage === "ethernet" || root.subPage === "bluetooth")
+        onTriggered: {
+            if (root.subPage === "wifi") {
+                root._refreshStatus()
+                if (!wifiListProc.running && !wifiScanProc.running) root._refreshWifiList()
+            } else if (root.subPage === "ethernet") {
+                root._refreshStatus()
+                if (!ethListProc.running) root._refreshEthList()
+            } else if (root.subPage === "bluetooth") {
+                root._refreshBt()
+            }
         }
     }
 
@@ -445,7 +470,8 @@ Item {
                                 badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
                                 active: root.wifiEnabled
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root.subPage = "wifi"
+                                onClicked:      root.subPage = "wifi"
+                                onRightClicked: root._toggleWifi()
                             }
                             Qs.QsToggleTile {
                                 Layout.fillWidth: true; Layout.preferredHeight: 50
@@ -455,7 +481,8 @@ Item {
                                     : (root.ethDevice ? "desconectado" : "indisponível")
                                 active: root.ethConnected
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root.subPage = "ethernet"
+                                onClicked:      root.subPage = "ethernet"
+                                onRightClicked: root._toggleEth()
                             }
                             Qs.QsToggleTile {
                                 Layout.fillWidth: true; Layout.preferredHeight: 50
@@ -463,7 +490,8 @@ Item {
                                 badge: root.btEnabled ? "ligado" : "desligado"
                                 active: root.btEnabled
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root.subPage = "bluetooth"
+                                onClicked:      root.subPage = "bluetooth"
+                                onRightClicked: root._toggleBluetooth()
                             }
                             Qs.QsToggleTile {
                                 Layout.fillWidth: true; Layout.preferredHeight: 50

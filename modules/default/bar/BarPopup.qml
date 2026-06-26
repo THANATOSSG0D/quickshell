@@ -294,7 +294,7 @@ PanelWindow {
   readonly property string _attachMode: !barRef ? "loose" : (_floating ? "monitor" : "bar")
 
   // ── Slide: direção (idêntica ao original) ─────────────────────────────────
-  readonly property real _slideAmt: 20
+  readonly property real _slideAmt: 36   // era 20 — mais perceptível
 
   readonly property real _slideX: {
     if (!_isVertical) return 0
@@ -491,18 +491,18 @@ PanelWindow {
     }
   }
 
-  // ── Animações (idênticas ao original, exceto easing condicional p/ "reveal") ─
-  // "reveal" não usa overshoot: o bounce do OutBack não combina com uma máscara
-  // de clip (estoura os 100% e seria cortado de qualquer forma) e quebra a
-  // ilusão de "gaveta sólida saindo da barra". Os demais estilos mantêm o
-  // comportamento original.
+  // ── Animações ──────────────────────────────────────────────────────────────
+  // Sem overshoot/bounce em nenhum estilo — fluido e previsível tanto pra
+  // abrir quanto pra fechar. O "reveal" já não usava bounce (não combinava
+  // com a máscara de clip); agora o "slide"/"scale"/"scale-slide" seguem o
+  // mesmo princípio.
   NumberAnimation {
     id: openAnim
     target:           popup
     property:         "_animProg"
     duration:         popup.animDuration
-    easing.type:      popup.animationStyle === "reveal" ? Easing.OutCubic : Easing.OutBack
-    easing.overshoot:  popup.animationStyle === "reveal" ? 0 : 0.5
+    easing.type:      Easing.OutCubic
+    easing.overshoot: 0
   }
 
   NumberAnimation {
@@ -533,7 +533,7 @@ PanelWindow {
       // não a opacidade. Isso é o que vende a sensação de material sólido
       // saindo de dentro da barra, em vez de um painel translúcido surgindo.
       case "reveal":      return _alive ? bgOpacity : 0
-      default:            return Math.min(bgOpacity, _animProg * 1.4 * bgOpacity)  // slide original
+      default:            return _animProg * bgOpacity  // slide — fade sincronizado com o translate
     }
   }
   readonly property real _bgTransX: {
