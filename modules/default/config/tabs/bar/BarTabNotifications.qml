@@ -127,6 +127,30 @@ C.CfgScroll {
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId:"notifications", key:"toastTimeoutCrit", value:v })
   }
+  C.CfgSlider {
+    label: "Largura do toast"
+    value: root.g("toastWidth", 340)
+    from: 220; to: 520; step: 10; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId:"notifications", key:"toastWidth", value:v })
+  }
+  C.CfgSlider {
+    label: "Margem da borda da tela"
+    value: root.g("toastMargin", 12)
+    from: 0; to: 60; step: 2; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId:"notifications", key:"toastMargin", value:v })
+  }
+  C.CfgSlider {
+    label: "Espaço entre toasts"
+    value: root.g("toastSpacing", 8)
+    from: 0; to: 30; step: 2; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId:"notifications", key:"toastSpacing", value:v })
+  }
 
   C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "HISTÓRICO E CARDS"; colorTextDim: root.colorTextDim }
@@ -146,6 +170,75 @@ C.CfgScroll {
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId:"notifications", key:"cardRadius", value:v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "REGRAS POR APP"; colorTextDim: root.colorTextDim }
+
+  Text {
+    text: "Liste apps separados por vírgula. Cada termo é REGEX (case-insensitive) contra o nome do app que mandou a notificação — mesma convenção do campo de prioridade de players da Mídia."
+    color: root.colorTextDim
+    font.pixelSize: 11
+    wrapMode: Text.WordWrap
+    width: parent.width
+  }
+
+  Text {
+    text: "Sempre mostra toast (ignora Não Perturbe)"
+    color: root.colorTextDim
+    font.pixelSize: 11
+    topPadding: 4
+  }
+  Rectangle {
+    width:  parent.width
+    height: 34
+    radius: 6
+    color:  root.colorSidebar
+    border.width: 1
+    border.color: root.colorDivider
+
+    TextInput {
+      id: dndBypassInput
+      anchors.fill: parent
+      anchors.leftMargin: 10
+      anchors.rightMargin: 10
+      verticalAlignment: TextInput.AlignVCenter
+      color: root.colorText
+      font.pixelSize: 12
+      selectByMouse: true
+      text: root.g("dndBypassApps", "")
+
+      onEditingFinished: root.changed({ moduleId: "notifications", key: "dndBypassApps", value: text })
+    }
+  }
+
+  Text {
+    text: "Nunca mostra toast (continua indo pro histórico)"
+    color: root.colorTextDim
+    font.pixelSize: 11
+    topPadding: 8
+  }
+  Rectangle {
+    width:  parent.width
+    height: 34
+    radius: 6
+    color:  root.colorSidebar
+    border.width: 1
+    border.color: root.colorDivider
+
+    TextInput {
+      id: blockedToastInput
+      anchors.fill: parent
+      anchors.leftMargin: 10
+      anchors.rightMargin: 10
+      verticalAlignment: TextInput.AlignVCenter
+      color: root.colorText
+      font.pixelSize: 12
+      selectByMouse: true
+      text: root.g("blockedToastApps", "")
+
+      onEditingFinished: root.changed({ moduleId: "notifications", key: "blockedToastApps", value: text })
+    }
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

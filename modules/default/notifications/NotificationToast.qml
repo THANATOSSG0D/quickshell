@@ -26,9 +26,12 @@ PanelWindow {
     required property var service   // NotificationService
 
     // ── Configuração ───────────────────────────────────────────────────────
-    property int   toastWidth:  340
-    property int   toastMargin: 12   // margem da borda da tela
-    property int   toastSpacing: 8   // espaço entre toasts
+    // Antes eram hardcoded aqui (340/12/8), sem nenhuma config exposta na
+    // aba. Agora a fonte de verdade é o service (mesmo padrão de toastPosition
+    // logo abaixo), assim a aba Notificações controla isso de fato.
+    readonly property int toastWidth:   service.toastWidth
+    readonly property int toastMargin:  service.toastMargin
+    readonly property int toastSpacing: service.toastSpacing
 
     // Cores — antes eram um esquema Catppuccin hardcoded, totalmente
     // desconectado da paleta matugen (Colors) que move o resto do shell.
@@ -44,10 +47,11 @@ PanelWindow {
     property color colorMuted:   Colors.error
     property color colorDivider: Colors.outline_variant
 
-    // Raio e sombra — lidos do PopupConfig.globals para combinar com o
-    // bgRadius/shadow* configurados no painel (mesma fonte que o BarPopup
-    // usa), em vez de um cantinho fixo só do toast.
-    readonly property int   _bgRadius:      PopupConfig.get(null, "bgRadius",      10)
+    // Sombra — lida do PopupConfig.globals (mesma fonte que o BarPopup usa),
+    // assim o toast continua combinando com a sombra dos outros popups.
+    // O raio do card agora vem de service.cardRadius (ver mais abaixo),
+    // não mais de um bgRadius global separado — assim o slider "Raio dos
+    // cards" da aba afeta painel E toast com o mesmo valor.
     readonly property bool  _shadowEnabled: PopupConfig.get(null, "shadowEnabled", true)
     readonly property real  _shadowBlur:    PopupConfig.get(null, "shadowBlur",    16)
     readonly property int   _shadowOffX:    PopupConfig.get(null, "shadowOffsetX", 0)
@@ -146,10 +150,16 @@ PanelWindow {
                 colorAccent:  root.colorAccent
                 colorMuted:   root.colorMuted
                 colorDivider: root.colorDivider
-                cardRadius:   root._bgRadius
+                cardRadius:   root.service.cardRadius
 
                 onDismissed:     (id) => root.service.dismissToast(id)
                 onActionInvoked: (id, identifier) => root.service.invokeAction(id, identifier)
+
+                // Pausa o timeout de expiração enquanto o mouse está sobre
+                // o toast — antes ele podia expirar embaixo do cursor
+                // enquanto você ainda estava lendo ou prestes a clicar
+                // numa ação.
+                onHoveredChanged: root.service.setToastPaused(modelData.id, hovered)
             }
 
             // Sombra — mesma fonte de config (PopupConfig.globals) usada pelos

@@ -1,6 +1,7 @@
 pragma Singleton
 import Quickshell
 import QtQuick
+import qs
 
 // NotifTooltip — singleton de tooltip rico para o módulo de notificações
 // (o sino na barra). Mesma filosofia do WsTooltip/QsTooltip/MediaTooltip:
@@ -20,11 +21,15 @@ import QtQuick
 Singleton {
   id: root
 
-  property color bgColor:      Qt.rgba(0.05, 0.05, 0.05, 0.92)
-  property color fgColor:      "#e2e2e2"
-  property color fgDimColor:   Qt.rgba(1, 1, 1, 0.55)
-  property color accentColor:  "#ffb4a9"
-  property color mutedColor:   "#cf6679"
+  // Antes eram cores hardcoded num esquema Catppuccin desconectado da
+  // paleta matugen (mesmo problema que o NotificationToast.qml tinha,
+  // já corrigido lá) — esse tooltip tinha ficado de fora daquela limpeza.
+  // Agora usa os mesmos tokens (Colors.*) que o resto do módulo.
+  property color bgColor:      Qt.rgba(Colors.surface_container.r, Colors.surface_container.g, Colors.surface_container.b, 0.92)
+  property color fgColor:      Colors.on_surface
+  property color fgDimColor:   Colors.on_surface_variant
+  property color accentColor:  Colors.primary
+  property color mutedColor:   Colors.error
 
   property var _anchorItem: null
   property var _service:    null
@@ -141,7 +146,7 @@ Singleton {
         Rectangle {
           visible: root._items.length > 0
           width: parent.width; height: 1
-          color: Qt.rgba(1, 1, 1, 0.08)
+          color: Qt.rgba(root.fgDimColor.r, root.fgDimColor.g, root.fgDimColor.b, 0.25)
         }
 
         // ── Pré-visualização das últimas notificações ───────────────────

@@ -68,15 +68,33 @@ Item {
     // Hover sutil no card inteiro — antes não havia nenhum feedback visual
     // ao passar o mouse além dos botões individuais, o que deixava o card
     // parecendo um bloco de texto estático em vez de algo interativo.
-    property bool _hovered: false
+    // Público (sem _) porque o NotificationToast escuta onHoveredChanged
+    // pra pausar o timeout de expiração enquanto o mouse está sobre o card.
+    property bool hovered: false
 
     MouseArea {
         anchors.fill: card
         hoverEnabled: true
         propagateComposedEvents: true
         z: -1
-        onContainsMouseChanged: root._hovered = containsMouse
+        onContainsMouseChanged: root.hovered = containsMouse
         onPressed: (mouse) => mouse.accepted = false
+    }
+
+    // Card inteiro (header → ações) já tem o MouseArea de hover acima, em
+    // z:-1, sempre recusando o press (propagateComposedEvents) — por isso
+    // o clique "atravessa" pra essa aqui, em z:-2. Os botões (close/ações),
+    // por estarem aninhados dentro de "card" (efetivamente "na frente" na
+    // árvore de hit-testing), continuam roubando o clique antes de chegar
+    // aqui — então isso só dispara quando o clique NÃO acerta nenhum botão.
+    // Só ativo em modo toast: no painel isso atrapalharia quem só quer ler
+    // o histórico sem dispensar por engano.
+    MouseArea {
+        anchors.fill: card
+        enabled:      root.mode === "toast"
+        z: -2
+        cursorShape:  Qt.PointingHandCursor
+        onClicked:    root.dismissed(root.notifId)
     }
 
     // ── Card ───────────────────────────────────────────────────────────────
@@ -86,8 +104,8 @@ Item {
         anchors.right: parent.right
         radius: root.cardRadius
         color:  Qt.rgba(root.colorBg.r, root.colorBg.g, root.colorBg.b,
-                         (mode === "toast" ? 0.94 : 0.85) + (root._hovered ? 0.06 : 0))
-        border.color: Qt.rgba(1, 1, 1, root._hovered ? 0.10 : 0.0)
+                         (mode === "toast" ? 0.94 : 0.85) + (root.hovered ? 0.06 : 0))
+        border.color: Qt.rgba(1, 1, 1, root.hovered ? 0.10 : 0.0)
         border.width: 1
         Behavior on color        { ColorAnimation { duration: 120 } }
         Behavior on border.color { ColorAnimation { duration: 120 } }
@@ -131,6 +149,7 @@ Item {
 
             // ── Header: ícone + appName + horário + fechar ─────────────────
             RowLayout {
+                id: headerRow
                 width: parent.width
                 spacing: 6
 
@@ -141,7 +160,7 @@ Item {
                 // então a maioria ficava sem ícone de verdade.
                 Item {
                     width: 26; height: 26
-                    anchors.verticalCenter: parent.verticalCenter
+                    Layout.alignment: Qt.AlignVCenter
 
                     Rectangle {
                         anchors.fill: parent
@@ -263,6 +282,7 @@ Item {
             // nenhum botão de ação, mesmo quando a notificação tinha (ex:
             // "Responder", "Marcar como lida", os botões -A do notify-send).
             Row {
+                id:         actionsRow
                 visible:    root.actions && root.actions.length > 0
                 spacing:    6
                 topPadding: 2
