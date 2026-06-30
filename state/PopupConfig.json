@@ -1,11 +1,11 @@
 {
     "globals": {
         "animDuration": 500,
-        "animationStyle": "slide",
-        "attachOffset": 0,
+        "animationStyle": "reveal",
+        "attachOffset": 10,
         "bgRadius": 10,
         "colorPanelBg": "background",
-        "cornerMode": "bar",
+        "cornerMode": "all",
         "popupXAlign": "center",
         "popupYAnchor": "bar",
         "shadowEnabled": false

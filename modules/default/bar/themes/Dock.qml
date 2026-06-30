@@ -8,23 +8,31 @@ import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
 // ════════════════════════════════════════════════════════════════════════
-// DEFAULT — a barra "de fábrica" da família.
+// DOCK — tema alternativo ao Pill.
 //
-// Uma única faixa sólida, sem cápsula e sem ilhas, ocupando a tela de ponta
-// a ponta — exatamente o que qualquer pessoa esperaria de uma barra de
-// status comum (estilo polybar/waybar "flat"). Módulos ficam direto sobre
-// o fundo, sem cartão por baixo; a única assinatura visual é uma linha fina
-// de destaque na borda da barra que fica voltada para a área de trabalho
-// (a "borda interna" — embaixo se a barra está no topo, em cima se está no
-// fundo, etc.).
+// Em vez de uma única cápsula que envolve a barra inteira, cada grupo de
+// módulos (left/center/right ou top/middle/bottom) flutua como um cartão
+// ("ilha") independente: cantos arredondados (raio menor que o Pill — mais
+// "tile" do que cápsula), borda tingida pela cor de destaque, sombra plana
+// (sem blur) deslocada para baixo. O espaço ENTRE as ilhas fica totalmente
+// transparente — o wallpaper aparece por trás, dando a sensação de módulos
+// flutuando soltos sobre a tela em vez de uma barra contínua.
 //
-// pill = false — igual ao Dock, a janela ocupa a tela inteira. Mas aqui nem
-// o conceito de "ilha" existe: é um único Rectangle plano cobrindo toda a
-// PanelWindow, com os módulos posicionados diretamente em cima dele.
+// Diferença estrutural chave: pill = false. Isto significa que, ao
+// contrário do Pill.qml, a PanelWindow NÃO é redimensionada para acompanhar
+// o conteúdo — a barra ocupa sempre a tela inteira (largura ou altura,
+// dependendo da posição), exatamente como Default/Minimal. Por isso este
+// arquivo NÃO precisa de toda a lógica de medição/histerese que o Pill
+// exige (_measuredContentWidth, Behavior on implicitWidth, pillSideMargin,
+// expansão ao abrir popup, etc.) — cada ilha apenas mede o próprio
+// conteúdo internamente, sem afetar o tamanho da janela.
 //
-// Como em Pill/Dock, toda a parte de configuração (cfgWs*/cfgMp*/cfgVol*/
-// cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é mantida idêntica — é isso que
-// permite trocar de tema sem perder nenhuma configuração já salva.
+// Toda a parte de "quais módulos existem e como configurá-los" (cfgWs*,
+// cfgMp*, cfgVol*, cfgQs*, cfgNotif*, cfgClk*, moduleItemComp) é mantida
+// IDÊNTICA à do Pill.qml — copiada propositalmente sem alterações de nomes
+// ou defaults, para garantir que nenhuma configuração existente
+// (BarSchema/BarConfig/Bar.json/BarState.json/editor) quebre ao trocar de
+// tema para "Dock".
 // ════════════════════════════════════════════════════════════════════════
 
 Item {
@@ -40,8 +48,11 @@ Item {
   property bool   hasMediaPanel: true
   property int    barPosition:   2
 
-  // ── Props de compatibilidade com o contrato do Pill (não usadas aqui —
-  // ver explicação completa no Dock.qml) ─────────────────────────────────
+  // ── Props de compatibilidade com o contrato do Pill ─────────────────────
+  // Não usadas por este tema (a janela tem tamanho fixo, não precisa medir
+  // conteúdo nem crescer ao abrir popups) — mantidas apenas para que os
+  // Bindings declarativos do Bar.qml (que assumem que todo tema pode tê-las)
+  // não acusem "Invalid property assignment" ao tentar atribuí-las.
   property int  minPillWidth:   400
   property int  pillMinSpacing: 20
   property int  activePopupW:   0
@@ -55,6 +66,7 @@ Item {
   signal mediaPlayerClicked()
   signal refsUpdated()
 
+  // Refs coletadas do layout carregado — Bar.qml lê estas props
   property var mediaPlayer:   null
   property var volumeWidget:  null
   property var sinkWidget:    null
@@ -62,10 +74,14 @@ Item {
   property var clock:         null
   property var notifWidget:   null
 
+  // Injetado pelo Bar.qml após o onLoaded
   property var notifService: null
 
   readonly property bool isHorizontal: barPosition === 1 || barPosition === 3
 
+  // ── Módulos por slot ─────────────────────────────────────────────────────
+  // Mantidos em sincronia pelos Binding declarativos em Bar.qml via
+  // barState.modules* — reativos, sem _reloadLayout() nem timers.
   property var cfgModulesLeft:   []
   property var cfgModulesCenter: []
   property var cfgModulesRight:  []
@@ -175,12 +191,16 @@ Item {
   property color colWsNumberBg:       "#2a2a2a"
   property color colWsNumberBgActive: "#ffb4a9"
 
-  // ── Aparência específica do Default (constantes de implementação, não
-  // expostas no schema/editor — mesmo espírito do que Pill/Dock já fazem) ──
-  property int  edgeInset:           12     // distância do 1º/último módulo até a ponta da barra
-  property int  slotSpacing:         8      // espaço entre módulos dentro do mesmo slot
-  property int  accentLineThickness: 2      // espessura da linha de destaque na borda interna
-  property real accentLineOpacity:   0.55
+  // ── Aparência específica do Dock (não exposta no schema/editor — são
+  // detalhes de implementação do tema, no mesmo espírito das constantes
+  // hardcoded que o Pill.qml já usa: spacing:6, anchors.leftMargin:10, etc.) ──
+  property int  islandRadius:        12     // raio "cartão" — menor que o do Pill (cápsula)
+  property int  islandPadH:          14     // padding horizontal interno de cada ilha
+  property int  islandSpacing:       6      // espaço entre módulos dentro da mesma ilha
+  property int  edgeInset:           10     // distância das ilhas até a borda da tela
+  property int  shadowOffset:        3       // deslocamento vertical da sombra plana
+  property real islandBorderOpacity: 0.28
+  property real islandShadowOpacity: 0.22
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual — idêntico em espírito ao do Pill.qml.
@@ -544,9 +564,9 @@ Item {
   // ══════════════════════════════════════════════════════════════════════
   // HORIZONTAL — left | center | right
   //
-  // Fundo único, plano, cobrindo toda a barra. Módulos ficam direto em
-  // cima, sem fundo próprio. Uma linha fina marca a borda voltada para a
-  // área de trabalho.
+  // Cada slot é a sua própria "ilha" flutuante, com fundo, borda e sombra
+  // independentes — não um único fundo contínuo como no Pill. O espaço
+  // entre ilhas é transparente.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: horizontalComp
@@ -575,89 +595,41 @@ Item {
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
 
-      // ── Fundo plano — uma única faixa sólida, sem cantos, sem cápsula ──
-      Rectangle {
-        anchors.fill: parent
-        color: root.colBarBg
-      }
-
-      // ── Linha de destaque na borda interna (voltada para o desktop) ────
-      // posição 1 (topo) → linha na borda de baixo da barra
-      // posição 3 (baixo) → linha na borda de cima da barra
-      Rectangle {
-        anchors.left:  parent.left
-        anchors.right: parent.right
-        height:  root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        y: root.barPosition === 1 ? parent.height - height : 0
-      }
-
-      // ── Slot esquerda ──────────────────────────────────────────────────
-      Row {
-        id: leftRow
+      // ── Ilha esquerda ────────────────────────────────────────────────
+      Item {
+        id: leftIsland
         anchors.left:           parent.left
         anchors.leftMargin:     root.edgeInset
         anchors.verticalCenter: parent.verticalCenter
-        spacing: root.slotSpacing
+        height:                 parent.height
+        width:                  leftRow.width + root.islandPadH * 2
+        visible:                root.cfgModulesLeft.length > 0
+        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-        Repeater {
-          id: leftRep
-          model: root.cfgModulesLeft
-          delegate: Loader {
-            required property string modelData
-            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = true
-              item.monName = hRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
+        Rectangle { // sombra plana, sem blur — deslocada para baixo
+          width:  parent.width
+          height: parent.height
+          y:      root.shadowOffset
+          radius: root.islandRadius
+          color:  "#000000"
+          opacity: root.islandShadowOpacity
         }
-      }
-
-      // ── Slot direita ─────────────────────────────────────────────────
-      Row {
-        id: rightRow
-        anchors.right:          parent.right
-        anchors.rightMargin:    root.edgeInset
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: root.slotSpacing
-
-        Repeater {
-          id: rightRep
-          model: root.cfgModulesRight
-          delegate: Loader {
-            required property string modelData
-            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = true
-              item.monName = hRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
+        Rectangle { // fundo da ilha
+          anchors.fill: parent
+          radius:       root.islandRadius
+          color:        root.colBarBgPill
+          border.width: 1
+          border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.islandBorderOpacity)
         }
-      }
-
-      // ── Slot central ───────────────────────────────────────────────────
-      Item {
-        anchors.fill: parent
-        clip: true
 
         Row {
-          id: centerRow
+          id: leftRow
           anchors.centerIn: parent
-          spacing: root.slotSpacing
+          spacing: root.islandSpacing
 
           Repeater {
-            id: centerRep
-            model: root.cfgModulesCenter
+            id: leftRep
+            model: root.cfgModulesLeft
             delegate: Loader {
               required property string modelData
               anchors.verticalCenter: parent ? parent.verticalCenter : undefined
@@ -673,11 +645,123 @@ Item {
           }
         }
       }
+
+      // ── Ilha direita ─────────────────────────────────────────────────
+      Item {
+        id: rightIsland
+        anchors.right:          parent.right
+        anchors.rightMargin:    root.edgeInset
+        anchors.verticalCenter: parent.verticalCenter
+        height:                 parent.height
+        width:                  rightRow.width + root.islandPadH * 2
+        visible:                root.cfgModulesRight.length > 0
+        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        Rectangle {
+          width:  parent.width
+          height: parent.height
+          y:      root.shadowOffset
+          radius: root.islandRadius
+          color:  "#000000"
+          opacity: root.islandShadowOpacity
+        }
+        Rectangle {
+          anchors.fill: parent
+          radius:       root.islandRadius
+          color:        root.colBarBgPill
+          border.width: 1
+          border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.islandBorderOpacity)
+        }
+
+        Row {
+          id: rightRow
+          anchors.centerIn: parent
+          spacing: root.islandSpacing
+
+          Repeater {
+            id: rightRep
+            model: root.cfgModulesRight
+            delegate: Loader {
+              required property string modelData
+              anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+              sourceComponent: moduleItemComp
+              onLoaded: {
+                item.modId   = modelData
+                item.isH     = true
+                item.monName = hRoot.monitorName
+              }
+              Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
+              onItemChanged: root._updateRefs()
+            }
+          }
+        }
+      }
+
+      // ── Ilha central ─────────────────────────────────────────────────
+      // Container com anchors.fill+clip evita transbordo visual se o
+      // conteúdo central for, em algum momento extremo, maior que o
+      // espaço livre entre as ilhas laterais.
+      Item {
+        anchors.fill: parent
+        clip: true
+
+        Item {
+          id: centerIsland
+          anchors.centerIn: parent
+          height:  parent.height
+          width:   centerRow.width + root.islandPadH * 2
+          visible: root.cfgModulesCenter.length > 0
+          Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+          Rectangle {
+            width:  parent.width
+            height: parent.height
+            y:      root.shadowOffset
+            radius: root.islandRadius
+            color:  "#000000"
+            opacity: root.islandShadowOpacity
+          }
+          Rectangle {
+            anchors.fill: parent
+            radius:       root.islandRadius
+            color:        root.colBarBgPill
+            border.width: 1
+            border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.islandBorderOpacity)
+          }
+
+          Row {
+            id: centerRow
+            anchors.centerIn: parent
+            spacing: root.islandSpacing
+
+            Repeater {
+              id: centerRep
+              model: root.cfgModulesCenter
+              delegate: Loader {
+                required property string modelData
+                anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+                sourceComponent: moduleItemComp
+                onLoaded: {
+                  item.modId   = modelData
+                  item.isH     = true
+                  item.monName = hRoot.monitorName
+                }
+                Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
+                onItemChanged: root._updateRefs()
+              }
+            }
+          }
+        }
+      }
     }
   }
 
   // ══════════════════════════════════════════════════════════════════════
   // VERTICAL — top | middle | bottom
+  //
+  // Mesma filosofia do layout horizontal: três ilhas independentes, cada
+  // uma ocupando toda a largura fina da barra vertical (barSize), com o
+  // próprio fundo/borda/sombra — em vez de uma única cápsula vertical.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: verticalComp
@@ -706,87 +790,41 @@ Item {
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
 
-      Rectangle {
-        anchors.fill: parent
-        color: root.colBarBg
-      }
-
-      // posição 4 (esquerda) → linha na borda direita da barra
-      // posição 2 (direita)  → linha na borda esquerda da barra
-      Rectangle {
-        anchors.top:    parent.top
-        anchors.bottom: parent.bottom
-        width:   root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        x: root.barPosition === 4 ? parent.width - width : 0
-      }
-
-      // ── Slot superior ────────────────────────────────────────────────
-      Column {
-        id: topCol
-        anchors.top:              parent.top
-        anchors.topMargin:        root.edgeInset
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: root.slotSpacing
-
-        Repeater {
-          id: topRep
-          model: root.cfgModulesTop
-          delegate: Loader {
-            required property string modelData
-            anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = false
-              item.monName = vRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
-        }
-      }
-
-      // ── Slot inferior ────────────────────────────────────────────────
-      Column {
-        id: bottomCol
-        anchors.bottom:           parent.bottom
-        anchors.bottomMargin:     root.edgeInset
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: root.slotSpacing
-
-        Repeater {
-          id: bottomRep
-          model: root.cfgModulesBottom
-          delegate: Loader {
-            required property string modelData
-            anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-            sourceComponent: moduleItemComp
-            onLoaded: {
-              item.modId   = modelData
-              item.isH     = false
-              item.monName = vRoot.monitorName
-            }
-            Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
-          }
-        }
-      }
-
-      // ── Slot central ───────────────────────────────────────────────────
+      // ── Ilha superior ────────────────────────────────────────────────
       Item {
-        anchors.fill: parent
-        clip: true
+        id: topIsland
+        anchors.top:    parent.top
+        anchors.topMargin: root.edgeInset
+        anchors.horizontalCenter: parent.horizontalCenter
+        width:  parent.width
+        height: topCol.height + root.islandPadH * 2
+        visible: root.cfgModulesTop.length > 0
+        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        Rectangle {
+          width:  parent.width
+          height: parent.height
+          y:      root.shadowOffset
+          radius: root.islandRadius
+          color:  "#000000"
+          opacity: root.islandShadowOpacity
+        }
+        Rectangle {
+          anchors.fill: parent
+          radius:       root.islandRadius
+          color:        root.colBarBgPill
+          border.width: 1
+          border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.islandBorderOpacity)
+        }
 
         Column {
-          id: middleCol
+          id: topCol
           anchors.centerIn: parent
-          spacing: root.slotSpacing
+          spacing: root.islandSpacing
 
           Repeater {
-            id: middleRep
-            model: root.cfgModulesMiddle
+            id: topRep
+            model: root.cfgModulesTop
             delegate: Loader {
               required property string modelData
               anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
@@ -798,6 +836,111 @@ Item {
               }
               Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
               onItemChanged: root._updateRefs()
+            }
+          }
+        }
+      }
+
+      // ── Ilha inferior ────────────────────────────────────────────────
+      Item {
+        id: bottomIsland
+        anchors.bottom:       parent.bottom
+        anchors.bottomMargin: root.edgeInset
+        anchors.horizontalCenter: parent.horizontalCenter
+        width:  parent.width
+        height: bottomCol.height + root.islandPadH * 2
+        visible: root.cfgModulesBottom.length > 0
+        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        Rectangle {
+          width:  parent.width
+          height: parent.height
+          y:      root.shadowOffset
+          radius: root.islandRadius
+          color:  "#000000"
+          opacity: root.islandShadowOpacity
+        }
+        Rectangle {
+          anchors.fill: parent
+          radius:       root.islandRadius
+          color:        root.colBarBgPill
+          border.width: 1
+          border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.islandBorderOpacity)
+        }
+
+        Column {
+          id: bottomCol
+          anchors.centerIn: parent
+          spacing: root.islandSpacing
+
+          Repeater {
+            id: bottomRep
+            model: root.cfgModulesBottom
+            delegate: Loader {
+              required property string modelData
+              anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+              sourceComponent: moduleItemComp
+              onLoaded: {
+                item.modId   = modelData
+                item.isH     = false
+                item.monName = vRoot.monitorName
+              }
+              Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
+              onItemChanged: root._updateRefs()
+            }
+          }
+        }
+      }
+
+      // ── Ilha central (vertical) ────────────────────────────────────────
+      Item {
+        anchors.fill: parent
+        clip: true
+
+        Item {
+          id: middleIsland
+          anchors.centerIn: parent
+          width:   parent.width
+          height:  middleCol.height + root.islandPadH * 2
+          visible: root.cfgModulesMiddle.length > 0
+          Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+          Rectangle {
+            width:  parent.width
+            height: parent.height
+            y:      root.shadowOffset
+            radius: root.islandRadius
+            color:  "#000000"
+            opacity: root.islandShadowOpacity
+          }
+          Rectangle {
+            anchors.fill: parent
+            radius:       root.islandRadius
+            color:        root.colBarBgPill
+            border.width: 1
+            border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.islandBorderOpacity)
+          }
+
+          Column {
+            id: middleCol
+            anchors.centerIn: parent
+            spacing: root.islandSpacing
+
+            Repeater {
+              id: middleRep
+              model: root.cfgModulesMiddle
+              delegate: Loader {
+                required property string modelData
+                anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+                sourceComponent: moduleItemComp
+                onLoaded: {
+                  item.modId   = modelData
+                  item.isH     = false
+                  item.monName = vRoot.monitorName
+                }
+                Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
+                onItemChanged: root._updateRefs()
+              }
             }
           }
         }

@@ -8,23 +8,21 @@ import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
 // ════════════════════════════════════════════════════════════════════════
-// DEFAULT — a barra "de fábrica" da família.
+// AURORA — versão simplificada.
 //
-// Uma única faixa sólida, sem cápsula e sem ilhas, ocupando a tela de ponta
-// a ponta — exatamente o que qualquer pessoa esperaria de uma barra de
-// status comum (estilo polybar/waybar "flat"). Módulos ficam direto sobre
-// o fundo, sem cartão por baixo; a única assinatura visual é uma linha fina
-// de destaque na borda da barra que fica voltada para a área de trabalho
-// (a "borda interna" — embaixo se a barra está no topo, em cima se está no
-// fundo, etc.).
+// Uma única barra arredondada cobrindo a tela inteira, com um gradiente
+// vertical sutil (mais claro no topo, mais escuro na base) e uma borda
+// fina e discreta. Só isso — sem brilho externo, sem anel gradiente
+// colorido, sem reflexo no topo. A versão anterior tinha camadas demais;
+// esta fica só com o que realmente carrega a sensação de "vidro" sem virar
+// efeito chamativo.
 //
-// pill = false — igual ao Dock, a janela ocupa a tela inteira. Mas aqui nem
-// o conceito de "ilha" existe: é um único Rectangle plano cobrindo toda a
-// PanelWindow, com os módulos posicionados diretamente em cima dele.
+// pill = false — como os outros temas não-Pill, a janela ocupa a tela
+// inteira; é uma única barra contínua, sem ilhas por módulo.
 //
-// Como em Pill/Dock, toda a parte de configuração (cfgWs*/cfgMp*/cfgVol*/
-// cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é mantida idêntica — é isso que
-// permite trocar de tema sem perder nenhuma configuração já salva.
+// Como nos outros temas da família, toda a parte de configuração
+// (cfgWs*/cfgMp*/cfgVol*/cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é
+// mantida idêntica.
 // ════════════════════════════════════════════════════════════════════════
 
 Item {
@@ -33,7 +31,7 @@ Item {
 
   // ── Layout (lido pelo Bar.qml) ─────────────────────────────────────────
   property int    barSize:       30
-  property int    barMargin:     3
+  property int    barMargin:     4
   property bool   pill:          false
   property int    panelWidth:    400
   property string monitorName:   ""
@@ -43,7 +41,7 @@ Item {
   // ── Props de compatibilidade com o contrato do Pill (não usadas aqui —
   // ver explicação completa no Dock.qml) ─────────────────────────────────
   property int  minPillWidth:   400
-  property int  pillMinSpacing: 20
+  property int  pillMinSpacing: 10
   property int  activePopupW:   0
   property bool anyPanelOpen:   false
 
@@ -175,12 +173,12 @@ Item {
   property color colWsNumberBg:       "#2a2a2a"
   property color colWsNumberBgActive: "#ffb4a9"
 
-  // ── Aparência específica do Default (constantes de implementação, não
-  // expostas no schema/editor — mesmo espírito do que Pill/Dock já fazem) ──
-  property int  edgeInset:           12     // distância do 1º/último módulo até a ponta da barra
-  property int  slotSpacing:         8      // espaço entre módulos dentro do mesmo slot
-  property int  accentLineThickness: 2      // espessura da linha de destaque na borda interna
-  property real accentLineOpacity:   0.55
+  // ── Aparência específica do Aurora (constantes de implementação, não
+  // expostas no schema/editor) ────────────────────────────────────────────
+  property int  barRadius:    16              // arredondado, mas não cápsula cheia
+  property real borderOpacity: 0.14           // borda fina e discreta, um tom só (sem gradiente)
+  property int  slotSpacing:  pillMinSpacing  // espaço entre módulos — ligado ao slider "Espaçamento mín."
+  property int  edgeInset:    14
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual — idêntico em espírito ao do Pill.qml.
@@ -543,10 +541,6 @@ Item {
 
   // ══════════════════════════════════════════════════════════════════════
   // HORIZONTAL — left | center | right
-  //
-  // Fundo único, plano, cobrindo toda a barra. Módulos ficam direto em
-  // cima, sem fundo próprio. Uma linha fina marca a borda voltada para a
-  // área de trabalho.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: horizontalComp
@@ -575,22 +569,16 @@ Item {
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
 
-      // ── Fundo plano — uma única faixa sólida, sem cantos, sem cápsula ──
+      // ── Fundo único: gradiente sutil + borda fina ─────────────────────
       Rectangle {
         anchors.fill: parent
-        color: root.colBarBg
-      }
-
-      // ── Linha de destaque na borda interna (voltada para o desktop) ────
-      // posição 1 (topo) → linha na borda de baixo da barra
-      // posição 3 (baixo) → linha na borda de cima da barra
-      Rectangle {
-        anchors.left:  parent.left
-        anchors.right: parent.right
-        height:  root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        y: root.barPosition === 1 ? parent.height - height : 0
+        radius: root.barRadius
+        border.width: 1
+        border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.borderOpacity)
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.lighter(root.colBarBgPill, 1.15) }
+          GradientStop { position: 1.0; color: Qt.darker(root.colBarBgPill, 1.05) }
+        }
       }
 
       // ── Slot esquerda ──────────────────────────────────────────────────
@@ -706,20 +694,16 @@ Item {
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
 
+      // ── Fundo único: mesmo gradiente vertical, mesma borda fina ───────
       Rectangle {
         anchors.fill: parent
-        color: root.colBarBg
-      }
-
-      // posição 4 (esquerda) → linha na borda direita da barra
-      // posição 2 (direita)  → linha na borda esquerda da barra
-      Rectangle {
-        anchors.top:    parent.top
-        anchors.bottom: parent.bottom
-        width:   root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        x: root.barPosition === 4 ? parent.width - width : 0
+        radius: root.barRadius
+        border.width: 1
+        border.color: Qt.rgba(root.colAccent.r, root.colAccent.g, root.colAccent.b, root.borderOpacity)
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.lighter(root.colBarBgPill, 1.15) }
+          GradientStop { position: 1.0; color: Qt.darker(root.colBarBgPill, 1.05) }
+        }
       }
 
       // ── Slot superior ────────────────────────────────────────────────

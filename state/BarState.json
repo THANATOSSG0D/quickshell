@@ -1,8 +1,93 @@
 {
     "overrides": {
+        "Aurora": {
+            "bar": {
+                "position": 4
+            },
+            "mediaplayer": {
+                "bgEnabled": false,
+                "textColorActive": "on_surface_variant",
+                "textStatic": true
+            }
+        },
+        "Bento": {
+            "bar": {
+                "modules": {
+                    "middle": [
+                        "workspaces"
+                    ]
+                },
+                "position": 1
+            },
+            "workspaces": {
+                "number": {
+                    "bgBorderWidthActive": 0,
+                    "bgOpacityActive": 0,
+                    "bgRadiusActive": 0
+                },
+                "showAddButton": true,
+                "style": "number"
+            }
+        },
+        "Default": {
+            "bar": {
+                "barMargin": 0,
+                "position": 1
+            },
+            "mediaplayer": {
+                "artworkSize": 22,
+                "scrollSpeed": 60,
+                "scrollWidth": 190,
+                "showText": true,
+                "textColorActive": "source_color",
+                "textMode": "artistAndTitle",
+                "textStatic": true
+            }
+        },
+        "Dock": {
+            "bar": {
+                "autoHide": false,
+                "pillMinSpacing": 5,
+                "position": 1
+            },
+            "mediaplayer": {
+                "textColorActive": "primary"
+            },
+            "palette": {
+                "barBg": "background",
+                "barBgPill": "on_secondary"
+            },
+            "workspaces": {
+                "showAddButton": false
+            }
+        },
+        "Minimal": {
+            "bar": {
+                "barMargin": 1,
+                "modules": {
+                    "bottom": [
+                        "clock",
+                        "separator",
+                        "notifications"
+                    ],
+                    "top": [
+                        "quicksettings"
+                    ]
+                },
+                "position": 4
+            },
+            "palette": {
+                "barBg": "background"
+            },
+            "workspaces": {
+                "showAddButton": false,
+                "style": "number"
+            }
+        },
         "Pill": {
             "bar": {
                 "autoHide": false,
+                "barSize": 30,
                 "modules": {
                     "bottom": [
                         "clock",
@@ -11,8 +96,20 @@
                         "separator",
                         "notifications"
                     ],
+                    "left": [
+                        "mediaplayer",
+                        "separator",
+                        "quicksettings"
+                    ],
                     "middle": [
                         "workspaces"
+                    ],
+                    "right": [
+                        "clock",
+                        "separator",
+                        "volume",
+                        "separator",
+                        "notifications"
                     ],
                     "top": [
                         "mediaplayer",
@@ -20,6 +117,7 @@
                         "quicksettings"
                     ]
                 },
+                "pillWidth": 400,
                 "position": 1
             },
             "clock": {
@@ -105,6 +203,17 @@
                 "showNumber": true,
                 "spacing": 6,
                 "style": "icons"
+            }
+        },
+        "Slider": {
+            "bar": {
+                "autoHide": false,
+                "pillMinSpacing": 20,
+                "pillWidth": 400,
+                "position": 4
+            },
+            "workspaces": {
+                "showAddButton": false
             }
         }
     }

@@ -8,23 +8,23 @@ import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
 // ════════════════════════════════════════════════════════════════════════
-// DEFAULT — a barra "de fábrica" da família.
+// NOTCH — uma aba pendurada na borda da tela.
 //
-// Uma única faixa sólida, sem cápsula e sem ilhas, ocupando a tela de ponta
-// a ponta — exatamente o que qualquer pessoa esperaria de uma barra de
-// status comum (estilo polybar/waybar "flat"). Módulos ficam direto sobre
-// o fundo, sem cartão por baixo; a única assinatura visual é uma linha fina
-// de destaque na borda da barra que fica voltada para a área de trabalho
-// (a "borda interna" — embaixo se a barra está no topo, em cima se está no
-// fundo, etc.).
+// Mesma base estrutural do Embrace.qml (janela já do tamanho do lobo,
+// faixa fina inserida dentro dela) — mas o "lobo" central aqui NÃO é
+// simétrico/arredondado dos dois lados: ele fica achatado (raio 0) no
+// lado encostado na borda real da tela, e arredondado só no lado de
+// dentro — como se fosse uma aba/gaveta pendurada ali, no estilo do
+// notch de câmera de um notebook. As pontas da barra também ganham
+// pequenas peças nos cantos, da mesma cor, sugerindo que a barra nasce
+// da própria curva do canto do monitor.
 //
-// pill = false — igual ao Dock, a janela ocupa a tela inteira. Mas aqui nem
-// o conceito de "ilha" existe: é um único Rectangle plano cobrindo toda a
-// PanelWindow, com os módulos posicionados diretamente em cima dele.
+// pill = false — como os outros temas não-Pill, a janela ocupa a tela
+// inteira. Mesmo bloco de cor sólida (colBarBg), sem gradiente.
 //
-// Como em Pill/Dock, toda a parte de configuração (cfgWs*/cfgMp*/cfgVol*/
-// cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é mantida idêntica — é isso que
-// permite trocar de tema sem perder nenhuma configuração já salva.
+// Como nos outros temas da família, toda a parte de configuração
+// (cfgWs*/cfgMp*/cfgVol*/cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é
+// mantida idêntica.
 // ════════════════════════════════════════════════════════════════════════
 
 Item {
@@ -32,18 +32,18 @@ Item {
   anchors.fill: parent   // tema estático (não-pill) — ocupa toda a PanelWindow
 
   // ── Layout (lido pelo Bar.qml) ─────────────────────────────────────────
-  property int    barSize:       30
-  property int    barMargin:     3
+  property int    barSize:       44
+  property int    barMargin:     6
   property bool   pill:          false
   property int    panelWidth:    400
   property string monitorName:   ""
   property bool   hasMediaPanel: true
-  property int    barPosition:   2
+  property int    barPosition:   4
 
   // ── Props de compatibilidade com o contrato do Pill (não usadas aqui —
   // ver explicação completa no Dock.qml) ─────────────────────────────────
   property int  minPillWidth:   400
-  property int  pillMinSpacing: 20
+  property int  pillMinSpacing: 10
   property int  activePopupW:   0
   property bool anyPanelOpen:   false
 
@@ -175,12 +175,15 @@ Item {
   property color colWsNumberBg:       "#2a2a2a"
   property color colWsNumberBgActive: "#ffb4a9"
 
-  // ── Aparência específica do Default (constantes de implementação, não
-  // expostas no schema/editor — mesmo espírito do que Pill/Dock já fazem) ──
-  property int  edgeInset:           12     // distância do 1º/último módulo até a ponta da barra
-  property int  slotSpacing:         8      // espaço entre módulos dentro do mesmo slot
-  property int  accentLineThickness: 2      // espessura da linha de destaque na borda interna
-  property real accentLineOpacity:   0.55
+  // ── Aparência específica do Embrace (constantes de implementação, não
+  // expostas no schema/editor) ────────────────────────────────────────────
+  property int  stripThickness: 20            // espessura visível da faixa fina (bem menor que barSize)
+  property int  capRadius:    14             // cantos arredondados nas pontas da faixa principal
+  property int  lobeRadius:   28             // arredondado SÓ no lado de dentro da tela (ver corpo)
+  property int  lobePad:      10             // padding do conteúdo dentro do lobo, no eixo principal
+  property int  slotSpacing:  pillMinSpacing // espaço entre módulos — ligado ao slider "Espaçamento mín."
+  property int  edgeInset:    16             // um pouco maior — dá espaço pra peça de canto não encavalar o 1º módulo
+  property int  cornerSize:   22             // extensão das peças de canto, no eixo principal da barra
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual — idêntico em espírito ao do Pill.qml.
@@ -544,9 +547,11 @@ Item {
   // ══════════════════════════════════════════════════════════════════════
   // HORIZONTAL — left | center | right
   //
-  // Fundo único, plano, cobrindo toda a barra. Módulos ficam direto em
-  // cima, sem fundo próprio. Uma linha fina marca a borda voltada para a
-  // área de trabalho.
+  // A janela já nasce do tamanho da gaveta (barSize = altura total). A
+  // faixa principal é fina e fica inserida (centrada) dentro dessa altura;
+  // a gaveta do slot central preenche a altura inteira da janela, achatada
+  // no lado que encosta na borda real da tela e arredondada só no lado de
+  // dentro — a silhueta de um notch pendurado, não um lobo simétrico.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: horizontalComp
@@ -555,6 +560,8 @@ Item {
       id: hRoot
       anchors.fill: parent
       property string monitorName: ""
+
+      readonly property bool topFacesDown: root.barPosition === 1   // barra no topo → conteúdo fica abaixo
 
       property var mediaPlayer:  root._findRef(leftRep,   "mediaPlayer")
                                || root._findRef(centerRep, "mediaPlayer")
@@ -575,22 +582,53 @@ Item {
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
 
-      // ── Fundo plano — uma única faixa sólida, sem cantos, sem cápsula ──
+      // ── Faixa principal — fina, inserida dentro da janela (que já nasce
+      // do tamanho do lobo) ─────────────────────────────────────────────
       Rectangle {
-        anchors.fill: parent
-        color: root.colBarBg
+        anchors.left:           parent.left
+        anchors.right:          parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        height: root.stripThickness
+        color:  root.colBarBg
+        radius: root.capRadius
       }
 
-      // ── Linha de destaque na borda interna (voltada para o desktop) ────
-      // posição 1 (topo) → linha na borda de baixo da barra
-      // posição 3 (baixo) → linha na borda de cima da barra
+      // ── Gaveta — achatada no lado que encosta na borda da tela,
+      // arredondada no lado de dentro. Preenche a altura real da janela.
       Rectangle {
-        anchors.left:  parent.left
+        id: lobe
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter:   parent.verticalCenter
+        width:  centerRow.width + root.lobePad * 2
+        height: parent.height
+        color:  root.colBarBg
+        visible: root.cfgModulesCenter.length > 0
+        topLeftRadius:     hRoot.topFacesDown ? 0 : root.lobeRadius
+        topRightRadius:    hRoot.topFacesDown ? 0 : root.lobeRadius
+        bottomLeftRadius:  hRoot.topFacesDown ? root.lobeRadius : 0
+        bottomRightRadius: hRoot.topFacesDown ? root.lobeRadius : 0
+        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+      }
+
+      // ── Cantos — pequenas peças que "nascem" da curva da tela,
+      // preenchendo a altura real da janela igual a gaveta ─────────────
+      Rectangle {
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        width:  root.cornerSize
+        height: parent.height
+        color:  root.colBarBg
+        topLeftRadius:    hRoot.topFacesDown ? 0 : root.capRadius
+        bottomLeftRadius: hRoot.topFacesDown ? root.capRadius : 0
+      }
+      Rectangle {
         anchors.right: parent.right
-        height:  root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        y: root.barPosition === 1 ? parent.height - height : 0
+        anchors.verticalCenter: parent.verticalCenter
+        width:  root.cornerSize
+        height: parent.height
+        color:  root.colBarBg
+        topRightRadius:    hRoot.topFacesDown ? 0 : root.capRadius
+        bottomRightRadius: hRoot.topFacesDown ? root.capRadius : 0
       }
 
       // ── Slot esquerda ──────────────────────────────────────────────────
@@ -645,10 +683,10 @@ Item {
         }
       }
 
-      // ── Slot central ───────────────────────────────────────────────────
+      // ── Slot central — fica por cima do lobo, sem fundo próprio ───────
       Item {
         anchors.fill: parent
-        clip: true
+        clip: false
 
         Row {
           id: centerRow
@@ -678,6 +716,9 @@ Item {
 
   // ══════════════════════════════════════════════════════════════════════
   // VERTICAL — top | middle | bottom
+  //
+  // Mesma ideia, eixo trocado: a gaveta do slot do meio fica achatada no
+  // lado que encosta na borda real da tela, arredondada no lado de dentro.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: verticalComp
@@ -686,6 +727,8 @@ Item {
       id: vRoot
       anchors.fill: parent
       property string monitorName: ""
+
+      readonly property bool outwardIsRight: root.barPosition === 4   // barra à esquerda → fora é a direita
 
       property var mediaPlayer:  root._findRef(topRep,    "mediaPlayer")
                                || root._findRef(middleRep, "mediaPlayer")
@@ -706,20 +749,53 @@ Item {
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
 
+      // ── Faixa principal — fina, inserida dentro da janela (que já nasce
+      // do tamanho do lobo) ─────────────────────────────────────────────
       Rectangle {
-        anchors.fill: parent
-        color: root.colBarBg
+        anchors.top:              parent.top
+        anchors.bottom:           parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        width:  root.stripThickness
+        color:  root.colBarBg
+        radius: root.capRadius
       }
 
-      // posição 4 (esquerda) → linha na borda direita da barra
-      // posição 2 (direita)  → linha na borda esquerda da barra
+      // ── Gaveta — achatada no lado que encosta na borda da tela,
+      // arredondada no lado de dentro. Preenche a largura real da janela.
       Rectangle {
-        anchors.top:    parent.top
+        id: lobe
+        anchors.verticalCenter:   parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        width:  parent.width
+        height: middleCol.height + root.lobePad * 2
+        color:  root.colBarBg
+        visible: root.cfgModulesMiddle.length > 0
+        topLeftRadius:     vRoot.outwardIsRight ? 0 : root.lobeRadius
+        bottomLeftRadius:  vRoot.outwardIsRight ? 0 : root.lobeRadius
+        topRightRadius:    vRoot.outwardIsRight ? root.lobeRadius : 0
+        bottomRightRadius: vRoot.outwardIsRight ? root.lobeRadius : 0
+        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+      }
+
+      // ── Cantos — pequenas peças que "nascem" da curva da tela,
+      // preenchendo a largura real da janela igual a gaveta ────────────
+      Rectangle {
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: root.cornerSize
+        width:  parent.width
+        color:  root.colBarBg
+        topLeftRadius:  vRoot.outwardIsRight ? 0 : root.capRadius
+        topRightRadius: vRoot.outwardIsRight ? root.capRadius : 0
+      }
+      Rectangle {
         anchors.bottom: parent.bottom
-        width:   root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        x: root.barPosition === 4 ? parent.width - width : 0
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: root.cornerSize
+        width:  parent.width
+        color:  root.colBarBg
+        bottomLeftRadius:  vRoot.outwardIsRight ? 0 : root.capRadius
+        bottomRightRadius: vRoot.outwardIsRight ? root.capRadius : 0
       }
 
       // ── Slot superior ────────────────────────────────────────────────
@@ -774,10 +850,10 @@ Item {
         }
       }
 
-      // ── Slot central ───────────────────────────────────────────────────
+      // ── Slot do meio — fica por cima do lobo, sem fundo próprio ───────
       Item {
         anchors.fill: parent
-        clip: true
+        clip: false
 
         Column {
           id: middleCol

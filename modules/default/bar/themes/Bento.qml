@@ -8,23 +8,34 @@ import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
 // ════════════════════════════════════════════════════════════════════════
-// DEFAULT — a barra "de fábrica" da família.
+// BENTO — cada módulo, sua própria pílula.
 //
-// Uma única faixa sólida, sem cápsula e sem ilhas, ocupando a tela de ponta
-// a ponta — exatamente o que qualquer pessoa esperaria de uma barra de
-// status comum (estilo polybar/waybar "flat"). Módulos ficam direto sobre
-// o fundo, sem cartão por baixo; a única assinatura visual é uma linha fina
-// de destaque na borda da barra que fica voltada para a área de trabalho
-// (a "borda interna" — embaixo se a barra está no topo, em cima se está no
-// fundo, etc.).
+// Em vez de um fundo por grupo (Dock) ou um fundo único pra barra inteira
+// (Aurora/Default), aqui CADA módulo individual (workspaces, relógio,
+// quicksettings, etc.) ganha a própria pílula cheia, preta, sem borda —
+// flutuando com pequenos vãos entre si. Os módulos "separator"/"spacer"
+// ficam nus (sem pílula), servindo só de respiro/divisor entre os chips.
 //
-// pill = false — igual ao Dock, a janela ocupa a tela inteira. Mas aqui nem
-// o conceito de "ilha" existe: é um único Rectangle plano cobrindo toda a
-// PanelWindow, com os módulos posicionados diretamente em cima dele.
+// Inspirado em rices estilo AGS/eww onde cada informação do topbar é um
+// "chip" solto — workspaces inteiros numa pílula (o destaque do workspace
+// ativo já é tratado pelo próprio módulo Workspaces.qml via
+// cfgWsBgColorActive/cfgWsBgRadiusActive, configurável na aba normal — o
+// tema não precisa fazer nada especial pra isso), relógio em outra pílula,
+// quicksettings (que já junta wifi/bluetooth/bateria) em outra.
 //
-// Como em Pill/Dock, toda a parte de configuração (cfgWs*/cfgMp*/cfgVol*/
-// cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é mantida idêntica — é isso que
-// permite trocar de tema sem perder nenhuma configuração já salva.
+// pill = false — como os outros temas não-Pill, a janela ocupa a tela
+// inteira; aqui não há "ilha por slot" nem "barra única" — são N pílulas
+// soltas, uma por módulo.
+//
+// Diferença de implementação importante: como cada módulo agora vive
+// dentro de um wrapper próprio (chipWrap) em vez de ser direto o item do
+// Repeater, o _findRef precisa de um pequeno ajuste — chipWrap expõe uma
+// property "item" que espelha o Loader interno, então _findRef continua
+// funcionando exatamente igual (sem precisar mudar a lógica em si).
+//
+// Como em todos os outros temas da família, toda a parte de configuração
+// (cfgWs*/cfgMp*/cfgVol*/cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é
+// mantida idêntica.
 // ════════════════════════════════════════════════════════════════════════
 
 Item {
@@ -32,8 +43,8 @@ Item {
   anchors.fill: parent   // tema estático (não-pill) — ocupa toda a PanelWindow
 
   // ── Layout (lido pelo Bar.qml) ─────────────────────────────────────────
-  property int    barSize:       30
-  property int    barMargin:     3
+  property int    barSize:       32
+  property int    barMargin:     6
   property bool   pill:          false
   property int    panelWidth:    400
   property string monitorName:   ""
@@ -175,12 +186,14 @@ Item {
   property color colWsNumberBg:       "#2a2a2a"
   property color colWsNumberBgActive: "#ffb4a9"
 
-  // ── Aparência específica do Default (constantes de implementação, não
-  // expostas no schema/editor — mesmo espírito do que Pill/Dock já fazem) ──
-  property int  edgeInset:           12     // distância do 1º/último módulo até a ponta da barra
-  property int  slotSpacing:         8      // espaço entre módulos dentro do mesmo slot
-  property int  accentLineThickness: 2      // espessura da linha de destaque na borda interna
-  property real accentLineOpacity:   0.55
+  // ── Aparência específica do Bento (constantes de implementação, não
+  // expostas no schema/editor) ────────────────────────────────────────────
+  property int  chipRadius:        999    // pílula cheia — sempre clampada à altura/largura do chip
+  property int  chipPad:           10     // padding ao longo do eixo principal de cada chip
+  property int  chipGap:           5      // vão ENTRE chips — o "respiro" característico do visual
+  property int  edgeInset:         10     // distância do 1º/último chip até a ponta da barra
+  property real chipShadowOpacity: 0.15   // sombra bem sutil — esses chips são quase planos
+  property int  chipShadowOffset:  2
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual — idêntico em espírito ao do Pill.qml.
@@ -541,12 +554,167 @@ Item {
   onCfgModulesMiddleChanged: Qt.callLater(_updateRefs)
   onCfgModulesBottomChanged: Qt.callLater(_updateRefs)
 
+  // ── Wrapper de chip individual — usado pelos Repeaters horizontais ──────
+  // Cada módulo (exceto separator/spacer) ganha a própria pílula. Espelha as
+  // refs (mediaPlayer/volumeWidget/etc) do Loader interno pra cima, pra
+  // _findRef continuar funcionando sem precisar de nenhuma lógica especial.
+  Component {
+    id: chipCompH
+    Item {
+      id: chipWrap
+      property string modelData:   ""
+      property string monitorName: ""
+      readonly property bool isDivider: modelData === "separator" || modelData === "spacer"
+      // _findRef (função compartilhada, ver Dock.qml) espera que
+      // "loaderItem.item" exponha mediaPlayer/volumeWidget/etc diretamente —
+      // como aqui o Loader do Repeater carrega chipWrap (não o moduleItemComp
+      // direto), espelhamos cada ref do Loader interno pra cima:
+      readonly property var mediaPlayer:  inner.item ? inner.item.mediaPlayer  : null
+      readonly property var volumeWidget: inner.item ? inner.item.volumeWidget : null
+      readonly property var sinkWidget:   inner.item ? inner.item.sinkWidget   : null
+      readonly property var sourceWidget: inner.item ? inner.item.sourceWidget : null
+      readonly property var clock:        inner.item ? inner.item.clock        : null
+      readonly property var notifWidget:  inner.item ? inner.item.notifWidget  : null
+
+      // FIX: "parent" aqui é o Loader que carrega este chip, e o Loader
+      // espelha o TAMANHO do chip — usar parent.height criaria uma
+      // referência circular (chip depende do Loader que depende do chip),
+      // resultando em altura 0. root.barSize é o valor estável e correto.
+      height: root.barSize
+      width: {
+        var iw = inner.item ? inner.item.implicitWidth : 0
+        return isDivider ? iw : iw + root.chipPad * 2
+      }
+      // FIX3: o módulo "workspaces" busca a lista de workspaces do Hyprland
+      // de forma assíncrona (a resposta da IPC leva alguns milissegundos) —
+      // então o chip nasce com um tamanho "errado"/vazio e só ajusta pro
+      // tamanho real um instante depois. Sem Behavior, isso aparece como um
+      // salto brusco logo na inicialização (mais visível em conexões frias,
+      // quando o Hyprland ainda não tinha o cache populado) — exatamente o
+      // "bug" do primeiro carregamento. A transição suave disfarça o ajuste.
+      Behavior on width  { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+      Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+      Rectangle { // sombra sutil
+        visible: !chipWrap.isDivider
+        width:  parent.width
+        height: parent.height
+        y:      root.chipShadowOffset
+        radius: root.chipRadius
+        color:  "#000000"
+        opacity: root.chipShadowOpacity
+      }
+      Rectangle { // pílula
+        visible: !chipWrap.isDivider
+        anchors.fill: parent
+        radius: root.chipRadius
+        color:  root.colBarBgPill
+      }
+
+      Loader {
+        id: inner
+        anchors.centerIn: parent
+        sourceComponent: moduleItemComp
+        onLoaded: {
+          item.modId   = chipWrap.modelData
+          item.isH     = true
+          item.monName = chipWrap.monitorName
+        }
+        // FIX: o Loader de fora (delegate do Repeater) só escreve o valor
+        // real em chipWrap.modelData no SEU onLoaded, que dispara DEPOIS
+        // deste Loader interno já ter disparado o onLoaded acima — ou seja,
+        // sem este Binding, modId ficava travado em "" pra sempre, e o
+        // ícone nunca renderizava. Era por isso que não aparecia nada.
+        // FIX2: "target: item" sem qualificador NÃO resolve pro item deste
+        // Loader (inner) — dentro de um elemento filho como Binding{}, isso
+        // só funciona em handlers de sinal anexados diretamente ao próprio
+        // Loader (onLoaded/onItemChanged). Em qualquer outro lugar precisa
+        // ser explícito: inner.item. Sem isso, o Binding mirava sem querer
+        // no item do Loader de FORA (chipWrap), que não tem modId/monName —
+        // daí os warnings "Property 'modId' does not exist on QQuickItem*".
+        Binding { target: inner.item; property: "modId";   value: chipWrap.modelData;   when: inner.item !== null }
+        Binding { target: inner.item; property: "monName"; value: chipWrap.monitorName; when: inner.item !== null }
+        onItemChanged: root._updateRefs()
+      }
+    }
+  }
+
+  // ── Wrapper de chip individual — usado pelos Repeaters verticais ───────
+  Component {
+    id: chipCompV
+    Item {
+      id: chipWrap
+      property string modelData:   ""
+      property string monitorName: ""
+      readonly property bool isDivider: modelData === "separator" || modelData === "spacer"
+      // _findRef (função compartilhada, ver Dock.qml) espera que
+      // "loaderItem.item" exponha mediaPlayer/volumeWidget/etc diretamente —
+      // como aqui o Loader do Repeater carrega chipWrap (não o moduleItemComp
+      // direto), espelhamos cada ref do Loader interno pra cima:
+      readonly property var mediaPlayer:  inner.item ? inner.item.mediaPlayer  : null
+      readonly property var volumeWidget: inner.item ? inner.item.volumeWidget : null
+      readonly property var sinkWidget:   inner.item ? inner.item.sinkWidget   : null
+      readonly property var sourceWidget: inner.item ? inner.item.sourceWidget : null
+      readonly property var clock:        inner.item ? inner.item.clock        : null
+      readonly property var notifWidget:  inner.item ? inner.item.notifWidget  : null
+
+      // FIX: mesmo problema do chipCompH, espelhado pro eixo horizontal
+      // (aqui "parent" = Loader, que espelha a largura deste chip).
+      width: root.barSize
+      height: {
+        var ih = inner.item ? inner.item.implicitHeight : 0
+        return isDivider ? ih : ih + root.chipPad * 2
+      }
+      // FIX3: mesmo motivo do chipCompH — ver comentário lá. Sem isso, o
+      // chip do workspace "salta" de tamanho assim que os dados do Hyprland
+      // chegam (alguns ms depois da criação), mais visível em inicializações
+      // frias.
+      Behavior on width  { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+      Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+      Rectangle {
+        visible: !chipWrap.isDivider
+        width:  parent.width
+        height: parent.height
+        y:      root.chipShadowOffset
+        radius: root.chipRadius
+        color:  "#000000"
+        opacity: root.chipShadowOpacity
+      }
+      Rectangle {
+        visible: !chipWrap.isDivider
+        anchors.fill: parent
+        radius: root.chipRadius
+        color:  root.colBarBgPill
+      }
+
+      Loader {
+        id: inner
+        anchors.centerIn: parent
+        sourceComponent: moduleItemComp
+        onLoaded: {
+          item.modId   = chipWrap.modelData
+          item.isH     = false
+          item.monName = chipWrap.monitorName
+        }
+        // FIX: mesmo motivo do chipCompH — sem este Binding, modId travava
+        // em "" pra sempre.
+        // FIX2: "target: item" sem qualificador NÃO resolve pro item deste
+        // Loader (inner) — dentro de um elemento filho como Binding{}, isso
+        // só funciona em handlers de sinal anexados diretamente ao próprio
+        // Loader (onLoaded/onItemChanged). Em qualquer outro lugar precisa
+        // ser explícito: inner.item. Sem isso, o Binding mirava sem querer
+        // no item do Loader de FORA (chipWrap), que não tem modId/monName —
+        // daí os warnings "Property 'modId' does not exist on QQuickItem*".
+        Binding { target: inner.item; property: "modId";   value: chipWrap.modelData;   when: inner.item !== null }
+        Binding { target: inner.item; property: "monName"; value: chipWrap.monitorName; when: inner.item !== null }
+        onItemChanged: root._updateRefs()
+      }
+    }
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // HORIZONTAL — left | center | right
-  //
-  // Fundo único, plano, cobrindo toda a barra. Módulos ficam direto em
-  // cima, sem fundo próprio. Uma linha fina marca a borda voltada para a
-  // área de trabalho.
   // ══════════════════════════════════════════════════════════════════════
   Component {
     id: horizontalComp
@@ -575,46 +743,32 @@ Item {
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
 
-      // ── Fundo plano — uma única faixa sólida, sem cantos, sem cápsula ──
-      Rectangle {
-        anchors.fill: parent
-        color: root.colBarBg
-      }
-
-      // ── Linha de destaque na borda interna (voltada para o desktop) ────
-      // posição 1 (topo) → linha na borda de baixo da barra
-      // posição 3 (baixo) → linha na borda de cima da barra
-      Rectangle {
-        anchors.left:  parent.left
-        anchors.right: parent.right
-        height:  root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        y: root.barPosition === 1 ? parent.height - height : 0
-      }
-
       // ── Slot esquerda ──────────────────────────────────────────────────
       Row {
         id: leftRow
         anchors.left:           parent.left
         anchors.leftMargin:     root.edgeInset
         anchors.verticalCenter: parent.verticalCenter
-        spacing: root.slotSpacing
+        spacing: root.chipGap
 
         Repeater {
           id: leftRep
           model: root.cfgModulesLeft
           delegate: Loader {
+            id: leftLoader
             required property string modelData
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-            sourceComponent: moduleItemComp
+            sourceComponent: chipCompH
             onLoaded: {
-              item.modId   = modelData
-              item.isH     = true
-              item.monName = hRoot.monitorName
+              item.modelData    = modelData
+              item.monitorName  = hRoot.monitorName
             }
-            Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
+            // FIX4: atribuição única em onLoaded não acompanha hRoot.monitorName
+            // quando ele chega DEPOIS (caso comum no primeiro boot/troca de tema
+            // — ver "FIX3" acima). Sem este Binding, chipWrap.monitorName ficava
+            // travado em "" pra sempre, e o Workspaces.qml (único módulo que usa
+            // monitorName de verdade) nunca mostrava nada além do "+".
+            Binding { target: leftLoader.item; property: "monitorName"; value: hRoot.monitorName; when: leftLoader.item !== null }
           }
         }
       }
@@ -625,22 +779,21 @@ Item {
         anchors.right:          parent.right
         anchors.rightMargin:    root.edgeInset
         anchors.verticalCenter: parent.verticalCenter
-        spacing: root.slotSpacing
+        spacing: root.chipGap
 
         Repeater {
           id: rightRep
           model: root.cfgModulesRight
           delegate: Loader {
+            id: rightLoader
             required property string modelData
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-            sourceComponent: moduleItemComp
+            sourceComponent: chipCompH
             onLoaded: {
-              item.modId   = modelData
-              item.isH     = true
-              item.monName = hRoot.monitorName
+              item.modelData    = modelData
+              item.monitorName  = hRoot.monitorName
             }
-            Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
+            Binding { target: rightLoader.item; property: "monitorName"; value: hRoot.monitorName; when: rightLoader.item !== null }
           }
         }
       }
@@ -653,22 +806,21 @@ Item {
         Row {
           id: centerRow
           anchors.centerIn: parent
-          spacing: root.slotSpacing
+          spacing: root.chipGap
 
           Repeater {
             id: centerRep
             model: root.cfgModulesCenter
             delegate: Loader {
+              id: centerLoader
               required property string modelData
               anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-              sourceComponent: moduleItemComp
+              sourceComponent: chipCompH
               onLoaded: {
-                item.modId   = modelData
-                item.isH     = true
-                item.monName = hRoot.monitorName
+                item.modelData   = modelData
+                item.monitorName = hRoot.monitorName
               }
-              Binding { target: item; property: "monName"; value: hRoot.monitorName; when: item !== null }
-              onItemChanged: root._updateRefs()
+              Binding { target: centerLoader.item; property: "monitorName"; value: hRoot.monitorName; when: centerLoader.item !== null }
             }
           }
         }
@@ -706,44 +858,27 @@ Item {
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
 
-      Rectangle {
-        anchors.fill: parent
-        color: root.colBarBg
-      }
-
-      // posição 4 (esquerda) → linha na borda direita da barra
-      // posição 2 (direita)  → linha na borda esquerda da barra
-      Rectangle {
-        anchors.top:    parent.top
-        anchors.bottom: parent.bottom
-        width:   root.accentLineThickness
-        color:   root.colAccent
-        opacity: root.accentLineOpacity
-        x: root.barPosition === 4 ? parent.width - width : 0
-      }
-
       // ── Slot superior ────────────────────────────────────────────────
       Column {
         id: topCol
         anchors.top:              parent.top
         anchors.topMargin:        root.edgeInset
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: root.slotSpacing
+        spacing: root.chipGap
 
         Repeater {
           id: topRep
           model: root.cfgModulesTop
           delegate: Loader {
+            id: topLoader
             required property string modelData
             anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-            sourceComponent: moduleItemComp
+            sourceComponent: chipCompV
             onLoaded: {
-              item.modId   = modelData
-              item.isH     = false
-              item.monName = vRoot.monitorName
+              item.modelData   = modelData
+              item.monitorName = vRoot.monitorName
             }
-            Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
+            Binding { target: topLoader.item; property: "monitorName"; value: vRoot.monitorName; when: topLoader.item !== null }
           }
         }
       }
@@ -754,22 +889,21 @@ Item {
         anchors.bottom:           parent.bottom
         anchors.bottomMargin:     root.edgeInset
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: root.slotSpacing
+        spacing: root.chipGap
 
         Repeater {
           id: bottomRep
           model: root.cfgModulesBottom
           delegate: Loader {
+            id: bottomLoader
             required property string modelData
             anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-            sourceComponent: moduleItemComp
+            sourceComponent: chipCompV
             onLoaded: {
-              item.modId   = modelData
-              item.isH     = false
-              item.monName = vRoot.monitorName
+              item.modelData   = modelData
+              item.monitorName = vRoot.monitorName
             }
-            Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-            onItemChanged: root._updateRefs()
+            Binding { target: bottomLoader.item; property: "monitorName"; value: vRoot.monitorName; when: bottomLoader.item !== null }
           }
         }
       }
@@ -782,22 +916,21 @@ Item {
         Column {
           id: middleCol
           anchors.centerIn: parent
-          spacing: root.slotSpacing
+          spacing: root.chipGap
 
           Repeater {
             id: middleRep
             model: root.cfgModulesMiddle
             delegate: Loader {
+              id: middleLoader
               required property string modelData
               anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-              sourceComponent: moduleItemComp
+              sourceComponent: chipCompV
               onLoaded: {
-                item.modId   = modelData
-                item.isH     = false
-                item.monName = vRoot.monitorName
+                item.modelData   = modelData
+                item.monitorName = vRoot.monitorName
               }
-              Binding { target: item; property: "monName"; value: vRoot.monitorName; when: item !== null }
-              onItemChanged: root._updateRefs()
+              Binding { target: middleLoader.item; property: "monitorName"; value: vRoot.monitorName; when: middleLoader.item !== null }
             }
           }
         }

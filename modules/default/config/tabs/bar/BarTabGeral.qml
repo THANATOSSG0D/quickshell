@@ -35,7 +35,7 @@ C.CfgScroll {
   Row {
     spacing: 6
     Repeater {
-      model: ["Pill", "Default", "Minimal", "Slider"]
+      model: ["Pill", "Bento", "Aurora", "Dock", "Default", "Minimal", "Slider"]
       delegate: C.CfgChip {
         required property string modelData
         label:        modelData
