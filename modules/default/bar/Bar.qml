@@ -222,7 +222,18 @@ Scope {
       WlrLayershell.layer: WlrLayershell.Top
       focusable: false
       exclusionMode: ExclusionMode.Normal
-      exclusiveZone: (!barState._configReady || barState.autoHide) ? 0 : barRoot.themeBarSize
+      // pinned força a reserva de zona mesmo com autoHide ligado — mesmo
+      // comportamento de ter desligado "Auto-ocultar" manualmente.
+      // alwaysVisible NÃO reserva zona, em NENHUM caso (mesmo com autoHide
+      // desligado): é uma barra em Overlay que fica por cima de tudo
+      // (inclusive fullscreen) sem empurrar/reservar espaço para as
+      // janelas — janelas podem ocupar a área por baixo dela livremente.
+      exclusiveZone: {
+        if (!barState._configReady)                     return 0
+        if (barState.alwaysVisible)                      return 0
+        if (barState.autoHide && !barState.pinned)        return 0
+        return barRoot.themeBarSize
+      }
       aboveWindows:  false
 
       readonly property int _pos: barRoot.position
@@ -411,8 +422,14 @@ Scope {
 
       // ── Layer e zona da barra visual ─────────────────────────────────────
       // zone=0: nunca afeta layout de janelas — a superfície de zona cuida disso.
-      // Layer muda para Overlay quando autohide: barra aparece acima de fullscreen.
-      WlrLayershell.layer: bar.effectiveAutoHide ? WlrLayershell.Overlay : WlrLayershell.Top
+      // Layer muda para Overlay quando autohide: barra aparece acima de fullscreen
+      // durante o peek. alwaysVisible TAMBÉM força Overlay permanentemente — é o
+      // que garante que "sempre visível" realmente signifique sempre visível,
+      // inclusive por cima de janelas fullscreen (Top layer é ocultada pelo
+      // Hyprland atrás de fullscreen; Overlay não). "pinned" (antigo
+      // alwaysVisible) NÃO força Overlay — só impede o auto-hide/peek, então
+      // continua podendo ficar atrás de uma janela fullscreen.
+      WlrLayershell.layer: (bar.effectiveAutoHide || barState.alwaysVisible) ? WlrLayershell.Overlay : WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
@@ -1158,6 +1175,11 @@ Scope {
       }
 
       property bool effectiveAutoHide: {
+        // alwaysVisible e pinned têm prioridade máxima — a barra nunca
+        // auto-oculta, nem por cursor (autoHide) nem por fullscreen peek.
+        // (a diferença entre os dois está na layer — ver WlrLayershell.layer acima)
+        if (barState.alwaysVisible) return false
+        if (barState.pinned) return false
         if (barState.autoHide) return true
         // silenceMode suprime o peek de fullscreen — barra fica escondida durante fullscreen
         if (!barState.silenceMode && barState.fullscreenPeekEnabled && isFullscreen) return true

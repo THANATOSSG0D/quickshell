@@ -77,9 +77,25 @@ C.CfgScroll {
   C.CfgToggle {
     label:        "Auto-ocultar"
     checked:      root.g("autoHide", true) === true
+    enabled:      root.g("alwaysVisible", false) !== true && root.g("pinned", false) !== true
     colorAccent:  root.colorAccent
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ autoHide: !(root.g("autoHide", true) === true) })
+  }
+  C.CfgToggle {
+    label:        "Fixar barra (ignora auto-ocultar e fullscreen peek)"
+    checked:      root.g("pinned", false) === true
+    enabled:      root.g("alwaysVisible", false) !== true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ pinned: !(root.g("pinned", false) === true) })
+  }
+  C.CfgToggle {
+    label:        "Sempre visível (flutua por cima de tudo, sem reservar espaço)"
+    checked:      root.g("alwaysVisible", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ alwaysVisible: !(root.g("alwaysVisible", false) === true) })
   }
   C.CfgToggle {
     label:        "Silence (sem OSD/toasts)"

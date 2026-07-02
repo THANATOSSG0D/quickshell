@@ -33,6 +33,17 @@ Item {
   // ── Props globais (não por tema) ────────────────────────────────────────
   property string theme:       "Pill"
   property bool   silenceMode: false
+  // Modo "sempre visível" — a barra fica SEMPRE visível, inclusive por cima
+  // de janelas em fullscreen. Implementado forçando a layer da barra visual
+  // para Overlay permanentemente (ver Bar.qml). NÃO reserva exclusiveZone —
+  // janelas podem ocupar a área por baixo da barra normalmente. Global (não
+  // por tema).
+  property bool   alwaysVisible: false
+  // Modo "fixar barra" (antigo "alwaysVisible") — a barra nunca entra em
+  // auto-hide, nem por cursor (autoHide) nem por fullscreen peek, mas
+  // continua na layer Top: pode ficar atrás de uma janela fullscreen, já
+  // que não força Overlay. Global (não por tema), mesmo padrão de silenceMode.
+  property bool   pinned: false
 
   // ── Props "bar" — por tema ───────────────────────────────────────────────
   // NOTA: estas são properties ARMAZENADAS (não bindings calculados via
@@ -323,8 +334,10 @@ Item {
     root._parsing = true
 
     // ── Globais (não por tema) ──────────────────────────────────────────
-    if (opts.theme   !== undefined) root.theme       = opts.theme
-    if (opts.silence !== undefined) root.silenceMode = opts.silence
+    if (opts.theme         !== undefined) root.theme         = opts.theme
+    if (opts.silence       !== undefined) root.silenceMode   = opts.silence
+    if (opts.alwaysVisible !== undefined) root.alwaysVisible = opts.alwaysVisible
+    if (opts.pinned        !== undefined) root.pinned        = opts.pinned
 
     // ── "bar" — por tema, via set() (mesma cascata dos demais módulos) ──
     if (opts.autoHide       !== undefined) set("bar", "autoHide",       opts.autoHide)
@@ -387,7 +400,7 @@ Item {
     }
 
     // ── Grava globais no Bar.json — preserva themes ─────────────────────
-    barAdapter.bar = { theme: root.theme, silence: root.silenceMode }
+    barAdapter.bar = { theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible, pinned: root.pinned }
     // Garante que themes não foi zerado antes de gravar
     if (!barAdapter.themes || Object.keys(barAdapter.themes).length === 0) {
       console.warn("[BarConfig] AVISO: barAdapter.themes está vazio antes de writeAdapter — themes serão perdidos")
@@ -613,8 +626,10 @@ Item {
       onBarChanged: {
         var b = bar
         if (!b || Object.keys(b).length === 0) return
-        if (b.theme   !== undefined) root.theme       = b.theme
-        if (b.silence !== undefined) root.silenceMode = b.silence
+        if (b.theme         !== undefined) root.theme         = b.theme
+        if (b.silence       !== undefined) root.silenceMode   = b.silence
+        if (b.alwaysVisible !== undefined) root.alwaysVisible = b.alwaysVisible
+        if (b.pinned        !== undefined) root.pinned        = b.pinned
         root._bump()
       }
 

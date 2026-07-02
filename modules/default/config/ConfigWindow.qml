@@ -454,7 +454,7 @@ PanelWindow {
                     // Geral / Módulos → reset estrutural da barra
                     // (Paleta nunca chega aqui: o botão fica oculto nessa aba)
                     win.config.saveAll({
-                      theme: "Pill", position: 3, autoHide: true, silence: false,
+                      theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
                       barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
                       modulesLeft:   ["mediaplayer","separator","quicksettings"],
                       modulesCenter: ["workspaces"],

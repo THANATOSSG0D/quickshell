@@ -17,6 +17,8 @@ QtObject {
   // o guard _configReady evita que esses defaults sejam escritos de volta no BarConfig.
   property bool   autoHide:     false
   property bool   silenceMode:  false   // suprime OSD, toasts e autohide fullscreen
+  property bool   alwaysVisible: false  // barra SEMPRE visível, inclusive sobre fullscreen (layer Overlay)
+  property bool   pinned:        false  // barra nunca auto-oculta (cursor nem fullscreen peek), mas fica na layer Top
   property string currentTheme: "Pill"
   property int    position:     3
 
@@ -82,6 +84,14 @@ QtObject {
       state.silenceMode  = barConfig.silenceMode
       state._configReady = true
     }
+    function onAlwaysVisibleChanged() {
+      state.alwaysVisible = barConfig.alwaysVisible
+      state._configReady  = true
+    }
+    function onPinnedChanged() {
+      state.pinned        = barConfig.pinned
+      state._configReady  = true
+    }
     function onPositionChanged() {
       state.position     = barConfig.position
       state._configReady = true
@@ -92,21 +102,25 @@ QtObject {
     // quando os valores do JSON são idênticos aos defaults (signals não disparam)
     function on_ReadyChanged() {
       if (!barConfig._ready) return
-      state.currentTheme = barConfig.theme
-      state.autoHide     = barConfig.autoHide
-      state.silenceMode  = barConfig.silenceMode
-      state.position     = barConfig.position
-      state._configReady = true
+      state.currentTheme  = barConfig.theme
+      state.autoHide      = barConfig.autoHide
+      state.silenceMode   = barConfig.silenceMode
+      state.alwaysVisible = barConfig.alwaysVisible
+      state.pinned        = barConfig.pinned
+      state.position      = barConfig.position
+      state._configReady  = true
     }
   }
 
   // NOTA: autoHide e position agora são readonly no BarConfig (calculados
   // por tema via get("bar", key)) — não dá pra atribuir direto, então
   // propagamos via set("bar", key, value), que grava no tema atual.
-  onCurrentThemeChanged: if (_configReady) barConfig.theme       = currentTheme
-  onAutoHideChanged:     if (_configReady) barConfig.set("bar", "autoHide", autoHide)
-  onSilenceModeChanged:  if (_configReady) barConfig.silenceMode = silenceMode
-  onPositionChanged:     if (_configReady) barConfig.set("bar", "position", position)
+  onCurrentThemeChanged:   if (_configReady) barConfig.theme         = currentTheme
+  onAutoHideChanged:       if (_configReady) barConfig.set("bar", "autoHide", autoHide)
+  onSilenceModeChanged:    if (_configReady) barConfig.silenceMode   = silenceMode
+  onAlwaysVisibleChanged:  if (_configReady) barConfig.alwaysVisible = alwaysVisible
+  onPinnedChanged:         if (_configReady) barConfig.pinned        = pinned
+  onPositionChanged:       if (_configReady) barConfig.set("bar", "position", position)
 
   property var _proc: Process {
     id: cursorProc

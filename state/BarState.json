@@ -108,15 +108,14 @@
                 "lobePadH": 24,
                 "modules": {
                     "center": [
+                        "clock",
                         "mediaplayer",
-                        "separator",
-                        "workspaces"
+                        "workspaces",
+                        "notifications"
                     ],
                     "left": [
-                        "clock"
                     ],
                     "right": [
-                        "notifications"
                     ]
                 },
                 "notchRadius": 40,
@@ -124,6 +123,10 @@
                 "position": 1
             },
             "mediaplayer": {
+                "artworkSize": 19,
+                "bgPaddingH": 4,
+                "bgPaddingV": 2,
+                "scrollWidth": 120,
                 "showText": false
             },
             "workspaces": {
@@ -137,6 +140,7 @@
                     "bgPaddingHActive": 0,
                     "bgPaddingV": 0,
                     "bgPaddingVActive": 0,
+                    "bgRadiusActive": 20,
                     "fontSize": 8
                 },
                 "iconMonochrome": false,
