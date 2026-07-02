@@ -50,6 +50,10 @@ Item {
   property int  barMargin:      3
   property int  pillWidth:      400
   property int  pillMinSpacing: 20
+  // Notch
+  property int  notchRadius:    18
+  property int  concaveRadius:  10
+  property int  lobePadH:       14
 
   property var modulesLeft:   []
   property var modulesCenter: []
@@ -67,6 +71,9 @@ Item {
     root.barMargin      = get("bar", "barMargin")
     root.pillWidth      = get("bar", "pillWidth")
     root.pillMinSpacing = get("bar", "pillMinSpacing")
+    root.notchRadius    = get("bar", "notchRadius")   || 18
+    root.concaveRadius  = get("bar", "concaveRadius") || 10
+    root.lobePadH       = get("bar", "lobePadH")      || 14
 
     root.modulesLeft   = getModules("left")
     root.modulesCenter = getModules("center")
@@ -326,6 +333,9 @@ Item {
     if (opts.barMargin      !== undefined) set("bar", "barMargin",      opts.barMargin)
     if (opts.pillWidth      !== undefined) set("bar", "pillWidth",      opts.pillWidth)
     if (opts.pillMinSpacing !== undefined) set("bar", "pillMinSpacing", opts.pillMinSpacing)
+    if (opts.notchRadius    !== undefined) set("bar", "notchRadius",    opts.notchRadius)
+    if (opts.concaveRadius  !== undefined) set("bar", "concaveRadius",  opts.concaveRadius)
+    if (opts.lobePadH       !== undefined) set("bar", "lobePadH",       opts.lobePadH)
 
     // ── Listas de módulos do layout — por tema, via setModules() ───────
     if (opts.modulesLeft    !== undefined) setModules("left",   opts.modulesLeft)

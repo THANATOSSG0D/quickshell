@@ -1,0 +1,25 @@
+{
+    "bar": {
+        "barSize": true,
+        "barMargin": true,
+        "pillWidth": true,
+        "pillMinSpacing": true
+    },
+    "palette": {
+        "barBg": true,
+        "barBgPill": true,
+        "text": true,
+        "textDim": true,
+        "accent": true,
+        "accentBg": true,
+        "accentText": true
+    },
+    "modules": [
+        "workspaces",
+        "mediaplayer",
+        "clock",
+        "volume",
+        "quicksettings",
+        "notifications"
+    ]
+}

@@ -115,7 +115,7 @@ Singleton {
         default: return Edges.Left
       }
     }
-    anchor.adjustment: PopupAdjustment.FlipX | PopupAdjustment.FlipY
+    anchor.adjustment: PopupAdjustment.Flip | PopupAdjustment.Slide
 
     Rectangle {
       anchors.fill: parent

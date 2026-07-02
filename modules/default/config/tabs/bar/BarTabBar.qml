@@ -1,9 +1,13 @@
 import QtQuick
+import QtQuick.Layouts
 import '../../components' as C
 
 C.CfgScroll {
   id: root
+
   required property var   config
+  required property var   colors
+  required property var   overlay
   required property color colorAccent
   required property color colorTextDim
   required property color colorText
@@ -12,9 +16,25 @@ C.CfgScroll {
   required property color colorProgressBg
 
   signal changed(var opts)
+
+  // Dimensões da barra vivem soltas na raiz de "bar" (objeto flat).
   function g(key) { return config ? config[key] : undefined }
 
-  C.CfgSection { title: "DIMENSÕES"; colorTextDim: root.colorTextDim }
+  // Visibilidade por contrato — recebida do ConfigWindow, que lê o JSON
+  // do tema ativo. Fail-open: se não chegou contrato, mostra tudo.
+  required property var contract   // win._contract passado pelo Loader
+
+  // Paleta vive aninhada em "palette" (igual aos outros módulos).
+  function gp(key, def) {
+    if (!config) return def
+    var v = config.get("palette", key)
+    return (v !== undefined && v !== null) ? v : def
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // DIMENSÕES DA BARRA
+  // ════════════════════════════════════════════════════════════════════
+  C.CfgSection { title: "DIMENSÕES DA BARRA"; colorTextDim: root.colorTextDim }
   C.CfgSlider {
     label: "Tamanho"; value: root.g("barSize") || 30
     from: 20; to: 60; step: 2; unit: "px"
@@ -32,6 +52,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Largura pílula"; value: root.g("pillWidth") || 400
     from: 200; to: 1400; step: 10; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["pillWidth"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ pillWidth: v })
@@ -39,8 +60,113 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Espaçamento mín."; value: root.g("pillMinSpacing") || 20
     from: 0; to: 100; step: 5; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["pillMinSpacing"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ pillMinSpacing: v })
   }
+
+  // ── Notch — campos exclusivos, visíveis só quando o contrato do tema os declara
+  C.CfgDiv { colorDivider: root.colorDivider; visible: !root.contract.bar || !!root.contract.bar["notchRadius"] }
+  C.CfgSection { title: "NOTCH"; colorTextDim: root.colorTextDim; visible: !root.contract.bar || !!root.contract.bar["notchRadius"] }
+  C.CfgSlider {
+    label: "Raio interno"; value: root.g("notchRadius") || 18
+    from: 0; to: 40; step: 1; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["notchRadius"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ notchRadius: v })
+  }
+  C.CfgSlider {
+    label: "Côncavo lateral"; value: root.g("concaveRadius") || 10
+    from: 0; to: 30; step: 1; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["concaveRadius"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ concaveRadius: v })
+  }
+  C.CfgSlider {
+    label: "Padding horizontal"; value: root.g("lobePadH") || 14
+    from: 4; to: 40; step: 2; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["lobePadH"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ lobePadH: v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+
+  // ════════════════════════════════════════════════════════════════════
+  // PALETA
+  // ════════════════════════════════════════════════════════════════════
+  // PALETA
+  // Cada campo tem visible pelo contrato do tema ativo — se o tema não
+  // declara aquela chave de paleta, o campo some automaticamente.
+  // Os campos panelBg/progressBg/progressFg/divider foram removidos pois
+  // a auditoria mostrou zero uso em todos os 8 temas.
+  // ════════════════════════════════════════════════════════════════════
+  C.CfgSection { title: "PALETA — BARRA"; colorTextDim: root.colorTextDim }
+  C.CfgPalette {
+    label: "Fundo barra"; value: root.gp("barBg", "surface_container")
+    visible: !root.contract.palette || !!root.contract.palette["barBg"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "barBg", value: v })
+  }
+  C.CfgPalette {
+    label: "Fundo pill"; value: root.gp("barBgPill", "surface_container_high")
+    visible: !root.contract.palette || !!root.contract.palette["barBgPill"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "barBgPill", value: v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "PALETA — TEXTO"; colorTextDim: root.colorTextDim }
+  C.CfgPalette {
+    label: "Texto"; value: root.gp("text", "on_surface")
+    visible: !root.contract.palette || !!root.contract.palette["text"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "text", value: v })
+  }
+  C.CfgPalette {
+    label: "Texto dim"; value: root.gp("textDim", "on_surface_variant")
+    visible: !root.contract.palette || !!root.contract.palette["textDim"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "textDim", value: v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "PALETA — ACCENT"; colorTextDim: root.colorTextDim }
+  C.CfgPalette {
+    label: "Accent"; value: root.gp("accent", "primary")
+    visible: !root.contract.palette || !!root.contract.palette["accent"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "accent", value: v })
+  }
+  C.CfgPalette {
+    label: "Accent bg"; value: root.gp("accentBg", "primary_container")
+    visible: !root.contract.palette || !!root.contract.palette["accentBg"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "accentBg", value: v })
+  }
+  C.CfgPalette {
+    label: "Accent text"; value: root.gp("accentText", "on_primary")
+    visible: !root.contract.palette || !!root.contract.palette["accentText"]
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "palette", key: "accentText", value: v })
+  }
 }
+

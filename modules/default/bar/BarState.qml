@@ -139,7 +139,7 @@ QtObject {
     name:        "nextTheme"
     description: "Próximo tema do bar"
     onPressed: {
-      var themes = ["Default", "Minimal", "Pill", "Dock", "Aurora", "Bento"]
+      var themes = ["Default", "Minimal", "Pill", "Notch", "Dock", "Aurora", "Bento"]
       var idx    = themes.indexOf(state.currentTheme)
       state.currentTheme = themes[(idx + 1) % themes.length]
     }

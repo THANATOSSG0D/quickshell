@@ -81,6 +81,17 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "artworkRadius", value: v })
   }
 
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "LARGURA DO TEXTO"; colorTextDim: root.colorTextDim }
+
+  C.CfgSlider {
+    label: "Largura"; value: root.g("scrollWidth", 140)
+    from: 60; to: 300; step: 10; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "scrollWidth", value: v })
+  }
+
   C.CfgDiv { colorDivider: root.colorDivider; visible: root.g("textStatic", false) !== true }
   C.CfgSection { title: "SCROLL"; colorTextDim: root.colorTextDim; visible: root.g("textStatic", false) !== true }
 
@@ -91,14 +102,6 @@ C.CfgScroll {
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "scrollSpeed", value: v })
-  }
-  C.CfgSlider {
-    label: "Largura"; value: root.g("scrollWidth", 140)
-    from: 60; to: 300; step: 10; unit: "px"
-    visible: root.g("textStatic", false) !== true
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ moduleId: "mediaplayer", key: "scrollWidth", value: v })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

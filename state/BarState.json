@@ -19,11 +19,21 @@
                 },
                 "position": 1
             },
+            "mediaplayer": {
+                "textStatic": true
+            },
             "workspaces": {
+                "dots": {
+                    "dotSize": 8
+                },
+                "hybrid": {
+                    "fontSize": 10
+                },
                 "number": {
                     "bgBorderWidthActive": 0,
                     "bgOpacityActive": 0,
-                    "bgRadiusActive": 0
+                    "bgRadiusActive": 0,
+                    "fontSize": 10
                 },
                 "showAddButton": true,
                 "style": "number"
@@ -47,6 +57,7 @@
         "Dock": {
             "bar": {
                 "autoHide": false,
+                "barMargin": 4,
                 "pillMinSpacing": 5,
                 "position": 1
             },
@@ -58,6 +69,10 @@
                 "barBgPill": "on_secondary"
             },
             "workspaces": {
+                "icons": {
+                    "bgPaddingH": 0,
+                    "bgPaddingHActive": 6
+                },
                 "showAddButton": false
             }
         },
@@ -82,6 +97,51 @@
             "workspaces": {
                 "showAddButton": false,
                 "style": "number"
+            }
+        },
+        "Notch": {
+            "bar": {
+                "autoHide": false,
+                "barMargin": 0,
+                "barSize": 24,
+                "concaveRadius": 14,
+                "lobePadH": 24,
+                "modules": {
+                    "center": [
+                        "mediaplayer",
+                        "separator",
+                        "workspaces"
+                    ],
+                    "left": [
+                        "clock"
+                    ],
+                    "right": [
+                        "notifications"
+                    ]
+                },
+                "notchRadius": 40,
+                "pillMinSpacing": 15,
+                "position": 1
+            },
+            "mediaplayer": {
+                "showText": false
+            },
+            "workspaces": {
+                "dots": {
+                    "bgPaddingH": 0,
+                    "bgPaddingHActive": 4,
+                    "bgPaddingV": 0
+                },
+                "hybrid": {
+                    "bgPaddingH": 0,
+                    "bgPaddingHActive": 0,
+                    "bgPaddingV": 0,
+                    "bgPaddingVActive": 0,
+                    "fontSize": 8
+                },
+                "iconMonochrome": false,
+                "showAddButton": false,
+                "style": "hybrid"
             }
         },
         "Pill": {

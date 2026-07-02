@@ -97,6 +97,42 @@ PanelWindow {
   property int activeModule: 0
   property var subtabState:  ({})
 
+  // ── SISTEMA DE CONTRATO ──────────────────────────────────────────────────
+  // Cada tema declara o que suporta num JSON de contrato em:
+  //   bar/themes/<Tema>.contract.json
+  // Carregado via FileView+JsonAdapter (XHR local é bloqueado pelo Qt).
+  // Fail-open: se o arquivo não existir ou falhar, _contract fica {} e
+  // tudo fica visível — nunca esconde algo por engano.
+  property var _contract: ({})
+
+  FileView {
+    id: contractFile
+    path: win.config
+          ? (Quickshell.shellDir + "/modules/default/bar/themes/"
+             + (win.config["theme"] || "") + ".contract.json")
+          : ""
+    watchChanges: false
+    onLoaded: {
+      try { win._contract = JSON.parse(text()) }
+      catch(e) { win._contract = {} }
+    }
+    onLoadFailed: { win._contract = {} }
+  }
+
+  function _loadContract(themeName) {
+    // Só atualiza o path — o FileView reage automaticamente via onPathChanged
+    // (não precisa fazer nada aqui, mantido por compatibilidade com onConfigChanged)
+    if (!themeName) win._contract = {}
+  }
+
+  function contractBar(key)     { var c = win._contract; return !c.bar     || !!c.bar[key] }
+  function contractPalette(key) { var c = win._contract; return !c.palette || !!c.palette[key] }
+  function contractModule(id)   {
+    if (!id) return true          // null = sub-aba estrutural (Geral/Barra/Módulos) → sempre visível
+    var c = win._contract
+    if (!c.modules) return true   // sem contrato carregado → fail-open
+    return c.modules.indexOf(id) !== -1
+  }
   function subtab(mod) { return subtabState[mod] !== undefined ? subtabState[mod] : 0 }
   function setSubtab(mod, idx) {
     var o = {}
@@ -108,7 +144,7 @@ PanelWindow {
   // Definição dos módulos e suas subabas
   readonly property var modules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
-      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações", "Paleta"] },
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
@@ -116,6 +152,44 @@ PanelWindow {
     { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: [] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
+
+  // ── Sub-abas condicionais (módulo "bar" — index 0) ──────────────────────
+  // Cada sub-aba abaixo de índice 3 (Workspaces em diante) só faz sentido
+  // se o TEMA ATIVO de fato usa aquele módulo em algum dos 6 slots
+  // (left/center/right/top/middle/bottom). Sub-abas estruturais (Geral,
+  // Barra, Módulos) sempre aparecem — null = sempre visível.
+  readonly property var _barSubtabModule: [
+    null,              // 0 Geral         → sempre visível
+    null,              // 1 Barra+Paleta  → sempre visível
+    null,              // 2 Módulos       → sempre visível
+    "workspaces",      // 3 Workspaces
+    "mediaplayer",     // 4 Mídia
+    "clock",           // 5 Relógio
+    "volume",          // 6 Volume
+    "quicksettings",   // 7 Config Rápida
+    "notifications",   // 8 Notificações
+  ]
+
+  // Delega ao contrato do tema ativo
+  function _barModuleInUse(moduleId) {
+    return win.contractModule(moduleId)
+  }
+
+  // true/false por índice de sub-aba do módulo "bar" — usado tanto pelo
+  // Repeater que desenha os botões quanto pelo botão "Padrão/Limpar override"
+  function barSubtabVisible(idx) {
+    return _barModuleInUse(_barSubtabModule[idx])
+  }
+
+  // Se a sub-aba selecionada ficar oculta (ex: trocou de tema e o módulo
+  // sumiu de todos os slots), redireciona pra "Geral" pra não deixar o
+  // usuário olhando pra um painel em branco.
+  onConfigChanged: {
+    contractFile.reload()
+    if (win.activeModule === 0 && !win.barSubtabVisible(win.subtab(0))) {
+      win.setSubtab(0, 0)
+    }
+  }
 
   // ── Flash de salvo ────────────────────────────────────────────────────
   property bool _savedFlash: false
@@ -318,8 +392,11 @@ PanelWindow {
                 required property string modelData
                 required property int    index
                 readonly property bool   active: win.subtab(win.activeModule) === index
-                height: 44
-                width:  stLbl.implicitWidth + 24
+                // Só o módulo "bar" (activeModule===0) tem sub-abas condicionais
+                // por tema; os outros módulos (Wallpaper, Painéis...) sempre mostram tudo.
+                visible: win.activeModule !== 0 || win.barSubtabVisible(index)
+                height: visible ? 44 : 0
+                width:  visible ? (stLbl.implicitWidth + 24) : 0
 
                 // Underline de acento
                 Rectangle {
@@ -344,33 +421,18 @@ PanelWindow {
 
             // Botão Padrão — comportamento por subtab
             Rectangle {
-              // Mapa subtab → moduleId para clearModule; null = reset estrutural da barra
-              readonly property var _barSubtabModule: [
-                null,              // 0 Geral       → reset estrutural
-                null,              // 1 Módulos     → reset estrutural
-                "workspaces",      // 2 Workspaces
-                "mediaplayer",     // 3 Mídia
-                "clock",           // 4 Relógio
-                "volume",          // 5 Volume
-                "quicksettings",   // 6 Config Rápida
-                "notifications",   // 7 Notificações
-                null,              // 8 Paleta → não limpa override (paleta é global)
-              ]
-              // "estrutural"  → subtabs Geral/Módulos: o saveAll() de reset faz sentido
+              // "estrutural"  → subtabs Geral/Barra/Módulos: o saveAll() de reset faz sentido
               // <moduleId>    → módulo real (clearModule isolado por aba)
-              // "noop"        → Paleta: não há ação de reset aqui (paleta é global)
               readonly property string _mode: {
                 if (win.activeModule !== 0) return ""
                 var st = win.subtab(0)
-                if (st === 8) return "noop"
-                var m = _barSubtabModule[st]
+                var m = win._barSubtabModule[st]
                 return (m !== undefined && m !== null) ? m : "estrutural"
               }
-              readonly property string _moduleId: (_mode !== "estrutural" && _mode !== "noop") ? _mode : ""
-              readonly property string _label: (_mode === "estrutural" || _mode === "noop") ? "Padrão" : "Limpar override"
+              readonly property string _moduleId: (_mode !== "estrutural") ? _mode : ""
+              readonly property string _label: (_mode === "estrutural") ? "Padrão" : "Limpar override"
 
-              // Esconde o botão na aba Paleta — não existe override de módulo pra limpar ali
-              visible: win.activeModule === 0 && _mode !== "noop"
+              visible: win.activeModule === 0
               height: 28; width: rstLbl.implicitWidth + 18; radius: 6
               color: rstHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
@@ -462,7 +524,10 @@ PanelWindow {
             }
           }
 
-          // Subtab 1: Barra (dimensões: barSize, barMargin, pillWidth, pillMinSpacing)
+          // Subtab 1: Barra (dimensões: barSize, barMargin, pillWidth,
+          // pillMinSpacing) + Paleta (fundida na mesma aba/scroll — eram
+          // duas abas separadas antes, mas o conteúdo é sempre editado
+          // junto na prática, então faz mais sentido viver no mesmo lugar)
           Loader {
             id: loaderBarTabBar
             anchors.fill: parent
@@ -470,7 +535,8 @@ PanelWindow {
             sourceComponent: Component {
               Tabs.BarTabBar {
                 id: tabBar
-                config: win.config
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                contract: win._contract
                 colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
                 colorText: win.colorText; colorDivider: win.colorDivider
                 colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
@@ -478,7 +544,14 @@ PanelWindow {
             }
             Connections {
               target: loaderBarTabBar.item
-              function onChanged(opts) { win.applyStructural(opts) }
+              // BarTabBar agora emite dois formatos de opts: campos soltos
+              // de "bar" (ex: {barSize:v}) vão por applyStructural; campos
+              // de "palette" (ex: {moduleId:"palette",key,value}) vão por
+              // applyChange — distinguimos pela presença de moduleId.
+              function onChanged(opts) {
+                if (opts.moduleId) win.applyChange(opts)
+                else win.applyStructural(opts)
+              }
             }
           }
 
@@ -635,26 +708,6 @@ PanelWindow {
             }
             Connections {
               target: loaderNotifications.item
-              function onChanged(opts) { win.applyChange(opts) }
-            }
-          }
-
-          // Subtab 8: Paleta
-          Loader {
-            id: loaderPaleta
-            anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 9
-            sourceComponent: Component {
-              Tabs.BarTabPaleta {
-                id: tabPaleta
-                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
-                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
-                colorText: win.colorText; colorDivider: win.colorDivider
-                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
-              }
-            }
-            Connections {
-              target: loaderPaleta.item
               function onChanged(opts) { win.applyChange(opts) }
             }
           }
