@@ -5,7 +5,8 @@
         "pillMinSpacing": true,
         "notchRadius": true,
         "concaveRadius": true,
-        "lobePadH": true
+        "lobePadH": true,
+        "notchTaper": true
     },
     "palette": {
         "barBg": true,

@@ -78,7 +78,7 @@
         },
         "Minimal": {
             "bar": {
-                "barMargin": 1,
+                "barMargin": 0,
                 "modules": {
                     "bottom": [
                         "clock",
@@ -103,14 +103,16 @@
             "bar": {
                 "autoHide": false,
                 "barMargin": 0,
-                "barSize": 24,
-                "concaveRadius": 14,
-                "lobePadH": 24,
+                "barSize": 22,
+                "concaveRadius": 23,
+                "lobePadH": 28,
                 "modules": {
                     "center": [
+                        "quicksettings",
                         "clock",
                         "mediaplayer",
                         "workspaces",
+                        "volume",
                         "notifications"
                     ],
                     "left": [
@@ -118,16 +120,22 @@
                     "right": [
                     ]
                 },
-                "notchRadius": 40,
-                "pillMinSpacing": 15,
+                "notchRadius": 25,
+                "notchTaper": 20,
+                "pillMinSpacing": 10,
                 "position": 1
             },
             "mediaplayer": {
-                "artworkSize": 19,
+                "artworkSize": 14,
+                "bgColorActive": "on_primary_container",
                 "bgPaddingH": 4,
                 "bgPaddingV": 2,
                 "scrollWidth": 120,
-                "showText": false
+                "showText": false,
+                "textColorActive": "primary"
+            },
+            "volume": {
+                "showSource": false
             },
             "workspaces": {
                 "dots": {
@@ -136,6 +144,7 @@
                     "bgPaddingV": 0
                 },
                 "hybrid": {
+                    "bgBorderColorActive": "primary_container",
                     "bgPaddingH": 0,
                     "bgPaddingHActive": 0,
                     "bgPaddingV": 0,

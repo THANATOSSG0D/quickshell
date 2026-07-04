@@ -14,10 +14,7 @@
     },
     "modules": [
         "workspaces",
-        "mediaplayer",
         "clock",
-        "volume",
-        "quicksettings",
         "notifications"
     ]
 }

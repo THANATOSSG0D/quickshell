@@ -21,9 +21,11 @@ import "../../notifications" as NotifModule
 //   center — slot central (ex: workspaces, clock)
 //   right  — slot direito (ex: volume, notifications)
 //
-// Forma: o lobo tem cantos côncavos (estilo Dynamic Island) nos dois
-// lados onde encontra a borda da tela, usando Shape+PathSvg.
-// O lado de dentro da tela é arredondado normalmente.
+// Forma: base trapezoidal — mais larga rente à borda da tela, estreita
+// em direção ao desktop (como a haste de um "d"). Nos dois cantos onde
+// o lobo encontra a borda da tela, mantém as mordidas côncavas (estilo
+// Dynamic Island); o lado de dentro da tela é arredondado normalmente.
+// Tudo desenhado com Shape+PathSvg.
 //
 // Expansão dinâmica: a largura do lobo segue o conteúdo real dos três
 // slots (medido via implicitWidth dos Rows internos) com uma animação
@@ -183,6 +185,7 @@ Item {
   property int  concaveRadius:  8
   property int  lobePadH:       14
   property int  lobePadV:        6
+  property int  notchTaper:    20   // inclinação do trapézio (px de estreitamento por lado, rente ao desktop)
   readonly property int moduleSpacing: pillMinSpacing
 
   // ── Estado de expansão ─────────────────────────────────────────────────
@@ -462,44 +465,96 @@ Item {
 
   readonly property bool _facesDown: barPosition === 1
 
-  // Constrói o path SVG do lobo com cantos côncavos laterais.
-  // Clampamos r e cr para que r+cr ≤ h*0.45 — geometria sempre válida.
-  function _buildLobePath(w, h, r, cr) {
-    // Clampar: r+cr não pode exceder h.
-    // Quando r+cr == h, o côncavo e convexo se encontram direto (sem
-    // seção reta) — ainda válido e visualmente elegante como DI real.
-    var total = r + cr
-    if (total > h) {
-      var scale = h / total
-      r  = Math.floor(r  * scale)
-      cr = Math.floor(cr * scale)
-    }
-    r  = Math.max(2, r)
-    cr = Math.max(2, cr)
-    var straight = Math.max(0, h - r - cr)
+  // Constrói o path SVG do lobo: trapézio (mais largo rente à borda da
+  // tela, estreito rumo ao desktop).
+  //
+  // A ponta que encosta no monitor fica SEMPRE reta e fixa em (w, y0) —
+  // nunca é arredondada nem deslocada por nenhum raio. Só a ponta do
+  // desktop é arredondada (notchRadius), e a parede lateral entre as duas
+  // pontas é que se curva (concaveRadius), partindo fixa da ponta de cima
+  // até encostar suavemente na quina de baixo.
+  //
+  // Isso também evita o bug do "bojo": o giro do fillet do desktop nunca
+  // passa de 90° (ele vai de "direção da parede" pra "borda horizontal",
+  // um giro de 90°-δ, sempre ≤90°), diferente de tentar arredondar a ponta
+  // de cima, cujo giro seria 90°+δ — e um giro >90° tem seu ponto mais
+  // largo NO MEIO do arco, não na ponta, o que gera o bojo.
+  function _buildLobePath(w, h, r, cr, taper) {
+    r = Math.max(0, r)
+    // r nunca pode comer mais que a altura disponível nem mais que a
+    // largura (só precisa caber na quina de baixo agora).
+    r = Math.min(r, h - 1, w / 2 - 2)
+    r = Math.max(0, r)
 
-    var d = ""
-    if (_facesDown) {
-      d  = "M 0,0"
-      d += " L " + w + ",0"
-      d += " L " + w + "," + straight
-      d += " A " + cr + "," + cr + " 0 0 0 " + (w - cr) + "," + (straight + cr)
-      d += " A " + r  + "," + r  + " 0 0 1 " + (w - r)  + "," + h
-      d += " L " + r  + "," + h
-      d += " A " + r  + "," + r  + " 0 0 1 " + cr        + "," + (straight + cr)
-      d += " A " + cr + "," + cr + " 0 0 0 0," + straight
-      d += " Z"
-    } else {
-      d  = "M 0," + h
-      d += " L " + w + "," + h
-      d += " L " + w + "," + (h - straight)
-      d += " A " + cr + "," + cr + " 0 0 0 " + (w - cr) + "," + (h - straight - cr)
-      d += " A " + r  + "," + r  + " 0 0 0 " + (w - r)  + ",0"
-      d += " L " + r  + ",0"
-      d += " A " + r  + "," + r  + " 0 0 0 " + cr        + "," + (h - straight - cr)
-      d += " A " + cr + "," + cr + " 0 0 0 0," + (h - straight)
-      d += " Z"
-    }
+    taper = Math.max(0, taper || 0)
+    // trava de segurança: taper não pode fechar a base nem passar do centro.
+    taper = Math.min(taper, Math.max(0, w / 2 - r - 2))
+    cr = Math.max(0, cr || 0)
+
+    var sgnY = _facesDown ? 1 : -1
+    var y0   = _facesDown ? 0 : h
+    var sweep = _facesDown ? 1 : 0
+
+    // Ângulo da parede a partir da vertical: o mesmo ângulo de uma reta
+    // ligando a ponta de cima (w,y0) até o canto teórico de baixo
+    // (w-taper, y0+h) — ou seja, com concaveRadius=0 a parede É essa reta.
+    var delta = Math.atan2(taper, h)
+    var u2x = -Math.sin(delta), u2y = sgnY * Math.cos(delta)
+    var u3x = -1, u3y = 0
+
+    var ax = w, ay = y0   // ponta fixa no monitor (nunca arredondada)
+
+    // Fillet só na base (giro = 90°-δ, sempre seguro/≤90°): canto teórico
+    // onde a parede encontraria a borda de baixo, arredondado com raio r.
+    var pc2x = w - taper, pc2y = y0 + sgnY * h
+    var aIn  = Math.atan2(u2y, u2x)
+    var aOut = Math.atan2(u3y, u3x)
+    var turn2 = ((aOut - aIn + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI
+    var L2 = r * Math.tan(Math.abs(turn2) / 2)
+    var t2InX  = pc2x - u2x * L2, t2InY  = pc2y - u2y * L2
+    var t2OutX = pc2x + u3x * L2, t2OutY = pc2y + u3y * L2
+
+    // Bezier cúbica da ponta fixa (ax,ay) até t2In. P2 fica sobre a MESMA
+    // reta que liga ax a t2In (garante tangente = u2 em t2In, encaixando
+    // suave na quina de baixo). P1 é o ponto livre: parte dessa mesma reta
+    // (handleLen à frente de ax) mais um deslocamento PERPENDICULAR real —
+    // é esse deslocamento perpendicular (não colinear!) que de fato
+    // encurva a parede; concaveRadius controla o quanto ele empurra.
+    // Sem isso, um ponto de controle colinear com ax/t2In sempre produz
+    // reta, nunca um arco, não importa o valor de concaveRadius.
+    var dx = t2InX - ax, dy = t2InY - ay
+    var baseLen = Math.sqrt(dx * dx + dy * dy)
+    var ubx = baseLen > 0.001 ? dx / baseLen : 0
+    var uby = baseLen > 0.001 ? dy / baseLen : 1
+    // normal perpendicular, sempre apontando pra DENTRO (rumo ao centro) —
+    // apontar pra fora estouraria a borda, já que ax está bem na quina w.
+    var nbx = -uby, nby = ubx
+    if (nbx > 0) { nbx = -nbx; nby = -nby }
+
+    var handleLen = baseLen / 3
+    var baseP1x = ax + ubx * handleLen, baseP1y = ay + uby * handleLen
+    var maxBowWidth = Math.max(0, baseP1x - (w / 2 + 2))
+    var maxBowScale = handleLen * 0.9   // o "bojo" nunca pode dominar sobre o próprio raio da curva
+    var bow = Math.min(cr, maxBowWidth, maxBowScale)
+    var useCurve = bow > 0.5
+
+    var p1x = baseP1x + nbx * bow, p1y = baseP1y + nby * bow
+    var p2x = t2InX - u2x * handleLen, p2y = t2InY - u2y * handleLen
+
+    var startX = w - ax, startY = ay
+
+    var d = "M " + startX + "," + startY
+    d += " L " + ax + "," + ay
+    d += useCurve
+      ? (" C " + p1x + "," + p1y + " " + p2x + "," + p2y + " " + t2InX + "," + t2InY)
+      : (" L " + t2InX + "," + t2InY)
+    if (r > 0.001) d += " A " + r + "," + r + " 0 0 " + sweep + " " + t2OutX + "," + t2OutY
+    d += " L " + (w - t2OutX) + "," + t2OutY
+    if (r > 0.001) d += " A " + r + "," + r + " 0 0 " + sweep + " " + (w - t2InX) + "," + t2InY
+    d += useCurve
+      ? (" C " + (w - p2x) + "," + p2y + " " + (w - p1x) + "," + p1y + " " + startX + "," + startY)
+      : (" L " + startX + "," + startY)
+    d += " Z"
     return d
   }
 
@@ -526,7 +581,7 @@ Item {
         strokeWidth: 0
         PathSvg {
           path: root._buildLobePath(lobeItem.width, lobeItem.height,
-                                    root.notchRadius, root.concaveRadius)
+                                    root.notchRadius, root.concaveRadius, root.notchTaper)
         }
       }
     }

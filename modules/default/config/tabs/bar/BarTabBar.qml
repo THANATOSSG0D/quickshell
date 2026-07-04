@@ -20,6 +20,15 @@ C.CfgScroll {
   // Dimensões da barra vivem soltas na raiz de "bar" (objeto flat).
   function g(key) { return config ? config[key] : undefined }
 
+  // Como g(key), mas com fallback seguro: usa "def" apenas quando o valor
+  // é undefined/null — nunca quando é 0. O padrão antigo "g(key) || def"
+  // tratava 0 como "não setado" e forçava o default de volta na tela,
+  // impedindo o usuário de zerar margem/raio/etc.
+  function gd(key, def) {
+    var v = g(key)
+    return (v !== undefined && v !== null) ? v : def
+  }
+
   // Visibilidade por contrato — recebida do ConfigWindow, que lê o JSON
   // do tema ativo. Fail-open: se não chegou contrato, mostra tudo.
   required property var contract   // win._contract passado pelo Loader
@@ -36,21 +45,21 @@ C.CfgScroll {
   // ════════════════════════════════════════════════════════════════════
   C.CfgSection { title: "DIMENSÕES DA BARRA"; colorTextDim: root.colorTextDim }
   C.CfgSlider {
-    label: "Tamanho"; value: root.g("barSize") || 30
+    label: "Tamanho"; value: root.gd("barSize", 30)
     from: 20; to: 60; step: 2; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ barSize: v })
   }
   C.CfgSlider {
-    label: "Margem"; value: root.g("barMargin") || 3
+    label: "Margem"; value: root.gd("barMargin", 3)
     from: 0; to: 20; step: 1; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ barMargin: v })
   }
   C.CfgSlider {
-    label: "Largura pílula"; value: root.g("pillWidth") || 400
+    label: "Largura pílula"; value: root.gd("pillWidth", 400)
     from: 200; to: 1400; step: 10; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["pillWidth"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -58,7 +67,7 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ pillWidth: v })
   }
   C.CfgSlider {
-    label: "Espaçamento mín."; value: root.g("pillMinSpacing") || 20
+    label: "Espaçamento mín."; value: root.gd("pillMinSpacing", 20)
     from: 0; to: 100; step: 5; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["pillMinSpacing"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -70,7 +79,7 @@ C.CfgScroll {
   C.CfgDiv { colorDivider: root.colorDivider; visible: !root.contract.bar || !!root.contract.bar["notchRadius"] }
   C.CfgSection { title: "NOTCH"; colorTextDim: root.colorTextDim; visible: !root.contract.bar || !!root.contract.bar["notchRadius"] }
   C.CfgSlider {
-    label: "Raio interno"; value: root.g("notchRadius") || 18
+    label: "Raio interno"; value: root.gd("notchRadius", 18)
     from: 0; to: 40; step: 1; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["notchRadius"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -78,7 +87,7 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ notchRadius: v })
   }
   C.CfgSlider {
-    label: "Côncavo lateral"; value: root.g("concaveRadius") || 10
+    label: "Côncavo lateral"; value: root.gd("concaveRadius", 10)
     from: 0; to: 30; step: 1; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["concaveRadius"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -86,12 +95,20 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ concaveRadius: v })
   }
   C.CfgSlider {
-    label: "Padding horizontal"; value: root.g("lobePadH") || 14
+    label: "Padding horizontal"; value: root.gd("lobePadH", 14)
     from: 4; to: 40; step: 2; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["lobePadH"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ lobePadH: v })
+  }
+  C.CfgSlider {
+    label: "Inclinação trapézio"; value: root.gd("notchTaper", 20)
+    from: 0; to: 60; step: 2; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["notchTaper"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ notchTaper: v })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

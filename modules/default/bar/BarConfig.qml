@@ -65,6 +65,7 @@ Item {
   property int  notchRadius:    18
   property int  concaveRadius:  10
   property int  lobePadH:       14
+  property int  notchTaper:     20
 
   property var modulesLeft:   []
   property var modulesCenter: []
@@ -82,9 +83,14 @@ Item {
     root.barMargin      = get("bar", "barMargin")
     root.pillWidth      = get("bar", "pillWidth")
     root.pillMinSpacing = get("bar", "pillMinSpacing")
-    root.notchRadius    = get("bar", "notchRadius")   || 18
-    root.concaveRadius  = get("bar", "concaveRadius") || 10
-    root.lobePadH       = get("bar", "lobePadH")      || 14
+    // SEM fallback "|| default" aqui: 0 é um valor válido (raio/inclinação
+    // zerados) e agora o schema (BarSchema) já cobre o default quando não
+    // há override nem valor no tema — usar "||" fazia 0 virar sempre o
+    // default, impedindo zerar as curvas do Notch.
+    root.notchRadius    = get("bar", "notchRadius")
+    root.concaveRadius  = get("bar", "concaveRadius")
+    root.lobePadH       = get("bar", "lobePadH")
+    root.notchTaper     = get("bar", "notchTaper")
 
     root.modulesLeft   = getModules("left")
     root.modulesCenter = getModules("center")
@@ -349,6 +355,7 @@ Item {
     if (opts.notchRadius    !== undefined) set("bar", "notchRadius",    opts.notchRadius)
     if (opts.concaveRadius  !== undefined) set("bar", "concaveRadius",  opts.concaveRadius)
     if (opts.lobePadH       !== undefined) set("bar", "lobePadH",       opts.lobePadH)
+    if (opts.notchTaper     !== undefined) set("bar", "notchTaper",     opts.notchTaper)
 
     // ── Listas de módulos do layout — por tema, via setModules() ───────
     if (opts.modulesLeft    !== undefined) setModules("left",   opts.modulesLeft)

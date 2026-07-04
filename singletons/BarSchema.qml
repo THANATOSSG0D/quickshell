@@ -48,6 +48,13 @@ QtObject {
         { key:"barMargin",      type:"int",  default:3,   min:0,   max:20,   step:1,  unit:"px", label:"Margem",           section:"DIMENSÕES" },
         { key:"pillWidth",      type:"int",  default:400, min:200, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
         { key:"pillMinSpacing", type:"int",  default:20,  min:0,   max:100,  step:5,  unit:"px", label:"Espaçamento mín.", section:"DIMENSÕES" },
+        // Notch — antes viviam só como fallback hardcoded (`|| 18` etc.) espalhado
+        // pelo código; registrados aqui para que get()/defaultValue() os resolvam
+        // corretamente e o valor 0 deixe de ser tratado como "não setado".
+        { key:"notchRadius",    type:"int",  default:18,  min:0,   max:40,   step:1,  unit:"px", label:"Raio interno",     section:"NOTCH" },
+        { key:"concaveRadius",  type:"int",  default:10,  min:0,   max:30,   step:1,  unit:"px", label:"Côncavo lateral",  section:"NOTCH" },
+        { key:"lobePadH",       type:"int",  default:14,  min:0,   max:40,   step:2,  unit:"px", label:"Padding horizontal", section:"NOTCH" },
+        { key:"notchTaper",     type:"int",  default:20,  min:0,   max:60,   step:2,  unit:"px", label:"Inclinação trapézio", section:"NOTCH" },
       ]
     },
 

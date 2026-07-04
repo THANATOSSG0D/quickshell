@@ -561,19 +561,25 @@ Scope {
       // do Notch funcione em tempo real, precisamos de Bindings vivos que
       // propagam barState.config.X → loader.item.X sempre que o config muda.
       // ignoreUnknownSignals/when: loader.item protege os outros temas.
-      Binding { target: loader.item; property: "notchRadius";   value: barState.config.notchRadius   || 10; when: loader.item !== null && "notchRadius"   in (loader.item || {}) }
-      Binding { target: loader.item; property: "concaveRadius"; value: barState.config.concaveRadius || 8;  when: loader.item !== null && "concaveRadius" in (loader.item || {}) }
-      Binding { target: loader.item; property: "lobePadH";      value: barState.config.lobePadH      || 14; when: loader.item !== null && "lobePadH"      in (loader.item || {}) }
+      // SEM fallback "|| default": 0 é valor válido (zerar raio/inclinação).
+      // barState.config.X já vem resolvido corretamente pela cascata do
+      // BarConfig (override → tema → BarSchema default).
+      Binding { target: loader.item; property: "notchRadius";   value: barState.config.notchRadius;   when: loader.item !== null && "notchRadius"   in (loader.item || {}) }
+      Binding { target: loader.item; property: "concaveRadius"; value: barState.config.concaveRadius; when: loader.item !== null && "concaveRadius" in (loader.item || {}) }
+      Binding { target: loader.item; property: "lobePadH";      value: barState.config.lobePadH;      when: loader.item !== null && "lobePadH"      in (loader.item || {}) }
+      Binding { target: loader.item; property: "notchTaper";    value: barState.config.notchTaper;    when: loader.item !== null && "notchTaper"    in (loader.item || {}) }
 
       function _set(prop, value) {
         if (loader.item && prop in loader.item) loader.item[prop] = value
       }
 
       function _applyConfig(item) {
-        // Notch — seta diretamente as props de aparência do tema
-        _set("notchRadius",   barState.config.notchRadius   || 18)
-        _set("concaveRadius", barState.config.concaveRadius || 10)
-        _set("lobePadH",      barState.config.lobePadH      || 14)
+        // Notch — seta diretamente as props de aparência do tema.
+        // SEM fallback "|| default": 0 é valor válido.
+        _set("notchRadius",   barState.config.notchRadius)
+        _set("concaveRadius", barState.config.concaveRadius)
+        _set("lobePadH",      barState.config.lobePadH)
+        _set("notchTaper",    barState.config.notchTaper)
 
         // workspaces
         _set("cfgWsStyle",          barState.config.wsStyle)

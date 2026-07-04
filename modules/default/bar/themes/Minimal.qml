@@ -8,20 +8,22 @@ import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
 // ════════════════════════════════════════════════════════════════════════
-// MINIMAL — a barra que tenta não existir.
+// MINIMAL — o mínimo indispensável, bem fino e legível.
 //
-// Sem fundo, sem cápsula, sem ilha, sem sombra, sem borda: os módulos
-// flutuam soltos direto sobre a área de trabalho. A única pista de que há
-// uma barra ali é uma linha finíssima e discreta na borda voltada para o
-// desktop — quase imperceptível, só o suficiente para ancorar visualmente
-// onde a barra "começa". Pensada pra quem quer o máximo de tela livre e o
-// mínimo de chrome possível.
+// Sem cápsula, sem ilha, sem sombra, sem borda: os módulos flutuam sobre
+// um fundo sólido bem fino que só existe para garantir contraste e
+// legibilidade — nada de decoração além disso. Uma linha finíssima e
+// discreta na borda voltada para o desktop ancora visualmente onde a
+// barra "termina". Pensada pra quem quer poucos módulos, pouca espessura
+// e zero ruído visual.
 //
-// pill = false — a janela ocupa a tela inteira (como Default/Dock), mas
-// aqui não se desenha NADA por baixo dos módulos — zero Rectangle de fundo.
+// pill = false — a janela ocupa a tela inteira (como Default/Dock). Ao
+// contrário da versão anterior, aqui HÁ um Rectangle de fundo sólido
+// (root.colBarBg, opacidade total) — só ele, nada mais.
 //
 // Como em Pill/Dock/Default, toda a parte de configuração (cfgWs*/cfgMp*/
-// cfgVol*/cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é mantida idêntica.
+// cfgVol*/cfgQs*/cfgNotif*/cfgClk*, moduleItemComp) é mantida idêntica —
+// mesmo que este tema, por padrão, só exponha workspaces/clock/notifications.
 // ════════════════════════════════════════════════════════════════════════
 
 Item {
@@ -29,7 +31,7 @@ Item {
   anchors.fill: parent   // tema estático (não-pill) — ocupa toda a PanelWindow
 
   // ── Layout (lido pelo Bar.qml) ─────────────────────────────────────────
-  property int    barSize:       22
+  property int    barSize:       16
   property int    barMargin:     4
   property bool   pill:          false
   property int    panelWidth:    380
@@ -174,10 +176,11 @@ Item {
 
   // ── Aparência específica do Minimal (constantes de implementação, não
   // expostas no schema/editor) ────────────────────────────────────────────
-  property int  edgeInset:           14     // espaçamento generoso — visual "arejado"
-  property int  slotSpacing:         8
+  property int  edgeInset:           7      // reduzido — barra bem fina (16px)
+  property int  slotSpacing:         5
   property int  accentLineThickness: 1      // linha quase imperceptível
-  property real accentLineOpacity:   0.3
+  property real accentLineOpacity:   0.25
+  property real bgOpacity:           1.0    // fundo sólido — legibilidade acima de tudo
 
   // ══════════════════════════════════════════════════════════════════════
   // Componente de módulo individual — idêntico em espírito ao do Pill.qml.
@@ -506,6 +509,16 @@ Item {
     root.clock        = lay.clock        || null
     root.notifWidget  = lay.notifWidget  || null
     root.refsUpdated()
+  }
+
+  // ── Fundo sólido ────────────────────────────────────────────────────────
+  // Único elemento de "chrome" do tema: garante contraste/legibilidade dos
+  // módulos sem introduzir cápsula, sombra ou borda. Fica abaixo de tudo
+  // por ser declarado antes do layoutLoader.
+  Rectangle {
+    anchors.fill: parent
+    color:   root.colBarBg
+    opacity: root.bgOpacity
   }
 
   // ── Loader do layout ───────────────────────────────────────────────────
