@@ -14,7 +14,26 @@ import './themes' as BarThemes
 Scope {
   id: barRoot
 
-  BarState { id: barState }
+  // ── Parametrização de instância ──────────────────────────────────────
+  // Defaults preservam EXATAMENTE o comportamento atual (a barra original,
+  // instanciada sem passar nada, continua igual). Uma segunda instância
+  // (ex: a Dock) passa instanceId/paths/tema/autoHide diferentes.
+  property string instanceId:      "bar"
+  property string barJsonPath:     Quickshell.shellDir + "/state/Bar.json"
+  property string stateJsonPath:   Quickshell.shellDir + "/state/BarState.json"
+  property string initialTheme:    "Pill"
+  property bool   initialAutoHide: false
+  property bool   initialPanelEnabled: true
+
+  BarState {
+    id: barState
+    instanceId:          barRoot.instanceId
+    barJsonPath:         barRoot.barJsonPath
+    stateJsonPath:       barRoot.stateJsonPath
+    initialTheme:        barRoot.initialTheme
+    initialAutoHide:     barRoot.initialAutoHide
+    initialPanelEnabled: barRoot.initialPanelEnabled
+  }
 
   // ── Props do tema activo ───────────────────────────────────────────────
   property int  themeBarSize:    30
@@ -81,7 +100,7 @@ Scope {
 
   // ── IPC do timer ──────────────────────────────────────────────────────
   IpcHandler {
-    target: "timer"
+    target: barState.instanceId === "bar" ? "timer" : "timer_" + barState.instanceId
     function toggle()   { var cc = barRoot.clockContentRef; if (cc) cc.toggleRunning() }
     function start()    { var cc = barRoot.clockContentRef; if (cc) cc.startFree(cc.freeTimerDuration) }
     function reset()    { var cc = barRoot.clockContentRef; if (cc) cc.resetTimer() }
@@ -128,7 +147,7 @@ Scope {
   // Uso: qs ipc call bar toggleVolume | toggleSource | togglePlayer |
   //           toggleClock | toggleQs | toggleNotif | toggleEditor | closeAll
   IpcHandler {
-    target: "bar"
+    target: barState.instanceId === "bar" ? "bar" : "bar_" + barState.instanceId
     function toggleVolume()     { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelSink)   }
     function toggleSource()     { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelSource) }
     function toggleVolumeFull() { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelVolume) }
@@ -149,20 +168,33 @@ Scope {
     function silenceOff()    { barState.silenceMode = false }
     function silenceToggle() { barState.silenceMode = !barState.silenceMode }
     function toggleWallpaper() { barRoot.wallpaperWindowOpen = !barRoot.wallpaperWindowOpen }
+    // Liga/desliga o painel INTEIRO (ver BarState.panelEnabled) — ex:
+    //   qs ipc call bar      disable   (desliga a barra)
+    //   qs ipc call bar_dock disable   (desliga a dock)
+    function enable()  { barState.panelEnabled = true  }
+    function disable() { barState.panelEnabled = false }
+    function toggleEnabled() { barState.panelEnabled = !barState.panelEnabled }
   }
 
   // ── Janela de configuração de wallpaper ──────────────────────────────────
+  // Só existe na instância principal ("bar") — uma Dock não precisa de uma
+  // segunda janela de config de wallpaper.
   property bool wallpaperWindowOpen: false
 
-  WallModule.WallpaperWindow {
-    id: wallpaperWin
-    panelOpen:    barRoot.wallpaperWindowOpen
-    colorBg:      barRoot.popupColorBg
-    colorText:    barRoot.popupColorText
-    colorTextDim: barRoot.popupColorTextDim
-    colorAccent:  barRoot.popupColorAccent
-    colorDivider: barRoot.popupColorDivider
-    onCloseRequested: barRoot.wallpaperWindowOpen = false
+  Loader {
+    active: barState.instanceId === "bar"
+    sourceComponent: Component {
+      WallModule.WallpaperWindow {
+        id: wallpaperWin
+        panelOpen:    barRoot.wallpaperWindowOpen
+        colorBg:      barRoot.popupColorBg
+        colorText:    barRoot.popupColorText
+        colorTextDim: barRoot.popupColorTextDim
+        colorAccent:  barRoot.popupColorAccent
+        colorDivider: barRoot.popupColorDivider
+        onCloseRequested: barRoot.wallpaperWindowOpen = false
+      }
+    }
   }
 
   // ── IPC do dmenu — movido para shell.qml (usa DmenuIpc.openNative) ──────
@@ -197,8 +229,10 @@ Scope {
   property bool   _dmenuShowIcons: false
 
   // ── Barra + Popups (um conjunto por tela) ─────────────────────────────
+  // model vazio quando panelEnabled=false → nenhuma PanelWindow é criada
+  // (nem a de zona, nem a visual): painel completamente desligado.
   Variants {
-    model: Quickshell.screens
+    model: barState.panelEnabled ? Quickshell.screens : []
 
     // ── Superfície de zona (transparente, não se retrai) ──────────────────
     // Propósito exclusivo: reservar espaço para janelas normais.
@@ -270,7 +304,7 @@ Scope {
   }
 
   Variants {
-    model: Quickshell.screens
+    model: barState.panelEnabled ? Quickshell.screens : []
 
     PanelWindow {
       id: bar

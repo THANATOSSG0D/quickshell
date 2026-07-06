@@ -30,6 +30,14 @@ Item {
   id: root
   visible: false
 
+  // ── Paths dos arquivos JSON ──────────────────────────────────────────────
+  // Parametrizáveis para permitir instanciar um SEGUNDO BarConfig totalmente
+  // independente (ex: a Dock) apontando para arquivos próprios, sem tocar
+  // nos overrides/temas do Bar principal. Os defaults abaixo preservam
+  // exatamente o comportamento anterior (hardcoded) para quem não passar nada.
+  property string barJsonPath:   Quickshell.shellDir + "/state/Bar.json"
+  property string stateJsonPath: Quickshell.shellDir + "/state/BarState.json"
+
   // ── Props globais (não por tema) ────────────────────────────────────────
   property string theme:       "Pill"
   property bool   silenceMode: false
@@ -44,6 +52,12 @@ Item {
   // continua na layer Top: pode ficar atrás de uma janela fullscreen, já
   // que não força Overlay. Global (não por tema), mesmo padrão de silenceMode.
   property bool   pinned: false
+  // Liga/desliga o painel INTEIRO (Bar ou Dock). Diferente de autoHide
+  // (que só esconde temporariamente por hover) — com panelEnabled=false
+  // nenhuma PanelWindow é criada: sem popups, sem zona reservada, nada
+  // visível. Permite desligar a Dock (ou a Bar) por completo sem tocar
+  // na outra instância, já que cada uma tem seu próprio BarConfig/JSON.
+  property bool   panelEnabled: true
 
   // ── Props "bar" — por tema ───────────────────────────────────────────────
   // NOTA: estas são properties ARMAZENADAS (não bindings calculados via
@@ -344,6 +358,7 @@ Item {
     if (opts.silence       !== undefined) root.silenceMode   = opts.silence
     if (opts.alwaysVisible !== undefined) root.alwaysVisible = opts.alwaysVisible
     if (opts.pinned        !== undefined) root.pinned        = opts.pinned
+    if (opts.panelEnabled  !== undefined) root.panelEnabled  = opts.panelEnabled
 
     // ── "bar" — por tema, via set() (mesma cascata dos demais módulos) ──
     if (opts.autoHide       !== undefined) set("bar", "autoHide",       opts.autoHide)
@@ -407,7 +422,7 @@ Item {
     }
 
     // ── Grava globais no Bar.json — preserva themes ─────────────────────
-    barAdapter.bar = { theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible, pinned: root.pinned }
+    barAdapter.bar = { theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible, pinned: root.pinned, enabled: root.panelEnabled }
     // Garante que themes não foi zerado antes de gravar
     if (!barAdapter.themes || Object.keys(barAdapter.themes).length === 0) {
       console.warn("[BarConfig] AVISO: barAdapter.themes está vazio antes de writeAdapter — themes serão perdidos")
@@ -622,7 +637,7 @@ Item {
   // ══════════════════════════════════════════════════════════════════════
   FileView {
     id: barFile
-    path:         Quickshell.shellDir + "/state/Bar.json"
+    path:         root.barJsonPath
     watchChanges: false
 
     JsonAdapter {
@@ -637,6 +652,7 @@ Item {
         if (b.silence       !== undefined) root.silenceMode   = b.silence
         if (b.alwaysVisible !== undefined) root.alwaysVisible = b.alwaysVisible
         if (b.pinned        !== undefined) root.pinned        = b.pinned
+        if (b.enabled        !== undefined) root.panelEnabled  = b.enabled
         root._bump()
       }
 
@@ -656,7 +672,7 @@ Item {
   // ══════════════════════════════════════════════════════════════════════
   FileView {
     id: stateFile
-    path:         Quickshell.shellDir + "/state/BarState.json"
+    path:         root.stateJsonPath
     watchChanges: false
 
     JsonAdapter {

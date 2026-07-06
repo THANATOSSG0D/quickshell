@@ -60,7 +60,7 @@ C.CfgScroll {
   }
   C.CfgSlider {
     label: "Largura pílula"; value: root.gd("pillWidth", 400)
-    from: 200; to: 1400; step: 10; unit: "px"
+    from: 100; to: 1400; step: 10; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["pillWidth"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg

@@ -38,7 +38,14 @@ C.CfgScroll {
   // então misturar tudo numa lista só confunde mais do que ajuda.
   readonly property bool isIcons:  currentStyle === "icons"
   readonly property bool isDots:   currentStyle === "dots"
-  readonly property bool isNumber: currentStyle === "number" || currentStyle === "hybrid"
+  readonly property bool isFocus:  currentStyle === "focus"
+  // Number/Hybrid/Focus usam o mesmo "fontSize" pro número
+  readonly property bool isNumber: currentStyle === "number" || currentStyle === "hybrid" || currentStyle === "focus"
+  // Ícones e Focus compartilham as props de tamanho/espaçamento/ordenação/
+  // monocromia de ícone (Focus reaproveita o Icons.qml quando expandida)
+  readonly property bool showsIconRow: currentStyle === "icons" || currentStyle === "focus"
+  // Dots/Number/Hybrid usam as 4 cores de "ponto" — Focus e Ícones não
+  readonly property bool usesDotColors: currentStyle === "dots" || currentStyle === "number" || currentStyle === "hybrid"
 
   function gs(key, def) {
     if (!config) return def
@@ -60,6 +67,7 @@ C.CfgScroll {
         { id: "dots",   label: "Dots"   },
         { id: "hybrid", label: "Hybrid" },
         { id: "number", label: "Número" },
+        { id: "focus",  label: "Focus"  },
       ]
       delegate: C.CfgChip {
         required property var modelData
@@ -73,9 +81,9 @@ C.CfgScroll {
   }
 
   // ── Ordenação dos ícones dentro de cada workspace (só "Ícones") ─────────
-  C.CfgSection { title: "ORDENAÇÃO"; colorTextDim: root.colorTextDim; visible: root.isIcons }
+  C.CfgSection { title: "ORDENAÇÃO"; colorTextDim: root.colorTextDim; visible: root.showsIconRow }
   Row {
-    visible: root.isIcons
+    visible: root.showsIconRow
     spacing: 6
     Repeater {
       model: [
@@ -99,7 +107,7 @@ C.CfgScroll {
   C.CfgToggle {
     label:   "Ícones monocromáticos"
     checked: root.g("iconMonochrome", false) === true
-    visible: root.isIcons
+    visible: root.showsIconRow
     colorAccent:  root.colorAccent
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "workspaces", key: "iconMonochrome", value: !(root.g("iconMonochrome", false) === true) })
@@ -115,7 +123,7 @@ C.CfgScroll {
   C.CfgToggle {
     label:   "Fundo (quadrado/pílula) atrás do número"
     checked: root.g("numberBgEnabled", false) === true
-    visible: root.isIcons && root.g("showNumber", false) === true
+    visible: (root.isIcons && root.g("showNumber", false) === true) || root.isFocus
     colorAccent:  root.colorAccent
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "workspaces", key: "numberBgEnabled", value: !(root.g("numberBgEnabled", false) === true) })
@@ -141,7 +149,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Espaçamento entre ícones"; value: root.g("iconSpacing", 4)
     from: 0; to: 16; step: 1; unit: "px"
-    visible: root.isIcons
+    visible: root.showsIconRow
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "workspaces", key: "iconSpacing", value: v })
@@ -149,7 +157,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Tamanho dos ícones de app"; value: root.g("iconSize", 18)
     from: 12; to: 36; step: 1; unit: "px"
-    visible: root.isIcons
+    visible: root.showsIconRow
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "workspaces", key: "iconSize", value: v })
@@ -157,7 +165,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Raio do fundo do número"; value: root.g("numberBgRadius", 4)
     from: 0; to: 20; step: 1; unit: "px"
-    visible: root.isIcons && root.g("numberBgEnabled", false) === true
+    visible: (root.isIcons || root.isFocus) && root.g("numberBgEnabled", false) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "workspaces", key: "numberBgRadius", value: v })
@@ -165,7 +173,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Padding H do fundo do número"; value: root.g("numberBgPaddingH", 4)
     from: 0; to: 16; step: 1; unit: "px"
-    visible: root.isIcons && root.g("numberBgEnabled", false) === true
+    visible: (root.isIcons || root.isFocus) && root.g("numberBgEnabled", false) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "workspaces", key: "numberBgPaddingH", value: v })
@@ -173,7 +181,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Padding V do fundo do número"; value: root.g("numberBgPaddingV", 2)
     from: 0; to: 16; step: 1; unit: "px"
-    visible: root.isIcons && root.g("numberBgEnabled", false) === true
+    visible: (root.isIcons || root.isFocus) && root.g("numberBgEnabled", false) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "workspaces", key: "numberBgPaddingV", value: v })
@@ -311,11 +319,11 @@ C.CfgScroll {
   // O círculo indicador de cada workspace tem 4 estados possíveis, cada
   // um com sua cor. Não existe no estilo Ícones (que mostra ícones de
   // app no lugar do ponto).
-  C.CfgDiv { colorDivider: root.colorDivider; visible: !root.isIcons }
-  C.CfgSection { title: "CORES — PONTOS"; colorTextDim: root.colorTextDim; visible: !root.isIcons }
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.usesDotColors }
+  C.CfgSection { title: "CORES — PONTOS"; colorTextDim: root.colorTextDim; visible: root.usesDotColors }
   C.CfgPalette {
     label: "Ponto — workspace vazia (sem janelas)"; value: root.gs("dotColor", "on_surface_variant")
-    visible: !root.isIcons
+    visible: root.usesDotColors
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -323,7 +331,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ponto — workspace ativa (selecionada)"; value: root.gs("dotActiveColor", "primary")
-    visible: !root.isIcons
+    visible: root.usesDotColors
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -331,7 +339,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ponto — workspace ocupada (com janelas, não selecionada)"; value: root.gs("dotOccupiedColor", "secondary")
-    visible: !root.isIcons
+    visible: root.usesDotColors
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -339,7 +347,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ponto — workspace urgente (notificação pedindo atenção)"; value: root.gs("dotUrgentColor", "error")
-    visible: !root.isIcons
+    visible: root.usesDotColors
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -350,11 +358,11 @@ C.CfgScroll {
   // Só tem efeito com o estilo Ícones + o toggle "Ícones monocromáticos"
   // ligado (em COMPORTAMENTO); recolore o ícone do app inteiro com uma
   // cor sólida em vez de usar as cores originais do ícone.
-  C.CfgDiv { colorDivider: root.colorDivider; visible: root.isIcons }
-  C.CfgSection { title: "CORES — ÍCONES MONOCROMÁTICOS"; colorTextDim: root.colorTextDim; visible: root.isIcons }
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.showsIconRow }
+  C.CfgSection { title: "CORES — ÍCONES MONOCROMÁTICOS"; colorTextDim: root.colorTextDim; visible: root.showsIconRow }
   C.CfgPalette {
     label: "Ícone monocromático — workspace sem foco"; value: root.gs("iconMonoColor", "on_surface_variant")
-    visible: root.isIcons
+    visible: root.showsIconRow
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -362,7 +370,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ícone monocromático — workspace ativa"; value: root.gs("iconMonoColorActive", "on_primary")
-    visible: root.isIcons
+    visible: root.showsIconRow
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -372,11 +380,11 @@ C.CfgScroll {
   // ── Cores — número da workspace ──────────────────────────────────────
   // Texto do número mostrado antes do 1º ícone (toggle em COMPORTAMENTO).
   // As duas últimas só importam com o fundo do número ligado.
-  C.CfgDiv { colorDivider: root.colorDivider; visible: root.isIcons }
-  C.CfgSection { title: "CORES — NÚMERO DA WORKSPACE"; colorTextDim: root.colorTextDim; visible: root.isIcons }
+  C.CfgDiv { colorDivider: root.colorDivider; visible: (root.isIcons || root.isFocus) }
+  C.CfgSection { title: "CORES — NÚMERO DA WORKSPACE"; colorTextDim: root.colorTextDim; visible: (root.isIcons || root.isFocus) }
   C.CfgPalette {
     label: "Número — workspace sem foco"; value: root.g("numberColor", "on_surface_variant")
-    visible: root.isIcons
+    visible: (root.isIcons || root.isFocus)
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -392,7 +400,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Fundo do número — workspace sem foco"; value: root.g("numberBgColor", "surface_variant")
-    visible: root.isIcons && root.g("numberBgEnabled", false) === true
+    visible: (root.isIcons || root.isFocus) && root.g("numberBgEnabled", false) === true
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider

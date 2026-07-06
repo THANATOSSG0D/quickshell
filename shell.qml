@@ -66,6 +66,33 @@ Scope {
     }
   }
 
+  // ── Dock — segunda instância do Bar, rodando em paralelo ────────────────
+  // Própria config/JSON (state/Dock.json + state/DockState.json), então
+  // trocar de tema/ajustar cores na Dock NUNCA mexe nos overrides da barra
+  // principal (e vice-versa). Nasce com autoHide=true e tema "Dock" (visual
+  // de "ilhas" já existente), mas dá pra trocar de tema livremente — ela
+  // reaproveita os MESMOS arquivos de tema e o mesmo pipeline de módulos.
+  //
+  // Pra DESLIGAR completamente uma das duas (nenhuma PanelWindow criada,
+  // sem popups, sem zona reservada — não é só "esconder"):
+  //   • Persistente: "enabled": false no bloco "bar" de Bar.json/Dock.json
+  //     (ou initialPanelEnabled: false aqui embaixo, como default de 1ª execução)
+  //   • Em runtime:  qs ipc call bar      disable   (ou enable/toggleEnabled)
+  //                  qs ipc call bar_dock disable
+  //   • Atalho global: togglePanelEnabled (bar) / togglePanelEnabled_dock (dock)
+  Bar {
+    id: dockBar
+    instanceId:      "dock"
+    barJsonPath:      Quickshell.shellDir + "/state/Dock.json"
+    stateJsonPath:    Quickshell.shellDir + "/state/DockState.json"
+    initialTheme:     "Dock"
+    initialAutoHide:  true
+    // initialPanelEnabled: false   // ← descomente pra a Dock nascer desligada
+
+    osdService:   osd.osdService
+    notifService: notifService
+  }
+
   // ── DmenuIpc — habilita scripts externos via: cmd | qs-dmenu ────────────
   // Também gerencia os modos nativos (drun/run/window) via IpcHandler abaixo.
   // A config do dmenu fica em dmenuIpc.configRef (DmenuConfig / state/dmenu.json).
@@ -105,7 +132,8 @@ Scope {
   ConfigModule.ConfigWindow {
     id: configWin
     panelOpen:   configOpen
-    config:      bar.configRef
+    configBar:   bar.configRef
+    configDock:  dockBar.configRef
     dmenuConfig: dmenuIpc.configRef   // ← novo: config separado para a aba dmenu
     colors:      Colors
     onCloseRequested: configOpen = false

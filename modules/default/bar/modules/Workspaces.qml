@@ -167,6 +167,7 @@ Item {
         sourceComponent: root.style === "dots"   ? dotComp
                        : root.style === "hybrid" ? hybridComp
                        : root.style === "icons"  ? iconsComp
+                       : root.style === "focus"  ? focusComp
                        : numberComp
 
         // ── modelData (todos) ────────────────────────────────────────────
@@ -179,10 +180,13 @@ Item {
         Binding { target: delegateLoader.item; property: "showTooltip"; value: root.showTooltip; when: delegateLoader.item !== null }
 
         // ── cores Dot / Number / Hybrid ─────────────────────────────────
-        Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && root.style !== "icons" }
-        Binding { target: delegateLoader.item; property: "dotActiveColor";   value: root.dotActiveColor;   when: delegateLoader.item !== null && root.style !== "icons" }
-        Binding { target: delegateLoader.item; property: "dotOccupiedColor"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && root.style !== "icons" }
-        Binding { target: delegateLoader.item; property: "dotUrgentColor";   value: root.dotUrgentColor;   when: delegateLoader.item !== null && root.style !== "icons" }
+        // (Focus NÃO declara essas props — reaproveita numberColor/
+        // numberColorActive/urgentColor próprios; por isso fica de fora
+        // daqui, senão o binding tenta escrever em propriedade inexistente)
+        Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
+        Binding { target: delegateLoader.item; property: "dotActiveColor";   value: root.dotActiveColor;   when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
+        Binding { target: delegateLoader.item; property: "dotOccupiedColor"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
+        Binding { target: delegateLoader.item; property: "dotUrgentColor";   value: root.dotUrgentColor;   when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
 
         // ── orientação (Dot) ─────────────────────────────────────────────
         Binding { target: delegateLoader.item; property: "isHorizontal"; value: root.isHorizontal; when: delegateLoader.item !== null && (root.style === "dots" || root.style === "hybrid") }
@@ -209,11 +213,33 @@ Item {
 
         // ── tamanho dot/número (Dot / Number / Hybrid) ───────────────────
         Binding { target: delegateLoader.item; property: "dotSize";  value: root.dotSize;  when: delegateLoader.item !== null && root.style === "dots" }
-        Binding { target: delegateLoader.item; property: "fontSize"; value: root.fontSize; when: delegateLoader.item !== null && (root.style === "number" || root.style === "hybrid") }
+        Binding { target: delegateLoader.item; property: "fontSize"; value: root.fontSize; when: delegateLoader.item !== null && (root.style === "number" || root.style === "hybrid" || root.style === "focus") }
+
+        // ── props Focus (ativa=ícones, inativa=número que revela ícones no hover) ──
+        Binding { target: delegateLoader.item; property: "sortOrder";           value: root.iconsSort;           when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "isHorizontal";        value: root.isHorizontal;        when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "monochrome";         value: root.iconMonochrome;      when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "monoColor";          value: root.iconMonoColor;       when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "monoColorActive";    value: root.iconMonoColorActive; when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "iconSpacing";        value: root.iconSpacing;         when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "iconSize";           value: root.iconSize;            when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberColor";        value: root.numberColor;         when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberColorActive";  value: root.numberColorActive;   when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberBgEnabled";    value: root.numberBgEnabled;     when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberBgColor";      value: root.numberBgColor;       when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberBgColorActive"; value: root.numberBgColorActive; when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberBgRadius";     value: root.numberBgRadius;      when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberBgPaddingH";   value: root.numberBgPaddingH;    when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "numberBgPaddingV";   value: root.numberBgPaddingV;    when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "urgentColor";        value: root.dotUrgentColor;      when: delegateLoader.item !== null && root.style === "focus" }
       }
 
-      Behavior on implicitWidth  { enabled: root.visible; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
-      Behavior on implicitHeight { enabled: root.visible; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+      // Focus já anima o próprio implicitWidth/Height internamente (ver
+      // Focus.qml) para o efeito de expandir no hover — animar de novo
+      // aqui em cima causava um "filtro sobre filtro" (easing composto),
+      // deixando os ícones aparecerem atrasados/com salto visual.
+      Behavior on implicitWidth  { enabled: root.visible && root.style !== "focus"; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+      Behavior on implicitHeight { enabled: root.visible && root.style !== "focus"; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
     }
   }
 
@@ -221,6 +247,7 @@ Item {
   Component { id: numberComp; Comp.Number {} }
   Component { id: hybridComp; Comp.Hybrid {} }
   Component { id: iconsComp;  Comp.Icons  {} }
+  Component { id: focusComp;  Comp.Focus  {} }
 
   // ── Fundo global ─────────────────────────────────────────────────────
   Rectangle {

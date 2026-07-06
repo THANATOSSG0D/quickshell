@@ -108,11 +108,8 @@
                 "lobePadH": 28,
                 "modules": {
                     "center": [
-                        "quicksettings",
                         "clock",
                         "mediaplayer",
-                        "workspaces",
-                        "volume",
                         "notifications"
                     ],
                     "left": [
@@ -130,9 +127,11 @@
                 "bgColorActive": "on_primary_container",
                 "bgPaddingH": 4,
                 "bgPaddingV": 2,
-                "scrollWidth": 120,
-                "showText": false,
-                "textColorActive": "primary"
+                "scrollWidth": 140,
+                "showText": true,
+                "textColorActive": "primary",
+                "textMode": "artist",
+                "textStatic": true
             },
             "volume": {
                 "showSource": false

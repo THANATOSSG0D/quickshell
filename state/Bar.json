@@ -1,6 +1,7 @@
 {
     "bar": {
         "alwaysVisible": true,
+        "enabled": true,
         "pinned": false,
         "silence": false,
         "theme": "Notch"

@@ -46,7 +46,7 @@ QtObject {
           options:[{id:1,label:"Topo"},{id:3,label:"Baixo"},{id:4,label:"Esquerda"},{id:2,label:"Direita"}] },
         { key:"barSize",        type:"int",  default:30,  min:20,  max:60,   step:2,  unit:"px", label:"Tamanho",          section:"DIMENSÕES" },
         { key:"barMargin",      type:"int",  default:3,   min:0,   max:20,   step:1,  unit:"px", label:"Margem",           section:"DIMENSÕES" },
-        { key:"pillWidth",      type:"int",  default:400, min:200, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
+        { key:"pillWidth",      type:"int",  default:400, min:100, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
         { key:"pillMinSpacing", type:"int",  default:20,  min:0,   max:100,  step:5,  unit:"px", label:"Espaçamento mín.", section:"DIMENSÕES" },
         // Notch — antes viviam só como fallback hardcoded (`|| 18` etc.) espalhado
         // pelo código; registrados aqui para que get()/defaultValue() os resolvam
@@ -204,11 +204,11 @@ QtObject {
     // ══════════════════════════════════════════════
     {
       id: "workspaces", label: "Workspaces", perTheme: true, perStyle: true,
-      styles: ["dots", "icons", "hybrid", "number"],
+      styles: ["dots", "icons", "hybrid", "number", "focus"],
       // props sem estilo (comuns a todos os estilos dentro do tema)
       commonProps: [
         { key:"style",          type:"enum",  default:"icons", label:"Estilo", section:"ESTILO",
-          options:[{id:"dots",label:"Pontos"},{id:"icons",label:"Ícones"},{id:"hybrid",label:"Híbrido"},{id:"number",label:"Número"}] },
+          options:[{id:"dots",label:"Pontos"},{id:"icons",label:"Ícones"},{id:"hybrid",label:"Híbrido"},{id:"number",label:"Número"},{id:"focus",label:"Foco (ativa=ícones, resto=número)"}] },
         { key:"iconsSort",      type:"enum",  default:"position", label:"Ordenação", section:"ÍCONES",
           options:[{id:"position",label:"Posição"},{id:"alphabetical",label:"Alfabética"}],
           visibleWhen:"_hasIcons" },

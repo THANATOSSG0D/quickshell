@@ -1,0 +1,38 @@
+{
+    "bar": {
+        "alwaysVisible": false,
+        "enabled": true,
+        "pinned": false,
+        "silence": false,
+        "theme": "Pill"
+    },
+    "themes": {
+        "Dock": {
+            "bar": {
+                "autoHide": true,
+                "barMargin": 8,
+                "modules": {
+                    "bottom": [
+                    ],
+                    "center": [
+                        "workspaces"
+                    ],
+                    "left": [
+                    ],
+                    "middle": [
+                    ],
+                    "right": [
+                    ],
+                    "top": [
+                    ]
+                },
+                "position": 3
+            },
+            "workspaces": {
+                "showAddButton": false,
+                "showTooltip": true,
+                "style": "focus"
+            }
+        }
+    }
+}

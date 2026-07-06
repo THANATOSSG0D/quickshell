@@ -104,4 +104,11 @@ C.CfgScroll {
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ silence: !(root.g("silenceMode", false) === true) })
   }
+  C.CfgToggle {
+    label:        "Painel ativado (desligado = nenhuma janela é criada)"
+    checked:      root.g("panelEnabled", true) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ panelEnabled: !(root.g("panelEnabled", true) === true) })
+  }
 }

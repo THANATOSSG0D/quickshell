@@ -1,0 +1,48 @@
+{
+  "overrides": {
+    "Dock": {
+      "bar": {
+        "autoHide": true,
+        "modules": {
+          "middle": ["workspaces"]
+        },
+        "position": 3
+      }
+    },
+    "Pill": {
+      "bar": {
+        "autoHide": true,
+        "barMargin": 4,
+        "barSize": 26,
+        "modules": {
+          "center": ["workspaces"],
+          "left": ["quicksettings"],
+          "right": ["volume"]
+        },
+        "pillMinSpacing": 10,
+        "pillWidth": 100,
+        "position": 3
+      },
+      "mediaplayer": {
+        "bgEnabled": false,
+        "showText": false,
+        "textMode": "artistAndTitle",
+        "textStatic": false
+      },
+      "workspaces": {
+        "focus": {
+          "bgOpacityActive": 0.3,
+          "bgPaddingH": 1,
+          "bgPaddingHActive": 1,
+          "bgPaddingV": 1,
+          "bgPaddingVActive": 1,
+          "fontSize": 8
+        },
+        "iconSize": 16,
+        "numberBgEnabled": true,
+        "showAddButton": true,
+        "style": "focus"
+      }
+    }
+  }
+}

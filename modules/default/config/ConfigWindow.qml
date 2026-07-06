@@ -13,22 +13,34 @@ import './tabs' as Tabs
 // API mínima no shell.qml:
 //   ConfigModule.ConfigWindow {
 //     panelOpen:        configOpen
-//     config:           bar.configRef   // BarConfig instance
+//     configBar:        bar.configRef       // BarConfig da barra
+//     configDock:       dockBar.configRef   // BarConfig da dock (opcional)
 //     colors:           Colors
 //     onCloseRequested: configOpen = false
 //   }
 //
-// Os tabs recebem `config` e `colors` diretamente e usam config.get/set.
-// Não há estado local de módulos — cada tab lê e escreve diretamente.
+// Um seletor "Barra/Dock" aparece na seção "Barra" sempre que configDock
+// for passado — ele só troca qual BarConfig está "ativo" (win.config).
+// Os tabs continuam recebendo `config` (= win.config) e `colors` como
+// antes e usam config.get/set — nenhum tab precisou mudar.
 
 PanelWindow {
   id: win
 
   // ── API pública ───────────────────────────────────────────────────────
   property bool panelOpen: false
-  property var  config:      null
+  // Duas configs independentes — uma por instância (Bar / Dock). Cada uma
+  // é um BarConfig próprio (ver Bar.qml/BarState.qml), então editar uma
+  // NUNCA mexe na outra. `config` (usado por todos os tabs abaixo, sem
+  // precisar mudar nada neles) é sempre a config do alvo ativo.
+  property var  configBar:   null
+  property var  configDock:  null
   property var  colors:      null
   property var  dmenuConfig: null   // DmenuConfig instanciado em DmenuIpc
+
+  // "bar" ou "dock" — qual das duas está sendo editada agora
+  property string activeTarget: "bar"
+  readonly property var config: activeTarget === "dock" ? configDock : configBar
 
   readonly property var _effectiveColors: colors
 
@@ -142,8 +154,10 @@ PanelWindow {
   }
 
   // Definição dos módulos e suas subabas
-  readonly property var modules: [
+  readonly property var _allModules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações"] },
+    { id: "dock",       icon: "\uf2d1", label: "Dock",
       subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
@@ -153,7 +167,29 @@ PanelWindow {
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 
-  // ── Sub-abas condicionais (módulo "bar" — index 0) ──────────────────────
+  // A aba "Dock" só existe quando o shell.qml de fato passou uma config de
+  // Dock (configDock !== null) — do contrário, fica igual a antes.
+  readonly property var modules: win.configDock !== null
+    ? win._allModules
+    : win._allModules.filter(function(m) { return m.id !== "dock" })
+
+  // Se o Dock desaparecer (ex: configDock virou null em runtime) enquanto
+  // estava selecionado, ou o índice ficar fora da faixa, volta pra "Barra".
+  onModulesChanged: {
+    if (win.activeModule >= win.modules.length) win.activeModule = 0
+  }
+
+  // id do módulo atualmente selecionado — usar isto em vez de comparar
+  // "activeModule === <índice fixo>" em qualquer lugar, já que a posição
+  // de cada módulo na lista pode mudar (ex: Dock aparecendo/sumindo).
+  readonly property string _activeId: win.activeModule < win.modules.length
+    ? win.modules[win.activeModule].id : ""
+
+  // "bar" e "dock" compartilham exatamente as mesmas sub-abas/telas — a
+  // diferença entre eles é só qual BarConfig (`config`) está ativo.
+  readonly property bool _isBarSection: win._activeId === "bar" || win._activeId === "dock"
+
+  // ── Sub-abas condicionais (seção Barra/Dock) ────────────────────────────
   // Cada sub-aba abaixo de índice 3 (Workspaces em diante) só faz sentido
   // se o TEMA ATIVO de fato usa aquele módulo em algum dos 6 slots
   // (left/center/right/top/middle/bottom). Sub-abas estruturais (Geral,
@@ -186,8 +222,8 @@ PanelWindow {
   // usuário olhando pra um painel em branco.
   onConfigChanged: {
     contractFile.reload()
-    if (win.activeModule === 0 && !win.barSubtabVisible(win.subtab(0))) {
-      win.setSubtab(0, 0)
+    if (win._isBarSection && !win.barSubtabVisible(win.subtab(win.activeModule))) {
+      win.setSubtab(win.activeModule, 0)
     }
   }
 
@@ -272,15 +308,17 @@ PanelWindow {
           Repeater {
             model: win.modules
             delegate: Item {
+              id: modDel
               required property var modelData
               required property int index
               Layout.fillWidth: true; height: 38
               readonly property bool active: win.activeModule === index
 
               Rectangle {
+                id: modBg
                 anchors { fill: parent; leftMargin: 8; rightMargin: 8; topMargin: 2; bottomMargin: 2 }
                 radius: 8
-                color: parent.active
+                color: modDel.active
                   ? Qt.rgba(win.colorAccent.r, win.colorAccent.g, win.colorAccent.b, 0.15)
                   : mhov.containsMouse ? Qt.rgba(1,1,1,0.05) : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
@@ -290,7 +328,7 @@ PanelWindow {
                   anchors { left: parent.left; top: parent.top; bottom: parent.bottom; topMargin: 6; bottomMargin: 6 }
                   width: 3; radius: 2
                   color: win.colorAccent
-                  opacity: parent.parent.active ? 1 : 0
+                  opacity: modDel.active ? 1 : 0
                   Behavior on opacity { NumberAnimation { duration: 120 } }
                 }
 
@@ -298,15 +336,15 @@ PanelWindow {
                   anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 14 }
                   spacing: 10
                   Text {
-                    text: parent.parent.parent.modelData.icon
-                    color: parent.parent.parent.active ? win.colorAccent : win.colorTextDim
+                    text: modDel.modelData.icon
+                    color: modDel.active ? win.colorAccent : win.colorTextDim
                     font.pixelSize: 14; font.family: "JetBrainsMono Nerd Font"
                     anchors.verticalCenter: parent.verticalCenter
                     Behavior on color { ColorAnimation { duration: 100 } }
                   }
                   Text {
-                    text: parent.parent.parent.modelData.label
-                    color: parent.parent.parent.active ? win.colorText : win.colorTextDim
+                    text: modDel.modelData.label
+                    color: modDel.active ? win.colorText : win.colorTextDim
                     font.pixelSize: 11; font.weight: Font.Medium
                     anchors.verticalCenter: parent.verticalCenter
                     Behavior on color { ColorAnimation { duration: 100 } }
@@ -314,7 +352,12 @@ PanelWindow {
                 }
               }
               MouseArea { id: mhov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: win.activeModule = index }
+                onClicked: {
+                  win.activeModule = index
+                  if (modDel.modelData.id === "bar")  win.activeTarget = "bar"
+                  if (modDel.modelData.id === "dock") win.activeTarget = "dock"
+                }
+              }
             }
           }
 
@@ -389,12 +432,13 @@ PanelWindow {
               model: win.activeModule < win.modules.length
                      ? win.modules[win.activeModule].subtabs : []
               delegate: Item {
+                id: stDel
                 required property string modelData
                 required property int    index
                 readonly property bool   active: win.subtab(win.activeModule) === index
-                // Só o módulo "bar" (activeModule===0) tem sub-abas condicionais
-                // por tema; os outros módulos (Wallpaper, Painéis...) sempre mostram tudo.
-                visible: win.activeModule !== 0 || win.barSubtabVisible(index)
+                // Só a seção Barra/Dock tem sub-abas condicionais por tema;
+                // os outros módulos (Wallpaper, Painéis...) sempre mostram tudo.
+                visible: !win._isBarSection || win.barSubtabVisible(index)
                 height: visible ? 44 : 0
                 width:  visible ? (stLbl.implicitWidth + 24) : 0
 
@@ -402,14 +446,14 @@ PanelWindow {
                 Rectangle {
                   anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
                   height: 2; radius: 1; color: win.colorAccent
-                  opacity: parent.active ? 1 : 0
+                  opacity: stDel.active ? 1 : 0
                   Behavior on opacity { NumberAnimation { duration: 120 } }
                 }
 
                 Text {
-                  id: stLbl; anchors.centerIn: parent; text: parent.modelData
-                  font.pixelSize: 11; font.weight: parent.active ? Font.SemiBold : Font.Normal
-                  color: parent.active ? win.colorText : win.colorTextDim
+                  id: stLbl; anchors.centerIn: parent; text: stDel.modelData
+                  font.pixelSize: 11; font.weight: stDel.active ? Font.SemiBold : Font.Normal
+                  color: stDel.active ? win.colorText : win.colorTextDim
                   Behavior on color { ColorAnimation { duration: 80 } }
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -421,18 +465,19 @@ PanelWindow {
 
             // Botão Padrão — comportamento por subtab
             Rectangle {
+              id: rstBtn
               // "estrutural"  → subtabs Geral/Barra/Módulos: o saveAll() de reset faz sentido
               // <moduleId>    → módulo real (clearModule isolado por aba)
               readonly property string _mode: {
-                if (win.activeModule !== 0) return ""
-                var st = win.subtab(0)
+                if (!win._isBarSection) return ""
+                var st = win.subtab(win.activeModule)
                 var m = win._barSubtabModule[st]
                 return (m !== undefined && m !== null) ? m : "estrutural"
               }
               readonly property string _moduleId: (_mode !== "estrutural") ? _mode : ""
               readonly property string _label: (_mode === "estrutural") ? "Padrão" : "Limpar override"
 
-              visible: win.activeModule === 0
+              visible: win._isBarSection
               height: 28; width: rstLbl.implicitWidth + 18; radius: 6
               color: rstHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
@@ -440,29 +485,43 @@ PanelWindow {
               Row { anchors.centerIn: parent; spacing: 6
                 Text { text: "\uf0e2"; color: win.colorTextDim; font.pixelSize: 10
                   font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
-                Text { id: rstLbl; text: parent.parent._label; color: win.colorTextDim; font.pixelSize: 10
+                Text { id: rstLbl; text: rstBtn._label; color: win.colorTextDim; font.pixelSize: 10
                   anchors.verticalCenter: parent.verticalCenter }
               }
               MouseArea { id: rstHov; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: {
                   if (!win.config) return
-                  var modId = parent._moduleId
+                  var modId = rstBtn._moduleId
                   if (modId !== "") {
                     // Limpa overrides do módulo desta aba → paleta global volta a valer
                     win.config.clearModule(modId)
                   } else {
-                    // Geral / Módulos → reset estrutural da barra
+                    // Geral / Módulos → reset estrutural. Defaults diferentes
+                    // conforme o alvo ativo (Barra cheia vs Dock flutuante).
                     // (Paleta nunca chega aqui: o botão fica oculto nessa aba)
-                    win.config.saveAll({
-                      theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
-                      barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
-                      modulesLeft:   ["mediaplayer","separator","quicksettings"],
-                      modulesCenter: ["workspaces"],
-                      modulesRight:  ["clock","separator","volume","separator","notifications"],
-                      modulesTop:    ["mediaplayer","separator","quicksettings"],
-                      modulesMiddle: ["workspaces"],
-                      modulesBottom: ["clock","separator","volume","separator","notifications"],
-                    })
+                    if (win.activeTarget === "dock") {
+                      win.config.saveAll({
+                        theme: "Dock", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
+                        barSize: 30, barMargin: 8, pillWidth: 400, pillMinSpacing: 20,
+                        modulesLeft:   [],
+                        modulesCenter: ["workspaces"],
+                        modulesRight:  [],
+                        modulesTop:    [],
+                        modulesMiddle: ["workspaces"],
+                        modulesBottom: [],
+                      })
+                    } else {
+                      win.config.saveAll({
+                        theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
+                        barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
+                        modulesLeft:   ["mediaplayer","separator","quicksettings"],
+                        modulesCenter: ["workspaces"],
+                        modulesRight:  ["clock","separator","volume","separator","notifications"],
+                        modulesTop:    ["mediaplayer","separator","quicksettings"],
+                        modulesMiddle: ["workspaces"],
+                        modulesBottom: ["clock","separator","volume","separator","notifications"],
+                      })
+                    }
                   }
                   win._savedFlash = true; _savedTimer.restart()
                 }
@@ -471,7 +530,7 @@ PanelWindow {
 
             // Botão Limpar (só para painéis, subtabs 0–7)
             Rectangle {
-              visible: win.activeModule === 2 && win.subtab(2) <= 7
+              visible: win._activeId === "paineis" && win.subtab(win.activeModule) <= 7
               height: 28; width: clrLbl.implicitWidth + 18; radius: 6
               color: clrHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
@@ -480,7 +539,7 @@ PanelWindow {
                 Text { text: "\uf0e2"; color: win.colorTextDim; font.pixelSize: 10
                   font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
                 Text { id: clrLbl
-                  text: win.subtab(2) === 0 ? "Limpar global" : "Limpar override"
+                  text: win.subtab(win.activeModule) === 0 ? "Limpar global" : "Limpar override"
                   color: win.colorTextDim; font.pixelSize: 10
                   anchors.verticalCenter: parent.verticalCenter }
               }
@@ -507,7 +566,7 @@ PanelWindow {
           Loader {
             id: loaderGeral
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 0
+            active: win._isBarSection && win.subtab(win.activeModule) === 0
             sourceComponent: Component {
               Tabs.BarTabGeral {
                 id: tabGeral
@@ -531,7 +590,7 @@ PanelWindow {
           Loader {
             id: loaderBarTabBar
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 1
+            active: win._isBarSection && win.subtab(win.activeModule) === 1
             sourceComponent: Component {
               Tabs.BarTabBar {
                 id: tabBar
@@ -559,7 +618,7 @@ PanelWindow {
           Loader {
             id: loaderModulos
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 2
+            active: win._isBarSection && win.subtab(win.activeModule) === 2
             sourceComponent: Component {
               Tabs.BarTabModulos {
                 id: tabModulos
@@ -596,7 +655,7 @@ PanelWindow {
           Loader {
             id: loaderWorkspaces
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 3
+            active: win._isBarSection && win.subtab(win.activeModule) === 3
             sourceComponent: Component {
               Tabs.BarTabWorkspaces {
                 id: tabWorkspaces
@@ -616,7 +675,7 @@ PanelWindow {
           Loader {
             id: loaderMidia
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 4
+            active: win._isBarSection && win.subtab(win.activeModule) === 4
             sourceComponent: Component {
               Tabs.BarTabMidia {
                 id: tabMidia
@@ -636,7 +695,7 @@ PanelWindow {
           Loader {
             id: loaderClock
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 5
+            active: win._isBarSection && win.subtab(win.activeModule) === 5
             sourceComponent: Component {
               Tabs.BarTabClock {
                 id: tabClock
@@ -656,7 +715,7 @@ PanelWindow {
           Loader {
             id: loaderVolume
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 6
+            active: win._isBarSection && win.subtab(win.activeModule) === 6
             sourceComponent: Component {
               Tabs.BarTabVolume {
                 id: tabVolume
@@ -676,7 +735,7 @@ PanelWindow {
           Loader {
             id: loaderQuickSettings
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 7
+            active: win._isBarSection && win.subtab(win.activeModule) === 7
             sourceComponent: Component {
               Tabs.BarTabQuickSettings {
                 id: tabQuickSettings
@@ -696,7 +755,7 @@ PanelWindow {
           Loader {
             id: loaderNotifications
             anchors.fill: parent
-            active: win.activeModule === 0 && win.subtab(0) === 8
+            active: win._isBarSection && win.subtab(win.activeModule) === 8
             sourceComponent: Component {
               Tabs.BarTabNotifications {
                 id: tabNotifications
@@ -716,11 +775,11 @@ PanelWindow {
           Loader {
             id: loaderWallpaper
             anchors.fill: parent
-            active: win.activeModule === 1
+            active: win._activeId === "wallpaper"
             sourceComponent: Component {
               Tabs.TabWallpaper {
-                panelOpen:       win.panelOpen && win.activeModule === 1
-                activeSubtab:    win.subtab(1)
+                panelOpen:       win.panelOpen && win._activeId === "wallpaper"
+                activeSubtab:    win.subtab(win.activeModule)
                 colorAccent:     win.colorAccent
                 colorTextDim:    win.colorTextDim
                 colorText:       win.colorText
@@ -733,10 +792,10 @@ PanelWindow {
           Loader {
             id: loaderPaineis
             anchors.fill: parent
-            active: win.activeModule === 2
+            active: win._activeId === "paineis"
             sourceComponent: Component {
               Tabs.PanelTab {
-                activeSubtab:    win.subtab(2)
+                activeSubtab:    win.subtab(win.activeModule)
                 overlay:         popupOverlay
                 colors:          win._effectiveColors
                 colorAccent:     win.colorAccent
@@ -753,7 +812,7 @@ PanelWindow {
           // ── Placeholder para módulos ainda não implementados ─────────
           Loader {
             anchors.fill: parent
-            active: win.activeModule === 3 || win.activeModule === 4
+            active: win._activeId === "widgets" || win._activeId === "screenlock"
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14
