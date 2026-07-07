@@ -1,6 +1,7 @@
 pragma Singleton
 import Quickshell
 import QtQuick
+import qs
 
 // VolumeTooltip — singleton de tooltip rico para o módulo de volume (sink/source).
 //
@@ -36,6 +37,7 @@ Singleton {
 
   // ── API ────────────────────────────────────────────────────────────────
   function show(item, volumeRoot, isSink, barPosition) {
+    if (!TooltipSettings.enabled) return
     _anchorItem = item
     _volumeRoot = volumeRoot
     _isSink     = isSink
@@ -47,6 +49,7 @@ Singleton {
 
   // scroll: mostra imediatamente, some 1.5s após o último scroll
   function update(item, volumeRoot, isSink, barPosition) {
+    if (!TooltipSettings.enabled) return
     showTimer.stop()
     hideTimer.stop()
     _anchorItem   = item
@@ -102,16 +105,37 @@ Singleton {
     return (_muted || _volume <= 0) ? "\uf131" : "\uf130"
   }
 
+  // Resolve o item de ancoragem conforme TooltipSettings.align — ver
+  // comentário completo em BarTooltip.qml.
+  function _resolveAnchor() {
+    if (!root._anchorItem) return root._anchorItem
+    // "bar"     → sobe até o container raiz da barra inteira (objectName
+    //             "barContentRoot", setado em Bar.qml — comum a todos os temas)
+    // "section" → sobe até o container da seção do módulo hoverado
+    //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
+    //             marcado em cada tema — ver comentário em TooltipSettings.qml)
+    // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
+    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+      return root._anchorItem
+    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var it = root._anchorItem, guard = 0
+    while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
+    return it || root._anchorItem
+  }
+
   // ── PopupWindow ────────────────────────────────────────────────────────
   PopupWindow {
     id: popup
     visible: false
     color:   "transparent"
 
-    implicitWidth:  Math.max(140, content.implicitWidth  + 20)
-    implicitHeight: content.implicitHeight + 14
+    readonly property int  _touchOffset: TooltipSettings.offset
+    readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    anchor.item: root._anchorItem
+    implicitWidth:  Math.max(TooltipSettings.minWidth, content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitHeight: content.implicitHeight + 14 + (_barVertical ? 0 : _touchOffset)
+
+    anchor.item: root._resolveAnchor()
 
     anchor.edges: {
       switch (root._barPos) {
@@ -133,6 +157,10 @@ Singleton {
 
     Rectangle {
       anchors.fill: parent
+      anchors.leftMargin:   root._barPos === 4 ? popup._touchOffset : 0
+      anchors.rightMargin:  (root._barPos !== 1 && root._barPos !== 3 && root._barPos !== 4) ? popup._touchOffset : 0
+      anchors.topMargin:    root._barPos === 1 ? popup._touchOffset : 0
+      anchors.bottomMargin: root._barPos === 3 ? popup._touchOffset : 0
       radius: 10
       color:  root.bgColor
 
@@ -144,7 +172,7 @@ Singleton {
         // contentRowWidth: largura comum para título e barra — garante que
         // a barra de volume sempre estique até o final do tooltip, em vez
         // de ficar limitada à largura (curta) do título.
-        readonly property int contentRowWidth: Math.max(96, titleRow.implicitWidth)
+        readonly property int contentRowWidth: Math.max(TooltipSettings.minWidth - TooltipSettings.contentPadding, titleRow.implicitWidth)
 
         // ── Nome do dispositivo ────────────────────────────────────────
         Row {

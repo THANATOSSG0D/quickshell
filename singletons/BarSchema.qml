@@ -46,6 +46,7 @@ QtObject {
           options:[{id:1,label:"Topo"},{id:3,label:"Baixo"},{id:4,label:"Esquerda"},{id:2,label:"Direita"}] },
         { key:"barSize",        type:"int",  default:30,  min:20,  max:60,   step:2,  unit:"px", label:"Tamanho",          section:"DIMENSÕES" },
         { key:"barMargin",      type:"int",  default:3,   min:0,   max:20,   step:1,  unit:"px", label:"Margem",           section:"DIMENSÕES" },
+        { key:"moduleScale",    type:"real", default:1.0, min:0.5, max:2.0,  step:0.05, unit:"x", label:"Escala dos módulos", section:"DIMENSÕES" },
         { key:"pillWidth",      type:"int",  default:400, min:100, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
         { key:"pillMinSpacing", type:"int",  default:20,  min:0,   max:100,  step:5,  unit:"px", label:"Espaçamento mín.", section:"DIMENSÕES" },
         // Notch — antes viviam só como fallback hardcoded (`|| 18` etc.) espalhado
@@ -204,11 +205,11 @@ QtObject {
     // ══════════════════════════════════════════════
     {
       id: "workspaces", label: "Workspaces", perTheme: true, perStyle: true,
-      styles: ["dots", "icons", "hybrid", "number", "focus"],
+      styles: ["dots", "icons", "hybrid", "number", "focus", "current"],
       // props sem estilo (comuns a todos os estilos dentro do tema)
       commonProps: [
         { key:"style",          type:"enum",  default:"icons", label:"Estilo", section:"ESTILO",
-          options:[{id:"dots",label:"Pontos"},{id:"icons",label:"Ícones"},{id:"hybrid",label:"Híbrido"},{id:"number",label:"Número"},{id:"focus",label:"Foco (ativa=ícones, resto=número)"}] },
+          options:[{id:"dots",label:"Pontos"},{id:"icons",label:"Ícones"},{id:"hybrid",label:"Híbrido"},{id:"number",label:"Número"},{id:"focus",label:"Foco (ativa=ícones, resto=número)"},{id:"current",label:"Só atual (só ícones da ativa)"}] },
         { key:"iconsSort",      type:"enum",  default:"position", label:"Ordenação", section:"ÍCONES",
           options:[{id:"position",label:"Posição"},{id:"alphabetical",label:"Alfabética"}],
           visibleWhen:"_hasIcons" },
@@ -228,6 +229,10 @@ QtObject {
         { key:"showAddButton",  type:"bool",  default:true, label:"Mostrar botão +", section:"GERAL" },
         { key:"showTooltip",    type:"bool",  default:true, label:"Mostrar tooltip ao passar o mouse", section:"GERAL" },
         { key:"spacing",        type:"int",   default:2, min:0, max:24, step:1, unit:"px", label:"Espaçamento entre ws", section:"GERAL" },
+        { key:"scrollEnabled", type:"bool", default:false, label:"Scroll troca workspace/janela", section:"SCROLL" },
+        { key:"scrollAction",  type:"enum", default:"workspace", label:"O que o scroll muda", section:"SCROLL",
+          options:[{id:"workspace",label:"Workspace"},{id:"window",label:"Janela"}] },
+        { key:"scrollInvert",  type:"bool", default:false, label:"Inverter direção do scroll", section:"SCROLL" },
       ],
       // props por estilo (isoladas entre dots/icons/hybrid/number)
       props: [
@@ -253,6 +258,14 @@ QtObject {
         { key:"dotUrgentColor",      type:"palette", default:"error",                label:"Ponto urgente",section:"CORES — PONTOS", visibleWhen:"_hasDots" },
         { key:"iconMonoColor",       type:"palette", default:"on_surface",           label:"Ícone",        section:"CORES — ÍCONES",  visibleWhen:"_hasIcons" },
         { key:"iconMonoColorActive", type:"palette", default:"primary",              label:"Ícone ativo",  section:"CORES — ÍCONES",  visibleWhen:"_hasIcons" },
+        { key:"revealMode",           type:"enum", default:"hover", label:"Modo de revelação", section:"FOCO — REVELAÇÃO",
+          options:[{id:"hover",label:"Hover"},{id:"click",label:"Clique"}], visibleWhen:"_isFocus" },
+        { key:"hoverRevealDelayMs",   type:"int",  default:0, min:0, max:2000, step:50, unit:"ms",
+          label:"Delay pra abrir (hover)", section:"FOCO — REVELAÇÃO", visibleWhen:"_isFocus" },
+        { key:"clickCollapseMode",    type:"enum", default:"exit", label:"Fecha (clique)", section:"FOCO — REVELAÇÃO",
+          options:[{id:"exit",label:"Ao sair do hover"},{id:"delay",label:"Com delay"}], visibleWhen:"_isFocus" },
+        { key:"clickRevealTimeoutMs", type:"int",  default:2500, min:0, max:10000, step:100, unit:"ms",
+          label:"Fecha sozinho depois de", section:"FOCO — REVELAÇÃO", visibleWhen:"_isFocus" },
       ]
     },
 

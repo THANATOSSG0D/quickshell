@@ -13,11 +13,14 @@ Item {
     property color textColor:   "#e2e2e2"
     property color dimColor:    Qt.rgba(1, 1, 1, 0.5)
     property color accentColor: "#ffb4a9"
+    // Multiplicador global de escala (barState.config.moduleScale) — não
+    // havia prop de tamanho aqui antes, só o valor fixo 13px do ícone.
+    property real fontScale:    1.0
 
     signal panelRequested()
 
-    implicitWidth:  isHorizontal ? row.implicitWidth  + 10 : 28
-    implicitHeight: isHorizontal ? row.implicitHeight + 4  : row.implicitHeight + 10
+    implicitWidth:  isHorizontal ? row.implicitWidth  + Math.round(10 * root.fontScale) : Math.round(28 * root.fontScale)
+    implicitHeight: isHorizontal ? row.implicitHeight + Math.round(4  * root.fontScale) : row.implicitHeight + Math.round(10 * root.fontScale)
 
     // ── Estado de rede ─────────────────────────────────────────────────────
     property bool hasNetwork: false
@@ -212,7 +215,7 @@ Item {
         Text {
             text:           "\uf0c9"
             color:          root.textColor
-            font.pixelSize: 13
+            font.pixelSize: Math.round(13 * root.fontScale)
             font.family:    "JetBrainsMono Nerd Font"
             anchors.verticalCenter: parent.verticalCenter
         }

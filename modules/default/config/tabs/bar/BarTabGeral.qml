@@ -111,4 +111,52 @@ C.CfgScroll {
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ panelEnabled: !(root.g("panelEnabled", true) === true) })
   }
+
+  C.CfgDiv { colorDivider: root.colorTextDim }
+
+  // ── Tooltips ──────────────────────────────────────────────────────────
+  C.CfgSection { title: "TOOLTIPS"; colorTextDim: root.colorTextDim }
+  C.CfgToggle {
+    label:        "Mostrar tooltips ao passar o mouse"
+    checked:      root.g("tooltipEnabled", true) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ tooltipEnabled: !(root.g("tooltipEnabled", true) === true) })
+  }
+  C.CfgSlider {
+    label: "Largura mínima"; value: root.g("tooltipMinWidth", 160)
+    from: 80; to: 320; step: 8; unit: "px"
+    enabled:      root.g("tooltipEnabled", true) === true
+    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
+    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ tooltipMinWidth: v })
+  }
+  C.CfgSlider {
+    label: "Distância da barra"; value: root.g("tooltipOffset", 0)
+    from: 0; to: 40; step: 2; unit: "px"
+    enabled:      root.g("tooltipEnabled", true) === true
+    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
+    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ tooltipOffset: v })
+  }
+  Row {
+    spacing: 6
+    enabled: root.g("tooltipEnabled", true) === true
+    opacity: enabled ? 1 : 0.4
+    Repeater {
+      model: [
+        { id: "module",  label: "Junto ao item" },
+        { id: "section", label: "Centralizado na seção" },
+        { id: "bar",     label: "Centralizado na barra" },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:        modelData.label
+        active:       root.g("tooltipAlign", "module") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changed({ tooltipAlign: modelData.id })
+      }
+    }
+  }
 }

@@ -1,6 +1,7 @@
 pragma Singleton
 import Quickshell
 import QtQuick
+import qs
 
 // QsTooltip — singleton de tooltip rico para o módulo de QuickSettings.
 //
@@ -31,6 +32,7 @@ Singleton {
 
   // ── API ────────────────────────────────────────────────────────────────
   function show(item, source, barPosition) {
+    if (!TooltipSettings.enabled) return
     _anchorItem = item
     _source     = source
     _barPos     = barPosition
@@ -120,16 +122,37 @@ Singleton {
     }
   }
 
+  // Resolve o item de ancoragem conforme TooltipSettings.align — ver
+  // comentário completo em BarTooltip.qml.
+  function _resolveAnchor() {
+    if (!root._anchorItem) return root._anchorItem
+    // "bar"     → sobe até o container raiz da barra inteira (objectName
+    //             "barContentRoot", setado em Bar.qml — comum a todos os temas)
+    // "section" → sobe até o container da seção do módulo hoverado
+    //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
+    //             marcado em cada tema — ver comentário em TooltipSettings.qml)
+    // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
+    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+      return root._anchorItem
+    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var it = root._anchorItem, guard = 0
+    while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
+    return it || root._anchorItem
+  }
+
   // ── PopupWindow ────────────────────────────────────────────────────────
   PopupWindow {
     id: popup
     visible: false
     color:   "transparent"
 
-    implicitWidth:  Math.max(190, content.implicitWidth  + 26)
-    implicitHeight: content.implicitHeight + 18
+    readonly property int  _touchOffset: TooltipSettings.offset
+    readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    anchor.item: root._anchorItem
+    implicitWidth:  Math.max(TooltipSettings.minWidth, content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitHeight: content.implicitHeight + 18 + (_barVertical ? 0 : _touchOffset)
+
+    anchor.item: root._resolveAnchor()
     anchor.edges: {
       switch (root._barPos) {
         case 1:  return Edges.Bottom
@@ -150,6 +173,10 @@ Singleton {
 
     Rectangle {
       anchors.fill: parent
+      anchors.leftMargin:   root._barPos === 4 ? popup._touchOffset : 0
+      anchors.rightMargin:  (root._barPos !== 1 && root._barPos !== 3 && root._barPos !== 4) ? popup._touchOffset : 0
+      anchors.topMargin:    root._barPos === 1 ? popup._touchOffset : 0
+      anchors.bottomMargin: root._barPos === 3 ? popup._touchOffset : 0
       radius: 10
       color:  root.bgColor
 
@@ -284,7 +311,7 @@ Singleton {
           }
           Rectangle {
             id: volTrack
-            width:  Math.max(60, content.implicitWidth - volIcon.implicitWidth - volPct.implicitWidth - parent.spacing * 2)
+            width:  Math.max(60, Math.max(TooltipSettings.minWidth - TooltipSettings.contentPadding, content.implicitWidth) - volIcon.implicitWidth - volPct.implicitWidth - parent.spacing * 2)
             height: 4; radius: 2
             color: Qt.rgba(1, 1, 1, 0.15)
             anchors.verticalCenter: parent.verticalCenter

@@ -1,6 +1,7 @@
 pragma Singleton
 import Quickshell
 import QtQuick
+import qs
 
 // MediaTooltip — singleton de tooltip rico para o módulo de mídia.
 //
@@ -32,6 +33,7 @@ Singleton {
 
   // ── API ────────────────────────────────────────────────────────────────
   function show(item, player, barPosition) {
+    if (!TooltipSettings.enabled) return
     _anchorItem = item
     _player     = player
     _barPos     = barPosition
@@ -69,16 +71,37 @@ Singleton {
   readonly property bool   _volSupported: root._player ? (root._player.volumeSupported !== false) : false
   readonly property real   _volume:       (root._player && root._player.volume !== undefined && root._player.volume !== null) ? root._player.volume : 1.0
 
+  // Resolve o item de ancoragem conforme TooltipSettings.align — ver
+  // comentário completo em BarTooltip.qml.
+  function _resolveAnchor() {
+    if (!root._anchorItem) return root._anchorItem
+    // "bar"     → sobe até o container raiz da barra inteira (objectName
+    //             "barContentRoot", setado em Bar.qml — comum a todos os temas)
+    // "section" → sobe até o container da seção do módulo hoverado
+    //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
+    //             marcado em cada tema — ver comentário em TooltipSettings.qml)
+    // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
+    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+      return root._anchorItem
+    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var it = root._anchorItem, guard = 0
+    while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
+    return it || root._anchorItem
+  }
+
   // ── PopupWindow ────────────────────────────────────────────────────────
   PopupWindow {
     id: popup
     visible: false
     color:   "transparent"
 
-    implicitWidth:  Math.max(220, content.implicitWidth  + 28)
-    implicitHeight: content.implicitHeight + 20
+    readonly property int  _touchOffset: TooltipSettings.offset
+    readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    anchor.item: root._anchorItem
+    implicitWidth:  Math.max(TooltipSettings.minWidth, content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
+
+    anchor.item: root._resolveAnchor()
 
     anchor.edges: {
       switch (root._barPos) {
@@ -100,6 +123,10 @@ Singleton {
 
     Rectangle {
       anchors.fill: parent
+      anchors.leftMargin:   root._barPos === 4 ? popup._touchOffset : 0
+      anchors.rightMargin:  (root._barPos !== 1 && root._barPos !== 3 && root._barPos !== 4) ? popup._touchOffset : 0
+      anchors.topMargin:    root._barPos === 1 ? popup._touchOffset : 0
+      anchors.bottomMargin: root._barPos === 3 ? popup._touchOffset : 0
       radius: 10
       color:  root.bgColor
 
@@ -144,17 +171,19 @@ Singleton {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
 
-          // Largura única para toda a coluna — cresce com o texto mais
-          // longo (até um teto), e o slider de volume ocupa essa mesma
-          // largura inteira, em vez de ficar fixo em 60px.
+          // Largura única para toda a coluna — agora derivada de
+          // TooltipSettings.minWidth (com o espaço da capa/spacing/padding
+          // descontado), então o slider "Largura mínima" da UI realmente
+          // muda o tamanho visível deste tooltip. Ainda cresce além disso
+          // se algum texto for mais longo que o piso.
           readonly property int textColWidth: Math.max(
-            120,
-            Math.min(220, Math.max(
+            TooltipSettings.minWidth - root.artSize - content.spacing - TooltipSettings.contentPadding,
+            Math.max(
               titleText.implicitWidth,
               artistText.implicitWidth,
               albumText.implicitWidth,
               appText.implicitWidth
-            ))
+            )
           )
 
           Text {

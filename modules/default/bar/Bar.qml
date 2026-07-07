@@ -3,6 +3,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
+import qs
 import '../mediaPlayer' as MediaPanel
 import '../volume'      as VolumeModule
 import '../clock'       as ClockModule
@@ -34,6 +35,17 @@ Scope {
     initialAutoHide:     barRoot.initialAutoHide
     initialPanelEnabled: barRoot.initialPanelEnabled
   }
+
+  // ── Ponte para o singleton global TooltipSettings ───────────────────────
+  // Os 7 tooltips de hover (BarTooltip/ClockTooltip/MediaTooltip/
+  // NotifTooltip/QsTooltip/VolumeTooltip/WsTooltip) são singletons globais
+  // e não enxergam barState.config diretamente — só a instância "bar"
+  // escreve aqui (evita conflito caso uma segunda instância, ex: a Dock,
+  // também instancie Bar.qml e tente sobrescrever o mesmo singleton).
+  Binding { target: TooltipSettings; property: "enabled";  value: barState.config.tooltipEnabled;  when: barRoot.instanceId === "bar" }
+  Binding { target: TooltipSettings; property: "minWidth"; value: barState.config.tooltipMinWidth; when: barRoot.instanceId === "bar" }
+  Binding { target: TooltipSettings; property: "align";    value: barState.config.tooltipAlign;    when: barRoot.instanceId === "bar" }
+  Binding { target: TooltipSettings; property: "offset";   value: barState.config.tooltipOffset;   when: barRoot.instanceId === "bar" }
 
   // ── Props do tema activo ───────────────────────────────────────────────
   property int  themeBarSize:    30
@@ -483,6 +495,11 @@ Scope {
       // ── Loader do tema ─────────────────────────────────────────────────
       Loader {
         id: loader
+        // Tag usada pelos tooltips (TooltipSettings.align === "bar") pra
+        // subir a árvore de pais a partir do item hoverado e ancorar
+        // sempre neste container — que ocupa a barra inteira deste
+        // monitor — em vez de no item específico sob o cursor.
+        objectName: "barContentRoot"
         anchors.fill: parent
         source: barState.config.configLoaded
           ? (Quickshell.shellDir + "/modules/default/bar/themes/" + barState.currentTheme + ".qml")
@@ -603,8 +620,31 @@ Scope {
       Binding { target: loader.item; property: "lobePadH";      value: barState.config.lobePadH;      when: loader.item !== null && "lobePadH"      in (loader.item || {}) }
       Binding { target: loader.item; property: "notchTaper";    value: barState.config.notchTaper;    when: loader.item !== null && "notchTaper"    in (loader.item || {}) }
 
+      // Props que NUNCA devem ser multiplicadas por moduleScale, mesmo que o
+      // nome bata com o padrão abaixo (ex.: "concaveRadius"/"notchRadius"
+      // terminam em "Radius"). Estas já têm Binding{} própria (linhas acima)
+      // que lê barState.config.X sem passar por _set() nas atualizações ao
+      // vivo — se _set() as escalasse, ficariam escaladas só no load inicial
+      // (via _applyConfig) e SEM escala nas mudanças ao vivo do slider,
+      // um comportamento inconsistente. Ficam de fora por completo.
+      readonly property var _unscaledProps: ["notchRadius", "concaveRadius", "lobePadH", "notchTaper"]
+
+      // Reconhece props "de tamanho" dos módulos (ícones, fontes, dots,
+      // artwork, paddings/spacing internos) para aplicar o multiplicador
+      // global de escala (barState.config.moduleScale). Convenção: qualquer
+      // prop cujo nome termine em Size/Radius/Spacing/PaddingH/PaddingV.
+      function _isScalable(prop) {
+        if (bar._unscaledProps.indexOf(prop) !== -1) return false
+        return /Size$|Radius$|Spacing$|PaddingH$|PaddingV$/.test(prop)
+      }
+
       function _set(prop, value) {
-        if (loader.item && prop in loader.item) loader.item[prop] = value
+        if (!loader.item || !(prop in loader.item)) return
+        var v = value
+        if (typeof v === "number" && bar._isScalable(prop)) {
+          v = Math.round(v * barState.config.moduleScale)
+        }
+        loader.item[prop] = v
       }
 
       function _applyConfig(item) {
@@ -636,6 +676,13 @@ Scope {
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
         _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
         _set("cfgWsSpacing",        barState.config.wsSpacing)
+        _set("cfgWsRevealMode",           barState.config.wsRevealMode)
+        _set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)
+        _set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)
+        _set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs)
+        _set("cfgWsScrollEnabled", barState.config.wsScrollEnabled)
+        _set("cfgWsScrollAction",  barState.config.wsScrollAction)
+        _set("cfgWsScrollInvert",  barState.config.wsScrollInvert)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)
@@ -668,6 +715,9 @@ Scope {
         _set("cfgMpDimColorActive",  barState.config.paletteMpDimColorActive)
         _set("cfgMpPlayerPriority",  barState.config.mpPlayerPriority)
         _set("cfgMpIdleInhibit",     barState.config.mpIdleInhibit)
+        // MediaPlayer.qml expõe fontScale (não termina em "Size", então
+        // _isScalable() não a multiplica de novo — passa o moduleScale cru).
+        _set("cfgMpFontScale",       barState.config.moduleScale)
         // volume
         _set("cfgVolShowSink",   barState.config.volShowSink   !== undefined ? barState.config.volShowSink   : true)
         _set("cfgVolShowSource", barState.config.volShowSource !== undefined ? barState.config.volShowSource : true)
@@ -677,20 +727,24 @@ Scope {
         _set("cfgVolAccent",     barState.config.paletteVolAccent)
         _set("cfgVolMuted",      barState.config.paletteVolMuted)
         _set("cfgVolProgress",   barState.config.paletteVolProgress)
+        _set("cfgVolFontScale",  barState.config.moduleScale)
         // quicksettings
         _set("cfgQsTextColor",   barState.config.paletteQsText)
         _set("cfgQsDimColor",    barState.config.paletteQsDim)
         _set("cfgQsAccent",      barState.config.paletteQsAccent)
+        _set("cfgQsFontScale",   barState.config.moduleScale)
         // notifications
         _set("cfgNotifTextColor", barState.config.paletteNotifText)
         _set("cfgNotifDimColor",  barState.config.paletteNotifDim)
         _set("cfgNotifAccent",    barState.config.paletteNotifAccent)
         _set("cfgNotifMuted",     barState.config.paletteNotifMuted)
+        _set("cfgNotifFontScale", barState.config.moduleScale)
         // clock
         _set("cfgClkTextColor",    barState.config.paletteClkTextColor)
         _set("cfgClkDimColor",     barState.config.paletteClkDimColor)
         _set("cfgClkAccent",       barState.config.paletteClkAccentColor)
         _set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)
+        _set("cfgClkFontScale",    barState.config.moduleScale)
         // paleta
         _set("colBarBg",          barState.config.paletteBarBg)
         _set("colBarBgPill",      barState.config.paletteBarBgPill)
@@ -720,6 +774,12 @@ Scope {
         // barSize/barMargin — afetam o PanelWindow diretamente
         function onBarSizeChanged()   { barRoot.themeBarSize   = barState.config.barSize   }
         function onBarMarginChanged() { barRoot.themeBarMargin = barState.config.barMargin }
+        // moduleScale — multiplicador global (ícones/fontes/dots/artwork/
+        // paddings dos módulos). Não tem Binding própria no tema: os
+        // onXxxChanged individuais abaixo só reagem quando A PRÓPRIA prop
+        // muda, então ao mexer no slider de escala precisamos reaplicar tudo
+        // de uma vez para tudo ser multiplicado pelo novo valor.
+        function onModuleScaleChanged() { bar._applyConfig(loader.item) }
         function onPillWidthChanged() {
           var minW = barState.config.pillWidth > 0 ? barState.config.pillWidth : 400
           barRoot.themePillMinWidth = minW
@@ -789,6 +849,13 @@ Scope {
         function onWsShowAddButtonChanged()  { bar._set("cfgWsShowAddButton",  barState.config.wsShowAddButton)  }
         function onWsShowTooltipChanged()    { bar._set("cfgWsShowTooltip",    barState.config.wsShowTooltip)    }
         function onWsSpacingChanged()        { bar._set("cfgWsSpacing",        barState.config.wsSpacing)        }
+        function onWsRevealModeChanged()           { bar._set("cfgWsRevealMode",           barState.config.wsRevealMode)           }
+        function onWsHoverRevealDelayMsChanged()   { bar._set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)   }
+        function onWsClickCollapseModeChanged()    { bar._set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)    }
+        function onWsClickRevealTimeoutMsChanged() { bar._set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs) }
+        function onWsScrollEnabledChanged() { bar._set("cfgWsScrollEnabled", barState.config.wsScrollEnabled) }
+        function onWsScrollActionChanged()  { bar._set("cfgWsScrollAction",  barState.config.wsScrollAction)  }
+        function onWsScrollInvertChanged()  { bar._set("cfgWsScrollInvert",  barState.config.wsScrollInvert)  }
         // workspace ativa
         function onPaletteWsBgColorActiveChanged()       { bar._set("cfgWsBgColorActive",      barState.config.paletteWsBgColorActive)
                                                            bar._set("colWsBgActive",            barState.config.paletteWsBgColorActive)       }

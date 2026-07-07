@@ -21,6 +21,9 @@ Item {
   property color accentColor: "white"
   // Tempo em ms antes de o timer expirado sumir da barra (modo livre)
   property int   dismissDelay: 8000
+  // Multiplicador global de escala (barState.config.moduleScale) — antes
+  // todos os font.pixelSize e os separadores decorativos eram valores fixos.
+  property real  fontScale:    1.0
 
   signal panelRequested()
 
@@ -78,8 +81,8 @@ Item {
   }
 
   // ── Tamanho ────────────────────────────────────────────────────────────
-  implicitWidth:  isHorizontal ? hContent.implicitWidth  + 12 : vContent.implicitWidth  + 4
-  implicitHeight: isHorizontal ? hContent.implicitHeight + 6  : vContent.implicitHeight + 8
+  implicitWidth:  isHorizontal ? hContent.implicitWidth  + Math.round(12 * root.fontScale) : vContent.implicitWidth  + Math.round(4 * root.fontScale)
+  implicitHeight: isHorizontal ? hContent.implicitHeight + Math.round(6  * root.fontScale) : vContent.implicitHeight + Math.round(8 * root.fontScale)
 
   // ════════════════════════════════════════════════════════════════════════
   // HORIZONTAL — relógio + [timer] lado a lado
@@ -104,7 +107,7 @@ Item {
         Text {
           text:           root.hh
           color:          root.textColor
-          font.pixelSize: 13
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight:    Font.Medium
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }
@@ -113,7 +116,7 @@ Item {
           text:           ":"
           color:          root._colonOn ? root.textColor : root.dimColor
           opacity:        root._colonOn ? 1.0 : 0.3
-          font.pixelSize: 13
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight:    Font.Medium
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on opacity { NumberAnimation { duration: 200 } }
@@ -122,7 +125,7 @@ Item {
         Text {
           text:           root.mm
           color:          root.textColor
-          font.pixelSize: 13
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight:    Font.Medium
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }
@@ -133,8 +136,8 @@ Item {
       Rectangle {
         visible:                root.timerActive
         anchors.verticalCenter: parent.verticalCenter
-        width:   1
-        height:  12
+        width:   Math.round(1 * root.fontScale)
+        height:  Math.round(12 * root.fontScale)
         radius:  1
         color:   root.dimColor
         opacity: 0.35
@@ -151,7 +154,7 @@ Item {
           text:    root.timerExpired ? "\uf017" : root.timerRunning ? "\uf017" : "\uf28b"
           color:   root.timerExpired ? root.accentColor : root.timerRunning ? root.accentColor : root.dimColor
           opacity: (root.timerRunning && !root.timerExpired) ? (root._colonOn ? 1.0 : 0.4) : 1.0
-          font.pixelSize: 10
+          font.pixelSize: Math.round(10 * root.fontScale)
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color   { ColorAnimation  { duration: 200 } }
           Behavior on opacity { NumberAnimation { duration: 300 } }
@@ -164,14 +167,14 @@ Item {
           Text {
             text:           root.timerMm
             color:          root.timerExpired ? root.accentColor : root.textColor
-            font.pixelSize: 13
+            font.pixelSize: Math.round(13 * root.fontScale)
             font.weight:    Font.Medium
             font.family:    "JetBrainsMono Nerd Font"
             Behavior on color { ColorAnimation { duration: 200 } }
           }
           Text {
             text:           ":"
-            font.pixelSize: 13
+            font.pixelSize: Math.round(13 * root.fontScale)
             font.weight:    Font.Medium
             font.family:    "JetBrainsMono Nerd Font"
             color: (root.timerRunning && !root.timerExpired)
@@ -186,7 +189,7 @@ Item {
           Text {
             text:           root.timerSs
             color:          root.timerExpired ? root.accentColor : root.textColor
-            font.pixelSize: 13
+            font.pixelSize: Math.round(13 * root.fontScale)
             font.weight:    Font.Medium
             font.family:    "JetBrainsMono Nerd Font"
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -220,14 +223,14 @@ Item {
           anchors.horizontalCenter: parent.horizontalCenter
           text:           root.hh
           color:          root.textColor
-          font.pixelSize: 16
+          font.pixelSize: Math.round(16 * root.fontScale)
           font.weight:    Font.Bold
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }
         }
         Rectangle {
           anchors.horizontalCenter: parent.horizontalCenter
-          width: 20; height: 1; radius: 1
+          width: Math.round(20 * root.fontScale); height: Math.round(1 * root.fontScale); radius: 1
           color:   root.dimColor
           opacity: 0.4
         }
@@ -235,7 +238,7 @@ Item {
           anchors.horizontalCenter: parent.horizontalCenter
           text:           root.mm
           color:          root.dimColor
-          font.pixelSize: 16
+          font.pixelSize: Math.round(16 * root.fontScale)
           font.weight:    Font.Bold
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }
@@ -249,11 +252,11 @@ Item {
         visible:  root.timerActive
 
         // FIX: topPadding não existe em Rectangle → substituído por Item espaçador
-        Item { width: 1; height: 2 }
+        Item { width: 1; height: Math.round(2 * root.fontScale) }
         Rectangle {
           anchors.horizontalCenter: parent.horizontalCenter
-          width:   16
-          height:  1
+          width:   Math.round(16 * root.fontScale)
+          height:  Math.round(1 * root.fontScale)
           radius:  1
           color:   root.dimColor
           opacity: 0.2
@@ -263,7 +266,7 @@ Item {
           text:    root.timerExpired ? "\uf017" : root.timerRunning ? "\uf017" : "\uf28b"
           color:   root.timerExpired ? root.accentColor : root.timerRunning ? root.accentColor : root.dimColor
           opacity: (root.timerRunning && !root.timerExpired) ? (root._colonOn ? 1.0 : 0.4) : 1.0
-          font.pixelSize: 9
+          font.pixelSize: Math.round(9 * root.fontScale)
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color   { ColorAnimation  { duration: 200 } }
           Behavior on opacity { NumberAnimation { duration: 300 } }
@@ -272,15 +275,15 @@ Item {
           anchors.horizontalCenter: parent.horizontalCenter
           text:           root.timerMm
           color:          root.timerExpired ? root.accentColor : root.textColor
-          font.pixelSize: 15
+          font.pixelSize: Math.round(15 * root.fontScale)
           font.weight:    Font.Bold
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }
         }
         Rectangle {
           anchors.horizontalCenter: parent.horizontalCenter
-          width:   18
-          height:  1
+          width:   Math.round(18 * root.fontScale)
+          height:  Math.round(1 * root.fontScale)
           radius:  1
           color:   root.timerExpired ? root.accentColor : root.dimColor
           opacity: 0.4
@@ -289,7 +292,7 @@ Item {
           anchors.horizontalCenter: parent.horizontalCenter
           text:           root.timerSs
           color:          root.timerExpired ? root.accentColor : root.dimColor
-          font.pixelSize: 15
+          font.pixelSize: Math.round(15 * root.fontScale)
           font.weight:    Font.Bold
           font.family:    "JetBrainsMono Nerd Font"
           Behavior on color { ColorAnimation { duration: 200 } }

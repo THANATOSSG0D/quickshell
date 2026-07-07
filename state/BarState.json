@@ -103,9 +103,10 @@
             "bar": {
                 "autoHide": false,
                 "barMargin": 0,
-                "barSize": 22,
-                "concaveRadius": 23,
-                "lobePadH": 28,
+                "barSize": 20,
+                "concaveRadius": 30,
+                "lobePadH": 34,
+                "moduleScale": 0.75,
                 "modules": {
                     "center": [
                         "clock",
@@ -117,8 +118,8 @@
                     "right": [
                     ]
                 },
-                "notchRadius": 25,
-                "notchTaper": 20,
+                "notchRadius": 30,
+                "notchTaper": 30,
                 "pillMinSpacing": 10,
                 "position": 1
             },
@@ -127,7 +128,7 @@
                 "bgColorActive": "on_primary_container",
                 "bgPaddingH": 4,
                 "bgPaddingV": 2,
-                "scrollWidth": 140,
+                "scrollWidth": 100,
                 "showText": true,
                 "textColorActive": "primary",
                 "textMode": "artist",
@@ -153,7 +154,7 @@
                 },
                 "iconMonochrome": false,
                 "showAddButton": false,
-                "style": "hybrid"
+                "style": "focus"
             }
         },
         "Pill": {

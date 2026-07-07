@@ -35,6 +35,7 @@
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 4,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=com.github.tchx84.Flatseal com.github.tchx84.Flatseal": 1,
+            "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=spotify --file-forwarding com.spotify.Client @@u  @@": 1,
             "foot": 1,
             "inkscape": 3
         }

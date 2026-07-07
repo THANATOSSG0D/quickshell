@@ -28,6 +28,11 @@ Item {
   // ── Configs da capa do álbum (módulo na barra) ─────────────────────────
   property int artworkSize:   22
   property int artworkRadius: 11   // 11 = metade de 22 (círculo perfeito)
+  // Multiplicador global de escala (barState.config.moduleScale). artworkSize
+  // já é escalado via BarConfig/Bar.qml (termina em "Size"); este fontScale
+  // cobre os textos/ícones que ainda eram pixelSize fixo (título, artista,
+  // botões de controle Nerd Font).
+  property real fontScale:    1.0
 
   // ── Posição da barra — necessário para o MediaTooltip saltar do lado certo
   property int barPosition: 2   // 1=top, 2=right(default), 3=bottom, 4=left
@@ -372,7 +377,7 @@ Item {
     id: hScrollComp
     Item {
       id: hScroll
-      width: root.scrollWidth; height: 16; clip: !root.textStatic
+      width: root.scrollWidth; height: Math.round(16 * root.fontScale); clip: !root.textStatic
 
       readonly property real overflowW: Math.max(0, hText.implicitWidth - width)
       readonly property bool needsScroll: !root.textStatic && overflowW > 0.5
@@ -395,7 +400,8 @@ Item {
 
       Text {
         id: hText
-        font.pixelSize: 12
+        anchors.verticalCenter: parent.verticalCenter
+        font.pixelSize: Math.round(12 * root.fontScale)
         text: root.scrollText
         x: 0
         width:  root.textStatic ? hScroll.width : implicitWidth
@@ -428,11 +434,11 @@ Item {
 
     // play/pause
     Item {
-      width: 18; height: 18; anchors.verticalCenter: parent.verticalCenter
+      width: Math.round(18 * root.fontScale); height: Math.round(18 * root.fontScale); anchors.verticalCenter: parent.verticalCenter
       Text {
         anchors.centerIn: parent
         text:           root.player && root.player.isPlaying ? "\uf04c" : "\uf04b"
-        font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Math.round(13 * root.fontScale); font.family: "JetBrainsMono Nerd Font"
         color: root.effectiveTextColor
         Behavior on color { ColorAnimation { duration: 200 } }
       }
@@ -446,10 +452,10 @@ Item {
 
     // next
     Item {
-      width: 18; height: 18; anchors.verticalCenter: parent.verticalCenter
+      width: Math.round(18 * root.fontScale); height: Math.round(18 * root.fontScale); anchors.verticalCenter: parent.verticalCenter
       Text {
         anchors.centerIn: parent; text: "\uf051"   // nf-fa-step_forward
-        font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Math.round(13 * root.fontScale); font.family: "JetBrainsMono Nerd Font"
         color: root.player && root.player.canGoNext ? root.effectiveTextColor : root.effectiveDimColor
         Behavior on color { ColorAnimation { duration: 200 } }
       }
@@ -471,7 +477,7 @@ Item {
     Loader { anchors.horizontalCenter: parent.horizontalCenter; sourceComponent: artworkComp }
 
     Item {
-      id: vScroll; width: Math.max(22, root.artworkSize); height: root.showText ? (root.textStatic ? Math.min(vText.implicitHeight, 80) : 80) : 0; clip: true
+      id: vScroll; width: Math.max(22, root.artworkSize); height: root.showText ? (root.textStatic ? Math.min(vText.implicitHeight, Math.round(80 * root.fontScale)) : Math.round(80 * root.fontScale)) : 0; clip: true
       visible: root.showText
       anchors.horizontalCenter: parent.horizontalCenter
 
@@ -496,7 +502,7 @@ Item {
 
       Text {
         id: vText; anchors.horizontalCenter: parent.horizontalCenter
-        font.pixelSize: 11; lineHeight: 1.15
+        font.pixelSize: Math.round(11 * root.fontScale); lineHeight: 1.15
         horizontalAlignment: Text.AlignHCenter
         text: root.scrollText.split("").join("\n"); y: 0
         color: root.effectiveTextColor
@@ -515,11 +521,11 @@ Item {
 
     // play/pause
     Item {
-      width: 18; height: 18; anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.round(18 * root.fontScale); height: Math.round(18 * root.fontScale); anchors.horizontalCenter: parent.horizontalCenter
       Text {
         anchors.centerIn: parent
         text:           root.player && root.player.isPlaying ? "\uf04c" : "\uf04b"
-        font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Math.round(13 * root.fontScale); font.family: "JetBrainsMono Nerd Font"
         color: root.effectiveTextColor
         Behavior on color { ColorAnimation { duration: 200 } }
       }
@@ -533,10 +539,10 @@ Item {
 
     // next
     Item {
-      width: 18; height: 18; anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.round(18 * root.fontScale); height: Math.round(18 * root.fontScale); anchors.horizontalCenter: parent.horizontalCenter
       Text {
         anchors.centerIn: parent; text: "\uf051"   // nf-fa-step_forward
-        font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Math.round(13 * root.fontScale); font.family: "JetBrainsMono Nerd Font"
         color: root.player && root.player.canGoNext ? root.effectiveTextColor : root.effectiveDimColor
         Behavior on color { ColorAnimation { duration: 200 } }
       }

@@ -4,7 +4,11 @@
         "enabled": true,
         "pinned": false,
         "silence": false,
-        "theme": "Notch"
+        "theme": "Notch",
+        "tooltipAlign": "bar",
+        "tooltipEnabled": true,
+        "tooltipMinWidth": 176,
+        "tooltipOffset": 6
     },
     "themes": {
         "Aurora": {

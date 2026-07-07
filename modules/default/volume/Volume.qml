@@ -18,6 +18,9 @@ Item {
 
   property bool showSink:   true
   property bool showSource: true
+  // Multiplicador global de escala (barState.config.moduleScale) — antes
+  // só existia o valor fixo 13/12px no ícone e o 24x24 do AudioIcon.
+  property real fontScale:  1.0
 
   signal sinkPanelRequested()
   signal sourcePanelRequested()
@@ -63,8 +66,8 @@ Item {
     if (osdService) osdService.sourceShow()
   }
 
-  implicitWidth:  isHorizontal ? hRow.implicitWidth  + 8 : 24
-  implicitHeight: isHorizontal ? hRow.implicitHeight + 4 : vCol.implicitHeight + 8
+  implicitWidth:  isHorizontal ? hRow.implicitWidth  + Math.round(8 * volumeRoot.fontScale) : Math.round(24 * volumeRoot.fontScale)
+  implicitHeight: isHorizontal ? hRow.implicitHeight + Math.round(4 * volumeRoot.fontScale) : vCol.implicitHeight + Math.round(8 * volumeRoot.fontScale)
 
   component AudioIcon: Item {
     id: iconRoot
@@ -77,14 +80,14 @@ Item {
     signal rightClicked()
     signal scrolled(real delta)
 
-    width: 24; height: 24
+    width: Math.round(24 * volumeRoot.fontScale); height: Math.round(24 * volumeRoot.fontScale)
 
     Text {
       anchors.centerIn: parent
       text:             parent.iconText
       color:            parent.iconColor
       opacity:          parent.iconOpacity
-      font.pixelSize:   parent.isSink ? 13 : 12
+      font.pixelSize:   Math.round((parent.isSink ? 13 : 12) * volumeRoot.fontScale)
       font.family:      "JetBrainsMono Nerd Font"
       Behavior on opacity { NumberAnimation { duration: 150 } }
       Behavior on color   { ColorAnimation  { duration: 150 } }

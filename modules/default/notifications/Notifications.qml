@@ -14,6 +14,11 @@ Item {
     // ── Config ─────────────────────────────────────────────────────────────
     property bool   isHorizontal: true
     property int    barPosition:  1
+    // Multiplicador global de escala (ver Bar.qml::_applyConfig →
+    // barState.config.moduleScale). Afeta o glyph do sino e o tamanho do
+    // próprio módulo, já que aqui não havia nenhuma prop de tamanho exposta
+    // antes — só existia o valor fixo 13px.
+    property real   fontScale:    1.0
 
     // ── Cores ──────────────────────────────────────────────────────────────
     property color textColor:   "#cdd6f4"
@@ -28,8 +33,8 @@ Item {
     signal panelRequested()
 
     // ── Dimensões ──────────────────────────────────────────────────────────
-    implicitWidth:  isHorizontal ? row.implicitWidth + 10 : 28
-    implicitHeight: isHorizontal ? 28 : row.implicitHeight + 10
+    implicitWidth:  isHorizontal ? row.implicitWidth + Math.round(10 * root.fontScale) : Math.round(28 * root.fontScale)
+    implicitHeight: isHorizontal ? Math.round(28 * root.fontScale) : row.implicitHeight + Math.round(10 * root.fontScale)
 
     // ── Visual ─────────────────────────────────────────────────────────────
     Row {
@@ -46,7 +51,7 @@ Item {
                 return "\uf0f3"      // bell
             }
             font.family:    "JetBrainsMono Nerd Font"
-            font.pixelSize: 13
+            font.pixelSize: Math.round(13 * root.fontScale)
             color: {
                 if (root.service && root.service.doNotDisturb)
                     return root.mutedColor

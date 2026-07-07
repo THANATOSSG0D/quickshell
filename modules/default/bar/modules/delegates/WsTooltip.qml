@@ -2,6 +2,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
+import qs
 import "IconLookup.js" as IconLookup
 
 // WsTooltip — singleton de tooltip rico para os delegates de workspace
@@ -34,6 +35,7 @@ Singleton {
 
   // ── API ────────────────────────────────────────────────────────────────
   function show(item, workspace, barPosition) {
+    if (!TooltipSettings.enabled) return
     _anchorItem = item
     _ws         = workspace
     _barPos     = barPosition
@@ -89,16 +91,37 @@ Singleton {
     return win.title || (win.wayland ? win.wayland.appId : "") || "—"
   }
 
+  // Resolve o item de ancoragem conforme TooltipSettings.align — ver
+  // comentário completo em BarTooltip.qml.
+  function _resolveAnchor() {
+    if (!root._anchorItem) return root._anchorItem
+    // "bar"     → sobe até o container raiz da barra inteira (objectName
+    //             "barContentRoot", setado em Bar.qml — comum a todos os temas)
+    // "section" → sobe até o container da seção do módulo hoverado
+    //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
+    //             marcado em cada tema — ver comentário em TooltipSettings.qml)
+    // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
+    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+      return root._anchorItem
+    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var it = root._anchorItem, guard = 0
+    while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
+    return it || root._anchorItem
+  }
+
   // ── PopupWindow ────────────────────────────────────────────────────────
   PopupWindow {
     id: popup
     visible: false
     color:   "transparent"
 
-    implicitWidth:  Math.max(140, content.implicitWidth  + 24)
-    implicitHeight: content.implicitHeight + 16
+    readonly property int  _touchOffset: TooltipSettings.offset
+    readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    anchor.item: root._anchorItem
+    implicitWidth:  Math.max(TooltipSettings.minWidth, content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitHeight: content.implicitHeight + 16 + (_barVertical ? 0 : _touchOffset)
+
+    anchor.item: root._resolveAnchor()
     anchor.edges: {
       switch (root._barPos) {
         case 1:  return Edges.Bottom
@@ -119,6 +142,10 @@ Singleton {
 
     Rectangle {
       anchors.fill: parent
+      anchors.leftMargin:   root._barPos === 4 ? popup._touchOffset : 0
+      anchors.rightMargin:  (root._barPos !== 1 && root._barPos !== 3 && root._barPos !== 4) ? popup._touchOffset : 0
+      anchors.topMargin:    root._barPos === 1 ? popup._touchOffset : 0
+      anchors.bottomMargin: root._barPos === 3 ? popup._touchOffset : 0
       radius: 10
       color:  root.bgColor
 
@@ -185,11 +212,11 @@ Singleton {
               // Largura fixa (não calculada a partir de implicitWidth) —
               // width:Math.min(implicitWidth, N) cria um binding circular
               // que impede o Column pai de calcular uma largura estável,
-              // causando o corte visual. Largura fixa resolve isso, no
-              // mesmo espírito do MediaTooltip (que usa textColWidth, uma
-              // largura externa pré-calculada, nunca implicitWidth de si
-              // mesmo).
-              width: 220
+              // causando o corte visual. Aqui a referência é
+              // TooltipSettings.minWidth (externa, independente do próprio
+              // Column), então não há circularidade — e o slider "Largura
+              // mínima" da UI passa a valer também pra este tooltip.
+              width: Math.max(140, TooltipSettings.minWidth - TooltipSettings.contentPadding - winIcon.width - parent.spacing)
             }
           }
         }

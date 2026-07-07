@@ -101,6 +101,13 @@ Item {
   property real   cfgWsBgPaddingHActive:     6
   property real   cfgWsBgPaddingVActive:     2
   property real   cfgWsBgRadiusActive:       99
+  property string cfgWsRevealMode:           "hover"
+  property int    cfgWsHoverRevealDelayMs:   0
+  property string cfgWsClickCollapseMode:    "exit"
+  property int    cfgWsClickRevealTimeoutMs: 2500
+  property bool   cfgWsScrollEnabled:        false
+  property string cfgWsScrollAction:         "workspace"
+  property bool   cfgWsScrollInvert:         false
 
   // ── Configs MediaPlayer ────────────────────────────────────────────────
   property bool   cfgMpShowText:        true
@@ -125,6 +132,7 @@ Item {
   property color  cfgMpDimColorActive:  Qt.rgba(1,1,1,0.5)
   property string cfgMpPlayerPriority:  "spotify,ncspot,vivaldi,brave"
   property bool   cfgMpIdleInhibit:     true
+  property real   cfgMpFontScale:       1.0
 
   // ── Configs Volume ─────────────────────────────────────────────────────
   property bool  cfgVolShowSink:    true
@@ -135,23 +143,27 @@ Item {
   property color cfgVolAccent:      Qt.rgba(1,1,1,1.0)
   property color cfgVolMuted:       "#cf6679"
   property color cfgVolProgress:    "#474747"
+  property real  cfgVolFontScale:   1.0
 
   // ── Configs QuickSettings ──────────────────────────────────────────────
   property color cfgQsTextColor:    Qt.rgba(1,1,1,1.0)
   property color cfgQsDimColor:     Qt.rgba(1,1,1,0.5)
   property color cfgQsAccent:       Qt.rgba(1,1,1,1.0)
+  property real  cfgQsFontScale:    1.0
 
   // ── Configs Notifications ──────────────────────────────────────────────
   property color cfgNotifTextColor: Qt.rgba(1,1,1,1.0)
   property color cfgNotifDimColor:  Qt.rgba(1,1,1,0.5)
   property color cfgNotifAccent:    Qt.rgba(1,1,1,1.0)
   property color cfgNotifMuted:     "#cf6679"
+  property real  cfgNotifFontScale: 1.0
 
   // ── Configs Clock ──────────────────────────────────────────────────────
   property color cfgClkTextColor:    Qt.rgba(1,1,1,1.0)
   property color cfgClkDimColor:     Qt.rgba(1,1,1,0.5)
   property color cfgClkAccent:       Qt.rgba(1,1,1,1.0)
   property int   cfgClkDismissDelay: 8000
+  property real  cfgClkFontScale:    1.0
 
   // ── Paleta ─────────────────────────────────────────────────────────────
   property color colBarBg:          "#0e0e0e"
@@ -288,6 +300,7 @@ Item {
             dimColorActive:  root.cfgMpDimColorActive
             playerPriority:  root.cfgMpPlayerPriority
             idleInhibit:     root.cfgMpIdleInhibit
+            fontScale:       root.cfgMpFontScale
             onClicked:       root.mediaPlayerClicked()
           }
         }
@@ -310,6 +323,7 @@ Item {
             showSink:               root.cfgVolShowSink
             showSource:             root.cfgVolShowSource
             barPosition:            root.barPosition
+            fontScale:              root.cfgVolFontScale
             onSinkPanelRequested:   root.sinkPanelRequested()
             onSourcePanelRequested: root.sourcePanelRequested()
           }
@@ -334,6 +348,7 @@ Item {
             showSink:               true
             showSource:             false
             barPosition:            root.barPosition
+            fontScale:              root.cfgVolFontScale
             onSinkPanelRequested:   root.sinkPanelRequested()
             onSourcePanelRequested: root.sourcePanelRequested()
           }
@@ -358,6 +373,7 @@ Item {
             showSink:               false
             showSource:             true
             barPosition:            root.barPosition
+            fontScale:              root.cfgVolFontScale
             onSinkPanelRequested:   root.sinkPanelRequested()
             onSourcePanelRequested: root.sourcePanelRequested()
           }
@@ -377,6 +393,7 @@ Item {
             dimColor:         root.cfgClkDimColor
             accentColor:      root.cfgClkAccent
             dismissDelay:     root.cfgClkDismissDelay
+            fontScale:        root.cfgClkFontScale
             onPanelRequested: root.clockPanelRequested()
           }
         }
@@ -394,6 +411,7 @@ Item {
             textColor:        root.cfgQsTextColor
             dimColor:         root.cfgQsDimColor
             accentColor:      root.cfgQsAccent
+            fontScale:        root.cfgQsFontScale
             onPanelRequested: root.quickSettingsPanelRequested()
           }
         }
@@ -412,6 +430,7 @@ Item {
             accentColor:  root.cfgNotifAccent
             mutedColor:   root.cfgNotifMuted
             service:      root.notifService
+            fontScale:    root.cfgNotifFontScale
             onPanelRequested: root.notificationsPanelRequested()
           }
         }
@@ -442,6 +461,13 @@ Item {
             showAddButton:       root.cfgWsShowAddButton
             showTooltip:         root.cfgWsShowTooltip
             wsSpacing:           root.cfgWsSpacing
+            revealMode:           root.cfgWsRevealMode
+            hoverRevealDelayMs:   root.cfgWsHoverRevealDelayMs
+            clickCollapseMode:    root.cfgWsClickCollapseMode
+            clickRevealTimeoutMs: root.cfgWsClickRevealTimeoutMs
+            scrollEnabled:        root.cfgWsScrollEnabled
+            scrollAction:         root.cfgWsScrollAction
+            scrollInvert:         root.cfgWsScrollInvert
             bgColor:             root.colWsBg
             bgColorActive:       root.colWsBgActive
             bgBorderColor:       Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)
@@ -596,6 +622,7 @@ Item {
       // ── Slot esquerda ──────────────────────────────────────────────────
       Row {
         id: leftRow
+        objectName: "barSectionLeft"
         anchors.left:           parent.left
         anchors.leftMargin:     root.edgeInset
         anchors.verticalCenter: parent.verticalCenter
@@ -622,6 +649,7 @@ Item {
       // ── Slot direita ─────────────────────────────────────────────────
       Row {
         id: rightRow
+        objectName: "barSectionRight"
         anchors.right:          parent.right
         anchors.rightMargin:    root.edgeInset
         anchors.verticalCenter: parent.verticalCenter
@@ -652,6 +680,7 @@ Item {
 
         Row {
           id: centerRow
+          objectName: "barSectionCenter"
           anchors.centerIn: parent
           spacing: root.slotSpacing
 
@@ -725,6 +754,7 @@ Item {
       // ── Slot superior ────────────────────────────────────────────────
       Column {
         id: topCol
+        objectName: "barSectionTop"
         anchors.top:              parent.top
         anchors.topMargin:        root.edgeInset
         anchors.horizontalCenter: parent.horizontalCenter
@@ -751,6 +781,7 @@ Item {
       // ── Slot inferior ────────────────────────────────────────────────
       Column {
         id: bottomCol
+        objectName: "barSectionBottom"
         anchors.bottom:           parent.bottom
         anchors.bottomMargin:     root.edgeInset
         anchors.horizontalCenter: parent.horizontalCenter
@@ -781,6 +812,7 @@ Item {
 
         Column {
           id: middleCol
+          objectName: "barSectionMiddle"
           anchors.centerIn: parent
           spacing: root.slotSpacing
 

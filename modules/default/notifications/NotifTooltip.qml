@@ -40,6 +40,7 @@ Singleton {
 
   // ── API ────────────────────────────────────────────────────────────────
   function show(item, service, barPosition) {
+    if (!TooltipSettings.enabled) return
     _anchorItem = item
     _service    = service
     _barPos     = barPosition
@@ -82,16 +83,37 @@ Singleton {
     return s.length > 38 ? s.slice(0, 37) + "…" : s
   }
 
+  // Resolve o item de ancoragem conforme TooltipSettings.align — ver
+  // comentário completo em BarTooltip.qml.
+  function _resolveAnchor() {
+    if (!root._anchorItem) return root._anchorItem
+    // "bar"     → sobe até o container raiz da barra inteira (objectName
+    //             "barContentRoot", setado em Bar.qml — comum a todos os temas)
+    // "section" → sobe até o container da seção do módulo hoverado
+    //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
+    //             marcado em cada tema — ver comentário em TooltipSettings.qml)
+    // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
+    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+      return root._anchorItem
+    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var it = root._anchorItem, guard = 0
+    while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
+    return it || root._anchorItem
+  }
+
   // ── PopupWindow ────────────────────────────────────────────────────────
   PopupWindow {
     id: popup
     visible: false
     color:   "transparent"
 
-    implicitWidth:  Math.max(170, content.implicitWidth  + 24)
-    implicitHeight: content.implicitHeight + 16
+    readonly property int  _touchOffset: TooltipSettings.offset
+    readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    anchor.item: root._anchorItem
+    implicitWidth:  Math.max(TooltipSettings.minWidth, content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitHeight: content.implicitHeight + 16 + (_barVertical ? 0 : _touchOffset)
+
+    anchor.item: root._resolveAnchor()
     anchor.edges: {
       switch (root._barPos) {
         case 1:  return Edges.Bottom
@@ -112,6 +134,10 @@ Singleton {
 
     Rectangle {
       anchors.fill: parent
+      anchors.leftMargin:   root._barPos === 4 ? popup._touchOffset : 0
+      anchors.rightMargin:  (root._barPos !== 1 && root._barPos !== 3 && root._barPos !== 4) ? popup._touchOffset : 0
+      anchors.topMargin:    root._barPos === 1 ? popup._touchOffset : 0
+      anchors.bottomMargin: root._barPos === 3 ? popup._touchOffset : 0
       radius: 10
       color:  root.bgColor
 
@@ -119,6 +145,11 @@ Singleton {
         id: content
         anchors.centerIn: parent
         spacing: 6
+
+        // Largura comum das linhas de preview, derivada de minWidth — antes
+        // os 70px (appName) e 160px (resumo) eram fixos e ignoravam
+        // completamente o slider "Largura mínima" da UI.
+        readonly property int rowWidth: Math.max(TooltipSettings.minWidth - TooltipSettings.contentPadding, headerRow.implicitWidth)
 
         // ── Cabeçalho: estado DND + não-lidas ───────────────────────────
         Row {
@@ -157,6 +188,7 @@ Singleton {
             spacing: 7
 
             Text {
+              id: bulletText
               text:           "\uf111"   // bolinha
               color:          modelData.urgency >= 2 ? root.mutedColor : root.fgDimColor
               font.pixelSize: 6
@@ -164,11 +196,12 @@ Singleton {
               anchors.verticalCenter: parent.verticalCenter
             }
             Text {
+              id: appNameText
               text:           modelData.appName || "—"
               color:          root.fgDimColor
               font.pixelSize: 10
               anchors.verticalCenter: parent.verticalCenter
-              width: 70
+              width: Math.round(content.rowWidth * 0.28)
               elide: Text.ElideRight
             }
             Text {
@@ -177,7 +210,7 @@ Singleton {
               font.pixelSize: 10
               anchors.verticalCenter: parent.verticalCenter
               elide: Text.ElideRight
-              width: 160
+              width: content.rowWidth - appNameText.width - bulletText.implicitWidth - parent.spacing * 2
             }
           }
         }

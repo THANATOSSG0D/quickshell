@@ -1,6 +1,7 @@
 pragma Singleton
 import Quickshell
 import QtQuick
+import qs
 
 // BarTooltip — singleton de tooltip global para a barra.
 //
@@ -22,6 +23,7 @@ Singleton {
   // ── API ────────────────────────────────────────────────────────────────
   // hover: mostra com delay
   function show(item, text, barPosition) {
+    if (!TooltipSettings.enabled) return
     _anchorItem = item
     _text       = text
     _barPos     = barPosition
@@ -32,6 +34,7 @@ Singleton {
 
   // scroll: mostra imediatamente, some 1.5s após o último scroll
   function update(item, text, barPosition) {
+    if (!TooltipSettings.enabled) return
     showTimer.stop()
     hideTimer.stop()
     _anchorItem   = item
@@ -72,16 +75,43 @@ Singleton {
     onTriggered: popup.visible = false
   }
 
+  // Resolve o item de ancoragem conforme TooltipSettings.align:
+  //  "module" (padrão) → o próprio item hoverado
+  //  "bar"             → sobe a árvore de pais até achar o container raiz
+  //                      da barra (objectName "barContentRoot"), pra o
+  //                      tooltip aparecer sempre no mesmo lugar da barra
+  function _resolveAnchor() {
+    if (!root._anchorItem) return root._anchorItem
+    // "bar"     → sobe até o container raiz da barra inteira (objectName
+    //             "barContentRoot", setado em Bar.qml — comum a todos os temas)
+    // "section" → sobe até o container da seção do módulo hoverado
+    //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
+    //             marcado em cada tema — ver comentário em TooltipSettings.qml)
+    // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
+    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+      return root._anchorItem
+    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var it = root._anchorItem, guard = 0
+    while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
+    return it || root._anchorItem
+  }
+
   // ── PopupWindow ────────────────────────────────────────────────────────
   PopupWindow {
     id: popup
     visible: false
     color:   "transparent"
 
-    implicitWidth:  label.implicitWidth  + 16
-    implicitHeight: label.implicitHeight + 10
+    // offset extra: soma na largura se a barra for vertical (esq/dir,
+    // tooltip se abre na horizontal) ou na altura se a barra for
+    // horizontal (topo/baixo, tooltip se abre na vertical)
+    readonly property int  _touchOffset:  TooltipSettings.offset
+    readonly property bool _barVertical:  root._barPos === 2 || root._barPos === 4
 
-    anchor.item: root._anchorItem
+    implicitWidth:  Math.max(TooltipSettings.minWidth, label.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitHeight: label.implicitHeight + 10 + (_barVertical ? 0 : _touchOffset)
+
+    anchor.item: root._resolveAnchor()
 
     // salta para fora da barra — lado oposto à borda
     anchor.edges: {
@@ -104,6 +134,12 @@ Singleton {
 
     Rectangle {
       anchors.fill: parent
+      // insere o offset só do lado que encosta na barra, deixando o
+      // restante do popup (transparente) como respiro
+      anchors.leftMargin:   root._barPos === 4 ? popup._touchOffset : 0
+      anchors.rightMargin:  (root._barPos !== 1 && root._barPos !== 3 && root._barPos !== 4) ? popup._touchOffset : 0
+      anchors.topMargin:    root._barPos === 1 ? popup._touchOffset : 0
+      anchors.bottomMargin: root._barPos === 3 ? popup._touchOffset : 0
       radius: 5
       color:  root.bgColor
 

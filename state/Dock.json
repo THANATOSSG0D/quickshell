@@ -4,7 +4,11 @@
         "enabled": true,
         "pinned": false,
         "silence": false,
-        "theme": "Pill"
+        "theme": "Pill",
+        "tooltipAlign": "bar",
+        "tooltipEnabled": true,
+        "tooltipMinWidth": 176,
+        "tooltipOffset": 8
     },
     "themes": {
         "Dock": {

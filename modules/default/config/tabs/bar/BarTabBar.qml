@@ -59,6 +59,17 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ barMargin: v })
   }
   C.CfgSlider {
+    // Multiplicador global aplicado a ícones/fontes/dots/artwork/paddings
+    // dos módulos (ver Bar.qml::_set/_isScalable). NÃO afeta barSize,
+    // barMargin, pillWidth/pillMinSpacing nem a geometria do Notch —
+    // esses são setados via Binding{} direto, fora do _set().
+    label: "Escala dos módulos"; value: root.gd("moduleScale", 1.0)
+    from: 0.5; to: 2.0; step: 0.05; unit: "x"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleScale: v })
+  }
+  C.CfgSlider {
     label: "Largura pílula"; value: root.gd("pillWidth", 400)
     from: 100; to: 1400; step: 10; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["pillWidth"]

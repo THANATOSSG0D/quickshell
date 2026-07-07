@@ -59,6 +59,15 @@ Item {
   // na outra instância, já que cada uma tem seu próprio BarConfig/JSON.
   property bool   panelEnabled: true
 
+  // ── Tooltips (globais, não por tema) ────────────────────────────────────
+  // Bridge lido por Bar.qml (Binding{} → TooltipSettings) e consumido por
+  // todos os tooltips de hover (BarTooltip, ClockTooltip, MediaTooltip,
+  // NotifTooltip, QsTooltip, VolumeTooltip, WsTooltip). Ver TooltipSettings.qml.
+  property bool   tooltipEnabled:  true
+  property int    tooltipMinWidth: 160
+  property string tooltipAlign:    "module"
+  property int    tooltipOffset:   0
+
   // ── Props "bar" — por tema ───────────────────────────────────────────────
   // NOTA: estas são properties ARMAZENADAS (não bindings calculados via
   // get()/getModules() direto). Usar "readonly property X: get(...)" aqui
@@ -73,6 +82,7 @@ Item {
   property int  position:       4
   property int  barSize:        30
   property int  barMargin:      3
+  property real moduleScale:    1.0
   property int  pillWidth:      400
   property int  pillMinSpacing: 20
   // Notch
@@ -95,6 +105,7 @@ Item {
     root.position       = get("bar", "position")
     root.barSize        = get("bar", "barSize")
     root.barMargin      = get("bar", "barMargin")
+    root.moduleScale    = get("bar", "moduleScale")
     root.pillWidth      = get("bar", "pillWidth")
     root.pillMinSpacing = get("bar", "pillMinSpacing")
     // SEM fallback "|| default" aqui: 0 é um valor válido (raio/inclinação
@@ -360,11 +371,18 @@ Item {
     if (opts.pinned        !== undefined) root.pinned        = opts.pinned
     if (opts.panelEnabled  !== undefined) root.panelEnabled  = opts.panelEnabled
 
+    // ── Tooltips (globais) ───────────────────────────────────────────────
+    if (opts.tooltipEnabled  !== undefined) root.tooltipEnabled  = opts.tooltipEnabled
+    if (opts.tooltipMinWidth !== undefined) root.tooltipMinWidth = opts.tooltipMinWidth
+    if (opts.tooltipAlign    !== undefined) root.tooltipAlign    = opts.tooltipAlign
+    if (opts.tooltipOffset   !== undefined) root.tooltipOffset   = opts.tooltipOffset
+
     // ── "bar" — por tema, via set() (mesma cascata dos demais módulos) ──
     if (opts.autoHide       !== undefined) set("bar", "autoHide",       opts.autoHide)
     if (opts.position       !== undefined) set("bar", "position",       opts.position)
     if (opts.barSize        !== undefined) set("bar", "barSize",        opts.barSize)
     if (opts.barMargin      !== undefined) set("bar", "barMargin",      opts.barMargin)
+    if (opts.moduleScale    !== undefined) set("bar", "moduleScale",    opts.moduleScale)
     if (opts.pillWidth      !== undefined) set("bar", "pillWidth",      opts.pillWidth)
     if (opts.pillMinSpacing !== undefined) set("bar", "pillMinSpacing", opts.pillMinSpacing)
     if (opts.notchRadius    !== undefined) set("bar", "notchRadius",    opts.notchRadius)
@@ -422,7 +440,12 @@ Item {
     }
 
     // ── Grava globais no Bar.json — preserva themes ─────────────────────
-    barAdapter.bar = { theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible, pinned: root.pinned, enabled: root.panelEnabled }
+    barAdapter.bar = {
+      theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible,
+      pinned: root.pinned, enabled: root.panelEnabled,
+      tooltipEnabled: root.tooltipEnabled, tooltipMinWidth: root.tooltipMinWidth,
+      tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset
+    }
     // Garante que themes não foi zerado antes de gravar
     if (!barAdapter.themes || Object.keys(barAdapter.themes).length === 0) {
       console.warn("[BarConfig] AVISO: barAdapter.themes está vazio antes de writeAdapter — themes serão perdidos")
@@ -605,6 +628,13 @@ Item {
   readonly property bool   wsShowAddButton:  get("workspaces","showAddButton")  !== false
   readonly property bool   wsShowTooltip:    get("workspaces","showTooltip")    !== false
   readonly property int    wsSpacing:        get("workspaces","spacing")        || 2
+  readonly property string wsRevealMode:           wsGet("revealMode") || "hover"
+  readonly property int    wsHoverRevealDelayMs:   wsGet("hoverRevealDelayMs") || 0
+  readonly property string wsClickCollapseMode:    wsGet("clickCollapseMode") || "exit"
+  readonly property int    wsClickRevealTimeoutMs: wsGet("clickRevealTimeoutMs") || 2500
+  readonly property bool   wsScrollEnabled: get("workspaces","scrollEnabled") === true
+  readonly property string wsScrollAction:  get("workspaces","scrollAction")  || "workspace"
+  readonly property bool   wsScrollInvert:  get("workspaces","scrollInvert")  === true
 
   // mediaplayer genérico
   readonly property bool   mpShowText:       get("mediaplayer","showText")       !== false
@@ -653,6 +683,10 @@ Item {
         if (b.alwaysVisible !== undefined) root.alwaysVisible = b.alwaysVisible
         if (b.pinned        !== undefined) root.pinned        = b.pinned
         if (b.enabled        !== undefined) root.panelEnabled  = b.enabled
+        if (b.tooltipEnabled  !== undefined) root.tooltipEnabled  = b.tooltipEnabled
+        if (b.tooltipMinWidth !== undefined) root.tooltipMinWidth = b.tooltipMinWidth
+        if (b.tooltipAlign    !== undefined) root.tooltipAlign    = b.tooltipAlign
+        if (b.tooltipOffset   !== undefined) root.tooltipOffset   = b.tooltipOffset
         root._bump()
       }
 

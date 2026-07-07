@@ -39,11 +39,12 @@ C.CfgScroll {
   readonly property bool isIcons:  currentStyle === "icons"
   readonly property bool isDots:   currentStyle === "dots"
   readonly property bool isFocus:  currentStyle === "focus"
+  readonly property bool isCurrentOnly: currentStyle === "current"
   // Number/Hybrid/Focus usam o mesmo "fontSize" pro número
   readonly property bool isNumber: currentStyle === "number" || currentStyle === "hybrid" || currentStyle === "focus"
-  // Ícones e Focus compartilham as props de tamanho/espaçamento/ordenação/
-  // monocromia de ícone (Focus reaproveita o Icons.qml quando expandida)
-  readonly property bool showsIconRow: currentStyle === "icons" || currentStyle === "focus"
+  // Ícones, Focus e "Só atual" compartilham as props de tamanho/espaçamento/
+  // ordenação/monocromia de ícone (todos reaproveitam o Icons.qml por dentro)
+  readonly property bool showsIconRow: currentStyle === "icons" || currentStyle === "focus" || currentStyle === "current"
   // Dots/Number/Hybrid usam as 4 cores de "ponto" — Focus e Ícones não
   readonly property bool usesDotColors: currentStyle === "dots" || currentStyle === "number" || currentStyle === "hybrid"
 
@@ -63,11 +64,12 @@ C.CfgScroll {
     spacing: 6
     Repeater {
       model: [
-        { id: "icons",  label: "Ícones" },
-        { id: "dots",   label: "Dots"   },
-        { id: "hybrid", label: "Hybrid" },
-        { id: "number", label: "Número" },
-        { id: "focus",  label: "Focus"  },
+        { id: "icons",   label: "Ícones"   },
+        { id: "dots",    label: "Dots"     },
+        { id: "hybrid",  label: "Hybrid"   },
+        { id: "number",  label: "Número"   },
+        { id: "focus",   label: "Focus"    },
+        { id: "current", label: "Só atual" },
       ]
       delegate: C.CfgChip {
         required property var modelData
@@ -134,6 +136,103 @@ C.CfgScroll {
     colorAccent:  root.colorAccent
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "workspaces", key: "showAddButton", value: !(root.g("showAddButton", false) === true) })
+  }
+
+  // ── Scroll no módulo (todos os estilos) ──────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider }
+  C.CfgSection { title: "SCROLL NO MÓDULO"; colorTextDim: root.colorTextDim }
+  C.CfgToggle {
+    label:   "Scroll no módulo troca workspace/janela"
+    checked: root.g("scrollEnabled", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "workspaces", key: "scrollEnabled", value: !(root.g("scrollEnabled", false) === true) })
+  }
+  Row {
+    visible: root.g("scrollEnabled", false) === true
+    spacing: 6
+    Repeater {
+      model: [
+        { id: "workspace", label: "Workspace" },
+        { id: "window",    label: "Janela"    },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:  modelData.label
+        active: root.g("scrollAction", "workspace") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changed({ moduleId: "workspaces", key: "scrollAction", value: modelData.id })
+      }
+    }
+  }
+  C.CfgToggle {
+    label:   "Inverter direção do scroll"
+    checked: root.g("scrollInvert", false) === true
+    visible: root.g("scrollEnabled", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "workspaces", key: "scrollInvert", value: !(root.g("scrollInvert", false) === true) })
+  }
+
+  // ── Revelação — só existe no estilo Focus ────────────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.isFocus }
+  C.CfgSection { title: "REVELAÇÃO (FOCO)"; colorTextDim: root.colorTextDim; visible: root.isFocus }
+  Row {
+    visible: root.isFocus
+    spacing: 6
+    Repeater {
+      model: [
+        { id: "hover", label: "Hover"  },
+        { id: "click", label: "Clique" },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:  modelData.label
+        active: root.gs("revealMode", "hover") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changedStyled("revealMode", modelData.id)
+      }
+    }
+  }
+  // Delay pra ABRIR no modo hover — 0 = expande na hora (original).
+  // Fechar ao sair do hover continua sempre instantâneo, sem delay.
+  C.CfgSlider {
+    label: "Delay pra abrir (hover)"; value: root.gs("hoverRevealDelayMs", 0)
+    from: 0; to: 2000; step: 50; unit: "ms"
+    visible: root.isFocus && root.gs("revealMode", "hover") === "hover"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("hoverRevealDelayMs", v)
+  }
+  // Como os ícones fecham no modo clique: na hora que o mouse sai, ou
+  // com um delay configurável (fica aberto um tempo antes de fechar).
+  Row {
+    visible: root.isFocus && root.gs("revealMode", "hover") === "click"
+    spacing: 6
+    Repeater {
+      model: [
+        { id: "exit",  label: "Ao sair do hover" },
+        { id: "delay", label: "Com delay"        },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:  modelData.label
+        active: root.gs("clickCollapseMode", "exit") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changedStyled("clickCollapseMode", modelData.id)
+      }
+    }
+  }
+  C.CfgSlider {
+    label: "Fecha sozinho depois de (0 = nunca)"; value: root.gs("clickRevealTimeoutMs", 2500)
+    from: 0; to: 10000; step: 100; unit: "ms"
+    visible: root.isFocus && root.gs("revealMode", "hover") === "click" && root.gs("clickCollapseMode", "exit") === "delay"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("clickRevealTimeoutMs", v)
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

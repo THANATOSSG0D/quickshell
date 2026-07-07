@@ -12,6 +12,17 @@ Item {
   property string orientation: "horizontal"
   property string iconsSort:   "position"
 
+  // ── Focus: modo de revelação e delay de auto-colapso ─────────────────
+  property string revealMode:           "hover"  // "hover" | "click"
+  property int    hoverRevealDelayMs:   0        // ms; delay pra abrir no hover (0 = instantâneo)
+  property string clickCollapseMode:    "exit"   // "exit" | "delay" — só usado no modo "click"
+  property int    clickRevealTimeoutMs: 2500     // ms; usado só quando clickCollapseMode === "delay"
+
+  // ── Scroll no módulo inteiro (troca workspace ou cicla janela) ───────
+  property bool   scrollEnabled: false
+  property string scrollAction:  "workspace"  // "workspace" | "window"
+  property bool   scrollInvert:  false
+
   // Posição da barra — necessário para o WsTooltip saltar do lado certo
   property int barPosition: 2   // 1=top, 2=right(default), 3=bottom, 4=left
   property bool showTooltip: true
@@ -164,10 +175,11 @@ Item {
         id: delegateLoader
         anchors.centerIn: parent
 
-        sourceComponent: root.style === "dots"   ? dotComp
-                       : root.style === "hybrid" ? hybridComp
-                       : root.style === "icons"  ? iconsComp
-                       : root.style === "focus"  ? focusComp
+        sourceComponent: root.style === "dots"    ? dotComp
+                       : root.style === "hybrid"  ? hybridComp
+                       : root.style === "icons"   ? iconsComp
+                       : root.style === "focus"   ? focusComp
+                       : root.style === "current" ? currentComp
                        : numberComp
 
         // ── modelData (todos) ────────────────────────────────────────────
@@ -232,6 +244,23 @@ Item {
         Binding { target: delegateLoader.item; property: "numberBgPaddingH";   value: root.numberBgPaddingH;    when: delegateLoader.item !== null && root.style === "focus" }
         Binding { target: delegateLoader.item; property: "numberBgPaddingV";   value: root.numberBgPaddingV;    when: delegateLoader.item !== null && root.style === "focus" }
         Binding { target: delegateLoader.item; property: "urgentColor";        value: root.dotUrgentColor;      when: delegateLoader.item !== null && root.style === "focus" }
+
+        // ── props Focus: modo de revelação por clique ────────────────────
+        Binding { target: delegateLoader.item; property: "revealMode";           value: root.revealMode;           when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "hoverRevealDelayMs";   value: root.hoverRevealDelayMs;   when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "clickCollapseMode";    value: root.clickCollapseMode;    when: delegateLoader.item !== null && root.style === "focus" }
+        Binding { target: delegateLoader.item; property: "clickRevealTimeoutMs"; value: root.clickRevealTimeoutMs; when: delegateLoader.item !== null && root.style === "focus" }
+
+        // ── props Current Only (só ícones da workspace ativa) ────────────
+        Binding { target: delegateLoader.item; property: "sortOrder";       value: root.iconsSort;           when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "isHorizontal";    value: root.isHorizontal;        when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "monochrome";      value: root.iconMonochrome;      when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "monoColor";       value: root.iconMonoColor;       when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "monoColorActive"; value: root.iconMonoColorActive; when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "iconSpacing";     value: root.iconSpacing;         when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "iconSize";        value: root.iconSize;            when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "showTooltip";     value: root.showTooltip;         when: delegateLoader.item !== null && root.style === "current" }
+        Binding { target: delegateLoader.item; property: "urgentColor";     value: root.dotUrgentColor;      when: delegateLoader.item !== null && root.style === "current" }
       }
 
       // Focus já anima o próprio implicitWidth/Height internamente (ver
@@ -243,11 +272,12 @@ Item {
     }
   }
 
-  Component { id: dotComp;    Comp.Dot    {} }
-  Component { id: numberComp; Comp.Number {} }
-  Component { id: hybridComp; Comp.Hybrid {} }
-  Component { id: iconsComp;  Comp.Icons  {} }
-  Component { id: focusComp;  Comp.Focus  {} }
+  Component { id: dotComp;     Comp.Dot         {} }
+  Component { id: numberComp;  Comp.Number      {} }
+  Component { id: hybridComp;  Comp.Hybrid      {} }
+  Component { id: iconsComp;   Comp.Icons       {} }
+  Component { id: focusComp;   Comp.Focus       {} }
+  Component { id: currentComp; Comp.CurrentOnly {} }
 
   // ── Fundo global ─────────────────────────────────────────────────────
   Rectangle {
@@ -311,6 +341,37 @@ Item {
           onExited:     parent.isAddHovered = false
           onClicked:    Hyprland.dispatch("hl.dsp.focus({ workspace = 'emptynm'})")
         }
+      }
+    }
+  }
+
+  // ── Scroll no módulo inteiro — troca workspace ou cicla janela ────────
+  // IMPORTANTE: target aqui é `bg`, NÃO `root`. O `root` (Item raiz deste
+  // arquivo) só define implicitWidth/implicitHeight — nunca ganha um
+  // width/height REAL setado em lugar nenhum (quem lê implicitWidth/Height
+  // é o Loader do tema, lá fora). Um PointerHandler com target num item de
+  // 0x0 nunca recebe evento nenhum, mesmo com filhos visíveis por cima —
+  // por isso o scroll não funcionava antes. `bg` é o Rectangle que
+  // realmente tem width/height calculados (linha do `bg` acima), então é
+  // ele que precisa ser o target pra cobrir toda a área visível do módulo.
+  WheelHandler {
+    target: bg
+    enabled: root.scrollEnabled
+    onWheel: (event) => {
+      var dir = event.angleDelta.y > 0 ? 1 : -1
+      if (root.scrollInvert) dir = -dir
+
+      if (root.scrollAction === "window") {
+        // Cicla o foco entre as janelas — por padrão o cyclenext do
+        // Hyprland pode circular por TODAS as workspaces dependendo da
+        // versão/config; se quiser restringir à workspace atual, confira
+        // os argumentos aceitos por `hyprctl dispatch cyclenext` na sua versão.
+        Hyprland.dispatch(dir > 0 ? "cyclenext" : "cyclenext prev")
+      } else {
+        // Dispatcher nativo do Hyprland — funciona independente do
+        // wrapper Lua hl.dsp.*, já que é só um dispatch cru de sempre.
+        // "e+1"/"e-1" pula só entre workspaces EXISTENTES (não cria vazias).
+        Hyprland.dispatch(dir > 0 ? "workspace e+1" : "workspace e-1")
       }
     }
   }

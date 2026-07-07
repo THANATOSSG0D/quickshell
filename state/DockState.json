@@ -1,48 +1,77 @@
 {
-  "overrides": {
-    "Dock": {
-      "bar": {
-        "autoHide": true,
-        "modules": {
-          "middle": ["workspaces"]
+    "overrides": {
+        "Dock": {
+            "bar": {
+                "autoHide": true,
+                "modules": {
+                    "middle": [
+                        "workspaces"
+                    ]
+                },
+                "position": 3
+            }
         },
-        "position": 3
-      }
-    },
-    "Pill": {
-      "bar": {
-        "autoHide": true,
-        "barMargin": 4,
-        "barSize": 26,
-        "modules": {
-          "center": ["workspaces"],
-          "left": ["quicksettings"],
-          "right": ["volume"]
-        },
-        "pillMinSpacing": 10,
-        "pillWidth": 100,
-        "position": 3
-      },
-      "mediaplayer": {
-        "bgEnabled": false,
-        "showText": false,
-        "textMode": "artistAndTitle",
-        "textStatic": false
-      },
-      "workspaces": {
-        "focus": {
-          "bgOpacityActive": 0.3,
-          "bgPaddingH": 1,
-          "bgPaddingHActive": 1,
-          "bgPaddingV": 1,
-          "bgPaddingVActive": 1,
-          "fontSize": 8
-        },
-        "iconSize": 16,
-        "numberBgEnabled": true,
-        "showAddButton": true,
-        "style": "focus"
-      }
+        "Pill": {
+            "bar": {
+                "autoHide": true,
+                "barMargin": 5,
+                "barSize": 24,
+                "moduleScale": 0.85,
+                "modules": {
+                    "center": [
+                        "workspaces"
+                    ],
+                    "left": [
+                        "quicksettings"
+                    ],
+                    "right": [
+                        "volume"
+                    ]
+                },
+                "pillMinSpacing": 10,
+                "pillWidth": 170,
+                "position": 3
+            },
+            "mediaplayer": {
+                "bgEnabled": false,
+                "showText": false,
+                "textMode": "artistAndTitle",
+                "textStatic": false
+            },
+            "palette": {
+                "barBg": "background"
+            },
+            "workspaces": {
+                "current": {
+                    "bgOpacity": 0.75,
+                    "bgPaddingH": 0,
+                    "bgPaddingHActive": 4,
+                    "bgPaddingV": 0
+                },
+                "focus": {
+                    "bgOpacity": 0.2,
+                    "bgOpacityActive": 0.5,
+                    "bgPaddingH": 0,
+                    "bgPaddingHActive": 0,
+                    "bgPaddingV": 0,
+                    "bgPaddingVActive": 0,
+                    "fontSize": 8,
+                    "revealMode": "click"
+                },
+                "iconMonochrome": false,
+                "iconSize": 16,
+                "iconSpacing": 6,
+                "numberBgEnabled": true,
+                "numberBgPaddingH": 4,
+                "numberBgPaddingV": 4,
+                "numberBgRadius": 4,
+                "scrollAction": "window",
+                "scrollEnabled": true,
+                "scrollInvert": true,
+                "showAddButton": false,
+                "spacing": 0,
+                "style": "focus"
+            }
+        }
     }
-  }
 }

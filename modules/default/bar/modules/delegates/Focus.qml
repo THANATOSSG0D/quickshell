@@ -10,11 +10,14 @@ import "." as Comp
 // Comportamento:
 //   • Workspace ATIVA  → sempre expandida, mostra só os ícones (sem
 //     número), reaproveitando o componente Icons.qml.
-//   • Workspace INATIVA → colapsada, mostra só o número. Ao passar o
-//     mouse, os ícones deslizam pra fora do lado do número, EMPURRANDO
-//     as workspaces vizinhas de verdade (reflow real do RowLayout da
-//     barra) — ela ocupa seu próprio espaço, não flutua por cima de
-//     nada.
+//   • Workspace INATIVA → colapsada, mostra só o número. Como ela expande
+//     depende de `revealMode`:
+//       - "hover" (original): passa o mouse, ícones deslizam pra fora.
+//       - "click": só revela ao CLICAR com o botão ESQUERDO no número;
+//         fecha sozinha depois de `clickRevealTimeoutMs` sem interação
+//         (hover nesse modo só mostra o tooltip, não expande nada).
+//     Em QUALQUER modo, o botão DIREITO no número sempre foca a
+//     workspace direto, sem precisar expandir primeiro.
 //
 // ── Notas anti-tremor (leia antes de mexer no reveal) ─────────────────
 // 1) UMA SÓ fonte de animação: só `revealClip.width` tem `Behavior`.
@@ -43,7 +46,7 @@ Item {
   property int    barPosition:  2
   property bool   showTooltip:  true
 
-  // ── Ícones (workspace ativa, ou reveal em hover) ─────────────────────
+  // ── Ícones (workspace ativa, ou reveal em hover/click) ───────────────
   property int    iconSize:        18
   property bool   monochrome:      false
   property color  monoColor:       "white"
@@ -63,12 +66,37 @@ Item {
   property int    numberBgPaddingV:    2
   property color  urgentColor:         "#f38ba8"
 
+  // ── Modo de revelação dos ícones (workspace inativa) ─────────────────
+  // "hover" → expande passando o mouse (com delay configurável).
+  // "click" → só expande ao clicar com o botão ESQUERDO no número.
+  property string revealMode: "hover"   // "hover" | "click"
+
+  // Delay (ms) entre o mouse entrar em cima e os ícones começarem a
+  // expandir, no modo "hover". 0 = expande na hora (comportamento
+  // original). Sair de cima sempre colapsa na hora, delay é só pra abrir.
+  property int hoverRevealDelayMs: 0
+
+  // No modo "click", como os ícones fecham depois de abertos:
+  // "exit"  → fecha assim que o mouse sai de cima (sem delay nenhum).
+  // "delay" → fica aberto até `clickRevealTimeoutMs` ms sem o mouse em
+  //           cima (0 nesse modo = nunca fecha sozinho, só clicando de novo).
+  property string clickCollapseMode: "exit"   // "exit" | "delay"
+
+  // Tempo (ms) que os ícones ficam abertos, no modo "click" +
+  // clickCollapseMode "delay", depois que o mouse sai de cima.
+  property int clickRevealTimeoutMs: 2500
+
+  // Estado interno de cada modo — só um dos dois é lido por vez em
+  // `expanded`, dependendo de `revealMode` (ver abaixo).
+  property bool _hoverRevealed: false
+  property bool _clickRevealed: false
+
   // ── Fundo por trás dos ícones revelados (só visual, opcional) ────────
-  property color  revealBgColor:  "transparent"
-  property int    revealBgRadius: 6
-  property int    revealPaddingH: 4
-  property int    revealPaddingV: 2
-  property int    revealGap:      4   // espaço entre número e ícones
+  property color revealBgColor:  "transparent"
+  property int   revealBgRadius: 6
+  property int   revealPaddingH: 4
+  property int   revealPaddingV: 2
+  property int   revealGap:      4   // espaço entre número e ícones
 
   // Duração/curva da ÚNICA animação de reveal — ver nota (1) acima.
   // InOutCubic em vez de OutCubic: OutCubic começa no pico de velocidade
@@ -84,8 +112,19 @@ Item {
 
   readonly property real _numberMinSize: Math.max(16, root.fontSize * 2.0)
 
-  // Expandida = workspace ativa (sempre) OU inativa com o mouse em cima
-  readonly property bool expanded: root._wsActive || hoverArea.containsMouse
+  // Workspace ativa nunca depende do reveal — some sempre que ficar
+  // ativa, pra não ficar "presa" aberta (por hover pendente ou clique)
+  // quando ela virar a ativa (aí ela já expande pelo outro motivo, e
+  // volta a depender do reveal quando sair de novo).
+  Binding { target: root; property: "_hoverRevealed"; value: false; when: root._wsActive }
+  Binding { target: root; property: "_clickRevealed"; value: false; when: root._wsActive }
+
+  // Expandida = workspace ativa (sempre) OU, dependendo do modo:
+  //   hover → _hoverRevealed (true depois do delay configurado)
+  //   click → _clickRevealed (true entre o clique e o fechamento)
+  readonly property bool expanded: root._wsActive
+    || (root.revealMode === "hover" && root._hoverRevealed)
+    || (root.revealMode === "click" && root._clickRevealed)
 
   // Número não reserva espaço nenhum quando a workspace está ativa (ela
   // não mostra número, só ícones — igual ao comportamento original).
@@ -112,10 +151,84 @@ Item {
     id: hoverArea
     anchors.fill: parent
     z: -1
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     hoverEnabled: !root._wsActive
-    onEntered: if (root.showTooltip && !root._wsActive) WsTooltip.show(root, root.modelData, root.barPosition)
-    onExited:  WsTooltip.hide()
-    onClicked: if (!root._wsActive && root.modelData) root.modelData.activate()
+
+    onEntered: {
+      if (root.showTooltip && !root._wsActive) WsTooltip.show(root, root.modelData, root.barPosition)
+
+      if (root.revealMode === "hover") {
+        // Delay só se aplica pra ABRIR — se o mouse sair antes do timer
+        // disparar (onExited abaixo), ele cancela e nada expande.
+        if (root.hoverRevealDelayMs > 0) hoverRevealTimer.restart()
+        else root._hoverRevealed = true
+      } else if (root.revealMode === "click" && root._clickRevealed) {
+        // Voltou a passar o mouse em cima com o reveal por clique já
+        // aberto → segura o auto-colapso por delay enquanto estiver aqui.
+        collapseTimer.stop()
+      }
+    }
+
+    onExited: {
+      WsTooltip.hide()
+
+      if (root.revealMode === "hover") {
+        // Sair de cima colapsa NA HORA, sempre — o delay é só de abertura.
+        hoverRevealTimer.stop()
+        root._hoverRevealed = false
+      } else if (root.revealMode === "click" && root._clickRevealed) {
+        if (root.clickCollapseMode === "exit") {
+          root._clickRevealed = false
+        } else if (root.clickRevealTimeoutMs > 0) {
+          collapseTimer.restart()
+        }
+        // clickCollapseMode === "delay" com timeout 0 → fica aberto até
+        // o usuário clicar de novo no número (nunca fecha sozinho).
+      }
+    }
+
+    onClicked: (mouse) => {
+      if (root._wsActive || !root.modelData) return
+
+      // Botão DIREITO sempre foca a workspace, em qualquer revealMode —
+      // não depende de ela estar expandida ou não.
+      if (mouse.button === Qt.RightButton) {
+        root.modelData.activate()
+        return
+      }
+
+      // Botão esquerdo:
+      if (root.revealMode === "click") {
+        root._clickRevealed = !root._clickRevealed
+        if (root._clickRevealed && root.clickCollapseMode === "delay" && root.clickRevealTimeoutMs > 0)
+          collapseTimer.restart()
+        else
+          collapseTimer.stop()
+      } else {
+        // Modo "hover" (comportamento original): clique esquerdo foca direto.
+        root.modelData.activate()
+      }
+    }
+  }
+
+  // Dispara o reveal do modo "hover" depois de `hoverRevealDelayMs` com o
+  // mouse parado em cima — cancelado (via onExited acima) se o mouse sair
+  // antes de completar o delay.
+  Timer {
+    id: hoverRevealTimer
+    interval: Math.max(1, root.hoverRevealDelayMs)
+    repeat:   false
+    onTriggered: root._hoverRevealed = true
+  }
+
+  // Fecha o reveal por clique sozinho depois de clickRevealTimeoutMs sem
+  // o mouse em cima — só roda quando clickCollapseMode === "delay" (ver
+  // onEntered/onExited/onClicked acima, que são os únicos que dão start/stop).
+  Timer {
+    id: collapseTimer
+    interval: Math.max(1, root.clickRevealTimeoutMs)
+    repeat:   false
+    onTriggered: root._clickRevealed = false
   }
 
   // ── Número ────────────────────────────────────────────────────────────

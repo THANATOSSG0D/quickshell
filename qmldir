@@ -3,3 +3,4 @@ module qs
 singleton Colors      1.0 singletons/Colors.qml
 singleton BarSchema   1.0 singletons/BarSchema.qml
 singleton PopupConfig 1.0 singletons/PopupConfig.qml
+singleton TooltipSettings 1.0 singletons/TooltipSettings.qml
