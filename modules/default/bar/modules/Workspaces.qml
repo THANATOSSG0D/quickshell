@@ -346,19 +346,25 @@ Item {
   }
 
   // ── Scroll no módulo inteiro — troca workspace ou cicla janela ────────
-  // IMPORTANTE: target aqui é `bg`, NÃO `root`. O `root` (Item raiz deste
-  // arquivo) só define implicitWidth/implicitHeight — nunca ganha um
-  // width/height REAL setado em lugar nenhum (quem lê implicitWidth/Height
-  // é o Loader do tema, lá fora). Um PointerHandler com target num item de
-  // 0x0 nunca recebe evento nenhum, mesmo com filhos visíveis por cima —
-  // por isso o scroll não funcionava antes. `bg` é o Rectangle que
-  // realmente tem width/height calculados (linha do `bg` acima), então é
-  // ele que precisa ser o target pra cobrir toda a área visível do módulo.
-  WheelHandler {
-    target: bg
-    enabled: root.scrollEnabled
-    onWheel: (event) => {
-      var dir = event.angleDelta.y > 0 ? 1 : -1
+  // Um MouseArea comum, não um WheelHandler: na prática o WheelHandler
+  // perdia o evento de wheel pros MouseAreas de hover/clique de cada
+  // delegate (Dot/Number/Focus/etc — todos cobrem a área inteira do
+  // próprio item e ficam "na frente" na árvore de eventos).
+  //
+  // A saída: acceptedButtons: Qt.NoButton faz esse MouseArea NUNCA
+  // interceptar clique/press — eles passam direto pros delegates por
+  // baixo, normalmente. Só o wheel é pego aqui, porque size real
+  // (anchors.fill: bg, não "parent" — `root` só tem implicitWidth/Height,
+  // nunca um width/height real, então usar `parent` aqui de novo ia
+  // voltar a ter uma área de hit-test 0x0).
+  MouseArea {
+    id: scrollArea
+    anchors.fill: bg
+    enabled:         root.scrollEnabled
+    acceptedButtons: Qt.NoButton
+    hoverEnabled:    false
+    onWheel: (wheel) => {
+      var dir = wheel.angleDelta.y > 0 ? 1 : -1
       if (root.scrollInvert) dir = -dir
 
       if (root.scrollAction === "window") {

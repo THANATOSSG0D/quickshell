@@ -23,7 +23,7 @@ Singleton {
   // ── API ────────────────────────────────────────────────────────────────
   // hover: mostra com delay
   function show(item, text, barPosition) {
-    if (!TooltipSettings.enabled) return
+    if (!root._cfg(item, "Enabled", TooltipSettings.enabled)) return
     _anchorItem = item
     _text       = text
     _barPos     = barPosition
@@ -34,7 +34,7 @@ Singleton {
 
   // scroll: mostra imediatamente, some 1.5s após o último scroll
   function update(item, text, barPosition) {
-    if (!TooltipSettings.enabled) return
+    if (!root._cfg(item, "Enabled", TooltipSettings.enabled)) return
     showTimer.stop()
     hideTimer.stop()
     _anchorItem   = item
@@ -88,12 +88,24 @@ Singleton {
     //             (objectName "barSectionLeft/Center/Right/Top/Middle/Bottom",
     //             marcado em cada tema — ver comentário em TooltipSettings.qml)
     // "module"  → o próprio item hoverado (comportamento padrão, sem loop)
-    if (TooltipSettings.align !== "bar" && TooltipSettings.align !== "section")
+    if (root._cfg(root._anchorItem, "Align", TooltipSettings.align) !== "bar" && root._cfg(root._anchorItem, "Align", TooltipSettings.align) !== "section")
       return root._anchorItem
-    var wantPrefix = TooltipSettings.align === "bar" ? "barContentRoot" : "barSection"
+    var wantPrefix = root._cfg(root._anchorItem, "Align", TooltipSettings.align) === "bar" ? "barContentRoot" : "barSection"
     var it = root._anchorItem, guard = 0
     while (it && it.objectName.indexOf(wantPrefix) !== 0 && guard < 40) { it = it.parent; guard++ }
     return it || root._anchorItem
+  }
+
+  // Resolve a config de tooltip do PAINEL a que o item hoverado pertence
+  // (bar ou dock — cada Loader "barContentRoot" expõe a própria config,
+  // ver Bar.qml). Cai no default (TooltipSettings.*) se não achar nenhum
+  // barContentRoot acima do item, ou se a propriedade não existir nele.
+  function _cfg(startItem, key, dflt) {
+    var it = startItem, guard = 0
+    while (it && it.objectName !== "barContentRoot" && guard < 40) { it = it.parent; guard++ }
+    var propName = "cfgTooltip" + key
+    if (it && it[propName] !== undefined) return it[propName]
+    return dflt
   }
 
   // ── PopupWindow ────────────────────────────────────────────────────────
@@ -105,10 +117,10 @@ Singleton {
     // offset extra: soma na largura se a barra for vertical (esq/dir,
     // tooltip se abre na horizontal) ou na altura se a barra for
     // horizontal (topo/baixo, tooltip se abre na vertical)
-    readonly property int  _touchOffset:  TooltipSettings.offset
+    readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical:  root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(TooltipSettings.minWidth, label.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), label.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
     implicitHeight: label.implicitHeight + 10 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()

@@ -7,7 +7,7 @@
         "theme": "Pill",
         "tooltipAlign": "bar",
         "tooltipEnabled": true,
-        "tooltipMinWidth": 176,
+        "tooltipMinWidth": 200,
         "tooltipOffset": 8
     },
     "themes": {

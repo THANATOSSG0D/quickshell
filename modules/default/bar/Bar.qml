@@ -36,16 +36,10 @@ Scope {
     initialPanelEnabled: barRoot.initialPanelEnabled
   }
 
-  // ── Ponte para o singleton global TooltipSettings ───────────────────────
-  // Os 7 tooltips de hover (BarTooltip/ClockTooltip/MediaTooltip/
-  // NotifTooltip/QsTooltip/VolumeTooltip/WsTooltip) são singletons globais
-  // e não enxergam barState.config diretamente — só a instância "bar"
-  // escreve aqui (evita conflito caso uma segunda instância, ex: a Dock,
-  // também instancie Bar.qml e tente sobrescrever o mesmo singleton).
-  Binding { target: TooltipSettings; property: "enabled";  value: barState.config.tooltipEnabled;  when: barRoot.instanceId === "bar" }
-  Binding { target: TooltipSettings; property: "minWidth"; value: barState.config.tooltipMinWidth; when: barRoot.instanceId === "bar" }
-  Binding { target: TooltipSettings; property: "align";    value: barState.config.tooltipAlign;    when: barRoot.instanceId === "bar" }
-  Binding { target: TooltipSettings; property: "offset";   value: barState.config.tooltipOffset;   when: barRoot.instanceId === "bar" }
+  // (o bridge de tooltip foi movido pra dentro do Loader "barContentRoot"
+  // abaixo — cada painel, bar ou dock, expõe sua PRÓPRIA config de tooltip
+  // ali, em vez de escrever num singleton global compartilhado. Ver
+  // comentário junto ao Loader.)
 
   // ── Props do tema activo ───────────────────────────────────────────────
   property int  themeBarSize:    30
@@ -495,15 +489,31 @@ Scope {
       // ── Loader do tema ─────────────────────────────────────────────────
       Loader {
         id: loader
-        // Tag usada pelos tooltips (TooltipSettings.align === "bar") pra
-        // subir a árvore de pais a partir do item hoverado e ancorar
-        // sempre neste container — que ocupa a barra inteira deste
-        // monitor — em vez de no item específico sob o cursor.
+        // Tag usada pelos tooltips (TooltipSettings.align === "bar"/"section")
+        // pra subir a árvore de pais a partir do item hoverado e ancorar
+        // neste container — que ocupa a barra inteira deste monitor/painel
+        // — em vez de no item específico sob o cursor.
         objectName: "barContentRoot"
         anchors.fill: parent
         source: barState.config.configLoaded
           ? (Quickshell.shellDir + "/modules/default/bar/themes/" + barState.currentTheme + ".qml")
           : ""
+
+        // ── Config de tooltip DESTE painel ──────────────────────────────
+        // Antes isso era escrito num singleton global (TooltipSettings)
+        // só pela instância "bar" — a Dock (2ª instância de Bar.qml) nunca
+        // conseguia impor a própria config, e os tooltips hoverados nela
+        // sempre obedeciam à config da Barra. Agora cada painel expõe a
+        // própria config aqui, direto no seu barContentRoot; os 7
+        // tooltips (singletons globais) resolvem qual config usar subindo
+        // a árvore de pais a partir do item hoverado até este Loader —
+        // ou seja, cada painel passa a ter tooltip independente de verdade.
+        // TooltipSettings.* continua existindo só como fallback (caso o
+        // item hoverado não esteja dentro de nenhum barContentRoot).
+        property bool   cfgTooltipEnabled:  barState.config.tooltipEnabled
+        property int    cfgTooltipMinWidth: barState.config.tooltipMinWidth
+        property string cfgTooltipAlign:    barState.config.tooltipAlign
+        property int    cfgTooltipOffset:   barState.config.tooltipOffset
 
         // ── Bindings reativos de módulos ──────────────────────────────────
         // Usam barState.modulesLeft (propriedade direta) em vez de
@@ -676,13 +686,6 @@ Scope {
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
         _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
         _set("cfgWsSpacing",        barState.config.wsSpacing)
-        _set("cfgWsRevealMode",           barState.config.wsRevealMode)
-        _set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)
-        _set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)
-        _set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs)
-        _set("cfgWsScrollEnabled", barState.config.wsScrollEnabled)
-        _set("cfgWsScrollAction",  barState.config.wsScrollAction)
-        _set("cfgWsScrollInvert",  barState.config.wsScrollInvert)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)
@@ -810,6 +813,30 @@ Scope {
         function onPaletteWsNumberColorActiveChanged()   { bar._set("colWsNumberActive",   barState.config.paletteWsNumberColorActive)   }
         function onPaletteWsNumberBgColorChanged()       { bar._set("colWsNumberBg",       barState.config.paletteWsNumberBgColor)       }
         function onPaletteWsNumberBgColorActiveChanged() { bar._set("colWsNumberBgActive", barState.config.paletteWsNumberBgColorActive) }
+        // ── Workspaces — Focus (reveal) ──────────────────────────────────
+        function onWsRevealModeChanged() {
+            bar._set("cfgWsRevealMode", barState.config.wsRevealMode)
+        }
+        function onWsHoverRevealDelayMsChanged() {
+            bar._set("cfgWsHoverRevealDelayMs", barState.config.wsHoverRevealDelayMs)
+        }
+        function onWsClickCollapseModeChanged() {
+            bar._set("cfgWsClickCollapseMode", barState.config.wsClickCollapseMode)
+        }
+        function onWsClickRevealTimeoutMsChanged() {
+            bar._set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs)
+        }
+
+        // ── Workspaces — Scroll ────────────────────────────────────────────
+        function onWsScrollEnabledChanged() {
+            bar._set("cfgWsScrollEnabled", barState.config.wsScrollEnabled)
+        }
+        function onWsScrollActionChanged() {
+            bar._set("cfgWsScrollAction", barState.config.wsScrollAction)
+        }
+        function onWsScrollInvertChanged() {
+            bar._set("cfgWsScrollInvert", barState.config.wsScrollInvert)
+        }
         // volume — per-module (override individual tem prioridade sobre paleta global)
         function onPaletteVolTextChanged()     { bar._set("cfgVolTextColor",   barState.config.paletteVolText)     }
         function onPaletteVolDimChanged()      { bar._set("cfgVolDimColor",    barState.config.paletteVolDim)      }
@@ -849,13 +876,6 @@ Scope {
         function onWsShowAddButtonChanged()  { bar._set("cfgWsShowAddButton",  barState.config.wsShowAddButton)  }
         function onWsShowTooltipChanged()    { bar._set("cfgWsShowTooltip",    barState.config.wsShowTooltip)    }
         function onWsSpacingChanged()        { bar._set("cfgWsSpacing",        barState.config.wsSpacing)        }
-        function onWsRevealModeChanged()           { bar._set("cfgWsRevealMode",           barState.config.wsRevealMode)           }
-        function onWsHoverRevealDelayMsChanged()   { bar._set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)   }
-        function onWsClickCollapseModeChanged()    { bar._set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)    }
-        function onWsClickRevealTimeoutMsChanged() { bar._set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs) }
-        function onWsScrollEnabledChanged() { bar._set("cfgWsScrollEnabled", barState.config.wsScrollEnabled) }
-        function onWsScrollActionChanged()  { bar._set("cfgWsScrollAction",  barState.config.wsScrollAction)  }
-        function onWsScrollInvertChanged()  { bar._set("cfgWsScrollInvert",  barState.config.wsScrollInvert)  }
         // workspace ativa
         function onPaletteWsBgColorActiveChanged()       { bar._set("cfgWsBgColorActive",      barState.config.paletteWsBgColorActive)
                                                            bar._set("colWsBgActive",            barState.config.paletteWsBgColorActive)       }
