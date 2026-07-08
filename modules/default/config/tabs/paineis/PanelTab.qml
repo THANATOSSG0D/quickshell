@@ -38,20 +38,48 @@ Item {
 
   // ── PopupConfig separada por instância (bar/dock) ─────────────────────
   // Passadas pelo ConfigWindow (bar.popupConfigRef / dockBar.popupConfigRef).
-  // popupConfigDock só existe quando a Dock está habilitada — nesse caso o
-  // seletor "Barra/Dock" abaixo aparece; senão a aba fica igual a antes,
-  // editando só a PopupConfig da barra principal.
   property var popupConfigBar:  null
   property var popupConfigDock: null
-
-  // Qual instância esta aba está editando agora — independente do
-  // win.activeTarget das abas "Barra"/"Dock" (são telas diferentes: dá pra
-  // estar olhando os módulos da Dock e configurando os popups da Barra, ou
-  // vice-versa, sem as duas escolhas ficarem presas uma na outra).
-  property string target: "bar"
   readonly property bool _hasDock: root.popupConfigDock !== null
-  readonly property var  _pc: (root.target === "dock" && root._hasDock)
-                               ? root.popupConfigDock : root.popupConfigBar
+
+  // ── Qual instância esta aba está editando/roteando agora ────────────────
+  // UM SÓ controle no lugar dos dois seletores de antes: o mesmo dropdown
+  // decide tanto "onde este painel abre por keybind" (grava no PanelRouter)
+  // quanto "qual PopupConfig estou editando aqui" — não tem mais uma escolha
+  // de estilo separada da escolha de roteamento.
+  //
+  // Subtabs que roteiam (Volume/Config Rápida/Mídia/Relógio/Notificações/
+  // Dmenu): o dropdown tem "Automático" — nesse caso a aba edita SEMPRE a
+  // instância que o Automático resolveria agora (PanelRouter.resolveInstanceId),
+  // acompanhando o layout ao vivo, do mesmo jeito que o keybind faria.
+  //
+  // Subtabs que não roteiam (Global/Editor): não existe "Automático" (não
+  // há o que rotear) — o dropdown vira uma escolha simples e persistente de
+  // Barra/Dock, guardada aqui.
+  readonly property var _routeModuleNames: [
+    null,             // 0 Global
+    "volume",         // 1 Volume
+    "quicksettings",  // 2 Config Rápida
+    "mediaplayer",    // 3 Mídia
+    "clock",          // 4 Relógio
+    "notifications",  // 5 Notificações
+    "workspaces",     // 6 Dmenu
+    null,             // 7 Editor — nunca roteado, sempre local
+  ]
+  readonly property string _routeModule: _routeModuleNames[activeSubtab] || ""
+
+  // Usado só pelas subtabs sem roteamento (Global/Editor)
+  property string _manualTarget: "bar"
+
+  readonly property string _effectiveTarget: {
+    if (root._routeModule === "") return root._manualTarget
+    var ov = PanelRouter.get(root._routeModule)
+    if (ov === "bar" || ov === "dock") return ov
+    return root._hasDock ? PanelRouter.resolveInstanceId(root._routeModule) : "bar"
+  }
+
+  readonly property var _pc: (root._effectiveTarget === "dock" && root._hasDock)
+                              ? root.popupConfigDock : root.popupConfigBar
 
   anchors.fill: parent
 
@@ -67,8 +95,8 @@ Item {
   ]
   readonly property string _name: _popupNames[activeSubtab] || ""
 
-  // ── Helpers PopupConfig — leem/gravam sempre na instância selecionada
-  // pelo seletor Barra/Dock (root._pc) em vez de um singleton global. ──────
+  // ── Helpers PopupConfig — leem/gravam sempre na instância efetiva
+  // (root._pc) em vez de um singleton global. ─────────────────────────────
   function g(key, def) {
     if (!root._pc) return def
     var popup = _popupNames[activeSubtab]
@@ -176,85 +204,133 @@ Item {
     return defs[_name] || defs[""]
   }
 
-  // ── Cabeçalho compacto — estilo (qual PopupConfig editar) + roteamento
-  // (onde o painel abre por keybind), os DOIS numa mesma linha em vez de
-  // duas linhas empilhadas. São conceitos diferentes (dá pra editar o
-  // estilo dos popups da Dock com o roteamento em "Automático", por
-  // exemplo), mas não precisam de tanto espaço vertical só pra coexistir.
-  readonly property var _routeModuleNames: [
-    null,             // 0 Global
-    "volume",         // 1 Volume
-    "quicksettings",  // 2 Config Rápida
-    "mediaplayer",    // 3 Mídia
-    "clock",          // 4 Relógio
-    "notifications",  // 5 Notificações
-    "workspaces",     // 6 Dmenu
-    null,             // 7 Editor — nunca roteado, sempre local
-  ]
-  readonly property string _routeModule: _routeModuleNames[activeSubtab] || ""
-  readonly property bool   _showHeader: root._hasDock || root._routeModule !== ""
+  // ── Cabeçalho — UM dropdown só, no canto superior direito da aba ────────
+  // Substitui os dois seletores empilhados de antes. As opções mudam
+  // conforme a subtab (ver _routeModule/_manualTarget acima): com
+  // roteamento disponível, mostra Automático/Barra/Dock; sem roteamento
+  // (Global/Editor), mostra só Barra/Dock.
+  readonly property bool _showHeader: root._hasDock || root._routeModule !== ""
+  readonly property var _headerOptions: {
+    if (root._routeModule !== "") {
+      var opts = [{ id: "auto", label: "Automático" }, { id: "bar", label: "Barra" }]
+      if (root._hasDock) opts.push({ id: "dock", label: "Dock" })
+      return opts
+    }
+    return root._hasDock ? [{ id: "bar", label: "Barra" }, { id: "dock", label: "Dock" }] : []
+  }
+  readonly property string _headerValue: root._routeModule !== ""
+                                          ? PanelRouter.get(root._routeModule)
+                                          : root._manualTarget
+  function _headerLabel(id) {
+    for (var i = 0; i < root._headerOptions.length; i++)
+      if (root._headerOptions[i].id === id) return root._headerOptions[i].label
+    return id
+  }
+  function _headerSelect(id) {
+    if (root._routeModule !== "") PanelRouter.set(root._routeModule, id)
+    else                          root._manualTarget = id
+    _headerDrop.expanded = false
+  }
 
-  Row {
+  Item {
     id: _header
     visible: root._showHeader
     height: visible ? 24 : 0
     anchors { top: parent.top; left: parent.left; right: parent.right }
-    topPadding: visible ? 2 : 0
-    spacing: 12
 
-    // Grupo 1: estilo — qual PopupConfig (bar/dock) esta aba está editando.
-    // Só aparece se a Dock existir; sem ela não há o que escolher.
-    Row {
-      visible: root._hasDock
-      spacing: 5
-      anchors.verticalCenter: parent.verticalCenter
-      Text { text: "Estilo:"; color: root.colorTextDim; font.pixelSize: 9
-        anchors.verticalCenter: parent.verticalCenter }
-      C.CfgChip {
-        label: "Barra"; active: root.target === "bar"
-        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-        onChipClicked: root.target = "bar"
-      }
-      C.CfgChip {
-        label: "Dock"; active: root.target === "dock"
-        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-        onChipClicked: root.target = "dock"
-      }
-    }
+    Item {
+      id: _headerDrop
+      property bool expanded: false
+      anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+      width: _btnRow.implicitWidth + 16; height: 22
 
-    // Divisor sutil entre os dois grupos — só quando ambos aparecem juntos
-    Rectangle {
-      visible: root._hasDock && root._routeModule !== ""
-      width: 1; height: 14
-      anchors.verticalCenter: parent.verticalCenter
-      color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.5)
-    }
+      Rectangle {
+        id: _btn
+        anchors.fill: parent; radius: 6
+        color: _btnMa.containsMouse || _headerDrop.expanded
+               ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.14)
+               : Qt.rgba(1, 1, 1, 0.04)
+        border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b,
+                              _headerDrop.expanded ? 0.5 : 0.2)
+        border.width: 1
+        Behavior on color { ColorAnimation { duration: 80 } }
 
-    // Grupo 2: roteamento — onde este painel abre por keybind/IPC (ver
-    // PanelRouter.qml). Só existe pra subtabs que de fato roteiam: painéis
-    // reais (1–5) e o Dmenu (6, via módulo "workspaces"). "Global" (0) e
-    // "Editor" (7) não roteiam — o Editor sempre fica preso a quem o abriu.
-    Row {
-      visible: root._routeModule !== ""
-      spacing: 5
-      anchors.verticalCenter: parent.verticalCenter
-      Text { text: "Abre em:"; color: root.colorTextDim; font.pixelSize: 9
-        anchors.verticalCenter: parent.verticalCenter }
-      C.CfgChip {
-        label: "Auto"; active: PanelRouter.get(root._routeModule) === "auto"
-        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-        onChipClicked: PanelRouter.set(root._routeModule, "auto")
+        Row {
+          id: _btnRow
+          anchors.centerIn: parent; spacing: 5
+          Text {
+            text: "Abre em:"; color: root.colorTextDim; font.pixelSize: 9
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          Text {
+            text: root._headerLabel(root._headerValue)
+            color: root.colorText; font.pixelSize: 9; font.weight: Font.Medium
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          Text {
+            text: "\uf0d7"; color: root.colorTextDim; font.pixelSize: 8
+            font.family: "JetBrainsMono Nerd Font"
+            anchors.verticalCenter: parent.verticalCenter
+            rotation: _headerDrop.expanded ? 180 : 0
+            Behavior on rotation { NumberAnimation { duration: 100 } }
+          }
+        }
       }
-      C.CfgChip {
-        label: "Barra"; active: PanelRouter.get(root._routeModule) === "bar"
-        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-        onChipClicked: PanelRouter.set(root._routeModule, "bar")
+      MouseArea {
+        id: _btnMa; anchors.fill: parent; hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: _headerDrop.expanded = !_headerDrop.expanded
       }
-      C.CfgChip {
-        label: "Dock"; visible: root._hasDock
-        active: PanelRouter.get(root._routeModule) === "dock"
-        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-        onChipClicked: PanelRouter.set(root._routeModule, "dock")
+
+      // Lista suspensa — abre pra baixo, colada na borda direita do botão
+      Rectangle {
+        id: _menu
+        visible: _headerDrop.expanded
+        z: 1000
+        anchors { top: _btn.bottom; right: _btn.right; topMargin: 4 }
+        width: Math.max(_btn.width, 96)
+        height: _menuCol.implicitHeight + 8
+        radius: 8
+        color: root.colorSidebar
+        border.color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.6)
+        border.width: 1
+
+        Column {
+          id: _menuCol
+          anchors { left: parent.left; right: parent.right; top: parent.top; margins: 4 }
+          spacing: 1
+          Repeater {
+            model: root._headerOptions
+            delegate: Rectangle {
+              required property var modelData
+              width: parent.width; height: 24; radius: 5
+              readonly property bool _active: modelData.id === root._headerValue
+              color: _active ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+                             : _optMa.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+              Behavior on color { ColorAnimation { duration: 60 } }
+              Text {
+                anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 8 }
+                text: modelData.label; font.pixelSize: 9
+                color: _active ? root.colorAccent : root.colorText
+                font.weight: _active ? Font.Medium : Font.Normal
+              }
+              MouseArea {
+                id: _optMa; anchors.fill: parent; hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root._headerSelect(modelData.id)
+              }
+            }
+          }
+        }
+      }
+
+      // Fecha ao clicar fora — cobre a aba inteira atrás do dropdown
+      MouseArea {
+        visible: _headerDrop.expanded
+        z: 999
+        parent: root
+        anchors.fill: parent
+        onClicked: _headerDrop.expanded = false
       }
     }
   }

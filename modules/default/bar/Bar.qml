@@ -760,6 +760,14 @@ Scope {
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
         _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
         _set("cfgWsSpacing",        barState.config.wsSpacing)
+        // workspaces — Focus (reveal): faltava aqui, só existia nos
+        // Connections onXxxChanged (que não disparam no load inicial,
+        // só quando o valor muda em runtime) — por isso não sobrevivia
+        // ao restart.
+        _set("cfgWsRevealMode",           barState.config.wsRevealMode)
+        _set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)
+        _set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)
+        _set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)

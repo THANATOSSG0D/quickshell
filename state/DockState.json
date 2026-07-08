@@ -13,7 +13,7 @@
         },
         "Pill": {
             "bar": {
-                "autoHide": true,
+                "autoHide": false,
                 "barMargin": 5,
                 "barSize": 24,
                 "moduleScale": 0.85,

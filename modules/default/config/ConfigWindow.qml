@@ -303,7 +303,7 @@ PanelWindow {
             Text { text: "\uf013"; color: win.colorAccent; font.pixelSize: 16
               font.family: "JetBrainsMono Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
             Text { text: "Configurações"; color: win.colorText; font.pixelSize: 12
-              font.weight: Font.SemiBold; anchors.verticalCenter: parent.verticalCenter }
+              font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
           }
 
           // Divisor
@@ -459,7 +459,7 @@ PanelWindow {
 
                 Text {
                   id: stLbl; anchors.centerIn: parent; text: stDel.modelData
-                  font.pixelSize: 11; font.weight: stDel.active ? Font.SemiBold : Font.Normal
+                  font.pixelSize: 11; font.weight: stDel.active ? Font.DemiBold : Font.Normal
                   color: stDel.active ? win.colorText : win.colorTextDim
                   Behavior on color { ColorAnimation { duration: 80 } }
                 }

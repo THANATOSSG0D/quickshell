@@ -110,6 +110,18 @@ QtObject {
     return callerRef
   }
 
+  // Versão de resolveInstance() sem callerRef — pra UI (dropdown da aba
+  // Painéis) conseguir mostrar/usar o que "Automático" resolveria AGORA,
+  // sem precisar simular quem seria o "chamador". Usa a primeira instância
+  // registrada (tipicamente "bar") como referência de desempate.
+  function resolveInstanceId(moduleName) {
+    var insts = root.allInstances()
+    if (insts.length === 0) return "bar"
+    var resolved = root.resolveInstance(moduleName, insts[0])
+    return (resolved && resolved.instanceId) ? resolved.instanceId
+                                              : (insts[0].instanceId || "bar")
+  }
+
   // ── Overrides persistidos ─────────────────────────────────────────────────
   property int _dep: 0
   function _bump() { _dep++ }
