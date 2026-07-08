@@ -122,7 +122,10 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.min(
+      root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+    ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 16 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()
@@ -161,7 +164,10 @@ Singleton {
         // Largura comum das linhas de preview, derivada de minWidth — antes
         // os 70px (appName) e 160px (resumo) eram fixos e ignoravam
         // completamente o slider "Largura mínima" da UI.
-        readonly property int rowWidth: Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, headerRow.implicitWidth)
+        readonly property int rowWidth: Math.min(
+          root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - TooltipSettings.contentPadding,
+          Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, headerRow.implicitWidth)
+        )
 
         // ── Cabeçalho: estado DND + não-lidas ───────────────────────────
         Row {
@@ -169,6 +175,7 @@ Singleton {
           spacing: 6
 
           Text {
+            id: headerIcon
             text:           root._dnd ? "\uf1f6" : "\uf0f3"
             color:          root._dnd ? root.mutedColor : root.accentColor
             font.pixelSize: 11
@@ -183,6 +190,8 @@ Singleton {
             font.pixelSize: 11
             font.weight:    Font.Medium
             anchors.verticalCenter: parent.verticalCenter
+            elide: Text.ElideRight
+            width: content.rowWidth - headerIcon.implicitWidth - headerRow.spacing
           }
         }
 

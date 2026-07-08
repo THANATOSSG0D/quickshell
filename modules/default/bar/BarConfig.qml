@@ -65,6 +65,7 @@ Item {
   // NotifTooltip, QsTooltip, VolumeTooltip, WsTooltip). Ver TooltipSettings.qml.
   property bool   tooltipEnabled:  true
   property int    tooltipMinWidth: 160
+  property int    tooltipMaxWidth: 320
   property string tooltipAlign:    "module"
   property int    tooltipOffset:   0
 
@@ -374,6 +375,7 @@ Item {
     // ── Tooltips (globais) ───────────────────────────────────────────────
     if (opts.tooltipEnabled  !== undefined) root.tooltipEnabled  = opts.tooltipEnabled
     if (opts.tooltipMinWidth !== undefined) root.tooltipMinWidth = opts.tooltipMinWidth
+    if (opts.tooltipMaxWidth !== undefined) root.tooltipMaxWidth = opts.tooltipMaxWidth
     if (opts.tooltipAlign    !== undefined) root.tooltipAlign    = opts.tooltipAlign
     if (opts.tooltipOffset   !== undefined) root.tooltipOffset   = opts.tooltipOffset
 
@@ -444,6 +446,7 @@ Item {
       theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible,
       pinned: root.pinned, enabled: root.panelEnabled,
       tooltipEnabled: root.tooltipEnabled, tooltipMinWidth: root.tooltipMinWidth,
+      tooltipMaxWidth: root.tooltipMaxWidth,
       tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset
     }
     // Garante que themes não foi zerado antes de gravar
@@ -685,6 +688,7 @@ Item {
         if (b.enabled        !== undefined) root.panelEnabled  = b.enabled
         if (b.tooltipEnabled  !== undefined) root.tooltipEnabled  = b.tooltipEnabled
         if (b.tooltipMinWidth !== undefined) root.tooltipMinWidth = b.tooltipMinWidth
+        if (b.tooltipMaxWidth !== undefined) root.tooltipMaxWidth = b.tooltipMaxWidth
         if (b.tooltipAlign    !== undefined) root.tooltipAlign    = b.tooltipAlign
         if (b.tooltipOffset   !== undefined) root.tooltipOffset   = b.tooltipOffset
         root._bump()

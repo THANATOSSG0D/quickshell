@@ -144,7 +144,10 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.min(
+      root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+    ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 14 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()
@@ -184,7 +187,10 @@ Singleton {
         // contentRowWidth: largura comum para título e barra — garante que
         // a barra de volume sempre estique até o final do tooltip, em vez
         // de ficar limitada à largura (curta) do título.
-        readonly property int contentRowWidth: Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, titleRow.implicitWidth)
+        readonly property int contentRowWidth: Math.min(
+          root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - TooltipSettings.contentPadding,
+          Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, titleRow.implicitWidth)
+        )
 
         // ── Nome do dispositivo ────────────────────────────────────────
         Row {
@@ -192,6 +198,7 @@ Singleton {
           spacing: 6
 
           Text {
+            id: volDeviceIcon
             anchors.verticalCenter: parent.verticalCenter
             text:           root._icon
             color:          root._muted ? root.mutedColor : root.accentColor
@@ -205,6 +212,11 @@ Singleton {
             font.pixelSize: 11
             font.weight:    Font.Medium
             font.family:    "JetBrainsMono Nerd Font"
+            // nome do dispositivo pode ser grande (bluetooth, etc) — elide
+            // + largura vinda do container já resolvido (contentRowWidth),
+            // nunca do próprio implicitWidth deste Text (loop).
+            elide: Text.ElideRight
+            width: content.contentRowWidth - volDeviceIcon.implicitWidth - titleRow.spacing
           }
         }
 

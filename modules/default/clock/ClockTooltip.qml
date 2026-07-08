@@ -127,7 +127,10 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.min(
+      root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+    ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()
@@ -193,17 +196,29 @@ Singleton {
           visible: root._timerActive
           spacing: 4
           topPadding: 4
-          width: Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, titleRow.implicitWidth)
+          width: Math.min(
+            root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - TooltipSettings.contentPadding,
+            Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, titleRow.implicitWidth)
+          )
 
           Row {
             id: titleRow
             spacing: 5
 
             Text {
+              id: phaseIcon
               anchors.verticalCenter: parent.verticalCenter
               text:    root._expired ? "\uf017" : (root._running ? "\uf017" : "\uf28b")
               color:   root._expired ? root.accentColor : (root._running ? root.accentColor : root.fgDimColor)
               font.pixelSize: 10
+              font.family:    "JetBrainsMono Nerd Font"
+            }
+            Text {
+              id: remainingText
+              anchors.verticalCenter: parent.verticalCenter
+              text:           root._remainingFmt
+              color:          root._expired ? root.accentColor : root.fgDimColor
+              font.pixelSize: 11
               font.family:    "JetBrainsMono Nerd Font"
             }
             Text {
@@ -213,13 +228,10 @@ Singleton {
               font.pixelSize: 11
               font.weight:    Font.Medium
               font.family:    "JetBrainsMono Nerd Font"
-            }
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text:           root._remainingFmt
-              color:          root._expired ? root.accentColor : root.fgDimColor
-              font.pixelSize: 11
-              font.family:    "JetBrainsMono Nerd Font"
+              // fase pode ter nome customizado longo — elide defensivo,
+              // largura vinda do teto externo (não do próprio implicitWidth).
+              elide: Text.ElideRight
+              width: root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - TooltipSettings.contentPadding - phaseIcon.implicitWidth - remainingText.implicitWidth - titleRow.spacing * 2
             }
           }
 

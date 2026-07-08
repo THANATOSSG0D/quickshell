@@ -18,7 +18,9 @@
             "popupW": 400
         },
         "DmenuPopup": {
+            "animationStyle": "slide",
             "colorPanelBg": "background",
+            "cornerMode": "bar",
             "popupH": 460,
             "popupW": 460
         },
@@ -29,9 +31,11 @@
             "popupW": 400
         },
         "QuickSettingsPopup": {
+            "animationStyle": "slide",
             "popupW": 400
         },
         "VolumePopupTabbed": {
+            "animationStyle": "slide",
             "colorPanelBg": "background",
             "popupW": 400
         }

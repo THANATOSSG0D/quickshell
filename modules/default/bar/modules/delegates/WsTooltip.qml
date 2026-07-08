@@ -130,7 +130,10 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.min(
+      root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+    ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 16 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()
@@ -224,11 +227,14 @@ Singleton {
               // Largura fixa (não calculada a partir de implicitWidth) —
               // width:Math.min(implicitWidth, N) cria um binding circular
               // que impede o Column pai de calcular uma largura estável,
-              // causando o corte visual. Aqui a referência é
-              // root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) (externa, independente do próprio
-              // Column), então não há circularidade — e o slider "Largura
-              // mínima" da UI passa a valer também pra este tooltip.
-              width: Math.max(140, root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding - winIcon.width - parent.spacing)
+              // causando o corte visual. Aqui a referência é root._cfg(...)
+              // (externa, independente do próprio Column), então não há
+              // circularidade — e os sliders "Largura mínima"/"Largura
+              // máxima" da UI passam a valer pra este tooltip.
+              width: Math.max(100, Math.min(
+                root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - TooltipSettings.contentPadding - winIcon.width - parent.spacing,
+                root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding - winIcon.width - parent.spacing
+              ))
             }
           }
         }

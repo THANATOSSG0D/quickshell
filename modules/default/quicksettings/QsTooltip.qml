@@ -161,7 +161,10 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.min(
+      root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+    ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 18 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()
@@ -196,6 +199,12 @@ Singleton {
         id: content
         anchors.centerIn: parent
         spacing: 6
+        // Muitas StatusRow diferentes aqui (SSID, dispositivo, shader,
+        // clima...) — em vez de dar elide individual pra cada uma, o
+        // clip garante que nada vaza pra fora da caixa já limitada pelo
+        // teto de largura (maxWidth) lá em cima, mesmo se algum texto
+        // pontual for mais longo que o esperado.
+        clip: true
 
         Text {
           visible: !root._ready

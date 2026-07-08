@@ -36,6 +36,23 @@ Item {
   // dmenuConfig é passado pelo ConfigWindow (instância de DmenuConfig)
   property var dmenuConfig: null
 
+  // ── PopupConfig separada por instância (bar/dock) ─────────────────────
+  // Passadas pelo ConfigWindow (bar.popupConfigRef / dockBar.popupConfigRef).
+  // popupConfigDock só existe quando a Dock está habilitada — nesse caso o
+  // seletor "Barra/Dock" abaixo aparece; senão a aba fica igual a antes,
+  // editando só a PopupConfig da barra principal.
+  property var popupConfigBar:  null
+  property var popupConfigDock: null
+
+  // Qual instância esta aba está editando agora — independente do
+  // win.activeTarget das abas "Barra"/"Dock" (são telas diferentes: dá pra
+  // estar olhando os módulos da Dock e configurando os popups da Barra, ou
+  // vice-versa, sem as duas escolhas ficarem presas uma na outra).
+  property string target: "bar"
+  readonly property bool _hasDock: root.popupConfigDock !== null
+  readonly property var  _pc: (root.target === "dock" && root._hasDock)
+                               ? root.popupConfigDock : root.popupConfigBar
+
   anchors.fill: parent
 
   readonly property var _popupNames: [
@@ -50,24 +67,28 @@ Item {
   ]
   readonly property string _name: _popupNames[activeSubtab] || ""
 
-  // ── Helpers PopupConfig ───────────────────────────────────────────────
+  // ── Helpers PopupConfig — leem/gravam sempre na instância selecionada
+  // pelo seletor Barra/Dock (root._pc) em vez de um singleton global. ──────
   function g(key, def) {
+    if (!root._pc) return def
     var popup = _popupNames[activeSubtab]
     if (popup) {
-      var ov = PopupConfig.get(popup, key, undefined)
+      var ov = root._pc.get(popup, key, undefined)
       if (ov !== undefined) return ov
     }
-    var gl = PopupConfig.get(null, key, undefined)
+    var gl = root._pc.get(null, key, undefined)
     if (gl !== undefined) return gl
     return def
   }
   function s(key, value) {
-    PopupConfig.set(key, value, _popupNames[activeSubtab] || undefined)
+    if (!root._pc) return
+    root._pc.set(key, value, _popupNames[activeSubtab] || undefined)
   }
   function resetCurrent() {
+    if (!root._pc) return
     var popup = _popupNames[activeSubtab]
-    if (popup) PopupConfig.reset(popup)
-    else       PopupConfig.reset()
+    if (popup) root._pc.reset(popup)
+    else       root._pc.reset()
   }
 
   // ── Helpers DmenuConfig (subtab 8) ───────────────────────────────────
@@ -155,9 +176,92 @@ Item {
     return defs[_name] || defs[""]
   }
 
+  // ── Cabeçalho compacto — estilo (qual PopupConfig editar) + roteamento
+  // (onde o painel abre por keybind), os DOIS numa mesma linha em vez de
+  // duas linhas empilhadas. São conceitos diferentes (dá pra editar o
+  // estilo dos popups da Dock com o roteamento em "Automático", por
+  // exemplo), mas não precisam de tanto espaço vertical só pra coexistir.
+  readonly property var _routeModuleNames: [
+    null,             // 0 Global
+    "volume",         // 1 Volume
+    "quicksettings",  // 2 Config Rápida
+    "mediaplayer",    // 3 Mídia
+    "clock",          // 4 Relógio
+    "notifications",  // 5 Notificações
+    "workspaces",     // 6 Dmenu
+    null,             // 7 Editor — nunca roteado, sempre local
+  ]
+  readonly property string _routeModule: _routeModuleNames[activeSubtab] || ""
+  readonly property bool   _showHeader: root._hasDock || root._routeModule !== ""
+
+  Row {
+    id: _header
+    visible: root._showHeader
+    height: visible ? 24 : 0
+    anchors { top: parent.top; left: parent.left; right: parent.right }
+    topPadding: visible ? 2 : 0
+    spacing: 12
+
+    // Grupo 1: estilo — qual PopupConfig (bar/dock) esta aba está editando.
+    // Só aparece se a Dock existir; sem ela não há o que escolher.
+    Row {
+      visible: root._hasDock
+      spacing: 5
+      anchors.verticalCenter: parent.verticalCenter
+      Text { text: "Estilo:"; color: root.colorTextDim; font.pixelSize: 9
+        anchors.verticalCenter: parent.verticalCenter }
+      C.CfgChip {
+        label: "Barra"; active: root.target === "bar"
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: root.target = "bar"
+      }
+      C.CfgChip {
+        label: "Dock"; active: root.target === "dock"
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: root.target = "dock"
+      }
+    }
+
+    // Divisor sutil entre os dois grupos — só quando ambos aparecem juntos
+    Rectangle {
+      visible: root._hasDock && root._routeModule !== ""
+      width: 1; height: 14
+      anchors.verticalCenter: parent.verticalCenter
+      color: Qt.rgba(root.colorDivider.r, root.colorDivider.g, root.colorDivider.b, 0.5)
+    }
+
+    // Grupo 2: roteamento — onde este painel abre por keybind/IPC (ver
+    // PanelRouter.qml). Só existe pra subtabs que de fato roteiam: painéis
+    // reais (1–5) e o Dmenu (6, via módulo "workspaces"). "Global" (0) e
+    // "Editor" (7) não roteiam — o Editor sempre fica preso a quem o abriu.
+    Row {
+      visible: root._routeModule !== ""
+      spacing: 5
+      anchors.verticalCenter: parent.verticalCenter
+      Text { text: "Abre em:"; color: root.colorTextDim; font.pixelSize: 9
+        anchors.verticalCenter: parent.verticalCenter }
+      C.CfgChip {
+        label: "Auto"; active: PanelRouter.get(root._routeModule) === "auto"
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: PanelRouter.set(root._routeModule, "auto")
+      }
+      C.CfgChip {
+        label: "Barra"; active: PanelRouter.get(root._routeModule) === "bar"
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: PanelRouter.set(root._routeModule, "bar")
+      }
+      C.CfgChip {
+        label: "Dock"; visible: root._hasDock
+        active: PanelRouter.get(root._routeModule) === "dock"
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: PanelRouter.set(root._routeModule, "dock")
+      }
+    }
+  }
+
   // ── Loader principal ──────────────────────────────────────────────────
   Loader {
-    anchors.fill: parent
+    anchors { top: _header.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
     property int _sub: root.activeSubtab
     on_SubChanged: { active = false; active = true }
     active: true

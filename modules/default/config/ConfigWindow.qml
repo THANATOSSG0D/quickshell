@@ -35,6 +35,13 @@ PanelWindow {
   // precisar mudar nada neles) é sempre a config do alvo ativo.
   property var  configBar:   null
   property var  configDock:  null
+  // Config dos POPUPS (PopupConfig) — uma por instância, separada da Bar/Dock
+  // acima (config). Repassada direto pra aba "Painéis", que tem seu próprio
+  // seletor Barra/Dock interno (não usa win.activeTarget — são telas
+  // diferentes, editar módulos da Dock não deveria forçar a olhar pros
+  // popups da Dock também, e vice-versa).
+  property var  popupConfigBar:  null
+  property var  popupConfigDock: null
   property var  colors:      null
   property var  dmenuConfig: null   // DmenuConfig instanciado em DmenuIpc
 
@@ -502,7 +509,7 @@ PanelWindow {
                     if (win.activeTarget === "dock") {
                       win.config.saveAll({
                         theme: "Dock", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
-                        tooltipEnabled: true, tooltipMinWidth: 160, tooltipAlign: "module", tooltipOffset: 0,
+                        tooltipEnabled: true, tooltipMinWidth: 160, tooltipMaxWidth: 320, tooltipAlign: "module", tooltipOffset: 0,
                         barSize: 30, barMargin: 8, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   [],
                         modulesCenter: ["workspaces"],
@@ -514,7 +521,7 @@ PanelWindow {
                     } else {
                       win.config.saveAll({
                         theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
-                        tooltipEnabled: true, tooltipMinWidth: 160, tooltipAlign: "module", tooltipOffset: 0,
+                        tooltipEnabled: true, tooltipMinWidth: 160, tooltipMaxWidth: 320, tooltipAlign: "module", tooltipOffset: 0,
                         barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   ["mediaplayer","separator","quicksettings"],
                         modulesCenter: ["workspaces"],
@@ -807,6 +814,8 @@ PanelWindow {
                 colorSidebar:    win.colorSidebar
                 colorProgressBg: win.colorProgressBg
                 dmenuConfig:     win.dmenuConfig
+                popupConfigBar:  win.popupConfigBar
+                popupConfigDock: win.popupConfigDock
               }
             }
           }

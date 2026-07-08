@@ -63,16 +63,23 @@ Item {
   property var    _stack:   []
   property bool   _closing: false
 
+  // Instância (bar/dock) pra qual o dmenu foi roteado da ÚLTIMA vez que abriu
+  // (ver _showTop → PanelRouter.resolveInstance). O flag "dmenuPanelOpen"/
+  // "dmenuPanelWidth" que a Pill usa pra se expandir precisa ser setado NELA,
+  // não sempre em root.barRoot — senão a barra principal "pisca" de expandir
+  // mesmo quando o dmenu abriu na dock, e a dock nunca reage.
+  property var    _routedInstance: null
+
   // Exposto para que Bar.qml possa verificar se o painel está visível
   // e implementar o toggle corretamente.
   readonly property bool panelVisible: ipcPanel.panelOpen
   onPanelVisibleChanged: {
-    if (root.barRoot) {
-      root.barRoot.dmenuPanelOpen  = panelVisible
-      // Sincroniza a largura do painel para que a Pill possa expandir corretamente.
-      // Lê dmenuPanelWidth do dmenuConfig (DmenuConfig.qml) se disponível.
-      if (panelVisible && dmenuConfig)
-        root.barRoot.dmenuPanelWidth = dmenuConfig.dmenuPanelWidth || 320
+    if (root._routedInstance) {
+      root._routedInstance.dmenuPanelOpen = panelVisible
+      // A largura (dmenuPanelWidth) é sincronizada em _showTop(), com o MESMO
+      // valor efetivo aplicado a ipcPanel.popupW (respeitando o override de
+      // PopupConfig/DockPopupConfig) — não recalculamos aqui pra evitar
+      // dessincronia com o que está realmente sendo renderizado.
     }
   }
 
@@ -277,19 +284,49 @@ Item {
     if (_stack.length === 0) return
 
     var req = _stack[_stack.length - 1]
-    var activeBar = root.barRoot ? root.barRoot._activeBar() : null
+    // Abre de preferência onde o módulo "workspaces" está no layout ativo
+    // (bar ou dock) — igual aos outros painéis. root.barRoot continua sendo
+    // o fallback (comportamento original) quando não há resolução melhor,
+    // e também é quem decide o desempate quando "workspaces" aparece nas
+    // duas instâncias ao mesmo tempo. Ajustável via config UI
+    // (PanelRouter.set("workspaces", "bar"|"dock"|"auto")).
+    var routedInstance = root.barRoot ? PanelRouter.resolveInstance("workspaces", root.barRoot) : null
+    var activeBar = routedInstance ? routedInstance._activeBar()
+                                    : (root.barRoot ? root.barRoot._activeBar() : null)
+
+    // Se o roteamento mudou de instância desde a última abertura (ex: você
+    // moveu "workspaces" de bar pra dock no meio da sessão) e a anterior
+    // ainda estava marcada como expandida, limpa ela antes de trocar —
+    // senão fica uma pill "presa" expandida em quem não tem mais o dmenu.
+    if (root._routedInstance && root._routedInstance !== routedInstance) {
+      root._routedInstance.dmenuPanelOpen = false
+    }
+    root._routedInstance = routedInstance || root.barRoot
 
     ipcPanel.barRef         = activeBar
-    // Lê popupW/popupH do PopupConfig (mesma fonte que BarPopup._applyConfig),
-    // com fallback para dmenuConfig. Isso garante que o slider do ConfigWindow
-    // (que grava em PopupConfig via root.s("popupW")) seja refletido aqui também.
-    var _pcW  = PopupConfig.get("DmenuPopup", "popupW",  undefined)
-    var _pcH  = PopupConfig.get("DmenuPopup", "popupH",  undefined)
+    // Lê popupW/popupH da PopupConfig DESTA instância (bar ou dock — a mesma
+    // que _showTop() acabou de resolver para o roteamento), com fallback pra
+    // dmenuConfig. Isso garante que o slider do ConfigWindow (que grava via
+    // root.s("popupW") na PopupConfig do alvo selecionado ali) seja
+    // refletido aqui também — cada instância com o próprio tamanho/posição.
+    var _pcRef = routedInstance ? routedInstance.popupConfigRef
+                                 : (root.barRoot ? root.barRoot.popupConfigRef : null)
+    var _pcW  = _pcRef ? _pcRef.get("DmenuPopup", "popupW", undefined) : undefined
+    var _pcH  = _pcRef ? _pcRef.get("DmenuPopup", "popupH", undefined) : undefined
     ipcPanel.popupW = (_pcW  !== undefined) ? _pcW  : dmenuConfig.dmenuPanelWidth
     var baseH       = (_pcH  !== undefined) ? _pcH  : dmenuConfig.dmenuPanelHeight
     ipcPanel.popupH = req.previewImage
                       ? Math.max(baseH, dmenuConfig.dmenuPanelHeightImg)
                       : baseH
+
+    // Sincroniza a largura que a Pill usa pra se expandir (activePopupW) com
+    // o MESMO valor que acabamos de aplicar em ipcPanel.popupW — precisa ser
+    // setado ANTES de ipcPanel.panelOpen = true (abaixo), pois é isso que
+    // dispara onPanelVisibleChanged → _routedInstance.dmenuPanelOpen = true,
+    // e a Pill lê dmenuPanelWidth no mesmo instante em que entra no ramo de
+    // expansão (Bar.qml: activePopupW → if (dmenuPanelOpen) return dmenuPanelWidth).
+    // Sempre na instância roteada — não mais sempre em root.barRoot.
+    if (root._routedInstance) root._routedInstance.dmenuPanelWidth = ipcPanel.popupW
     ipcPanel.popupXAlign    = dmenuConfig.dmenuPopupXAlign
     ipcPanel.popupYAnchor   = dmenuConfig.dmenuPopupYAnchor
     ipcPanel.popupXOffset   = dmenuConfig.dmenuPopupXOffset

@@ -26,6 +26,25 @@ Scope {
   property bool   initialAutoHide: false
   property bool   initialPanelEnabled: true
 
+  // Config de aparência/posição dos POPUPS (PopupConfig) — separada por
+  // instância, igual barJsonPath/stateJsonPath acima. Por padrão a instância
+  // "bar" usa o arquivo original (state/PopupConfig.json — preserva o que já
+  // estava salvo); shell.qml passa um caminho próprio pra "dock"
+  // (state/DockPopupConfig.json), então editar os popups da dock nunca mexe
+  // nos da barra principal, e vice-versa.
+  property string popupConfigJsonPath: Quickshell.shellDir + "/state/PopupConfig.json"
+
+  property var popupConfig: PopupConfig {
+    id: popupConfigInst
+    path: barRoot.popupConfigJsonPath
+  }
+
+  // Referência pública — popups leem via barRef.popupConfigRef (ver
+  // "readonly property var popupConfigRef" na PanelWindow "bar" abaixo, e
+  // BarPopup.qml). ConfigWindow/PanelTab leem via bar.popupConfigRef /
+  // dockBar.popupConfigRef (fiação em shell.qml).
+  readonly property var popupConfigRef: popupConfig
+
   BarState {
     id: barState
     instanceId:          barRoot.instanceId
@@ -71,6 +90,30 @@ Scope {
   // incluindo atualizações automáticas quando o tema muda.
   // Referência pública ao BarConfig — usada pelo shell.qml para o ConfigWindow
   readonly property var configRef: barState.config
+
+  // ── Exposição pro PanelRouter ────────────────────────────────────────────
+  // Quais módulos este bar/dock mostra no layout ativo agora — usado pra
+  // decidir onde os popups abrem por padrão (ver PanelRouter.resolveInstance).
+  readonly property var modulesLeft:   barState.modulesLeft
+  readonly property var modulesRight:  barState.modulesRight
+  readonly property var modulesTop:    barState.modulesTop
+  readonly property var modulesBottom: barState.modulesBottom
+  readonly property var modulesMiddle: barState.modulesMiddle
+  readonly property var modulesCenter: barState.modulesCenter
+
+  // Registra esta instância (bar/dock/...) no PanelRouter assim que ela
+  // termina de montar — não precisa de fiação manual no shell.qml.
+  Component.onCompleted: PanelRouter.registerInstance(barRoot.instanceId, barRoot)
+
+  // ── _openRouted: abre um painel na instância "certa" (a que tem o módulo
+  // no layout ativo), ou onde o override manual da config UI mandar, ou —
+  // se nada resolver — na instância que chamou (comportamento original). ──
+  function _openRouted(moduleName, panelId) {
+    var inst = PanelRouter.resolveInstance(moduleName, barRoot)
+    var b = inst ? inst._activeBar() : barRoot._activeBar()
+    if (!b) b = barRoot._activeBar()
+    if (b) b.openPanel(panelId)
+  }
 
   readonly property color popupColorBg:      barState.config.palettePanelBg
   readonly property color popupColorText:    barState.config.paletteText
@@ -154,17 +197,30 @@ Scope {
   //           toggleClock | toggleQs | toggleNotif | toggleEditor | closeAll
   IpcHandler {
     target: barState.instanceId === "bar" ? "bar" : "bar_" + barState.instanceId
-    function toggleVolume()     { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelSink)   }
-    function toggleSource()     { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelSource) }
-    function toggleVolumeFull() { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelVolume) }
-    function togglePlayer()  { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelPlayer) }
-    function toggleClock()   { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelClock)  }
-    function toggleQs()      { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelQs)     }
-    function toggleNotif()   { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelNotif)  }
+    // ── Painéis roteados — abrem de preferência onde o módulo correspondente
+    // está instanciado no layout ativo (bar ou dock), com override manual
+    // possível via config UI (PanelRouter.set). Ver Bar._openRouted().
+    function toggleVolume()     { barRoot._openRouted("volume",        barRoot.panelSink)   }
+    function toggleSource()     { barRoot._openRouted("volume",        barRoot.panelSource) }
+    function toggleVolumeFull() { barRoot._openRouted("volume",        barRoot.panelVolume) }
+    function togglePlayer()     { barRoot._openRouted("mediaplayer",   barRoot.panelPlayer) }
+    function toggleClock()      { barRoot._openRouted("clock",         barRoot.panelClock)  }
+    function toggleQs()         { barRoot._openRouted("quicksettings", barRoot.panelQs)     }
+    function toggleNotif()      { barRoot._openRouted("notifications", barRoot.panelNotif)  }
+    // O editor NÃO é roteado — ele edita a config da instância que o abriu
+    // (bar ou dock), então precisa sempre ficar preso a quem chamou.
     function toggleEditor()  { var b = barRoot._activeBar(); if (b) b.openPanel(barRoot.panelEditor) }
     function closeAll() {
-      for (var i = 0; i < barRoot._barInstances.length; i++) {
-        if (barRoot._barInstances[i]) barRoot._barInstances[i].closeAllPanels()
+      // Fecha em TODAS as instâncias registradas (bar, dock, ...) — não só
+      // na que recebeu o IPC — já que um painel roteado pode ter aberto
+      // numa instância diferente da que foi chamada para fechá-lo.
+      var insts = PanelRouter.allInstances()
+      if (insts.length === 0) insts = [barRoot]
+      for (var k = 0; k < insts.length; k++) {
+        var inst = insts[k]
+        for (var i = 0; i < inst._barInstances.length; i++) {
+          if (inst._barInstances[i]) inst._barInstances[i].closeAllPanels()
+        }
       }
     }
     function disableFullscreenPeek() { barState.fullscreenPeekEnabled = false }
@@ -223,10 +279,22 @@ Scope {
   readonly property int popupHPlayer: 420
   readonly property int popupHClock:  480
   readonly property int popupHQs:     540
-  readonly property int popupWQs:     320
-  readonly property int popupWEditor: 440
+  // popupWQs/popupWEditor/popupWNotif — NÃO podem ser literais fixos.
+  // BarPopup._applyConfig() (rodado em cada popup individualmente) sobrescreve
+  // popup.popupW com o valor de PopupConfig ("QuickSettingsPopup"/"BarEditorPopup"/
+  // "NotificationsPopup" → popupW) sempre que existir override — isso quebra
+  // silenciosamente qualquer binding estático aqui. Como a Pill lê estas props
+  // pra calcular activePopupW (ver PanelWindow "bar" → activePopupW), um literal
+  // desincronizado do PopupConfig faz a Pill esticar pro tamanho errado.
+  // Lendo via popupConfigRef.get(...) — igual o que BarPopup usa internamente —
+  // mantemos as duas fontes sempre iguais (get() é reativo a _dep).
+  readonly property int popupWQs:
+      popupConfigRef ? popupConfigRef.get("QuickSettingsPopup", "popupW", 320) : 320
+  readonly property int popupWEditor:
+      popupConfigRef ? popupConfigRef.get("BarEditorPopup", "popupW", 440) : 440
   readonly property int popupHEditor: 560
-  readonly property int popupWNotif:  360
+  readonly property int popupWNotif:
+      popupConfigRef ? popupConfigRef.get("NotificationsPopup", "popupW", 360) : 360
   readonly property int popupHNotif:  560
   readonly property int popupHDmenu:  460
 
@@ -363,6 +431,11 @@ Scope {
       property int  barMargin: barRoot.themeBarMargin
       property bool pill:      barRoot.themePill
       property int  position:  barRoot.position
+
+      // Repassa a PopupConfig DESTA instância (bar ou dock) — os popups só
+      // enxergam barRef (esta PanelWindow), então é por aqui que eles chegam
+      // na config certa. Ver BarPopup.qml (property _pc).
+      readonly property var popupConfigRef: barRoot.popupConfigRef
 
       readonly property bool isVertical: position === 2 || position === 4
 
@@ -512,6 +585,7 @@ Scope {
         // item hoverado não esteja dentro de nenhum barContentRoot).
         property bool   cfgTooltipEnabled:  barState.config.tooltipEnabled
         property int    cfgTooltipMinWidth: barState.config.tooltipMinWidth
+        property int    cfgTooltipMaxWidth: barState.config.tooltipMaxWidth
         property string cfgTooltipAlign:    barState.config.tooltipAlign
         property int    cfgTooltipOffset:   barState.config.tooltipOffset
 

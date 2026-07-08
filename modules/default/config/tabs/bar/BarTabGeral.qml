@@ -132,6 +132,16 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ tooltipMinWidth: v })
   }
   C.CfgSlider {
+    label: "Largura máxima"; value: root.g("tooltipMaxWidth", 320)
+    // nunca deixa arrastar abaixo da mínima atual — evita configurar
+    // max < min sem perceber
+    from: Math.max(120, root.g("tooltipMinWidth", 160)); to: 480; step: 8; unit: "px"
+    enabled:      root.g("tooltipEnabled", true) === true
+    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
+    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ tooltipMaxWidth: v })
+  }
+  C.CfgSlider {
     label: "Distância da barra"; value: root.g("tooltipOffset", 0)
     from: 0; to: 40; step: 2; unit: "px"
     enabled:      root.g("tooltipEnabled", true) === true

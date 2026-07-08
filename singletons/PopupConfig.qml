@@ -1,11 +1,17 @@
-pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
 
 // ── PopupConfig ───────────────────────────────────────────────────────────────
-// Singleton que lê/escreve state/PopupConfig.json.
+// NÃO é mais singleton — cada instância do Bar (bar/dock) cria a sua própria,
+// apontando pro próprio arquivo (ver Bar.qml: popupConfigJsonPath). Isso
+// separa completamente a config de aparência/posição dos popups entre a
+// barra principal e a dock, do mesmo jeito que Bar.json/Dock.json já são
+// separados. Quem precisa da instância certa lê via barRef.popupConfigRef
+// (ver BarPopup.qml) — nunca mais um singleton global "PopupConfig".
+//
+// Lê/escreve o JSON apontado por `path` (state/PopupConfig.json por padrão).
 //
 // Estrutura do JSON:
 //   {
@@ -49,6 +55,11 @@ import qs
 
 QtObject {
   id: root
+
+  // Caminho do JSON — cada instância (bar/dock) passa o seu ao instanciar:
+  //   PopupConfig { path: Quickshell.shellDir + "/state/PopupConfig.json" }
+  //   PopupConfig { path: Quickshell.shellDir + "/state/DockPopupConfig.json" }
+  property string path: Quickshell.shellDir + "/state/PopupConfig.json"
 
   // ── Defaults hardcoded (usados quando o JSON não tem o campo) ─────────────
   readonly property var _defaults: ({
@@ -136,7 +147,7 @@ QtObject {
   // ─────────────────────────────────────────────────────────────────────────
   property var _file: FileView {
     id: _file
-    path: Quickshell.shellDir + "/state/PopupConfig.json"
+    path: root.path
     watchChanges: true
 
     JsonAdapter {

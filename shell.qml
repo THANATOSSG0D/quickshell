@@ -50,6 +50,10 @@ Scope {
       required property var modelData
       screen:  modelData
       service: notifService
+      // Toast é overlay do shell inteiro (um por tela), não pertence a
+      // bar OU dock especificamente — usa a PopupConfig da instância
+      // principal como fonte única pra sombra/etc.
+      popupConfigRef: bar.popupConfigRef
     }
   }
 
@@ -85,6 +89,7 @@ Scope {
     instanceId:      "dock"
     barJsonPath:      Quickshell.shellDir + "/state/Dock.json"
     stateJsonPath:    Quickshell.shellDir + "/state/DockState.json"
+    popupConfigJsonPath: Quickshell.shellDir + "/state/DockPopupConfig.json"
     initialTheme:     "Dock"
     initialAutoHide:  true
     // initialPanelEnabled: false   // ← descomente pra a Dock nascer desligada
@@ -134,6 +139,8 @@ Scope {
     panelOpen:   configOpen
     configBar:   bar.configRef
     configDock:  dockBar.configRef
+    popupConfigBar:  bar.popupConfigRef       // ← config dos POPUPS (aba Painéis), separada bar/dock
+    popupConfigDock: dockBar.popupConfigRef
     dmenuConfig: dmenuIpc.configRef   // ← novo: config separado para a aba dmenu
     colors:      Colors
     onCloseRequested: configOpen = false

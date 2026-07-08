@@ -1,0 +1,15 @@
+{
+    "globals": {
+        "attachOffset": -1,
+        "cornerMode": "bar"
+    },
+    "overrides": {
+        "DmenuPopup": {
+            "cornerMode": "bar",
+            "popupW": 480
+        },
+        "QuickSettingsPopup": {
+            "popupW": 420
+        }
+    }
+}

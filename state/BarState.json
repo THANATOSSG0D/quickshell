@@ -118,8 +118,8 @@
                     "right": [
                     ]
                 },
-                "notchRadius": 30,
-                "notchTaper": 30,
+                "notchRadius": 40,
+                "notchTaper": 24,
                 "pillMinSpacing": 10,
                 "position": 1
             },

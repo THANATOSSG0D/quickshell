@@ -110,7 +110,10 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth  + TooltipSettings.contentPadding) + (_barVertical ? _touchOffset : 0)
+    implicitWidth:  Math.min(
+      root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+    ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
 
     anchor.item: root._resolveAnchor()
@@ -188,13 +191,16 @@ Singleton {
           // descontado), então o slider "Largura mínima" da UI realmente
           // muda o tamanho visível deste tooltip. Ainda cresce além disso
           // se algum texto for mais longo que o piso.
-          readonly property int textColWidth: Math.max(
-            root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - root.artSize - content.spacing - TooltipSettings.contentPadding,
+          readonly property int textColWidth: Math.min(
+            root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - root.artSize - content.spacing - TooltipSettings.contentPadding,
             Math.max(
-              titleText.implicitWidth,
-              artistText.implicitWidth,
-              albumText.implicitWidth,
-              appText.implicitWidth
+              root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - root.artSize - content.spacing - TooltipSettings.contentPadding,
+              Math.max(
+                titleText.implicitWidth,
+                artistText.implicitWidth,
+                albumText.implicitWidth,
+                appText.implicitWidth
+              )
             )
           )
 

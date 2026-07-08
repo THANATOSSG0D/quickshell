@@ -172,69 +172,81 @@ PanelWindow {
     return c !== undefined ? c : null
   }
 
+  // ── PopupConfig da instância certa (bar ou dock) ───────────────────────────
+  // Antes era um singleton global (PopupConfig.get(...) direto). Agora cada
+  // instância (bar/dock) tem sua PRÓPRIA PopupConfig — o popup só enxerga
+  // qual é através de barRef (a PanelWindow que o instanciou, que expõe
+  // popupConfigRef). _pcGet nunca quebra se _pc ainda for null (ex: um
+  // instante antes do barRef ser atribuído) — simplesmente cai no fallback,
+  // exatamente como antes de o arquivo JSON carregar.
+  readonly property var _pc: barRef ? barRef.popupConfigRef : null
+  function _pcGet(name, key, fallback) {
+    return popup._pc ? popup._pc.get(name, key, fallback) : fallback
+  }
+
   // Aplica cores do PopupConfig reativamente (responde a mudanças no JSON e no matugen)
   readonly property string _cfgName: configName || objectName
   Binding on colorPanelBg {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorPanelBg", null)
-            if (!t) t = PopupConfig.get(null, "colorPanelBg", null)
+    when: { var t = popup._pcGet(popup._cfgName, "colorPanelBg", null)
+            if (!t) t = popup._pcGet(null, "colorPanelBg", null)
             return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorPanelBg", null)
-      if (!t) t = PopupConfig.get(null, "colorPanelBg", null)
+      var t = popup._pcGet(popup._cfgName, "colorPanelBg", null)
+      if (!t) t = popup._pcGet(null, "colorPanelBg", null)
       return popup._resolveToken(t) || Colors.surface_container
     }
   }
   Binding on colorText {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorText", null)
-            if (!t) t = PopupConfig.get(null, "colorText", null); return !!t }
+    when: { var t = popup._pcGet(popup._cfgName, "colorText", null)
+            if (!t) t = popup._pcGet(null, "colorText", null); return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorText", null)
-      if (!t) t = PopupConfig.get(null, "colorText", null)
+      var t = popup._pcGet(popup._cfgName, "colorText", null)
+      if (!t) t = popup._pcGet(null, "colorText", null)
       return popup._resolveToken(t) || Colors.on_surface
     }
   }
   Binding on colorTextDim {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorTextDim", null)
-            if (!t) t = PopupConfig.get(null, "colorTextDim", null); return !!t }
+    when: { var t = popup._pcGet(popup._cfgName, "colorTextDim", null)
+            if (!t) t = popup._pcGet(null, "colorTextDim", null); return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorTextDim", null)
-      if (!t) t = PopupConfig.get(null, "colorTextDim", null)
+      var t = popup._pcGet(popup._cfgName, "colorTextDim", null)
+      if (!t) t = popup._pcGet(null, "colorTextDim", null)
       return popup._resolveToken(t) || Colors.on_surface_variant
     }
   }
   Binding on colorAccent {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorAccent", null)
-            if (!t) t = PopupConfig.get(null, "colorAccent", null); return !!t }
+    when: { var t = popup._pcGet(popup._cfgName, "colorAccent", null)
+            if (!t) t = popup._pcGet(null, "colorAccent", null); return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorAccent", null)
-      if (!t) t = PopupConfig.get(null, "colorAccent", null)
+      var t = popup._pcGet(popup._cfgName, "colorAccent", null)
+      if (!t) t = popup._pcGet(null, "colorAccent", null)
       return popup._resolveToken(t) || Colors.primary
     }
   }
   Binding on colorProgressBg {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorProgressBg", null)
-            if (!t) t = PopupConfig.get(null, "colorProgressBg", null); return !!t }
+    when: { var t = popup._pcGet(popup._cfgName, "colorProgressBg", null)
+            if (!t) t = popup._pcGet(null, "colorProgressBg", null); return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorProgressBg", null)
-      if (!t) t = PopupConfig.get(null, "colorProgressBg", null)
+      var t = popup._pcGet(popup._cfgName, "colorProgressBg", null)
+      if (!t) t = popup._pcGet(null, "colorProgressBg", null)
       return popup._resolveToken(t) || Colors.surface_container_high
     }
   }
   Binding on colorProgressFg {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorProgressFg", null)
-            if (!t) t = PopupConfig.get(null, "colorProgressFg", null); return !!t }
+    when: { var t = popup._pcGet(popup._cfgName, "colorProgressFg", null)
+            if (!t) t = popup._pcGet(null, "colorProgressFg", null); return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorProgressFg", null)
-      if (!t) t = PopupConfig.get(null, "colorProgressFg", null)
+      var t = popup._pcGet(popup._cfgName, "colorProgressFg", null)
+      if (!t) t = popup._pcGet(null, "colorProgressFg", null)
       return popup._resolveToken(t) || Colors.primary
     }
   }
   Binding on colorDivider {
-    when: { var t = PopupConfig.get(popup._cfgName, "colorDivider", null)
-            if (!t) t = PopupConfig.get(null, "colorDivider", null); return !!t }
+    when: { var t = popup._pcGet(popup._cfgName, "colorDivider", null)
+            if (!t) t = popup._pcGet(null, "colorDivider", null); return !!t }
     value: {
-      var t = PopupConfig.get(popup._cfgName, "colorDivider", null)
-      if (!t) t = PopupConfig.get(null, "colorDivider", null)
+      var t = popup._pcGet(popup._cfgName, "colorDivider", null)
+      if (!t) t = popup._pcGet(null, "colorDivider", null)
       return popup._resolveToken(t) || Colors.outline_variant
     }
   }
@@ -824,7 +836,7 @@ PanelWindow {
     if (!name || name.length === 0) return
 
     function applyIfSet(key, setter) {
-      var v = PopupConfig.get(name, key, undefined)
+      var v = popup._pcGet(name, key, undefined)
       if (v !== undefined) setter(v)
     }
 
@@ -857,9 +869,13 @@ PanelWindow {
 
   Component.onCompleted: popup._applyConfig()
 
-  // Reaplica sempre que PopupConfig._dep muda (save no ConfigWindow)
+  // Reaplica sempre que _pc muda de instância (barRef trocou) OU quando o
+  // _dep da PopupConfig ativa muda (save no ConfigWindow). O binding em
+  // `target` acompanha popup._pc automaticamente — se o barRef for
+  // reatribuído em runtime, a Connections migra pra nova instância sozinha.
   Connections {
-    target: PopupConfig
+    target: popup._pc
     function on_DepChanged() { popup._applyConfig() }
   }
+  onBarRefChanged: popup._applyConfig()
 }

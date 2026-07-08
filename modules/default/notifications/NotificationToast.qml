@@ -25,6 +25,17 @@ PanelWindow {
     // ── Obrigatório ────────────────────────────────────────────────────────
     required property var service   // NotificationService
 
+    // PopupConfig a usar pra sombra/etc — o toast não pertence a bar OU dock
+    // especificamente (é um overlay do shell inteiro, um por tela), então
+    // shell.qml passa a da instância principal (bar.popupConfigRef) como
+    // fonte única, em vez de um singleton global (que deixou de existir —
+    // ver PopupConfig.qml). Null-safe: sem ela, cai nos fallbacks abaixo,
+    // igual antes de o arquivo carregar.
+    property var popupConfigRef: null
+    function _pcGet(key, fallback) {
+        return root.popupConfigRef ? root.popupConfigRef.get(null, key, fallback) : fallback
+    }
+
     // ── Configuração ───────────────────────────────────────────────────────
     // Antes eram hardcoded aqui (340/12/8), sem nenhuma config exposta na
     // aba. Agora a fonte de verdade é o service (mesmo padrão de toastPosition
@@ -52,11 +63,11 @@ PanelWindow {
     // O raio do card agora vem de service.cardRadius (ver mais abaixo),
     // não mais de um bgRadius global separado — assim o slider "Raio dos
     // cards" da aba afeta painel E toast com o mesmo valor.
-    readonly property bool  _shadowEnabled: PopupConfig.get(null, "shadowEnabled", true)
-    readonly property real  _shadowBlur:    PopupConfig.get(null, "shadowBlur",    16)
-    readonly property int   _shadowOffX:    PopupConfig.get(null, "shadowOffsetX", 0)
-    readonly property int   _shadowOffY:    PopupConfig.get(null, "shadowOffsetY", 4)
-    readonly property real  _shadowOpacity: PopupConfig.get(null, "shadowOpacity", 0.45)
+    readonly property bool  _shadowEnabled: root._pcGet("shadowEnabled", true)
+    readonly property real  _shadowBlur:    root._pcGet("shadowBlur",    16)
+    readonly property int   _shadowOffX:    root._pcGet("shadowOffsetX", 0)
+    readonly property int   _shadowOffY:    root._pcGet("shadowOffsetY", 4)
+    readonly property real  _shadowOpacity: root._pcGet("shadowOpacity", 0.45)
 
     // ── Posição derivada do service ────────────────────────────────────────
     readonly property string pos:         service.toastPosition
