@@ -9,23 +9,24 @@ import QtQuick.Effects
 
 Scope {
   id: clockWidget
-  // --- recursos compartilhados entre todos os monitores ---
-  property string currentTime: Qt.formatDateTime(new Date(), "HH:mm")
-  property string currentDate: Qt.formatDateTime(new Date(), "dddd · MMM dd")
 
   ClockConfig { id: config }
 
-  // lê position do config
-  property int position: config.position
+  // --- recursos compartilhados entre todos os monitores ---
+  // Formato da hora depende de use24h — recalculado junto com o texto.
+  property string currentTime: Qt.formatDateTime(new Date(), config.use24h ? "HH:mm" : "h:mm AP")
+  property string currentDate: Qt.formatDateTime(new Date(), config.dateFormat)
 
+  // lê position do config (único valor que também muda por clique no widget)
+  property int position: config.position
   // salva quando muda
   onPositionChanged: config.position = position
 
   Timer {
     interval: 1000; running: true; repeat: true
     onTriggered: {
-      currentTime = Qt.formatDateTime(new Date(), "HH:mm")
-      currentDate = Qt.formatDateTime(new Date(), "dddd · MMM dd")
+      currentTime = Qt.formatDateTime(new Date(), config.use24h ? "HH:mm" : "h:mm AP")
+      currentDate = Qt.formatDateTime(new Date(), config.dateFormat)
     }
   }
 
@@ -61,13 +62,13 @@ Scope {
 
         Item {
           x: {
-            if (positions[position].h === Qt.AlignLeft)  return 48
-            if (positions[position].h === Qt.AlignRight) return parent.width - width - 48
+            if (positions[position].h === Qt.AlignLeft)  return config.edgeMargin
+            if (positions[position].h === Qt.AlignRight) return parent.width - width - config.edgeMargin
             return (parent.width - width) / 2
           }
           y: {
-            if (positions[position].v === Qt.AlignTop)    return 48
-            if (positions[position].v === Qt.AlignBottom) return parent.height - height - 48
+            if (positions[position].v === Qt.AlignTop)    return config.edgeMargin
+            if (positions[position].v === Qt.AlignBottom) return parent.height - height - config.edgeMargin
             return (parent.height - height) / 2
           }
           width:  layout.implicitWidth
@@ -91,8 +92,8 @@ Scope {
             Text {
               id: clock
               Layout.alignment: Qt.AlignHCenter
-              color: Colors["primary"]
-              font { pixelSize: 72; family: "Inter"; weight: Font.Light }
+              color: Colors[config.colorTime]
+              font { pixelSize: config.fontSizeTime; family: "Inter"; weight: Font.Light }
               text: currentTime
               layer.enabled: true
               layer.effect: MultiEffect {
@@ -105,27 +106,29 @@ Scope {
               }
             }
 
-            Item { Layout.preferredHeight: 4 }
+            Item { Layout.preferredHeight: 4; visible: config.showDate }
 
             Rectangle {
               Layout.alignment: Qt.AlignHCenter
               width: clock.implicitWidth * 0.4
               height: 1
-              color: Colors["outline"]
+              color: Colors[config.colorLine]
               opacity: 0.6
+              visible: config.showLine && config.showDate
             }
 
-            Item { Layout.preferredHeight: 8 }
+            Item { Layout.preferredHeight: 8; visible: config.showDate }
 
             Text {
               id: date
               Layout.alignment: Qt.AlignHCenter
-              color: Colors["on_surface"]
+              color: Colors[config.colorDate]
               font {
-                pixelSize: 16; family: "Inter"; weight: Font.DemiBold
+                pixelSize: config.fontSizeDate; family: "Inter"; weight: Font.DemiBold
                 letterSpacing: 3; capitalization: Font.AllUppercase
               }
               text: currentDate
+              visible: config.showDate
               layer.enabled: true
               layer.effect: MultiEffect {
                 shadowEnabled: true

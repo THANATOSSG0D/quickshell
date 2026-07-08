@@ -1,0 +1,2 @@
+module config.tabs.widgets
+WidgetsTab 1.0 WidgetsTab.qml

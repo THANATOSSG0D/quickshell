@@ -6,6 +6,13 @@ import "../dmenu" as DmenuModule
 Bar.BarPopup {
   id: popup
 
+  // Necessário pro _applyConfig() do BarPopup encontrar o override certo em
+  // PopupConfig.json/DockPopupConfig.json (overrides["DmenuPopup"]). Sem
+  // isso, configName||objectName cai em "" e _applyConfig() retorna cedo —
+  // cornerMode, bgRadius, animationStyle etc. nunca são lidos do JSON,
+  // ficando presos nos defaults hardcoded do BarPopup.qml.
+  objectName: "DmenuPopup"
+
   property string mode:      "drun"
   property string launchCmd: "uwsm app -- {exec}"
   property bool   showIcons: true

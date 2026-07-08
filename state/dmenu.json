@@ -27,10 +27,10 @@
         "usageCount": {
             "/home/antonio/.config/ml4w/scripts/webapp-launch http://10.0.0.150:8008": 1,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://chatgpt.com": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 6,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 7,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://homelab.home": 1,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 10,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv": 4,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv": 5,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://web.telegram.org/": 2,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 4,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 1,

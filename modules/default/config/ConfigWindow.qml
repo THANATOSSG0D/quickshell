@@ -170,7 +170,7 @@ PanelWindow {
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
       subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
-    { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: [] },
+    { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: ["Relógio"] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 
@@ -508,7 +508,7 @@ PanelWindow {
                     // (Paleta nunca chega aqui: o botão fica oculto nessa aba)
                     if (win.activeTarget === "dock") {
                       win.config.saveAll({
-                        theme: "Dock", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
+                        theme: "Dock", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false, floating: false,
                         tooltipEnabled: true, tooltipMinWidth: 160, tooltipMaxWidth: 320, tooltipAlign: "module", tooltipOffset: 0,
                         barSize: 30, barMargin: 8, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   [],
@@ -520,7 +520,7 @@ PanelWindow {
                       })
                     } else {
                       win.config.saveAll({
-                        theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false,
+                        theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false, floating: false,
                         tooltipEnabled: true, tooltipMinWidth: 160, tooltipMaxWidth: 320, tooltipAlign: "module", tooltipOffset: 0,
                         barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   ["mediaplayer","separator","quicksettings"],
@@ -820,10 +820,30 @@ PanelWindow {
             }
           }
 
+          // ── WIDGETS ──────────────────────────────────────────────────
+          Loader {
+            id: loaderWidgets
+            anchors.fill: parent
+            active: win._activeId === "widgets"
+            sourceComponent: Component {
+              Tabs.WidgetsTab {
+                activeSubtab:    win.subtab(win.activeModule)
+                overlay:         popupOverlay
+                colors:          win._effectiveColors
+                colorAccent:     win.colorAccent
+                colorTextDim:    win.colorTextDim
+                colorText:       win.colorText
+                colorDivider:    win.colorDivider
+                colorSidebar:    win.colorSidebar
+                colorProgressBg: win.colorProgressBg
+              }
+            }
+          }
+
           // ── Placeholder para módulos ainda não implementados ─────────
           Loader {
             anchors.fill: parent
-            active: win._activeId === "widgets" || win._activeId === "screenlock"
+            active: win._activeId === "screenlock"
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14

@@ -52,6 +52,14 @@ Item {
   // continua na layer Top: pode ficar atrás de uma janela fullscreen, já
   // que não força Overlay. Global (não por tema), mesmo padrão de silenceMode.
   property bool   pinned: false
+  // Modo "flutuante" — a barra fica em layer Overlay (acima de tudo,
+  // inclusive janelas normais) e NUNCA reserva exclusiveZone (mesmo
+  // comportamento de zona de alwaysVisible: janelas podem ocupar o espaço
+  // por baixo dela livremente). A diferença é que floating NÃO ignora
+  // fullscreen — ela se oculta normalmente (mesmo mecanismo de peek que a
+  // barra já usa) quando uma janela entra em fullscreen. Global (não por
+  // tema).
+  property bool   floating: false
   // Liga/desliga o painel INTEIRO (Bar ou Dock). Diferente de autoHide
   // (que só esconde temporariamente por hover) — com panelEnabled=false
   // nenhuma PanelWindow é criada: sem popups, sem zona reservada, nada
@@ -370,6 +378,7 @@ Item {
     if (opts.silence       !== undefined) root.silenceMode   = opts.silence
     if (opts.alwaysVisible !== undefined) root.alwaysVisible = opts.alwaysVisible
     if (opts.pinned        !== undefined) root.pinned        = opts.pinned
+    if (opts.floating      !== undefined) root.floating      = opts.floating
     if (opts.panelEnabled  !== undefined) root.panelEnabled  = opts.panelEnabled
 
     // ── Tooltips (globais) ───────────────────────────────────────────────
@@ -444,7 +453,7 @@ Item {
     // ── Grava globais no Bar.json — preserva themes ─────────────────────
     barAdapter.bar = {
       theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible,
-      pinned: root.pinned, enabled: root.panelEnabled,
+      pinned: root.pinned, floating: root.floating, enabled: root.panelEnabled,
       tooltipEnabled: root.tooltipEnabled, tooltipMinWidth: root.tooltipMinWidth,
       tooltipMaxWidth: root.tooltipMaxWidth,
       tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset
@@ -685,6 +694,7 @@ Item {
         if (b.silence       !== undefined) root.silenceMode   = b.silence
         if (b.alwaysVisible !== undefined) root.alwaysVisible = b.alwaysVisible
         if (b.pinned        !== undefined) root.pinned        = b.pinned
+        if (b.floating      !== undefined) root.floating      = b.floating
         if (b.enabled        !== undefined) root.panelEnabled  = b.enabled
         if (b.tooltipEnabled  !== undefined) root.tooltipEnabled  = b.tooltipEnabled
         if (b.tooltipMinWidth !== undefined) root.tooltipMinWidth = b.tooltipMinWidth

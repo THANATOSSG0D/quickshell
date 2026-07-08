@@ -38,6 +38,7 @@ QtObject {
   property bool   silenceMode:  false   // suprime OSD, toasts e autohide fullscreen
   property bool   alwaysVisible: false  // barra SEMPRE visível, inclusive sobre fullscreen (layer Overlay)
   property bool   pinned:        false  // barra nunca auto-oculta (cursor nem fullscreen peek), mas fica na layer Top
+  property bool   floating:      false  // barra em Overlay, sem exclusiveZone, mas oculta em fullscreen
   property bool   panelEnabled:  initialPanelEnabled   // liga/desliga o painel inteiro (ver BarConfig.panelEnabled)
   property string currentTheme: initialTheme
   property int    position:     3
@@ -118,6 +119,10 @@ QtObject {
       state.pinned        = barConfig.pinned
       state._configReady  = true
     }
+    function onFloatingChanged() {
+      state.floating      = barConfig.floating
+      state._configReady  = true
+    }
     function onPanelEnabledChanged() {
       state.panelEnabled  = barConfig.panelEnabled
       state._configReady  = true
@@ -137,6 +142,7 @@ QtObject {
       state.silenceMode   = barConfig.silenceMode
       state.alwaysVisible = barConfig.alwaysVisible
       state.pinned        = barConfig.pinned
+      state.floating      = barConfig.floating
       state.panelEnabled  = barConfig.panelEnabled
       state.position      = barConfig.position
       state._configReady  = true
@@ -151,6 +157,7 @@ QtObject {
   onSilenceModeChanged:    if (_configReady) barConfig.silenceMode   = silenceMode
   onAlwaysVisibleChanged:  if (_configReady) barConfig.alwaysVisible = alwaysVisible
   onPinnedChanged:         if (_configReady) barConfig.pinned        = pinned
+  onFloatingChanged:       if (_configReady) barConfig.floating      = floating
   onPanelEnabledChanged:   if (_configReady) barConfig.panelEnabled  = panelEnabled
   onPositionChanged:       if (_configReady) barConfig.set("bar", "position", position)
 

@@ -332,13 +332,15 @@ Scope {
       exclusionMode: ExclusionMode.Normal
       // pinned força a reserva de zona mesmo com autoHide ligado — mesmo
       // comportamento de ter desligado "Auto-ocultar" manualmente.
-      // alwaysVisible NÃO reserva zona, em NENHUM caso (mesmo com autoHide
-      // desligado): é uma barra em Overlay que fica por cima de tudo
-      // (inclusive fullscreen) sem empurrar/reservar espaço para as
-      // janelas — janelas podem ocupar a área por baixo dela livremente.
+      // alwaysVisible e floating NÃO reservam zona, em NENHUM caso (mesmo
+      // com autoHide desligado): são barras em Overlay que ficam por cima
+      // de tudo sem empurrar/reservar espaço — janelas podem ocupar a área
+      // por baixo dela livremente. A diferença entre os dois: alwaysVisible
+      // ignora fullscreen (permanece visível); floating se oculta durante
+      // fullscreen, como a barra normal (ver effectiveAutoHide).
       exclusiveZone: {
         if (!barState._configReady)                     return 0
-        if (barState.alwaysVisible)                      return 0
+        if (barState.alwaysVisible || barState.floating) return 0
         if (barState.autoHide && !barState.pinned)        return 0
         return barRoot.themeBarSize
       }
@@ -542,7 +544,18 @@ Scope {
       // Hyprland atrás de fullscreen; Overlay não). "pinned" (antigo
       // alwaysVisible) NÃO força Overlay — só impede o auto-hide/peek, então
       // continua podendo ficar atrás de uma janela fullscreen.
-      WlrLayershell.layer: (bar.effectiveAutoHide || barState.alwaysVisible) ? WlrLayershell.Overlay : WlrLayershell.Top
+      // "floating" força Overlay igual alwaysVisible (fica sempre por cima de
+      // janelas normais, flutuando sem reservar zona) — mas NÃO entra na
+      // condição que ignora fullscreen: effectiveAutoHide continua caindo no
+      // fallthrough normal de isFullscreen, então durante fullscreen ela
+      // esconde (com peek por cursor) exatamente como a barra padrão faria.
+      // !barState._configReady: enquanto o BarConfig ainda não terminou de
+      // ler o JSON (assíncrono), não sabemos se alwaysVisible/floating estão
+      // ligados. Nascer em Overlay é o lado seguro do erro — nascer em Top e
+      // só corrigir depois pode deixar a barra presa atrás de uma janela que
+      // já estava fullscreen no exato boot do QS (Hyprland nem sempre
+      // reempilha uma surface Top→Overlay já escondida atrás de fullscreen).
+      WlrLayershell.layer: (!barState._configReady || bar.effectiveAutoHide || barState.alwaysVisible || barState.floating) ? WlrLayershell.Overlay : WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
