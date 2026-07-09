@@ -63,10 +63,21 @@ Item {
     "mediaplayer",    // 3 Mídia
     "clock",          // 4 Relógio
     "notifications",  // 5 Notificações
-    "workspaces",     // 6 Dmenu
+    "dmenu",          // 6 Dmenu — chave própria, não compartilha mais com "workspaces"
     null,             // 7 Editor — nunca roteado, sempre local
   ]
   readonly property string _routeModule: _routeModuleNames[activeSubtab] || ""
+
+  // Dmenu não tem módulo próprio no layout da barra, então em modo
+  // "Automático" a resolução usa a posição do "workspaces" como pista de
+  // onde abrir (mesmo critério do DmenuIpc.qml). Os outros painéis buscam
+  // a si mesmos (null → resolveInstance usa moduleName como searchName).
+  readonly property var _routeSearchModuleNames: [
+    null, null, null, null, null, null,
+    "workspaces",     // 6 Dmenu
+    null,
+  ]
+  readonly property string _routeSearchModule: _routeSearchModuleNames[activeSubtab] || ""
 
   // Usado só pelas subtabs sem roteamento (Global/Editor)
   property string _manualTarget: "bar"
@@ -75,7 +86,7 @@ Item {
     if (root._routeModule === "") return root._manualTarget
     var ov = PanelRouter.get(root._routeModule)
     if (ov === "bar" || ov === "dock") return ov
-    return root._hasDock ? PanelRouter.resolveInstanceId(root._routeModule) : "bar"
+    return root._hasDock ? PanelRouter.resolveInstanceId(root._routeModule, root._routeSearchModule) : "bar"
   }
 
   readonly property var _pc: (root._effectiveTarget === "dock" && root._hasDock)

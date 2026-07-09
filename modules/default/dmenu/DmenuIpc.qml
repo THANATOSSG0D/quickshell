@@ -284,13 +284,18 @@ Item {
     if (_stack.length === 0) return
 
     var req = _stack[_stack.length - 1]
-    // Abre de preferência onde o módulo "workspaces" está no layout ativo
-    // (bar ou dock) — igual aos outros painéis. root.barRoot continua sendo
-    // o fallback (comportamento original) quando não há resolução melhor,
-    // e também é quem decide o desempate quando "workspaces" aparece nas
-    // duas instâncias ao mesmo tempo. Ajustável via config UI
-    // (PanelRouter.set("workspaces", "bar"|"dock"|"auto")).
-    var routedInstance = root.barRoot ? PanelRouter.resolveInstance("workspaces", root.barRoot) : null
+    // Roteamento próprio do dmenu — chave "dmenu" no PanelRouter, independente
+    // do roteamento do módulo "workspaces". O dmenu não tem módulo próprio no
+    // layout da barra, então em modo "auto" usamos a posição de "workspaces"
+    // (3º argumento, searchModuleName) só como pista de onde abrir — mas o
+    // override manual salvo (Barra/Dock/Automático) é do dmenu, não é mais
+    // compartilhado com o de workspaces. root.barRoot continua sendo o
+    // fallback quando não há resolução melhor, e também decide o desempate
+    // quando "workspaces" aparece nas duas instâncias ao mesmo tempo.
+    // Ajustável via config UI (PanelRouter.set("dmenu", "bar"|"dock"|"auto")).
+    var routedInstance = root.barRoot
+        ? PanelRouter.resolveInstance("dmenu", root.barRoot, "workspaces")
+        : null
     var activeBar = routedInstance ? routedInstance._activeBar()
                                     : (root.barRoot ? root.barRoot._activeBar() : null)
 

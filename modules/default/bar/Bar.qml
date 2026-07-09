@@ -332,15 +332,13 @@ Scope {
       exclusionMode: ExclusionMode.Normal
       // pinned força a reserva de zona mesmo com autoHide ligado — mesmo
       // comportamento de ter desligado "Auto-ocultar" manualmente.
-      // alwaysVisible e floating NÃO reservam zona, em NENHUM caso (mesmo
-      // com autoHide desligado): são barras em Overlay que ficam por cima
-      // de tudo sem empurrar/reservar espaço — janelas podem ocupar a área
-      // por baixo dela livremente. A diferença entre os dois: alwaysVisible
-      // ignora fullscreen (permanece visível); floating se oculta durante
-      // fullscreen, como a barra normal (ver effectiveAutoHide).
+      // alwaysVisible NÃO reserva zona, em NENHUM caso (mesmo com autoHide
+      // desligado): é uma barra em Overlay que fica por cima de tudo
+      // (inclusive fullscreen) sem empurrar/reservar espaço para as
+      // janelas — janelas podem ocupar a área por baixo dela livremente.
       exclusiveZone: {
         if (!barState._configReady)                     return 0
-        if (barState.alwaysVisible || barState.floating) return 0
+        if (barState.alwaysVisible)                      return 0
         if (barState.autoHide && !barState.pinned)        return 0
         return barRoot.themeBarSize
       }
@@ -391,19 +389,48 @@ Scope {
       // ── Estado de painéis — isolado por monitor ────────────────────────
       property int activePanel: barRoot.panelNone
 
+      // pillTargetPanel: atualiza no MESMO frame do clique (openPanel), mesmo
+      // quando activePanel (que controla os popups de verdade) só é setado um
+      // pouco depois — ver _panelOpenDelay abaixo. Isso existe pra resolver
+      // o popup "revelando" (BarPopup animationStyle="reveal") ANTES da Pill
+      // terminar de esticar: sem esse desacoplamento, activePopupW só mudava
+      // no exato instante em que panelOpen virava true, e as duas animações
+      // (Pill.Behavior on implicitWidth, 400ms / popup reveal, animDuration)
+      // rodavam em paralelo com curvas diferentes — o reveal "estourava"
+      // pra fora da Pill ainda estreita nos primeiros frames.
+      property int pillTargetPanel: barRoot.panelNone
+
       // dmenuPanelOpen é escrito pelo DmenuIpc.onPanelVisibleChanged.
       readonly property bool anyPanelOpen:
-          activePanel !== barRoot.panelNone || barRoot.dmenuPanelOpen
+          pillTargetPanel !== barRoot.panelNone || barRoot.dmenuPanelOpen
 
       // Largura do popup atualmente aberto — usada pela Pill para expandir.
       // A Pill adiciona popupPillPadding internamente para ficar maior que o popup.
+      // Lê pillTargetPanel (não activePanel) — precisa refletir o alvo assim que
+      // o clique acontece, não só quando o popup real abrir.
       readonly property int activePopupW: {
-        if (barRoot.dmenuPanelOpen)              return barRoot.dmenuPanelWidth
-        if (activePanel === barRoot.panelNone)   return 0
-        if (activePanel === barRoot.panelEditor) return barRoot.popupWEditor
-        if (activePanel === barRoot.panelQs)     return barRoot.popupWQs
-        if (activePanel === barRoot.panelNotif)  return barRoot.popupWNotif
+        if (barRoot.dmenuPanelOpen)                  return barRoot.dmenuPanelWidth
+        if (pillTargetPanel === barRoot.panelNone)   return 0
+        if (pillTargetPanel === barRoot.panelEditor) return barRoot.popupWEditor
+        if (pillTargetPanel === barRoot.panelQs)     return barRoot.popupWQs
+        if (pillTargetPanel === barRoot.panelNotif)  return barRoot.popupWNotif
         return barRoot.themePanelWidth
+      }
+
+      // Atraso entre a Pill começar a esticar e o popup realmente abrir
+      // (activePanel muda → panelOpen=true → reveal começa). Só entra em
+      // ação quando estamos abrindo A PARTIR de nenhum painel aberto — trocar
+      // entre painéis já abertos (Pill já no tamanho certo) continua instantâneo,
+      // e fechar também é sempre instantâneo. O valor bate com a duração do
+      // Behavior on implicitWidth da Pill (ver Pill.qml, 400ms) — depois desse
+      // tempo a Pill já terminou (ou está bem perto de terminar) de esticar.
+      readonly property int _pillGrowDelay: 260
+
+      Timer {
+        id: _panelOpenDelay
+        interval: bar._pillGrowDelay
+        repeat: false
+        onTriggered: bar.activePanel = bar.pillTargetPanel
       }
 
       function openPanel(panelId) {
@@ -417,9 +444,31 @@ Scope {
           }
         }
         barRoot._lastActiveBar = bar
-        activePanel = (activePanel === panelId) ? barRoot.panelNone : panelId
+
+        var wasClosed = (pillTargetPanel === barRoot.panelNone)
+        var newPanel  = (pillTargetPanel === panelId) ? barRoot.panelNone : panelId
+
+        pillTargetPanel = newPanel   // Pill reage já, no mesmo frame do clique
+
+        if (newPanel === barRoot.panelNone) {
+          // Fechando — instantâneo, sem esperar nada.
+          _panelOpenDelay.stop()
+          activePanel = barRoot.panelNone
+        } else if (wasClosed) {
+          // Abrindo do zero — espera a Pill esticar antes de revelar o popup.
+          _panelOpenDelay.restart()
+        } else {
+          // Trocando entre painéis já abertos — Pill já está no tamanho
+          // (ou bem perto), não precisa atrasar a troca do popup.
+          _panelOpenDelay.stop()
+          activePanel = newPanel
+        }
       }
-      function closeAllPanels() { activePanel = barRoot.panelNone }
+      function closeAllPanels() {
+        _panelOpenDelay.stop()
+        pillTargetPanel = barRoot.panelNone
+        activePanel     = barRoot.panelNone
+      }
 
       readonly property bool sinkPanelOpen:   activePanel === barRoot.panelSink
       readonly property bool sourcePanelOpen: activePanel === barRoot.panelSource
@@ -544,18 +593,7 @@ Scope {
       // Hyprland atrás de fullscreen; Overlay não). "pinned" (antigo
       // alwaysVisible) NÃO força Overlay — só impede o auto-hide/peek, então
       // continua podendo ficar atrás de uma janela fullscreen.
-      // "floating" força Overlay igual alwaysVisible (fica sempre por cima de
-      // janelas normais, flutuando sem reservar zona) — mas NÃO entra na
-      // condição que ignora fullscreen: effectiveAutoHide continua caindo no
-      // fallthrough normal de isFullscreen, então durante fullscreen ela
-      // esconde (com peek por cursor) exatamente como a barra padrão faria.
-      // !barState._configReady: enquanto o BarConfig ainda não terminou de
-      // ler o JSON (assíncrono), não sabemos se alwaysVisible/floating estão
-      // ligados. Nascer em Overlay é o lado seguro do erro — nascer em Top e
-      // só corrigir depois pode deixar a barra presa atrás de uma janela que
-      // já estava fullscreen no exato boot do QS (Hyprland nem sempre
-      // reempilha uma surface Top→Overlay já escondida atrás de fullscreen).
-      WlrLayershell.layer: (!barState._configReady || bar.effectiveAutoHide || barState.alwaysVisible || barState.floating) ? WlrLayershell.Overlay : WlrLayershell.Top
+      WlrLayershell.layer: (bar.effectiveAutoHide || barState.alwaysVisible) ? WlrLayershell.Overlay : WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
@@ -773,14 +811,6 @@ Scope {
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
         _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
         _set("cfgWsSpacing",        barState.config.wsSpacing)
-        // workspaces — Focus (reveal): faltava aqui, só existia nos
-        // Connections onXxxChanged (que não disparam no load inicial,
-        // só quando o valor muda em runtime) — por isso não sobrevivia
-        // ao restart.
-        _set("cfgWsRevealMode",           barState.config.wsRevealMode)
-        _set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)
-        _set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)
-        _set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)

@@ -385,6 +385,7 @@ PanelWindow {
   WlrLayershell.exclusionMode: ExclusionMode.Ignore
   WlrLayershell.exclusiveZone: 0
   WlrLayershell.namespace:     "qs-barpopup"
+  WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand 
 
   // ── Anchors do layer shell ─────────────────────────────────────────────────
   // Modo "bar" (ancora na barra): comportamento original.

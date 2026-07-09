@@ -1,3 +1,13 @@
 {
-    "position": 6
+    "colorDate": "on_surface",
+    "colorLine": "outline",
+    "colorTime": "primary",
+    "dateFormat": "dddd · MMM dd",
+    "edgeMargin": 48,
+    "fontSizeDate": 16,
+    "fontSizeTime": 72,
+    "position": 6,
+    "showDate": true,
+    "showLine": true,
+    "use24h": false
 }

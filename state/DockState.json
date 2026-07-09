@@ -49,7 +49,7 @@
                     "bgPaddingV": 0
                 },
                 "focus": {
-                    "bgOpacity": 0.2,
+                    "bgOpacity": 0,
                     "bgOpacityActive": 0.5,
                     "bgPaddingH": 0,
                     "bgPaddingHActive": 0,
@@ -62,7 +62,7 @@
                 },
                 "iconMonochrome": false,
                 "iconSize": 16,
-                "iconSpacing": 6,
+                "iconSpacing": 4,
                 "numberBgEnabled": true,
                 "numberBgPaddingH": 4,
                 "numberBgPaddingV": 4,
@@ -71,7 +71,7 @@
                 "scrollEnabled": false,
                 "scrollInvert": true,
                 "showAddButton": false,
-                "spacing": 0,
+                "spacing": 4,
                 "style": "focus"
             }
         }

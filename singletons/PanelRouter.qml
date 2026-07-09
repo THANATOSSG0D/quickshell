@@ -23,7 +23,9 @@ import qs
 //       "clock":          "auto",
 //       "quicksettings":  "auto",
 //       "notifications":  "auto",
-//       "workspaces":     "auto"   // usado pelo roteamento do dmenu
+//       "workspaces":     "auto",
+//       "dmenu":          "auto"   // chave própria do dmenu — NÃO compartilha
+//                                  // override com "workspaces" (ver searchModuleName)
 //     }
 //   }
 //
@@ -34,7 +36,13 @@ import qs
 //   PanelRouter.get(moduleName)                            → string ("auto" default)
 //   PanelRouter.set(moduleName, value)                      → void
 //   PanelRouter.reset(moduleName)                           → void
-//   PanelRouter.resolveInstance(moduleName, callerRef)      → barRootRef
+//   PanelRouter.resolveInstance(moduleName, callerRef, searchModuleName?)  → barRootRef
+//     searchModuleName (opcional): nome usado pra procurar no layout ativo
+//     durante o modo "auto". Default = moduleName. Existe pra painéis
+//     "virtuais" sem módulo próprio na barra (ex: "dmenu"), que usam a
+//     posição de outro módulo real (ex: "workspaces") como pista de onde
+//     abrir — mas mantêm seu PRÓPRIO override persistido, independente.
+//   PanelRouter.resolveInstanceId(moduleName, searchModuleName?)  → instanceId
 
 QtObject {
   id: root
@@ -91,7 +99,9 @@ QtObject {
   //    módulo no layout ativo vence.
   // 3. Módulo não encontrado em nenhuma instância → mantém o comportamento
   //    original (abre na instância que chamou).
-  function resolveInstance(moduleName, callerRef) {
+  function resolveInstance(moduleName, callerRef, searchModuleName) {
+    var searchName = searchModuleName || moduleName
+
     var ov = root.get(moduleName)
     if (ov && ov !== "auto") {
       var forced = root._instances[ov]
@@ -99,11 +109,11 @@ QtObject {
       // override aponta pra uma instância inexistente/desligada — cai pro auto
     }
 
-    if (root._hasModule(callerRef, moduleName)) return callerRef
+    if (root._hasModule(callerRef, searchName)) return callerRef
 
     for (var i = 0; i < root._order.length; i++) {
       var inst = root._instances[root._order[i]]
-      if (inst && inst !== callerRef && root._hasModule(inst, moduleName))
+      if (inst && inst !== callerRef && root._hasModule(inst, searchName))
         return inst
     }
 
@@ -114,10 +124,10 @@ QtObject {
   // Painéis) conseguir mostrar/usar o que "Automático" resolveria AGORA,
   // sem precisar simular quem seria o "chamador". Usa a primeira instância
   // registrada (tipicamente "bar") como referência de desempate.
-  function resolveInstanceId(moduleName) {
+  function resolveInstanceId(moduleName, searchModuleName) {
     var insts = root.allInstances()
     if (insts.length === 0) return "bar"
-    var resolved = root.resolveInstance(moduleName, insts[0])
+    var resolved = root.resolveInstance(moduleName, insts[0], searchModuleName)
     return (resolved && resolved.instanceId) ? resolved.instanceId
                                               : (insts[0].instanceId || "bar")
   }
