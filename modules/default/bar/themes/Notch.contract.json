@@ -6,7 +6,9 @@
         "notchRadius": true,
         "concaveRadius": true,
         "lobePadH": true,
-        "notchTaper": true
+        "notchTaper": true,
+        "notchPopupPadding": true,
+        "notchExpandForPopups": true
     },
     "palette": {
         "barBg": true,

@@ -15,7 +15,7 @@
             "bar": {
                 "autoHide": false,
                 "barMargin": 5,
-                "barSize": 24,
+                "barSize": 30,
                 "moduleScale": 0.85,
                 "modules": {
                     "center": [
@@ -30,6 +30,7 @@
                 },
                 "pillMinSpacing": 10,
                 "pillWidth": 170,
+                "popupPillPadding": 40,
                 "position": 3
             },
             "mediaplayer": {
@@ -50,11 +51,12 @@
                 },
                 "focus": {
                     "bgOpacity": 0,
-                    "bgOpacityActive": 0.5,
+                    "bgOpacityActive": 0.2,
                     "bgPaddingH": 0,
                     "bgPaddingHActive": 0,
                     "bgPaddingV": 0,
                     "bgPaddingVActive": 0,
+                    "bgRadiusActive": 20,
                     "clickCollapseMode": "exit",
                     "fontSize": 8,
                     "hoverRevealDelayMs": 0,
@@ -64,13 +66,13 @@
                 "iconSize": 16,
                 "iconSpacing": 4,
                 "numberBgEnabled": true,
-                "numberBgPaddingH": 4,
-                "numberBgPaddingV": 4,
+                "numberBgPaddingH": 0,
+                "numberBgPaddingV": 0,
                 "numberBgRadius": 4,
                 "scrollAction": "workspace",
                 "scrollEnabled": false,
                 "scrollInvert": true,
-                "showAddButton": false,
+                "showAddButton": true,
                 "spacing": 4,
                 "style": "focus"
             }

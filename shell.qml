@@ -5,6 +5,9 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs
 import "modules/widgets/clock"
+import "modules/widgets/todo"
+import "modules/widgets/calendar"
+import "modules/widgets/weather"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
@@ -14,6 +17,9 @@ import './modules/default/config' as ConfigModule
 
 Scope {
   ClockWidget {}
+  TodoWidget {}
+  CalendarWidget {}
+  WeatherWidget {}
 
   OsdModule.Osd {
     id: osd

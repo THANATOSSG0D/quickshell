@@ -1,0 +1,10 @@
+{
+    "colorText": "on_surface",
+    "edgeMargin": 48,
+    "fontSize": 15,
+    "position": 2,
+    "showCompleted": true,
+    "sortBy": "priority",
+    "tasks": [
+    ]
+}

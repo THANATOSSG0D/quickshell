@@ -200,12 +200,35 @@ Item {
   property int  notchTaper:    20   // inclinação do trapézio (px de estreitamento por lado, rente ao desktop)
   readonly property int moduleSpacing: pillMinSpacing
 
+  // popupPillPadding: margem extra além da largura do popup para que o lobo
+  // fique visivelmente maior que o popup "colado" nele — mesmo conceito e
+  // mesmo nome que Pill.qml usa. Configurável via BarTabBar (seção NOTCH).
+  property int notchPopupPadding: 32
+
+  // Liga/desliga o esticamento do lobo pra acompanhar popups mais largos.
+  // Desligado: o lobo fica sempre no tamanho natural do conteúdo
+  // (_naturalLobeW), e os popups abrem "por cima", sem a barra reagir —
+  // comportamento antigo, pra quem prefere o notch sempre do mesmo tamanho.
+  property bool notchExpandForPopups: true
+
   // ── Estado de expansão ─────────────────────────────────────────────────
   property real _contentW: leftRow.implicitWidth + centerRow.implicitWidth + rightRow.implicitWidth
                            + (leftRow.implicitWidth  > 0 ? moduleSpacing : 0)
                            + (rightRow.implicitWidth > 0 ? moduleSpacing : 0)
 
-  property real _lobeW:  Math.max(60, _contentW + lobePadH * 2)
+  readonly property real _naturalLobeW: Math.max(60, _contentW + lobePadH * 2)
+
+  // Mesmo comportamento da Pill: quando um popup está aberto e é mais largo
+  // que o lobo natural, o lobo estica pra "abraçar" o popup (activePopupW +
+  // notchPopupPadding). Quando o popup é mais estreito que o conteúdo atual,
+  // o lobo não encolhe abaixo do necessário pro próprio conteúdo.
+  property real _lobeW: {
+    if (notchExpandForPopups && anyPanelOpen && activePopupW > 0) {
+      var expanded = activePopupW + notchPopupPadding
+      if (expanded > _naturalLobeW) return expanded
+    }
+    return _naturalLobeW
+  }
   property real _lobeH:  barSize
 
   property real _lobeX: (parent.width - _lobeW) / 2

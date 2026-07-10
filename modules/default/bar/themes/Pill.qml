@@ -33,7 +33,9 @@ Item {
   property bool anyPanelOpen: false
 
   // popupPillPadding: margem extra além da largura do popup para que a pill
-  // fique visivelmente maior e "abrace" o popup dos dois lados.
+  // fique visivelmente maior e "abrace" o popup dos dois lados. Configurável
+  // via BarTabBar (seção DIMENSÕES DA BARRA) — o default aqui só vale antes
+  // do Bar.qml injetar o valor de barState.config.popupPillPadding.
   property int popupPillPadding: 32
 
   // _naturalW: largura mínima da pill quando nenhum popup está aberto.

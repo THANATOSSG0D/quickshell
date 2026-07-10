@@ -3,7 +3,8 @@
         "barSize": true,
         "barMargin": true,
         "pillWidth": true,
-        "pillMinSpacing": true
+        "pillMinSpacing": true,
+        "popupPillPadding": true
     },
     "palette": {
         "barBg": true,

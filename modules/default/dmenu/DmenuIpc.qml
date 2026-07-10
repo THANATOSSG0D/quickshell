@@ -309,6 +309,18 @@ Item {
     root._routedInstance = routedInstance || root.barRoot
 
     ipcPanel.barRef         = activeBar
+    // Reaplica cornerMode/bgRadius/animationStyle/etc SEMPRE aqui, e não só
+    // via onBarRefChanged. Motivo: se o primeiro _showTop() da sessão rodar
+    // antes de root.barRoot terminar de inicializar (ex: dmenu disparado
+    // muito cedo por um keybind/autostart), activeBar resolve pra null — e
+    // como ipcPanel.barRef já COMEÇA null, atribuir null de novo não é uma
+    // mudança de valor real, então onBarRefChanged nunca dispara e
+    // _applyConfig() nunca roda com um _pc válido. cornerMode fica preso no
+    // default hardcoded do BarPopup ("all") até fechar e abrir de novo (aí
+    // sim barRef muda de verdade). Chamando direto aqui, incondicional,
+    // garante que a config correta é aplicada nesta abertura, mesmo quando
+    // barRef não mudou de identidade.
+    ipcPanel._applyConfig()
     // Lê popupW/popupH da PopupConfig DESTA instância (bar ou dock — a mesma
     // que _showTop() acabou de resolver para o roteamento), com fallback pra
     // dmenuConfig. Isso garante que o slider do ConfigWindow (que grava via

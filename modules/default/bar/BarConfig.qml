@@ -94,11 +94,14 @@ Item {
   property real moduleScale:    1.0
   property int  pillWidth:      400
   property int  pillMinSpacing: 20
+  property int  popupPillPadding: 32
   // Notch
   property int  notchRadius:    18
   property int  concaveRadius:  10
   property int  lobePadH:       14
   property int  notchTaper:     20
+  property int  notchPopupPadding: 32
+  property bool notchExpandForPopups: true
 
   property var modulesLeft:   []
   property var modulesCenter: []
@@ -117,6 +120,7 @@ Item {
     root.moduleScale    = get("bar", "moduleScale")
     root.pillWidth      = get("bar", "pillWidth")
     root.pillMinSpacing = get("bar", "pillMinSpacing")
+    root.popupPillPadding = get("bar", "popupPillPadding")
     // SEM fallback "|| default" aqui: 0 é um valor válido (raio/inclinação
     // zerados) e agora o schema (BarSchema) já cobre o default quando não
     // há override nem valor no tema — usar "||" fazia 0 virar sempre o
@@ -125,6 +129,8 @@ Item {
     root.concaveRadius  = get("bar", "concaveRadius")
     root.lobePadH       = get("bar", "lobePadH")
     root.notchTaper     = get("bar", "notchTaper")
+    root.notchPopupPadding = get("bar", "notchPopupPadding")
+    root.notchExpandForPopups = get("bar", "notchExpandForPopups")
 
     root.modulesLeft   = getModules("left")
     root.modulesCenter = getModules("center")
@@ -396,10 +402,13 @@ Item {
     if (opts.moduleScale    !== undefined) set("bar", "moduleScale",    opts.moduleScale)
     if (opts.pillWidth      !== undefined) set("bar", "pillWidth",      opts.pillWidth)
     if (opts.pillMinSpacing !== undefined) set("bar", "pillMinSpacing", opts.pillMinSpacing)
+    if (opts.popupPillPadding !== undefined) set("bar", "popupPillPadding", opts.popupPillPadding)
     if (opts.notchRadius    !== undefined) set("bar", "notchRadius",    opts.notchRadius)
     if (opts.concaveRadius  !== undefined) set("bar", "concaveRadius",  opts.concaveRadius)
     if (opts.lobePadH       !== undefined) set("bar", "lobePadH",       opts.lobePadH)
     if (opts.notchTaper     !== undefined) set("bar", "notchTaper",     opts.notchTaper)
+    if (opts.notchPopupPadding !== undefined) set("bar", "notchPopupPadding", opts.notchPopupPadding)
+    if (opts.notchExpandForPopups !== undefined) set("bar", "notchExpandForPopups", opts.notchExpandForPopups)
 
     // ── Listas de módulos do layout — por tema, via setModules() ───────
     if (opts.modulesLeft    !== undefined) setModules("left",   opts.modulesLeft)

@@ -40,7 +40,20 @@ Item {
   // Passadas pelo ConfigWindow (bar.popupConfigRef / dockBar.popupConfigRef).
   property var popupConfigBar:  null
   property var popupConfigDock: null
+  // _hasDock: existe uma PopupConfig própria da Dock passada aqui — usada só
+  // pra decidir se dá pra EDITAR cores/dimensões dos popups da Dock (aba de
+  // popups, subtabs 1-7 quando "Dock" é o alvo efetivo).
   readonly property bool _hasDock: root.popupConfigDock !== null
+  // _hasDockInstance: existe uma INSTÂNCIA de Dock de verdade rodando e
+  // registrada no PanelRouter (Bar.qml da dock chamou registerInstance).
+  // É isso — e SÓ isso — que decide se "Dock" aparece como opção de
+  // ROTEAMENTO (onde um painel abre por keybind/IPC). Não depende de
+  // popupConfigDock: rotear pra dock não precisa de PopupConfig nenhuma,
+  // só precisa que a instância exista. Antes essas duas coisas usavam a
+  // mesma flag (_hasDock) — se popupConfigDock não estivesse setado (ou
+  // chegasse depois), "Dock" nunca aparecia no dropdown de roteamento,
+  // mesmo com a dock rodando normalmente.
+  readonly property bool _hasDockInstance: PanelRouter.availableInstances().indexOf("dock") !== -1
 
   // ── Qual instância esta aba está editando/roteando agora ────────────────
   // UM SÓ controle no lugar dos dois seletores de antes: o mesmo dropdown
@@ -86,7 +99,7 @@ Item {
     if (root._routeModule === "") return root._manualTarget
     var ov = PanelRouter.get(root._routeModule)
     if (ov === "bar" || ov === "dock") return ov
-    return root._hasDock ? PanelRouter.resolveInstanceId(root._routeModule, root._routeSearchModule) : "bar"
+    return PanelRouter.resolveInstanceId(root._routeModule, root._routeSearchModule)
   }
 
   readonly property var _pc: (root._effectiveTarget === "dock" && root._hasDock)
@@ -224,7 +237,7 @@ Item {
   readonly property var _headerOptions: {
     if (root._routeModule !== "") {
       var opts = [{ id: "auto", label: "Automático" }, { id: "bar", label: "Barra" }]
-      if (root._hasDock) opts.push({ id: "dock", label: "Dock" })
+      if (root._hasDockInstance) opts.push({ id: "dock", label: "Dock" })
       return opts
     }
     return root._hasDock ? [{ id: "bar", label: "Barra" }, { id: "dock", label: "Dock" }] : []

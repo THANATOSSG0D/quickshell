@@ -85,6 +85,16 @@ C.CfgScroll {
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ pillMinSpacing: v })
   }
+  C.CfgSlider {
+    // Margem extra somada à largura do popup aberto quando a pill estica pra
+    // "abraçá-lo" (ver Pill.qml::_targetWidth).
+    label: "Padding do popup"; value: root.gd("popupPillPadding", 32)
+    from: 0; to: 100; step: 4; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["popupPillPadding"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ popupPillPadding: v })
+  }
 
   // ── Notch — campos exclusivos, visíveis só quando o contrato do tema os declara
   C.CfgDiv { colorDivider: root.colorDivider; visible: !root.contract.bar || !!root.contract.bar["notchRadius"] }
@@ -120,6 +130,25 @@ C.CfgScroll {
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ notchTaper: v })
+  }
+  C.CfgSlider {
+    // Margem extra somada à largura do popup aberto quando o lobo estica pra
+    // "abraçá-lo" (ver Notch.qml::_lobeW) — mesmo conceito da Pill.
+    label: "Padding do popup"; value: root.gd("notchPopupPadding", 32)
+    from: 0; to: 100; step: 4; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["notchPopupPadding"]
+    enabled: root.gd("notchExpandForPopups", true) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ notchPopupPadding: v })
+  }
+  C.CfgToggle {
+    label:        "Esticar pro popup"
+    checked:      root.gd("notchExpandForPopups", true) === true
+    visible:      !root.contract.bar || !!root.contract.bar["notchExpandForPopups"]
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ notchExpandForPopups: !(root.gd("notchExpandForPopups", true) === true) })
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

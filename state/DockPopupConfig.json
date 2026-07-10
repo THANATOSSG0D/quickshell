@@ -5,6 +5,10 @@
     },
     "overrides": {
         "DmenuPopup": {
+            "animDuration": 400,
+            "animationStyle": "reveal",
+            "bgOpacity": 1,
+            "colorPanelBg": "background",
             "cornerMode": "bar",
             "popupW": 480
         },

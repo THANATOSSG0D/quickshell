@@ -49,6 +49,7 @@ QtObject {
         { key:"moduleScale",    type:"real", default:1.0, min:0.5, max:2.0,  step:0.05, unit:"x", label:"Escala dos módulos", section:"DIMENSÕES" },
         { key:"pillWidth",      type:"int",  default:400, min:100, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
         { key:"pillMinSpacing", type:"int",  default:20,  min:0,   max:100,  step:5,  unit:"px", label:"Espaçamento mín.", section:"DIMENSÕES" },
+        { key:"popupPillPadding", type:"int", default:32, min:0,  max:100,  step:4,  unit:"px", label:"Padding do popup", section:"DIMENSÕES" },
         // Notch — antes viviam só como fallback hardcoded (`|| 18` etc.) espalhado
         // pelo código; registrados aqui para que get()/defaultValue() os resolvam
         // corretamente e o valor 0 deixe de ser tratado como "não setado".
@@ -56,6 +57,8 @@ QtObject {
         { key:"concaveRadius",  type:"int",  default:10,  min:0,   max:30,   step:1,  unit:"px", label:"Côncavo lateral",  section:"NOTCH" },
         { key:"lobePadH",       type:"int",  default:14,  min:0,   max:40,   step:2,  unit:"px", label:"Padding horizontal", section:"NOTCH" },
         { key:"notchTaper",     type:"int",  default:20,  min:0,   max:60,   step:2,  unit:"px", label:"Inclinação trapézio", section:"NOTCH" },
+        { key:"notchPopupPadding", type:"int", default:32, min:0,  max:100,  step:4,  unit:"px", label:"Padding do popup", section:"NOTCH" },
+        { key:"notchExpandForPopups", type:"bool", default:true, label:"Esticar pro popup", section:"NOTCH" },
       ]
     },
 

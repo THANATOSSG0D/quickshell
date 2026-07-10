@@ -170,7 +170,7 @@ PanelWindow {
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
       subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
-    { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: ["Relógio"] },
+    { id: "widgets",    icon: "\uf521", label: "Widgets",    subtabs: ["Relógio", "Lista de tarefas", "Calendário", "Clima"] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 

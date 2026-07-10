@@ -5,8 +5,8 @@
     "dateFormat": "dddd · MMM dd",
     "edgeMargin": 48,
     "fontSizeDate": 16,
-    "fontSizeTime": 72,
-    "position": 6,
+    "fontSizeTime": 48,
+    "position": 0,
     "showDate": true,
     "showLine": true,
     "use24h": false

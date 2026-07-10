@@ -1,0 +1,11 @@
+{
+    "colorText": "on_surface",
+    "colorToday": "primary",
+    "colorWeekend": "on_surface",
+    "edgeMargin": 48,
+    "fontSize": 14,
+    "fontSizeHeader": 16,
+    "position": 3,
+    "showWeekNumbers": false,
+    "weekStartsMonday": false
+}

@@ -118,6 +118,7 @@
                     "right": [
                     ]
                 },
+                "notchPopupPadding": 52,
                 "notchRadius": 40,
                 "notchTaper": 24,
                 "pillMinSpacing": 10,
@@ -133,6 +134,9 @@
                 "textColorActive": "primary",
                 "textMode": "artist",
                 "textStatic": true
+            },
+            "palette": {
+                "barBg": "background"
             },
             "volume": {
                 "showSource": false

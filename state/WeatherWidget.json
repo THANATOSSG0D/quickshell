@@ -1,0 +1,15 @@
+{
+    "cityLabel": "Belo Horizonte",
+    "colorDesc": "on_surface",
+    "colorTemp": "primary",
+    "edgeMargin": 48,
+    "fontSizeDesc": 14,
+    "fontSizeTemp": 48,
+    "latitude": -19.9167,
+    "longitude": -43.9345,
+    "position": 6,
+    "showFeelsLike": true,
+    "showIcon": true,
+    "units": "celsius",
+    "updateIntervalMin": 15
+}

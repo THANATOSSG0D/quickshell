@@ -330,6 +330,15 @@ Scope {
       WlrLayershell.layer: WlrLayershell.Top
       focusable: false
       exclusionMode: ExclusionMode.Normal
+      // mask vazio → zero área de input capturada por esta superfície.
+      // exclusiveZone (layout/reserva de espaço) e input region (clique) são
+      // coisas independentes no wlr-layer-shell — reservar espaço não exige
+      // capturar clique. Sem isso, mesmo sendo transparente, essa PanelWindow
+      // bloqueia todo clique que cai na área reservada (ex: janela em
+      // fullscreen por baixo dela), já que por padrão uma PanelWindow captura
+      // input em toda a superfície. A barra visual (mais abaixo, id: bar) NÃO
+      // recebe esse mask — continua clicável normalmente, só o tema/módulos.
+      mask: Region {}
       // pinned força a reserva de zona mesmo com autoHide ligado — mesmo
       // comportamento de ter desligado "Auto-ocultar" manualmente.
       // alwaysVisible NÃO reserva zona, em NENHUM caso (mesmo com autoHide
@@ -337,10 +346,11 @@ Scope {
       // (inclusive fullscreen) sem empurrar/reservar espaço para as
       // janelas — janelas podem ocupar a área por baixo dela livremente.
       exclusiveZone: {
-        if (!barState._configReady)                     return 0
-        if (barState.alwaysVisible)                      return 0
-        if (barState.autoHide && !barState.pinned)        return 0
-        return barRoot.themeBarSize
+          if (!barState._configReady)                     return 0
+          if (barState.alwaysVisible)                      return 0
+          if (barState.autoHide && !barState.pinned)        return 0
+          if (barState.floating)                           return 0   // ← novo
+          return barRoot.themeBarSize
       }
       aboveWindows:  false
 
@@ -593,7 +603,7 @@ Scope {
       // Hyprland atrás de fullscreen; Overlay não). "pinned" (antigo
       // alwaysVisible) NÃO força Overlay — só impede o auto-hide/peek, então
       // continua podendo ficar atrás de uma janela fullscreen.
-      WlrLayershell.layer: (bar.effectiveAutoHide || barState.alwaysVisible) ? WlrLayershell.Overlay : WlrLayershell.Top
+      WlrLayershell.layer: (bar.effectiveAutoHide || barState.alwaysVisible || barState.floating) ? WlrLayershell.Overlay : WlrLayershell.Top
 
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
@@ -754,6 +764,9 @@ Scope {
       Binding { target: loader.item; property: "concaveRadius"; value: barState.config.concaveRadius; when: loader.item !== null && "concaveRadius" in (loader.item || {}) }
       Binding { target: loader.item; property: "lobePadH";      value: barState.config.lobePadH;      when: loader.item !== null && "lobePadH"      in (loader.item || {}) }
       Binding { target: loader.item; property: "notchTaper";    value: barState.config.notchTaper;    when: loader.item !== null && "notchTaper"    in (loader.item || {}) }
+      Binding { target: loader.item; property: "popupPillPadding"; value: barState.config.popupPillPadding; when: loader.item !== null && "popupPillPadding" in (loader.item || {}) }
+      Binding { target: loader.item; property: "notchPopupPadding"; value: barState.config.notchPopupPadding; when: loader.item !== null && "notchPopupPadding" in (loader.item || {}) }
+      Binding { target: loader.item; property: "notchExpandForPopups"; value: barState.config.notchExpandForPopups; when: loader.item !== null && "notchExpandForPopups" in (loader.item || {}) }
 
       // Props que NUNCA devem ser multiplicadas por moduleScale, mesmo que o
       // nome bata com o padrão abaixo (ex.: "concaveRadius"/"notchRadius"
@@ -789,6 +802,9 @@ Scope {
         _set("concaveRadius", barState.config.concaveRadius)
         _set("lobePadH",      barState.config.lobePadH)
         _set("notchTaper",    barState.config.notchTaper)
+        _set("popupPillPadding", barState.config.popupPillPadding)
+        _set("notchPopupPadding", barState.config.notchPopupPadding)
+        _set("notchExpandForPopups", barState.config.notchExpandForPopups)
 
         // workspaces
         _set("cfgWsStyle",          barState.config.wsStyle)
@@ -811,6 +827,22 @@ Scope {
         _set("cfgWsShowAddButton",  barState.config.wsShowAddButton)
         _set("cfgWsShowTooltip",    barState.config.wsShowTooltip)
         _set("cfgWsSpacing",        barState.config.wsSpacing)
+
+        // ── Workspaces — Focus (reveal) ──────────────────────────────────
+        // Faltavam aqui: só existiam no Connections.onXxxChanged (linha ~950),
+        // que só dispara numa MUDANÇA em tempo real. No cold-start o valor já
+        // nasce correto (lido do JSON) e nunca "muda" — então o Connections
+        // nunca dispara e o tema fica preso no default hardcoded do QML.
+        _set("cfgWsRevealMode",           barState.config.wsRevealMode)
+        _set("cfgWsHoverRevealDelayMs",   barState.config.wsHoverRevealDelayMs)
+        _set("cfgWsClickCollapseMode",    barState.config.wsClickCollapseMode)
+        _set("cfgWsClickRevealTimeoutMs", barState.config.wsClickRevealTimeoutMs)
+
+        // ── Workspaces — Scroll ────────────────────────────────────────────
+        // Mesmo bug do bloco acima (só existiam no Connections live).
+        _set("cfgWsScrollEnabled", barState.config.wsScrollEnabled)
+        _set("cfgWsScrollAction",  barState.config.wsScrollAction)
+        _set("cfgWsScrollInvert",  barState.config.wsScrollInvert)
         // workspace ativa
         _set("cfgWsBgColorActive",       barState.config.paletteWsBgColorActive)
         _set("cfgWsBgOpacityActive",     barState.config.wsBgOpacityActive)

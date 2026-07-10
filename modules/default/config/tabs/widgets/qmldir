@@ -1,2 +1,8 @@
 module config.tabs.widgets
 WidgetsTab 1.0 WidgetsTab.qml
+WidgetsTabClock 1.0 WidgetsTabClock.qml
+WidgetsTabTodo 1.0 WidgetsTabTodo.qml
+WidgetsTabCalendar 1.0 WidgetsTabCalendar.qml
+WidgetsTabWeather 1.0 WidgetsTabWeather.qml
+PositionGrid 1.0 PositionGrid.qml
+ResetButton 1.0 ResetButton.qml
