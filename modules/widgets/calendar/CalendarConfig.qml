@@ -13,6 +13,9 @@ Item {
   property int fontSizeHeader: 16
   property bool weekStartsMonday: true
   property bool showWeekNumbers: false
+  // marca no grid os dias que têm tarefas (TodoWidget) com um pontinho na
+  // cor da tarefa de maior prioridade daquele dia
+  property bool showTaskDots: true
 
   property string colorToday:   "primary"
   property string colorWeekend: "on_surface"
@@ -33,6 +36,7 @@ Item {
       property int fontSizeHeader: 16
       property bool weekStartsMonday: true
       property bool showWeekNumbers: false
+      property bool showTaskDots: true
       property string colorToday:   "primary"
       property string colorWeekend: "on_surface"
       property string colorText:    "on_surface"
@@ -43,6 +47,7 @@ Item {
       onFontSizeHeaderChanged:   config.fontSizeHeader    = fontSizeHeader
       onWeekStartsMondayChanged: config.weekStartsMonday  = weekStartsMonday
       onShowWeekNumbersChanged:  config.showWeekNumbers   = showWeekNumbers
+      onShowTaskDotsChanged:     config.showTaskDots      = showTaskDots
       onColorTodayChanged:       config.colorToday        = colorToday
       onColorWeekendChanged:     config.colorWeekend      = colorWeekend
       onColorTextChanged:        config.colorText         = colorText
@@ -55,6 +60,7 @@ Item {
   onFontSizeHeaderChanged:   adapter.fontSizeHeader   = fontSizeHeader
   onWeekStartsMondayChanged: adapter.weekStartsMonday = weekStartsMonday
   onShowWeekNumbersChanged:  adapter.showWeekNumbers  = showWeekNumbers
+  onShowTaskDotsChanged:     adapter.showTaskDots     = showTaskDots
   onColorTodayChanged:       adapter.colorToday       = colorToday
   onColorWeekendChanged:     adapter.colorWeekend     = colorWeekend
   onColorTextChanged:        adapter.colorText        = colorText

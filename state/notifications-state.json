@@ -2,5 +2,66 @@
   "doNotDisturb": false,
   "dndAllowCritical": true,
   "toastPosition": "bottom-right",
-  "history": []
+  "history": [
+    {
+      "id": 3,
+      "appName": "Tarefas",
+      "appIcon": "",
+      "image": "",
+      "summary": "Tarefa vence hoje",
+      "body": "atualizar os pacotes do sistema",
+      "urgency": 1,
+      "timestamp": 1783795453237,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    },
+    {
+      "id": 1,
+      "appName": "Tarefas",
+      "appIcon": "",
+      "image": "",
+      "summary": "Tarefa vence hoje",
+      "body": "atualizar os pacotes do sistema",
+      "urgency": 1,
+      "timestamp": 1783795275172,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    },
+    {
+      "id": 2,
+      "appName": "Tarefas",
+      "appIcon": "",
+      "image": "",
+      "summary": "Tarefa vence hoje",
+      "body": "atualizar os pacotes e containers do homelab",
+      "urgency": 1,
+      "timestamp": 1783795084689,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    },
+    {
+      "id": 4,
+      "appName": "kitty",
+      "appIcon": "/usr/lib/kitty/logo/kitty.png",
+      "image": "",
+      "summary": "Failed (4) after 58s",
+      "body": "~/WWW/.ansible/ ansible-playbook  update_server.yml",
+      "urgency": 1,
+      "timestamp": 1783794505074,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    }
+  ]
 }

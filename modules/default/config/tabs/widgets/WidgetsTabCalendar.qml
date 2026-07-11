@@ -67,6 +67,13 @@ Item {
       onToggled: calCfg.weekStartsMonday = !calCfg.weekStartsMonday
     }
 
+    C.CfgToggle {
+      label: "Marcar dias com tarefas"
+      checked: calCfg.showTaskDots
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: calCfg.showTaskDots = !calCfg.showTaskDots
+    }
+
     C.CfgDiv { colorDivider: root.colorDivider }
     C.CfgSection { title: "CORES"; colorTextDim: root.colorTextDim }
 
@@ -113,6 +120,7 @@ Item {
         calCfg.fontSizeHeader   = 16
         calCfg.weekStartsMonday = true
         calCfg.showWeekNumbers  = false
+        calCfg.showTaskDots     = true
         calCfg.colorToday       = "primary"
         calCfg.colorWeekend     = "on_surface"
         calCfg.colorText        = "on_surface"

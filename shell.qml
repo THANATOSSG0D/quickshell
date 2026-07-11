@@ -8,6 +8,7 @@ import "modules/widgets/clock"
 import "modules/widgets/todo"
 import "modules/widgets/calendar"
 import "modules/widgets/weather"
+import "modules/widgets"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
@@ -20,6 +21,11 @@ Scope {
   TodoWidget {}
   CalendarWidget {}
   WeatherWidget {}
+  WidgetHost {}
+
+  // Lembretes de tarefa vencida/vencendo hoje via notify-send — instância
+  // única (evita notificação duplicada; ver TodoReminderService.qml).
+  TodoReminderService {}
 
   OsdModule.Osd {
     id: osd

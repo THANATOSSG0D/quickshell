@@ -4,5 +4,6 @@ WidgetsTabClock 1.0 WidgetsTabClock.qml
 WidgetsTabTodo 1.0 WidgetsTabTodo.qml
 WidgetsTabCalendar 1.0 WidgetsTabCalendar.qml
 WidgetsTabWeather 1.0 WidgetsTabWeather.qml
+WidgetsTabCombine 1.0 WidgetsTabCombine.qml
 PositionGrid 1.0 PositionGrid.qml
 ResetButton 1.0 ResetButton.qml

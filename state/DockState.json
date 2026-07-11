@@ -14,9 +14,9 @@
         "Pill": {
             "bar": {
                 "autoHide": false,
-                "barMargin": 5,
-                "barSize": 30,
-                "moduleScale": 0.85,
+                "barMargin": 2,
+                "barSize": 24,
+                "moduleScale": 0.75,
                 "modules": {
                     "center": [
                         "workspaces"
@@ -63,7 +63,7 @@
                     "revealMode": "click"
                 },
                 "iconMonochrome": false,
-                "iconSize": 16,
+                "iconSize": 20,
                 "iconSpacing": 4,
                 "numberBgEnabled": true,
                 "numberBgPaddingH": 0,

@@ -26,6 +26,9 @@ Item {
 
   anchors.fill: parent
 
+  // Ordem tem que bater com _allModules["widgets"].subtabs em ConfigWindow.qml:
+  //   0 Relógio · 1 Lista de tarefas · 2 Calendário · 3 Clima · 4 Combinar
+
   Loader {
     id: subLoader
     anchors.fill: parent
@@ -35,6 +38,7 @@ Item {
         case 1:  return _todoTab
         case 2:  return _calendarTab
         case 3:  return _weatherTab
+        case 4:  return _combineTab
         default: return _clockTab
       }
     }
@@ -70,6 +74,15 @@ Item {
   Component {
     id: _weatherTab
     WidgetsTabWeather {
+      overlay: root.overlay; colors: root.colors
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      colorText: root.colorText; colorDivider: root.colorDivider
+      colorSidebar: root.colorSidebar; colorProgressBg: root.colorProgressBg
+    }
+  }
+  Component {
+    id: _combineTab
+    WidgetsTabCombine {
       overlay: root.overlay; colors: root.colors
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorDivider: root.colorDivider

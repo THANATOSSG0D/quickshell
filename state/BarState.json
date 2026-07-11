@@ -118,8 +118,8 @@
                     "right": [
                     ]
                 },
-                "notchPopupPadding": 52,
-                "notchRadius": 40,
+                "notchPopupPadding": 56,
+                "notchRadius": 20,
                 "notchTaper": 24,
                 "pillMinSpacing": 10,
                 "position": 1

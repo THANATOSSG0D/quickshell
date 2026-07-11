@@ -1,0 +1,11 @@
+{
+    "edgeMargin": 20,
+    "groupEnabled": true,
+    "members": [
+        "clock",
+        "weather",
+        "calendar",
+        "todo"
+    ],
+    "position": 0
+}

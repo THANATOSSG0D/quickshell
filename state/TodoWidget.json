@@ -6,5 +6,31 @@
     "showCompleted": true,
     "sortBy": "priority",
     "tasks": [
+        {
+            "created": "2026-07-11T18:21:11.076Z",
+            "done": false,
+            "due": "2026-07-11",
+            "id": "1783794071076-22",
+            "lastCompleted": "",
+            "priority": "media",
+            "recurrence": "weekly",
+            "tags": [
+                "system"
+            ],
+            "text": "atualizar os pacotes do sistema"
+        },
+        {
+            "created": "2026-07-11T18:22:03.543Z",
+            "done": false,
+            "due": "2026-08-11",
+            "id": "1783794123543-236",
+            "lastCompleted": "2026-07-11T18:38:58.808Z",
+            "priority": "media",
+            "recurrence": "monthly",
+            "tags": [
+                "system"
+            ],
+            "text": "atualizar os pacotes e containers do homelab"
+        }
     ]
 }
