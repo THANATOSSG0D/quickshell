@@ -19,6 +19,15 @@ Scope {
   // por id dentro do delegate abaixo).
   TodoAddWindow { id: addTaskWindow }
 
+  // Painel grande (Kanban / Progresso / Agenda) — mesma ideia, uma
+  // instância só, reaproveitada. Edição de tarefa dentro do painel abre a
+  // mesma TodoAddWindow acima.
+  TodoDashboard {
+    id: dashboardWindow
+    onEditTaskRequested: (task) => addTaskWindow.openEdit(task)
+    onAddTaskRequested: addTaskWindow.openForm()
+  }
+
   Variants {
     model: layoutCfg.isGrouped("todo") ? [] : Quickshell.screens
 
@@ -69,6 +78,7 @@ Scope {
             grouped: false
             onAddTaskRequested: addTaskWindow.openForm()
             onEditTaskRequested: (task) => addTaskWindow.openEdit(task)
+            onDashboardRequested: dashboardWindow.open()
           }
         }
       }

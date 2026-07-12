@@ -70,8 +70,8 @@
                 "numberBgPaddingV": 0,
                 "numberBgRadius": 4,
                 "scrollAction": "workspace",
-                "scrollEnabled": false,
-                "scrollInvert": true,
+                "scrollEnabled": true,
+                "scrollInvert": false,
                 "showAddButton": true,
                 "spacing": 4,
                 "style": "focus"

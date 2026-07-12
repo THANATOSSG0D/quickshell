@@ -25,6 +25,7 @@ Item {
   property string newText: ""
   property string newPriority: "media"
   property string newDue: ""
+  property string newTime: ""
   property string newTags: ""
   property string newRecurrence: "none"
   property bool showDatePicker: false
@@ -47,10 +48,12 @@ Item {
   ]
 
   function resetForm() {
-    newText = ""; newPriority = "media"; newDue = ""
+    newText = ""; newPriority = "media"; newDue = ""; newTime = ""
     newTags = ""; newRecurrence = "none"; showDatePicker = false
-    taskInput.text = ""; tagsInput.text = ""
+    taskInput.text = ""; tagsInput.text = ""; timeInput.text = ""
   }
+
+  function isValidTime(s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) }
 
   C.CfgScroll {
 
@@ -104,6 +107,66 @@ Item {
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
+    C.CfgSection { title: "PRAZOS"; colorTextDim: root.colorTextDim }
+
+    C.CfgSlider {
+      label: "Prazo \"próximo\" (aparece por extenso na lista)"; from: 1; to: 30; step: 1; unit: " dias"
+      value: todoCfg.dueSoonDays
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      colorText: root.colorText; colorProgressBg: root.colorProgressBg
+      onMoved: (v) => todoCfg.dueSoonDays = v
+    }
+
+    C.CfgToggle {
+      label: "Ocultar tarefas com prazo muito distante"
+      checked: todoCfg.hideFarTasks
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: todoCfg.hideFarTasks = !todoCfg.hideFarTasks
+    }
+
+    C.CfgDiv { colorDivider: root.colorDivider }
+    C.CfgSection { title: "LEMBRETES"; colorTextDim: root.colorTextDim }
+
+    Text {
+      width: parent.width
+      wrapMode: Text.WordWrap
+      text: "Tarefas com horário definido notificam individualmente, na hora. Tarefas do dia sem horário entram num resumo, disparado nos horários abaixo."
+      color: root.colorTextDim
+      font.pixelSize: 10
+    }
+
+    Rectangle {
+      width: parent.width; height: 26; radius: 6
+      color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.06)
+      border.color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.15)
+      border.width: 1
+
+      TextInput {
+        id: summaryTimesInput
+        anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+        verticalAlignment: TextInput.AlignVCenter
+        color: root.colorText
+        font.pixelSize: 12
+        text: (todoCfg.summaryTimes || []).join(", ")
+
+        Text {
+          text: "horários, ex: 08:00, 20:00"
+          color: root.colorTextDim
+          font: summaryTimesInput.font
+          visible: !summaryTimesInput.text.length && !summaryTimesInput.activeFocus
+          anchors.verticalCenter: parent.verticalCenter
+        }
+
+        onEditingFinished: {
+          const parsed = text.split(",")
+            .map(function(s) { return s.trim() })
+            .filter(function(s) { return root.isValidTime(s) })
+          todoCfg.summaryTimes = parsed
+        }
+      }
+    }
+
+    C.CfgDiv { colorDivider: root.colorDivider }
     C.CfgSection { title: "NOVA TAREFA"; colorTextDim: root.colorTextDim }
 
     Rectangle {
@@ -129,32 +192,64 @@ Item {
         }
 
         onAccepted: {
-          todoCfg.addTask(root.newText, root.newPriority, root.newDue, root.newTags, root.newRecurrence)
+          todoCfg.addTask(root.newText, root.newPriority, root.newDue, root.newTags, root.newRecurrence,
+            root.isValidTime(root.newTime) ? root.newTime : "")
           root.resetForm()
         }
       }
     }
 
-    Rectangle {
-      width: parent.width; height: 26; radius: 6
-      color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.06)
-      border.color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.15)
-      border.width: 1
+    Row {
+      width: parent.width
+      spacing: 6
 
-      TextInput {
-        id: tagsInput
-        anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-        verticalAlignment: TextInput.AlignVCenter
-        color: root.colorText
-        font.pixelSize: 11
-        onTextChanged: root.newTags = text
+      Rectangle {
+        width: parent.width - 96; height: 26; radius: 6
+        color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.06)
+        border.color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.15)
+        border.width: 1
 
-        Text {
-          text: "tags (separadas por vírgula)"
-          color: root.colorTextDim
-          font: tagsInput.font
-          visible: !tagsInput.text.length && !tagsInput.activeFocus
-          anchors.verticalCenter: parent.verticalCenter
+        TextInput {
+          id: tagsInput
+          anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+          verticalAlignment: TextInput.AlignVCenter
+          color: root.colorText
+          font.pixelSize: 11
+          onTextChanged: root.newTags = text
+
+          Text {
+            text: "tags (separadas por vírgula)"
+            color: root.colorTextDim
+            font: tagsInput.font
+            visible: !tagsInput.text.length && !tagsInput.activeFocus
+            anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+      }
+
+      Rectangle {
+        width: 90; height: 26; radius: 6
+        color: Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.06)
+        border.color: (root.newTime.length > 0 && !root.isValidTime(root.newTime))
+          ? "#e5484d" : Qt.rgba(root.colorText.r, root.colorText.g, root.colorText.b, 0.15)
+        border.width: 1
+
+        TextInput {
+          id: timeInput
+          anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+          verticalAlignment: TextInput.AlignVCenter
+          color: root.colorText
+          font.pixelSize: 11
+          maximumLength: 5
+          onTextChanged: root.newTime = text
+
+          Text {
+            text: "HH:MM"
+            color: root.colorTextDim
+            font: timeInput.font
+            visible: !timeInput.text.length && !timeInput.activeFocus
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
       }
     }
@@ -255,7 +350,8 @@ Item {
       MouseArea {
         id: addMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
         onClicked: {
-          todoCfg.addTask(root.newText, root.newPriority, root.newDue, root.newTags, root.newRecurrence)
+          todoCfg.addTask(root.newText, root.newPriority, root.newDue, root.newTags, root.newRecurrence,
+            root.isValidTime(root.newTime) ? root.newTime : "")
           root.resetForm()
         }
       }
@@ -308,7 +404,7 @@ Item {
 
             Text {
               visible: !!modelData.due
-              text: modelData.due
+              text: modelData.due + (modelData.time ? " " + modelData.time : "")
               color: root.colorTextDim
               font.pixelSize: 10
             }

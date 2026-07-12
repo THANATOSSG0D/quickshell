@@ -2,8 +2,8 @@
     "edgeMargin": 20,
     "groupEnabled": true,
     "members": [
-        "clock",
         "weather",
+        "clock",
         "calendar",
         "todo"
     ],

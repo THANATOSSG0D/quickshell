@@ -49,6 +49,17 @@ PanelWindow {
     { id: "weekly",  label: "Semanal", icon: "↻" },
     { id: "monthly", label: "Mensal",  icon: "↻" },
   ]
+  // status é opcional — pensado pra tarefas mais longas/com etapas, onde
+  // vale a pena marcar que já começou ou que está travada esperando algo
+  readonly property var statusList: [
+    { id: "",        label: "—"             },
+    { id: "doing",   label: "Em andamento"  },
+    { id: "blocked", label: "Bloqueada"     },
+  ]
+  readonly property var statusColor: ({
+    doing:   "#5b9bd5",
+    blocked: "#e08a3c",
+  })
 
   // "" → criando tarefa nova; caso contrário, id da tarefa sendo editada
   // (ver openEdit()) — confirmForm() ramifica em addTask/updateTask com
@@ -59,9 +70,13 @@ PanelWindow {
   property string formText: ""
   property string formPriority: "media"
   property string formDue: ""
+  property string formTime: ""
   property string formTags: ""
   property string formRecurrence: "none"
+  property string formStatus: ""
   property bool showDatePicker: false
+
+  function isValidTime(s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) }
 
   function _reveal() {
     _closing = false; _alive = true
@@ -73,8 +88,8 @@ PanelWindow {
 
   function openForm() {
     editingTaskId = ""
-    formText = ""; formPriority = "media"; formDue = ""
-    formTags = ""; formRecurrence = "none"; showDatePicker = false
+    formText = ""; formPriority = "media"; formDue = ""; formTime = ""
+    formTags = ""; formRecurrence = "none"; formStatus = ""; showDatePicker = false
     _reveal()
   }
 
@@ -86,8 +101,10 @@ PanelWindow {
     formText       = task.text || ""
     formPriority   = task.priority || "media"
     formDue        = task.due || ""
+    formTime       = task.time || ""
     formTags       = (task.tags || []).join(", ")
     formRecurrence = task.recurrence || "none"
+    formStatus     = task.status || ""
     showDatePicker = false
     _reveal()
   }
@@ -95,17 +112,20 @@ PanelWindow {
   function cancelForm() { panelOpen = false }
   function confirmForm() {
     if (formText.trim().length > 0) {
+      const time = win.isValidTime(formTime) ? formTime : ""
       if (win.isEditing) {
         config.updateTask(win.editingTaskId, {
           text:       formText.trim(),
           priority:   formPriority,
           due:        formDue,
+          time:       time,
           tags:       config.normalizeTags(formTags),
           recurrence: formRecurrence,
+          status:     formStatus,
         })
         win.taskUpdated()
       } else {
-        config.addTask(formText, formPriority, formDue, formTags, formRecurrence)
+        config.addTask(formText, formPriority, formDue, formTags, formRecurrence, time, formStatus)
         win.taskAdded()
       }
     }
@@ -340,6 +360,48 @@ PanelWindow {
         }
       }
 
+      // ── Status (opcional, pra tarefas mais longas/com etapas) ─────────
+      ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 4
+        Text { text: "Status"; color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: config.fontSize - 6 }
+        Flow {
+          Layout.fillWidth: true
+          spacing: 6
+          Repeater {
+            model: win.statusList
+            delegate: Rectangle {
+              required property var modelData
+              readonly property bool active: win.formStatus === modelData.id
+              readonly property color dotColor: win.statusColor[modelData.id] || Qt.rgba(1, 1, 1, 0.35)
+              width: sRow.implicitWidth + 16; height: 24; radius: 12
+              color: active ? Qt.rgba(dotColor.r, dotColor.g, dotColor.b, 0.28) : Qt.rgba(1, 1, 1, 0.08)
+              border.color: active ? Qt.rgba(dotColor.r, dotColor.g, dotColor.b, 0.6) : "transparent"; border.width: 1
+
+              RowLayout {
+                id: sRow
+                anchors.centerIn: parent
+                spacing: 4
+                Rectangle {
+                  visible: modelData.id !== ""
+                  width: 6; height: 6; radius: 3
+                  color: parent.parent.dotColor
+                }
+                Text {
+                  text: modelData.label
+                  color: Colors[config.colorText]
+                  font.pixelSize: config.fontSize - 4
+                }
+              }
+              MouseArea {
+                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                onClicked: win.formStatus = modelData.id
+              }
+            }
+          }
+        }
+      }
+
       // ── Prazo ────────────────────────────────────────────────────────
       ColumnLayout {
         Layout.fillWidth: true
@@ -409,6 +471,70 @@ PanelWindow {
             anchors { fill: parent; margins: 6 }
             selectedDate: win.formDue
             onDateSelected: (date) => { win.formDue = date; win.showDatePicker = false }
+          }
+        }
+
+        // horário só faz sentido junto de um prazo — some quando "Sem prazo"
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: 4
+          spacing: 8
+          visible: win.formDue !== ""
+
+          Text { text: "Horário"; color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: config.fontSize - 6 }
+
+          Rectangle {
+            width: 70; height: 24; radius: 7
+            color: Qt.rgba(1, 1, 1, 0.08)
+            border.color: (win.formTime.length > 0 && !win.isValidTime(win.formTime))
+              ? "#e5484d"
+              : (timeInput.activeFocus ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.15))
+            border.width: 1
+            Behavior on border.color { ColorAnimation { duration: 80 } }
+
+            TextInput {
+              id: timeInput
+              anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
+              verticalAlignment: TextInput.AlignVCenter
+              color: Colors[config.colorText]
+              font { pixelSize: config.fontSize - 4; family: "Inter" }
+              maximumLength: 5
+              clip: true
+              text: win.formTime
+              onTextChanged: win.formTime = text
+              Keys.onEscapePressed: win.cancelForm()
+              onAccepted: win.confirmForm()
+
+              Text {
+                text: "--:--"
+                color: Qt.rgba(1, 1, 1, 0.35)
+                font: timeInput.font
+                visible: !timeInput.text.length && !timeInput.activeFocus
+                anchors.verticalCenter: parent.verticalCenter
+              }
+            }
+          }
+
+          Text {
+            visible: win.formTime !== ""
+            text: "limpar"
+            color: Qt.rgba(1, 1, 1, 0.4)
+            font { pixelSize: config.fontSize - 6; underline: clearTimeMa.containsMouse }
+            MouseArea {
+              id: clearTimeMa
+              anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+              onClicked: { win.formTime = ""; timeInput.text = "" }
+            }
+          }
+
+          Item { Layout.fillWidth: true }
+
+          Text {
+            text: "notifica na hora certa; sem horário, entra no resumo do dia"
+            color: Qt.rgba(1, 1, 1, 0.35)
+            font.pixelSize: config.fontSize - 7
+            wrapMode: Text.WordWrap
+            Layout.preferredWidth: 140
           }
         }
       }

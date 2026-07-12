@@ -25,9 +25,18 @@ Item {
   // ou se marcadas concluídas com showCompleted ligado)
   property bool hideFarTasks: true
 
+  // horários (HH:mm) em que tarefas do dia SEM horário próprio definido
+  // entram num resumo agendado via notify-send (ver TodoReminderService).
+  // Tarefas COM horário (task.time) notificam individualmente, na hora.
+  property var summaryTimes: ["08:00", "20:00"]
+
   // lista de tarefas:
-  // {id, text, done, priority, due, created, tags: [], recurrence, lastCompleted}
+  // {id, text, done, priority, due, time, created, tags: [], recurrence, lastCompleted, status}
   // recurrence: "none" | "daily" | "weekly" | "monthly"
+  // time: "" | "HH:mm" — horário específico dentro do dia do prazo (opcional)
+  // status: "" | "doing" | "blocked" — metadado extra pra tarefas mais
+  // longas/com etapas (não substitui "done", só marca "estou nisso agora"
+  // ou "travada esperando algo"); zera sozinho quando a tarefa é concluída
   property var tasks: []
 
   FileView {
@@ -47,6 +56,7 @@ Item {
       property string colorText: "on_surface"
       property int dueSoonDays: 7
       property bool hideFarTasks: true
+      property var summaryTimes: ["08:00", "20:00"]
       property var tasks: []
 
       onPositionChanged:      config.position      = position
@@ -57,6 +67,10 @@ Item {
       onColorTextChanged:     config.colorText     = colorText
       onDueSoonDaysChanged:   config.dueSoonDays   = dueSoonDays
       onHideFarTasksChanged:  config.hideFarTasks  = hideFarTasks
+      onSummaryTimesChanged: {
+        if (JSON.stringify(summaryTimes) !== JSON.stringify(config.summaryTimes))
+          config.summaryTimes = summaryTimes
+      }
       onTasksChanged: {
         if (JSON.stringify(tasks) !== JSON.stringify(config.tasks))
           config.tasks = tasks
@@ -72,6 +86,10 @@ Item {
   onColorTextChanged:     adapter.colorText     = colorText
   onDueSoonDaysChanged:   adapter.dueSoonDays   = dueSoonDays
   onHideFarTasksChanged:  adapter.hideFarTasks  = hideFarTasks
+  onSummaryTimesChanged: {
+    if (JSON.stringify(summaryTimes) !== JSON.stringify(adapter.summaryTimes))
+      adapter.summaryTimes = summaryTimes
+  }
   onTasksChanged: {
     if (JSON.stringify(tasks) !== JSON.stringify(adapter.tasks))
       adapter.tasks = tasks
@@ -99,7 +117,12 @@ Item {
     return Qt.formatDate(base, "yyyy-MM-dd")
   }
 
-  function addTask(text, priority, due, tags, recurrence) {
+  // "time" é opcional (HH:mm) — tarefa com horário próprio dispara um
+  // lembrete individual naquele horário (ver TodoReminderService); sem
+  // horário, a tarefa entra no resumo agendado (config.summaryTimes).
+  // "status" é opcional ("" | "doing" | "blocked") — pensado pra tarefas
+  // mais longas, que vale a pena marcar "em andamento" ou "bloqueada".
+  function addTask(text, priority, due, tags, recurrence, time, status) {
     if (!text || !text.trim()) return
     const t = tasks.slice()
     t.push({
@@ -108,10 +131,12 @@ Item {
       done: false,
       priority: priority || "media",
       due: due || "",
+      time: time || "",
       created: new Date().toISOString(),
       tags: normalizeTags(tags),
       recurrence: recurrence || "none",
       lastCompleted: "",
+      status: status || "",
     })
     tasks = t
   }
@@ -127,9 +152,12 @@ Item {
           done: false,
           due: config.computeNextDue(t.due, t.recurrence),
           lastCompleted: new Date().toISOString(),
+          status: "",
         })
       }
-      return Object.assign({}, t, { done: !t.done })
+      // ao concluir, status (em andamento/bloqueada) não faz mais sentido
+      const nowDone = !t.done
+      return Object.assign({}, t, { done: nowDone, status: nowDone ? "" : t.status })
     })
   }
 

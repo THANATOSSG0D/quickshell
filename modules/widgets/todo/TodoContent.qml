@@ -23,6 +23,9 @@ Item {
   // de edição (mesma janela do "+ nova tarefa", pré-preenchida)
   signal editTaskRequested(var task)
 
+  // abre o painel grande (Kanban / Progresso / Agenda) — TodoDashboard.qml
+  signal dashboardRequested()
+
   TodoConfig { id: config }
 
   readonly property var priorityColor: ({
@@ -42,6 +45,14 @@ Item {
     { id: "weekly",  label: "Semanal", icon: "↻" },
     { id: "monthly", label: "Mensal",  icon: "↻" },
   ]
+  readonly property var statusColor: ({
+    doing:   "#5b9bd5",
+    blocked: "#e08a3c",
+  })
+  readonly property var statusLabels: ({
+    doing:   "Em andamento",
+    blocked: "Bloqueada",
+  })
 
   // tarefas sem prazo definido, com prioridade alta ou média, ficam sempre
   // fixadas no topo da lista — inclusive quando há um filterDate ativo
@@ -79,13 +90,15 @@ Item {
   function isFarTask(t) {
     return !t.done && !!t.due && !root.isOverdueTask(t) && root.daysUntil(t.due) > config.dueSoonDays
   }
-  // quantas tarefas estão fora da lista agora só por causa do hideFarTasks
-  // (pra dar um indicador discreto — "sumiu" é diferente de "não existe")
-  function farHiddenCount() {
-    if (!config.hideFarTasks || root.filterDate) return 0
-    return config.tasks.filter(function(t) {
-      return (config.showCompleted || !t.done) && root.isFarTask(t)
-    }).length
+  // quaisquer tarefas que existem mas não aparecem na lista agora — seja
+  // por estarem "muito longe" (hideFarTasks) ou concluídas escondidas
+  // (showCompleted desligado). Filtro por data (filterDate) não conta como
+  // "oculto": é uma visão intencional, não algo escondido por engano.
+  function hiddenTasks() {
+    if (root.filterDate) return []
+    const visibleIds = {}
+    root.sortedTasks().forEach(function(t) { visibleIds[t.id] = true })
+    return config.tasks.filter(function(t) { return !visibleIds[t.id] })
   }
 
   function priorityLabel(id) {
@@ -154,6 +167,10 @@ Item {
     root.tooltipTask = null
   }
 
+  // painel expansível de tarefas ocultas, no fim da lista — não altera
+  // nenhuma config permanentemente, só dá uma espiada temporária
+  property bool showHiddenPanel: false
+
   // ── Modo LISTA ──────────────────────────────────────────────────────
   ColumnLayout {
     id: listLayout
@@ -172,6 +189,23 @@ Item {
           : "Tarefas · " + root.sortedTasks().filter(function(t) { return !t.done }).length + " pendentes"
         color: Colors[config.colorText]
         font { pixelSize: config.fontSize; family: "Inter"; weight: Font.DemiBold }
+      }
+
+      Rectangle {
+        width: 18; height: 18; radius: 5
+        color: dashboardMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+        Behavior on color { ColorAnimation { duration: 80 } }
+        Text {
+          anchors.centerIn: parent
+          text: "\uf0e4"
+          color: Colors[config.colorText]
+          font { pixelSize: 9; family: "JetBrainsMono Nerd Font" }
+        }
+        MouseArea {
+          id: dashboardMa
+          anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+          onClicked: root.dashboardRequested()
+        }
       }
 
       Rectangle {
@@ -265,6 +299,21 @@ Item {
                 color: root.priorityColor[modelData.priority] || "#999999"
               }
 
+              Rectangle {
+                visible: !!modelData.status && root.statusColor[modelData.status] !== undefined
+                Layout.preferredWidth: statusDot.implicitWidth + 2
+                Layout.preferredHeight: 12
+                radius: 6
+                color: Qt.rgba(1, 1, 1, 0.1)
+                Text {
+                  id: statusDot
+                  anchors.centerIn: parent
+                  text: modelData.status === "doing" ? "\uf04b" : (modelData.status === "blocked" ? "\uf05e" : "")
+                  color: root.statusColor[modelData.status] || Qt.rgba(1, 1, 1, 0.5)
+                  font { pixelSize: 7; family: "JetBrainsMono Nerd Font" }
+                }
+              }
+
               Text {
                 visible: taskDelegate.overdue
                 text: "\uf071"
@@ -290,7 +339,7 @@ Item {
 
               Text {
                 visible: !!modelData.due && (taskDelegate.overdue || root.isDueSoon(modelData))
-                text: modelData.due + (taskDelegate.overdue ? " ⚠" : "")
+                text: modelData.due + (modelData.time ? " " + modelData.time : "") + (taskDelegate.overdue ? " ⚠" : "")
                 color: taskDelegate.overdue ? "#ff6b6b" : Qt.rgba(1, 1, 1, 0.5)
                 font { pixelSize: config.fontSize - 5; weight: taskDelegate.overdue ? Font.DemiBold : Font.Normal }
               }
@@ -354,21 +403,101 @@ Item {
 
     Rectangle {
       Layout.fillWidth: true
-      visible: root.farHiddenCount() > 0
+      visible: root.hiddenTasks().length > 0
       height: 22; radius: 6
-      color: showFarMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+      color: showHiddenMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
       Behavior on color { ColorAnimation { duration: 80 } }
 
-      Text {
+      RowLayout {
         anchors.centerIn: parent
-        text: "+ " + root.farHiddenCount() + " com prazo mais distante"
-        color: Qt.rgba(1, 1, 1, 0.45)
-        font.pixelSize: config.fontSize - 6
+        spacing: 4
+        Text {
+          text: (root.showHiddenPanel ? "▾ " : "▸ ") + root.hiddenTasks().length + " tarefa(s) oculta(s)"
+          color: Qt.rgba(1, 1, 1, 0.45)
+          font.pixelSize: config.fontSize - 6
+        }
       }
       MouseArea {
-        id: showFarMa
+        id: showHiddenMa
         anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-        onClicked: config.hideFarTasks = false
+        onClicked: root.showHiddenPanel = !root.showHiddenPanel
+      }
+    }
+
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: 4
+      visible: root.showHiddenPanel && root.hiddenTasks().length > 0
+
+      Repeater {
+        model: root.showHiddenPanel ? root.hiddenTasks() : []
+        delegate: RowLayout {
+          required property var modelData
+          Layout.fillWidth: true
+          spacing: 6
+          opacity: 0.75
+
+          Rectangle {
+            width: 12; height: 12; radius: 6
+            border.width: 1.5
+            border.color: modelData.done ? "#45a249" : Qt.rgba(1, 1, 1, 0.4)
+            color: modelData.done ? "#45a249" : "transparent"
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: config.toggleTask(modelData.id)
+            }
+          }
+          Rectangle {
+            width: 6; height: 6; radius: 3
+            color: root.priorityColor[modelData.priority] || "#999999"
+          }
+          Text {
+            Layout.fillWidth: true
+            text: modelData.text
+            color: Colors[config.colorText]
+            opacity: modelData.done ? 0.5 : 1.0
+            font { pixelSize: config.fontSize - 4; strikeout: modelData.done }
+            elide: Text.ElideRight
+          }
+          Text {
+            visible: !!modelData.due
+            text: modelData.due + (modelData.time ? " " + modelData.time : "")
+            color: Qt.rgba(1, 1, 1, 0.4)
+            font.pixelSize: config.fontSize - 6
+          }
+          Text {
+            text: "\uf044"
+            color: Qt.rgba(1, 1, 1, 0.4)
+            font { pixelSize: config.fontSize - 6; family: "JetBrainsMono Nerd Font" }
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: root.editTaskRequested(modelData)
+            }
+          }
+          Text {
+            text: "×"
+            color: Qt.rgba(1, 1, 1, 0.4)
+            font.pixelSize: config.fontSize - 2
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: config.removeTask(modelData.id)
+            }
+          }
+        }
+      }
+
+      // atalho: se o que está escondendo tarefa é o hideFarTasks, deixa
+      // óbvio como desligar isso de vez (em vez de só espiar toda hora)
+      Text {
+        visible: config.hideFarTasks
+        text: "mostrar tarefas distantes sempre →"
+        color: Qt.rgba(1, 1, 1, 0.4)
+        font { pixelSize: config.fontSize - 6; underline: farLinkMa.containsMouse }
+        MouseArea {
+          id: farLinkMa
+          anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+          onClicked: config.hideFarTasks = false
+        }
       }
     }
   }
@@ -426,12 +555,18 @@ Item {
           color: "#45a249"
           font.pixelSize: config.fontSize - 5
         }
+        Text {
+          visible: !!(root.tooltipTask && !root.tooltipTask.done && root.tooltipTask.status && root.statusLabels[root.tooltipTask.status] !== undefined)
+          text: root.tooltipTask ? root.statusLabels[root.tooltipTask.status] : ""
+          color: root.tooltipTask ? (root.statusColor[root.tooltipTask.status] || Qt.rgba(1, 1, 1, 0.6)) : Qt.rgba(1, 1, 1, 0.6)
+          font.pixelSize: config.fontSize - 5
+        }
       }
 
       Text {
         visible: !!(root.tooltipTask && root.tooltipTask.due)
         text: root.tooltipTask
-          ? ("Prazo: " + root.tooltipTask.due + (root.isOverdueTask(root.tooltipTask) ? " · atrasada" : ""))
+          ? ("Prazo: " + root.tooltipTask.due + (root.tooltipTask.time ? " às " + root.tooltipTask.time : "") + (root.isOverdueTask(root.tooltipTask) ? " · atrasada" : ""))
           : ""
         color: (root.tooltipTask && root.isOverdueTask(root.tooltipTask)) ? "#ff6b6b" : Qt.rgba(1, 1, 1, 0.7)
         font { pixelSize: config.fontSize - 5; weight: (root.tooltipTask && root.isOverdueTask(root.tooltipTask)) ? Font.DemiBold : Font.Normal }

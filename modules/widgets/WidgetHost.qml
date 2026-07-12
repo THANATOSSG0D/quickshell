@@ -28,6 +28,14 @@ Scope {
   // presente no grupo) — mesma janela usada pelo modo não-agrupado.
   TodoAddWindow { id: addTaskWindow }
 
+  // Painel grande (Kanban / Progresso / Agenda) do módulo Todo — mesma
+  // ideia, uma instância só.
+  TodoDashboard {
+    id: dashboardWindow
+    onEditTaskRequested: (task) => addTaskWindow.openEdit(task)
+    onAddTaskRequested: addTaskWindow.openForm()
+  }
+
   readonly property var labels: ({
     clock: "Relógio", todo: "Tarefas", calendar: "Calendário", weather: "Clima",
   })
@@ -128,6 +136,8 @@ Scope {
                         item.addTaskRequested.connect(function() { addTaskWindow.openForm() })
                       if (item && item.editTaskRequested !== undefined)
                         item.editTaskRequested.connect(function(task) { addTaskWindow.openEdit(task) })
+                      if (item && item.dashboardRequested !== undefined)
+                        item.dashboardRequested.connect(function() { dashboardWindow.open() })
 
                       // Calendário combinado: clicar num dia informa a data
                       // selecionada pro estado da tela; a própria borda de
