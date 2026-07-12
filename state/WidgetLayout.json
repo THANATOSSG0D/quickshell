@@ -1,11 +1,21 @@
 {
     "edgeMargin": 20,
-    "groupEnabled": true,
+    "groupEnabled": false,
+    "groups": [
+        {
+            "edgeMargin": 48,
+            "enabled": true,
+            "id": "gmriao7li300",
+            "members": [
+                "weather",
+                "clock",
+                "calendar",
+                "todo"
+            ],
+            "position": 0
+        }
+    ],
     "members": [
-        "weather",
-        "clock",
-        "calendar",
-        "todo"
     ],
     "position": 0
 }
