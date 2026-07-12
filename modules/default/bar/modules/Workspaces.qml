@@ -357,6 +357,27 @@ Item {
   // (anchors.fill: bg, não "parent" — `root` só tem implicitWidth/Height,
   // nunca um width/height real, então usar `parent` aqui de novo ia
   // voltar a ter uma área de hit-test 0x0).
+// ── Throttle do scroll — evita spam de dispatch IPC ───────────────────
+  // hyprctl dispatch é síncrono no compositor: disparar uma chamada nova
+  // antes da anterior terminar de processar acumula fila e trava/atrasa
+  // (mais perceptível em touchpad, que manda vários eventos fracionados
+  // por "gesto", em vez de 1 notch = 1 evento como no mouse com catraca).
+  //
+  // Acumula o delta e só dispara quando cruza o threshold de um notch
+  // (120), guardando o resto — e um cooldown curto trava novos disparos
+  // até o anterior ter tempo de ser processado. Se o próximo evento vier
+  // com sinal OPOSTO ao acumulado (usuário inverteu o gesto no meio),
+  // zera o acumulador em vez de subtrair — evita o "não volta direito"
+  // quando a rajada mistura direções.
+  property bool _wheelCooldown: false
+
+  Timer {
+    id: wheelCooldownTimer
+    interval: 60   // ms — ajuste fino se ainda sentir travamento
+    repeat:   false
+    onTriggered: root._wheelCooldown = false
+  }
+
   MouseArea {
     id: scrollArea
     anchors.fill: bg
@@ -364,20 +385,23 @@ Item {
     acceptedButtons: Qt.NoButton
     hoverEnabled:    false
     onWheel: (wheel) => {
-      var dir = wheel.angleDelta.y > 0 ? 1 : -1
-      if (root.scrollInvert) dir = -dir
+      if (root._wheelCooldown) return
+
+      var delta = wheel.angleDelta.y
+      if (root.scrollInvert) delta = -delta
+      var dir = delta > 0 ? 1 : -1
+
+      root._wheelCooldown = true
+      wheelCooldownTimer.restart()
 
       if (root.scrollAction === "window") {
-        // Cicla o foco entre as janelas — por padrão o cyclenext do
-        // Hyprland pode circular por TODAS as workspaces dependendo da
-        // versão/config; se quiser restringir à workspace atual, confira
-        // os argumentos aceitos por `hyprctl dispatch cyclenext` na sua versão.
-        Hyprland.dispatch(dir > 0 ? "cyclenext" : "cyclenext prev")
+        Hyprland.dispatch(dir > 0
+          ? "hl.dsp.layout('focus r')"
+          : "hl.dsp.layout('focus l')")
       } else {
-        // Dispatcher nativo do Hyprland — funciona independente do
-        // wrapper Lua hl.dsp.*, já que é só um dispatch cru de sempre.
-        // "e+1"/"e-1" pula só entre workspaces EXISTENTES (não cria vazias).
-        Hyprland.dispatch(dir > 0 ? "workspace e+1" : "workspace e-1")
+        Hyprland.dispatch(dir > 0
+          ? "hl.dsp.focus({ workspace = 'e+1' })"
+          : "hl.dsp.focus({ workspace = 'e-1' })")
       }
     }
   }
