@@ -1260,7 +1260,7 @@ Scope {
       // Usa activewindow para eventos (rápido) e clients filtrado para startup.
       property bool isFullscreen: false
       property string _monBuf: ""
-      property int _activeWsId: hyprMonitor ? hyprMonitor.activeWorkspace.id : -1
+      property int _activeWsId: (hyprMonitor && hyprMonitor.activeWorkspace) ? hyprMonitor.activeWorkspace.id : -1
       property bool _verifyMode: false   // true quando _monProc está a verificar após troca de workspace
       property bool _zoneJustChanged: false  // true por 500ms após zone surface mudar
 

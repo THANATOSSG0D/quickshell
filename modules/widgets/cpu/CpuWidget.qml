@@ -20,7 +20,7 @@ Scope {
 
   Variants {
     // se "cpu" está no grupo combinado, a WidgetHost.qml quem renderiza
-    model: layoutCfg.isGrouped("cpu") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("cpu") || !layoutCfg.isEnabled("cpu")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

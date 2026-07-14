@@ -114,7 +114,7 @@ Item {
   property var sortedToplevels: {
     /* dependência intencional p/ forçar reavaliação em eventos do Hyprland */
     var _dep = root._sortDirty
-    if (!root.modelData) return []
+    if (!root.modelData || !root.modelData.toplevels) return []
     var list = root.modelData.toplevels.values.slice()
     if (sortOrder === "alphabetical") {
       list.sort(function(a, b) {

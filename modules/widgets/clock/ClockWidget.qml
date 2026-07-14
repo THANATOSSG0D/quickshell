@@ -20,7 +20,7 @@ Scope {
 
   Variants {
     // se "clock" está no grupo combinado, a WidgetHost.qml quem renderiza
-    model: layoutCfg.isGrouped("clock") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("clock") || !layoutCfg.isEnabled("clock")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

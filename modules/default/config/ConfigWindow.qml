@@ -435,41 +435,69 @@ PanelWindow {
             anchors { fill: parent; leftMargin: 16; rightMargin: 12 }
             spacing: 0
 
-            // Subabas do módulo ativo
-            Repeater {
-              model: win.activeModule < win.modules.length
-                     ? win.modules[win.activeModule].subtabs : []
-              delegate: Item {
-                id: stDel
-                required property string modelData
-                required property int    index
-                readonly property bool   active: win.subtab(win.activeModule) === index
-                // Só a seção Barra/Dock tem sub-abas condicionais por tema;
-                // os outros módulos (Wallpaper, Painéis...) sempre mostram tudo.
-                visible: !win._isBarSection || win.barSubtabVisible(index)
-                height: visible ? 44 : 0
-                width:  visible ? (stLbl.implicitWidth + 24) : 0
+            // Subabas do módulo ativo — dentro de um Flickable horizontal,
+            // porque módulos como "Widgets" já passaram de 10 subabas e
+            // não cabem mais numa RowLayout sem scroll nenhum.
+            Flickable {
+              id: subtabsFlick
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              contentWidth: subtabsRow.implicitWidth
+              contentHeight: height
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+              flickableDirection: Flickable.HorizontalFlick
 
-                // Underline de acento
-                Rectangle {
-                  anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                  height: 2; radius: 1; color: win.colorAccent
-                  opacity: stDel.active ? 1 : 0
-                  Behavior on opacity { NumberAnimation { duration: 120 } }
+              // roda do mouse vertical vira scroll horizontal aqui
+              WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: (event) => {
+                  const delta = event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
+                  subtabsFlick.contentX = Math.max(0, Math.min(
+                    Math.max(0, subtabsFlick.contentWidth - subtabsFlick.width),
+                    subtabsFlick.contentX - delta))
                 }
+              }
 
-                Text {
-                  id: stLbl; anchors.centerIn: parent; text: stDel.modelData
-                  font.pixelSize: 11; font.weight: stDel.active ? Font.DemiBold : Font.Normal
-                  color: stDel.active ? win.colorText : win.colorTextDim
-                  Behavior on color { ColorAnimation { duration: 80 } }
+              RowLayout {
+                id: subtabsRow
+                height: parent.height
+                spacing: 0
+
+                Repeater {
+                  model: win.activeModule < win.modules.length
+                         ? win.modules[win.activeModule].subtabs : []
+                  delegate: Item {
+                    id: stDel
+                    required property string modelData
+                    required property int    index
+                    readonly property bool   active: win.subtab(win.activeModule) === index
+                    // Só a seção Barra/Dock tem sub-abas condicionais por tema;
+                    // os outros módulos (Wallpaper, Painéis...) sempre mostram tudo.
+                    visible: !win._isBarSection || win.barSubtabVisible(index)
+                    height: visible ? 44 : 0
+                    width:  visible ? (stLbl.implicitWidth + 24) : 0
+
+                    // Underline de acento
+                    Rectangle {
+                      anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+                      height: 2; radius: 1; color: win.colorAccent
+                      opacity: stDel.active ? 1 : 0
+                      Behavior on opacity { NumberAnimation { duration: 120 } }
+                    }
+
+                    Text {
+                      id: stLbl; anchors.centerIn: parent; text: stDel.modelData
+                      font.pixelSize: 11; font.weight: stDel.active ? Font.DemiBold : Font.Normal
+                      color: stDel.active ? win.colorText : win.colorTextDim
+                      Behavior on color { ColorAnimation { duration: 80 } }
+                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                      onClicked: win.setSubtab(win.activeModule, index) }
+                  }
                 }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                  onClicked: win.setSubtab(win.activeModule, index) }
               }
             }
-
-            Item { Layout.fillWidth: true }
 
             // Botão Padrão — comportamento por subtab
             Rectangle {

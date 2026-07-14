@@ -18,7 +18,7 @@ Scope {
   onPositionChanged: config.position = position
 
   Variants {
-    model: layoutCfg.isGrouped("disk") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("disk") || !layoutCfg.isEnabled("disk")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

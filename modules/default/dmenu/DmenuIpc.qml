@@ -148,6 +148,17 @@ Item {
         restartTimer.start()
       }
     }
+
+    // Reforço do lado QML: garante que o processo Python recebe SIGTERM
+    // quando este item é destruído (ex.: reload do Quickshell recriando
+    // DmenuIpc). O script agora tem sua própria defesa via pidfile
+    // (qs-dmenu-server.py mata a instância anterior antes de assumir o
+    // socket), mas isso evita a corrida de precisar disso na maioria dos
+    // casos — não conta com o próprio processo pra se limpar sozinho.
+    Component.onDestruction: {
+      restartTimer.stop()
+      if (serverProc.running) serverProc.running = false
+    }
   }
 
   // Request externo recebido durante cooldown — processado após _cooldownTimer

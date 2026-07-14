@@ -18,7 +18,7 @@ Scope {
   onPositionChanged: config.position = position
 
   Variants {
-    model: layoutCfg.isGrouped("bluetooth") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("bluetooth") || !layoutCfg.isEnabled("bluetooth")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

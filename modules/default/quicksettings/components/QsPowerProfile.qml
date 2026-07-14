@@ -39,10 +39,24 @@ Item {
 
     function setProfile(id) {
         if (id === root.activeProfile) return
+        // id já vem em underscore (ex.: "balanced_cool"), convertido de
+        // "-" pra "_" a partir do campo "class" do JSON em statusProc.
+        // O binário thermal-profile espera exatamente essa forma com
+        // underscore no case do main() — o hífen só existe no "class" do
+        // JSON pra fins de estilo (CSS-like), nunca é o que o CLI aceita.
+        var previousProfile = root.activeProfile
+        applyProc._pendingId = id
+        applyProc._previousProfile = previousProfile
+        // thermal-profile precisa rodar como root: check_permissions() no
+        // próprio script só passa se EUID==0 OU se já existir uma sessão
+        // sudo interativa em cache — nenhuma das duas é verdade a partir
+        // do Quickshell, então chamamos sudo direto (NOPASSWD já cobre o
+        // binário inteiro, então os sudo internos do script — tee,
+        // cpupower, powerprofilesctl — rodam livres por já estar como root).
         applyProc.command = ["bash", "-c",
-            "thermal-profile \"" + id + "\" 2>/dev/null || sudo -n thermal-profile \"" + id + "\" 2>/dev/null"]
+            "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"]
         applyProc.running = true
-        root.activeProfile = id   // otimista — refresh confirma depois
+        root.activeProfile = id   // otimista — corrigido em onExited se falhar
         refreshDelay.restart()
     }
 
@@ -64,7 +78,24 @@ Item {
         }
     }
 
-    Process { id: applyProc }
+    Process {
+        id: applyProc
+        property string _pendingId: ""
+        property string _previousProfile: ""
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => applyProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (running) return
+            var out = applyProc._buf; applyProc._buf = ""
+            var m = out.match(/EXIT:(\d+)/)
+            var ok = m && m[1] === "0"
+            if (!ok) {
+                root.activeProfile = applyProc._previousProfile
+                root.hasError = true
+                console.warn("thermal-profile falhou ao trocar para '" + applyProc._pendingId + "':\n" + out)
+            }
+        }
+    }
     Timer { id: refreshDelay; interval: 800; onTriggered: root.refresh() }
 
     Component.onCompleted: refresh()

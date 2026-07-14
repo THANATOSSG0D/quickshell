@@ -18,7 +18,7 @@ Scope {
   onPositionChanged: config.position = position
 
   Variants {
-    model: layoutCfg.isGrouped("gpu") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("gpu") || !layoutCfg.isEnabled("gpu")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

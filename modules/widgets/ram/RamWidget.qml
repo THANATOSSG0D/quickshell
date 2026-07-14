@@ -18,7 +18,7 @@ Scope {
   onPositionChanged: config.position = position
 
   Variants {
-    model: layoutCfg.isGrouped("ram") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("ram") || !layoutCfg.isEnabled("ram")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

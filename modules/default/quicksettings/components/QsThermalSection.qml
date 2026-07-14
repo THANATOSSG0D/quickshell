@@ -31,8 +31,20 @@ Item {
 
     Process {
         id: applyProc
+        property string _previousProfile: ""
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => applyProc._buf += l + "\n" }
         onRunningChanged: {
-            if (!running) Qt.callLater(() => { if (!stateProc.running) stateProc.running = true })
+            if (running) return
+            var out = applyProc._buf; applyProc._buf = ""
+            var m = out.match(/EXIT:(\d+)/)
+            var ok = m && m[1] === "0"
+            if (!ok) {
+                // sudo -n falhou silenciosamente (sem NOPASSWD configurado
+                // pra esse comando) — desfaz o update otimista de currentProfile.
+                root.currentProfile = applyProc._previousProfile
+            }
+            Qt.callLater(() => { if (!stateProc.running) stateProc.running = true })
         }
     }
 
@@ -57,10 +69,16 @@ Item {
     function applyProfile(index) {
         if (applyProc.running) return
         var pid = profiles[index].id
+        // pid já é "balanced_cool" (underscore) — é exatamente o que o
+        // case do main() do thermal-profile espera. Não converter.
+        applyProc._previousProfile = root.currentProfile
         root.currentProfile = pid
+        // Idem QsPowerProfile.qml: chama sudo direto (NOPASSWD cobre o
+        // binário inteiro, então os sudo internos do script rodam livres
+        // por já estarmos como root).
         applyProc.command = ["bash", "-c",
-            "thermal-profile \"" + pid + "\" 2>/dev/null || " +
-            "sudo -n thermal-profile \"" + pid + "\" 2>/dev/null"]
+            "sudo -n thermal-profile \"" + pid + "\" 2>&1; echo EXIT:$?"]
+            "; echo EXIT:$?"]
         applyProc.running = true
     }
 

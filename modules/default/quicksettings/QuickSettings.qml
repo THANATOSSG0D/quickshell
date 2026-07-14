@@ -136,7 +136,11 @@ Item {
             "thermal-profile waybar 2>/dev/null; echo '###SHADER###'; " +
             "hyprshade current 2>/dev/null; echo '###MODE###'; " +
             "cat ~/.cache/hyprnight/shader-mode 2>/dev/null; echo '###TEMPLOG###'; " +
-            "source ~/.config/hypr/noturne.config 2>/dev/null && grep '| phase=' \"$HYPRSUNSET_LOG\" 2>/dev/null | tail -1"]
+            "source ~/.config/hypr/noturne.config 2>/dev/null && grep '| phase=' \"$HYPRSUNSET_LOG\" 2>/dev/null | tail -1; " +
+            "echo '###TEMPAUTO###'; " +
+            "systemctl --user is-active hyprsunset.timer 2>/dev/null; echo '###TEMPMANUAL###'; " +
+            "cat /tmp/hyprnight-manual-temp 2>/dev/null; echo '###GAMMAMANUAL###'; " +
+            "cat /tmp/hyprnight-manual-gamma 2>/dev/null"]
         property string _buf: ""
         stdout: SplitParser { onRead: (l) => tipExtraProc._buf += l + "\n" }
         onRunningChanged: {
@@ -147,7 +151,10 @@ Item {
             var powerOut  = (raw.split("###POWER###")[1] || "").split("###SHADER###")[0]
             var shaderOut = (raw.split("###SHADER###")[1] || "").split("###MODE###")[0]
             var modeOut   = (raw.split("###MODE###")[1] || "").split("###TEMPLOG###")[0]
-            var tempLogOut = raw.split("###TEMPLOG###")[1] || ""
+            var tempLogOut    = (raw.split("###TEMPLOG###")[1]    || "").split("###TEMPAUTO###")[0]
+            var tempAutoOut   = (raw.split("###TEMPAUTO###")[1]   || "").split("###TEMPMANUAL###")[0]
+            var tempManualOut = (raw.split("###TEMPMANUAL###")[1] || "").split("###GAMMAMANUAL###")[0]
+            var gammaManualOut = raw.split("###GAMMAMANUAL###")[1] || ""
 
             root.tipEeRunning = eeOut.trim() !== "" && !eeOut.includes("not running")
 
@@ -169,10 +176,24 @@ Item {
             root.tipShaderName = shaderOut.trim()
             root.tipShaderMode = modeOut.trim()
 
+            var tempAutoActive = tempAutoOut.trim() === "active"
             var mt = tempLogOut.match(/\btemp=(\d+)K\b/)
             var mg = tempLogOut.match(/\bgamma=(\d+)\b/)
-            root.tipTemp  = mt ? parseInt(mt[1]) : 0
-            root.tipGamma = mg ? parseInt(mg[1]) : 0
+
+            if (tempAutoActive) {
+                // Em modo automático o log é a fonte de verdade.
+                root.tipTemp  = mt ? parseInt(mt[1]) : 0
+                root.tipGamma = mg ? parseInt(mg[1]) : 0
+            } else {
+                // Em modo manual o log pode ter uma última linha "phase="
+                // velha (o daemon para de escrever nela fora do auto), então
+                // usamos os arquivos que refletem o que foi de fato aplicado
+                // manualmente — mesma fonte que QsNightMode.qml usa.
+                var tm = parseInt(tempManualOut.trim())
+                var gm = parseInt(gammaManualOut.trim())
+                root.tipTemp  = !isNaN(tm) && tm > 0 ? tm : 0
+                root.tipGamma = !isNaN(gm) && gm > 0 ? gm : 0
+            }
         }
     }
 

@@ -18,7 +18,7 @@ Scope {
   onPositionChanged: config.position = position
 
   Variants {
-    model: layoutCfg.isGrouped("network") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("network") || !layoutCfg.isEnabled("network")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

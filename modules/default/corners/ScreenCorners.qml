@@ -54,6 +54,7 @@ Variants {
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     WlrLayershell.exclusiveZone: 0
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.namespace: "corners"
     mask: Region {}   // input passthrough total — checar contra NotificationToast.qml
                        // se o projeto já tiver um padrão diferente pra isso
 

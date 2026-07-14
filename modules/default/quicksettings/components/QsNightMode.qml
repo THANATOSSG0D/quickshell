@@ -125,11 +125,12 @@ Item {
             if (mg) root.gammaFromLog = parseInt(mg[1])
             if (root.tempAutoActive && !root._userControl && root.tempFromLog > 0)
                 root.tempSlider = root.tempFromLog
-            // Gamma sempre reflete o log real (fonte de verdade do que está
-            // de fato aplicado), exceto enquanto o usuário está arrastando o
-            // slider — diferente da temperatura, gamma não depende do modo
-            // auto/manual para ser populado a partir do log.
-            if (!root._gammaUserControl && mg)
+            // Gamma só reflete o log enquanto o modo automático está ativo.
+            // Em modo manual o daemon para de escrever "phase=" no log, mas
+            // "tail -1" continua devolvendo a última linha antiga (que ainda
+            // casa com a regex), então sem essa trava o gamma ficava preso
+            // no valor velho em vez de vir do arquivo manual abaixo.
+            if (root.tempAutoActive && !root._gammaUserControl && mg)
                 root.gammaSlider = root.gammaFromLog
         }
     }
@@ -143,9 +144,11 @@ Item {
             var v = parseInt(_val); _val = ""
             if (!isNaN(v) && v > 0) {
                 root.gammaFromFile = v
-                // Fallback: só usa o arquivo manual se o log ainda não deu
-                // nenhum valor (ex.: daemon parado, sem linha de log recente)
-                if (root.gammaFromLog <= 0 && !root._gammaUserControl)
+                // Em modo manual (auto desligado) o arquivo é a fonte de
+                // verdade, mesma lógica usada para a temperatura em
+                // procTempManualFile — não depende de gammaFromLog estar
+                // zerado, que na prática quase nunca acontecia.
+                if (!root.tempAutoActive && !root._gammaUserControl)
                     root.gammaSlider = v
             }
         }

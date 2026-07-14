@@ -26,10 +26,11 @@ Protocolo:
     <JSON>\n          ex: {"selected":"A"}
 """
 
-import sys, os, socket, json, threading
+import sys, os, socket, json, threading, signal, time
 
 RD        = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
 SOCK_PATH = os.path.join(RD, "qs-dmenu.sock")
+PID_PATH  = os.path.join(RD, "qs-dmenu.pid")
 
 _counter_lock = threading.Lock()
 _counter      = 0
@@ -41,7 +42,45 @@ def _next_id():
         return _counter
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
+def _kill_stale_server():
+    """Mata uma instância anterior órfã, se ainda estiver viva, antes de
+    assumir o socket.
+
+    Sem isso: cada reload do Quickshell que recria o serverProc (running: true
+    de novo) encontra o SOCK_PATH ainda ocupado por um processo anterior que
+    não morreu a tempo. setup() fazia unlink()+bind() incondicional, o que
+    rouba o path silenciosamente — o processo antigo continua vivo, preso em
+    accept() num socket agora inacessível, virando um órfão permanente. A
+    cada reload sobra mais um.
+    """
+    if not os.path.exists(PID_PATH):
+        return
+    try:
+        with open(PID_PATH) as f:
+            old_pid = int(f.read().strip())
+    except (OSError, ValueError):
+        return
+    if old_pid == os.getpid():
+        return
+    try:
+        os.kill(old_pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return   # já não existe — nada a fazer
+    except PermissionError:
+        return   # não é nosso processo, não mexe
+
+    # Aguarda até 1s o processo antigo encerrar de fato antes de seguir,
+    # pra não ter os dois competindo pelo bind() ao mesmo tempo.
+    for _ in range(20):
+        try:
+            os.kill(old_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.05)
+
 def setup():
+    _kill_stale_server()
+
     try:
         os.unlink(SOCK_PATH)
     except FileNotFoundError:
@@ -51,6 +90,10 @@ def setup():
     srv.bind(SOCK_PATH)
     os.chmod(SOCK_PATH, 0o600)
     srv.listen(8)   # backlog maior — suporta submenus aninhados
+
+    with open(PID_PATH, "w") as f:
+        f.write(str(os.getpid()))
+
     return srv
 
 # ── Loop principal ─────────────────────────────────────────────────────────────

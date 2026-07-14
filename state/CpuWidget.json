@@ -3,13 +3,13 @@
     "colorLine": "outline",
     "colorValue": "primary",
     "edgeMargin": 48,
-    "fixedHeight": 140,
+    "fixedHeight": 136,
     "fixedWidth": 200,
     "fontSizeValue": 36,
     "position": 4,
     "showFreq": true,
     "showHistory": true,
     "showModel": true,
-    "showPerCore": true,
+    "showPerCore": false,
     "showTemp": true
 }

@@ -1,8 +1,12 @@
 {
     "bar": {
         "alwaysVisible": false,
+        "cornersEnabled": false,
+        "cornersMode": "edge",
+        "cornersOverFullscreen": false,
+        "cornersRadius": 24,
         "enabled": true,
-        "floating": true,
+        "floating": false,
         "pinned": false,
         "silence": false,
         "theme": "Pill",
