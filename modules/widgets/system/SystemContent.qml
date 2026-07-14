@@ -16,6 +16,9 @@ Item {
   property string kernel:   ""
   property string hostname: ""
   property string distro:   ""
+  property int    userCount: 0
+  property int    procsRunning: 0
+  property int    procsTotal:   0
 
   // tamanho FIXO — ver comentário equivalente no CpuContent.qml
   implicitWidth: config.fixedWidth
@@ -37,7 +40,39 @@ Item {
 
   Timer {
     interval: 10000; running: true; repeat: true; triggeredOnStart: true
-    onTriggered: uptimeFile.reload()
+    onTriggered: {
+      uptimeFile.reload()
+      if (config.showProcesses) loadavgFile.reload()
+      if (config.showUsers && !whoProc.running) whoProc.running = true
+    }
+  }
+
+  // ── processos rodando/total — via /proc/loadavg (sem processo) ──────
+  // formato: "0.52 0.58 0.59 3/512 12345" → campo 4 é "rodando/total"
+  FileView {
+    id: loadavgFile
+    path: "/proc/loadavg"
+    watchChanges: false
+    onLoaded: {
+      const m = text().match(/(\d+)\/(\d+)/)
+      if (m) {
+        root.procsRunning = parseInt(m[1])
+        root.procsTotal   = parseInt(m[2])
+      }
+    }
+  }
+
+  // ── usuários logados — via `who` (uma linha por sessão) ─────────────
+  Process {
+    id: whoProc
+    running: false
+    command: ["who"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = text.trim().split("\n").filter(l => l.length > 0)
+        root.userCount = lines.length
+      }
+    }
   }
 
   function _formatUptime(secs) {
@@ -145,6 +180,17 @@ Item {
         font.pixelSize: 10
         elide: Text.ElideRight
         Layout.maximumWidth: config.fixedWidth - 16
+      }
+      Text {
+        visible: config.showUsers || config.showProcesses
+        Layout.alignment: Qt.AlignHCenter
+        text: [
+          config.showUsers     ? root.userCount + (root.userCount === 1 ? " usuário" : " usuários") : "",
+          config.showProcesses ? root.procsRunning + "/" + root.procsTotal + " processos" : "",
+        ].filter(s => s.length > 0).join("  ·  ")
+        color: Colors[config.colorLabel]
+        opacity: 0.6
+        font.pixelSize: 10
       }
     }
   }

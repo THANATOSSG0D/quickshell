@@ -26,6 +26,7 @@ Item {
   property bool showFreq:    true   // frequência média (GHz)
   property bool showTemp:    true   // temperatura via lm-sensors
   property bool showModel:   true   // nome do modelo (ex: i7-8750H)
+  property bool showGovernor: true  // governor atual (ex: performance)
 
   FileView {
     id: file
@@ -52,6 +53,7 @@ Item {
       property bool showFreq:    true
       property bool showTemp:    true
       property bool showModel:   true
+      property bool showGovernor: true
 
       onPositionChanged:      config.position      = position
       onEdgeMarginChanged:    config.edgeMargin    = edgeMargin
@@ -66,6 +68,7 @@ Item {
       onShowFreqChanged:      config.showFreq      = showFreq
       onShowTempChanged:      config.showTemp      = showTemp
       onShowModelChanged:     config.showModel     = showModel
+      onShowGovernorChanged:  config.showGovernor  = showGovernor
     }
   }
 
@@ -82,6 +85,7 @@ Item {
   onShowFreqChanged:      adapter.showFreq      = showFreq
   onShowTempChanged:      adapter.showTemp      = showTemp
   onShowModelChanged:     adapter.showModel     = showModel
+  onShowGovernorChanged:  adapter.showGovernor  = showGovernor
 
   Process {
     id: mkdirProc

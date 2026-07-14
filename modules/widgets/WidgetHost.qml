@@ -16,16 +16,18 @@ import "gpu"
 import "network"
 import "disk"
 import "system"
+import "process"
 import "bluetooth"
 
 // ── WidgetHost ──────────────────────────────────────────────────────────
 // Quando existe pelo menos um grupo ativo em WidgetLayoutConfig.groups,
 // essa é a ÚNICA janela que renderiza os widgets agrupados: um card por
-// grupo (cada um com sua própria posição/margem), empilhados em ordem
-// dentro do card, com divisores finos entre eles em vez de cada um
-// flutuar separado. Os Widget.qml individuais (ClockWidget, TodoWidget,
-// etc.) se desligam sozinhos quando o widget deles está em algum grupo
-// (ver isGrouped() em cada um).
+// grupo (cada um com sua própria posição/margem/número de colunas),
+// organizados num GridLayout — com columns:1 (padrão) fica idêntico à
+// pilha vertical de sempre, com divisores finos entre eles. Os
+// Widget.qml individuais (ClockWidget, TodoWidget, etc.) se desligam
+// sozinhos quando o widget deles está em algum grupo ATIVO e HABILITADO
+// (ver isGrouped()/isEnabled() em cada um).
 
 Scope {
   id: widgetHost
@@ -55,6 +57,7 @@ Scope {
   Component { id: networkComp;  NetworkContent  { grouped: true } }
   Component { id: diskComp;     DiskContent     { grouped: true } }
   Component { id: systemComp;   SystemContent   { grouped: true } }
+  Component { id: processComp;  ProcessContent  { grouped: true } }
   Component { id: bluetoothComp; BluetoothContent { grouped: true } }
 
   function componentFor(id) {
@@ -69,6 +72,7 @@ Scope {
       case "network":   return networkComp
       case "disk":      return diskComp
       case "system":    return systemComp
+      case "process":   return processComp
       case "bluetooth": return bluetoothComp
     }
     return null
@@ -157,10 +161,12 @@ Scope {
             color: Qt.rgba(0.07, 0.07, 0.08, 0.55)
             border.color: Qt.rgba(1, 1, 1, 0.08); border.width: 1
 
-            ColumnLayout {
+            GridLayout {
               id: memberColumn
               anchors.centerIn: parent
-              spacing: 0
+              columns: panel.group.columns || 1
+              columnSpacing: 20
+              rowSpacing: 0
 
               Repeater {
                 model: panel.activeMembers

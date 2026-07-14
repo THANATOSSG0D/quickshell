@@ -10,7 +10,7 @@ Item {
   property int edgeMargin: 48
 
   property int fixedWidth:  220
-  property int fixedHeight: 140
+  property int fixedHeight: 160
 
   property int    fontSizeValue: 22
   property string colorValue: "primary"
@@ -20,6 +20,8 @@ Item {
   property bool showHostname: true
   property bool showDistro:   true
   property bool showKernel:   true
+  property bool showUsers:     true
+  property bool showProcesses: true
 
   FileView {
     id: file
@@ -34,7 +36,7 @@ Item {
       property int edgeMargin: 48
 
       property int fixedWidth:  220
-      property int fixedHeight: 140
+      property int fixedHeight: 160
 
       property int    fontSizeValue: 22
       property string colorValue: "primary"
@@ -44,6 +46,8 @@ Item {
       property bool showHostname: true
       property bool showDistro:   true
       property bool showKernel:   true
+      property bool showUsers:     true
+      property bool showProcesses: true
 
       onPositionChanged:      config.position      = position
       onEdgeMarginChanged:    config.edgeMargin    = edgeMargin
@@ -56,6 +60,8 @@ Item {
       onShowHostnameChanged:  config.showHostname  = showHostname
       onShowDistroChanged:    config.showDistro    = showDistro
       onShowKernelChanged:    config.showKernel    = showKernel
+      onShowUsersChanged:     config.showUsers     = showUsers
+      onShowProcessesChanged: config.showProcesses = showProcesses
     }
   }
 
@@ -70,6 +76,8 @@ Item {
   onShowHostnameChanged:  adapter.showHostname  = showHostname
   onShowDistroChanged:    adapter.showDistro    = showDistro
   onShowKernelChanged:    adapter.showKernel    = showKernel
+  onShowUsersChanged:     adapter.showUsers     = showUsers
+  onShowProcessesChanged: adapter.showProcesses = showProcesses
 
   Process {
     id: mkdirProc

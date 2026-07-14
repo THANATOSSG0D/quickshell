@@ -9,5 +9,7 @@
     "position": 7,
     "showDistro": true,
     "showHostname": true,
-    "showKernel": true
+    "showKernel": true,
+    "showProcesses": true,
+    "showUsers": true
 }

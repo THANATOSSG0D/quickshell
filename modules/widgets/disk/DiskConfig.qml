@@ -9,11 +9,25 @@ Item {
   property int position: 4
   property int edgeMargin: 48
 
-  // Ponto de montagem monitorado — não tem UI pra isso na aba de config
-  // (nenhum outro widget expõe campo de texto livre ainda), mas dá pra
-  // editar direto no JSON em state/DiskWidget.json se quiser apontar pra
-  // outro filesystem além da raiz.
+  // Ponto de montagem PRINCIPAL — não tem campo de texto na UI ainda pra
+  // trocar esse aqui especificamente (só os extras, abaixo, que têm),
+  // mas dá pra editar direto no JSON em state/DiskWidget.json se quiser.
   property string mountPoint: "/"
+
+  // Discos/pontos de montagem EXTRAS (ex: um HD externo em /mnt/hd) —
+  // esses sim têm UI pra adicionar/remover na aba de config. Aparecem
+  // como linhas compactas abaixo do disco principal.
+  property var extraMounts: []
+
+  function addMount(path) {
+    const p = path.trim()
+    if (p === "" || extraMounts.indexOf(p) !== -1 || p === mountPoint) return
+    extraMounts = extraMounts.concat([p])
+  }
+
+  function removeMount(path) {
+    extraMounts = extraMounts.filter(m => m !== path)
+  }
 
   property int    fontSizeValue: 32
   property string colorValue: "primary"
@@ -40,6 +54,7 @@ Item {
       property int edgeMargin: 48
 
       property string mountPoint: "/"
+      property var    extraMounts: []
 
       property int    fontSizeValue: 32
       property string colorValue: "primary"
@@ -56,6 +71,10 @@ Item {
       onPositionChanged:      config.position      = position
       onEdgeMarginChanged:    config.edgeMargin    = edgeMargin
       onMountPointChanged:    config.mountPoint    = mountPoint
+      onExtraMountsChanged: {
+        if (JSON.stringify(extraMounts) !== JSON.stringify(config.extraMounts))
+          config.extraMounts = extraMounts
+      }
       onFontSizeValueChanged: config.fontSizeValue = fontSizeValue
       onColorValueChanged:    config.colorValue    = colorValue
       onColorWriteChanged:    config.colorWrite    = colorWrite
@@ -71,6 +90,10 @@ Item {
   onPositionChanged:      adapter.position      = position
   onEdgeMarginChanged:    adapter.edgeMargin    = edgeMargin
   onMountPointChanged:    adapter.mountPoint    = mountPoint
+  onExtraMountsChanged: {
+    if (JSON.stringify(extraMounts) !== JSON.stringify(adapter.extraMounts))
+      adapter.extraMounts = extraMounts
+  }
   onFontSizeValueChanged: adapter.fontSizeValue = fontSizeValue
   onColorValueChanged:    adapter.colorValue    = colorValue
   onColorWriteChanged:    adapter.colorWrite    = colorWrite

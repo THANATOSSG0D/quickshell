@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import qs
 import '../../components' as C
 
@@ -32,10 +33,10 @@ Item {
       color: root.colorTextDim
       font.pixelSize: 10
       text: "Espaço usado (via df) e throughput de leitura/escrita (via /proc/diskstats) " +
-            "do ponto de montagem '" + config.mountPoint + "'. Pra monitorar outro " +
-            "filesystem, edite 'mountPoint' direto em state/DiskWidget.json — não tem " +
-            "campo de texto aqui ainda. Some da tela quando 'Disco' estiver marcado num " +
-            "grupo combinado."
+            "do ponto de montagem principal '" + config.mountPoint + "'. Pra trocar ESSE, " +
+            "ainda só editando state/DiskWidget.json direto — mas dá pra adicionar outros " +
+            "discos (HD externo, outra partição etc.) ali embaixo, em 'Discos extras'. " +
+            "Some da tela quando 'Disco' estiver marcado num grupo combinado."
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
@@ -88,6 +89,106 @@ Item {
       checked: config.showIO
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       onToggled: config.showIO = !config.showIO
+    }
+
+    C.CfgDiv { colorDivider: root.colorDivider }
+    C.CfgSection { title: "DISCOS EXTRAS"; colorTextDim: root.colorTextDim }
+
+    Text {
+      width: parent.width
+      wrapMode: Text.WordWrap
+      color: root.colorTextDim
+      font.pixelSize: 10
+      text: "Adicione o ponto de montagem de outro disco (ex: /mnt/hd, /run/media/" +
+            "antonio/Backup). Aparece como uma linha compacta abaixo do disco principal."
+    }
+
+    RowLayout {
+      width: parent.width
+      spacing: 8
+
+      TextField {
+        id: mountInput
+        Layout.fillWidth: true
+        placeholderText: "/mnt/hd"
+        color: root.colorText
+        font.pixelSize: 12
+        background: Rectangle {
+          radius: 6
+          color: Qt.rgba(1, 1, 1, 0.05)
+          border.width: 1
+          border.color: mountInput.activeFocus
+            ? root.colorAccent
+            : Qt.rgba(1, 1, 1, 0.12)
+        }
+        onAccepted: {
+          config.addMount(text)
+          text = ""
+        }
+      }
+
+      Rectangle {
+        width: 30; height: 30; radius: 8
+        color: addMa.containsMouse
+          ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
+          : "transparent"
+        border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b,
+                              addMa.containsMouse ? 0.6 : 0.3)
+        border.width: 1
+
+        Text {
+          anchors.centerIn: parent
+          text: "󰐕"; color: root.colorAccent
+          font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
+        }
+
+        MouseArea {
+          id: addMa; anchors.fill: parent; hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: { config.addMount(mountInput.text); mountInput.text = "" }
+        }
+      }
+    }
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 4
+      visible: config.extraMounts.length > 0
+
+      Repeater {
+        model: config.extraMounts
+        delegate: RowLayout {
+          required property string modelData
+          Layout.fillWidth: true
+          spacing: 8
+
+          Text {
+            Layout.fillWidth: true
+            text: modelData
+            color: root.colorText
+            font.pixelSize: 12
+            elide: Text.ElideMiddle
+          }
+          Text {
+            text: "󰩹"
+            color: root.colorTextDim
+            font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -4
+              cursorShape: Qt.PointingHandCursor
+              onClicked: config.removeMount(modelData)
+            }
+          }
+        }
+      }
+    }
+
+    Text {
+      visible: config.extraMounts.length === 0
+      text: "Nenhum disco extra adicionado."
+      color: root.colorTextDim
+      font.pixelSize: 11
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }

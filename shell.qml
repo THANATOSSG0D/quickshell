@@ -14,6 +14,7 @@ import "modules/widgets/gpu"
 import "modules/widgets/network"
 import "modules/widgets/disk"
 import "modules/widgets/system"
+import "modules/widgets/process"
 import "modules/widgets/bluetooth"
 import "modules/widgets"
 import "modules/default/bar"
@@ -35,6 +36,7 @@ Scope {
   NetworkWidget {}
   DiskWidget {}
   SystemWidget {}
+  ProcessWidget {}
   BluetoothWidget {}
   WidgetHost {}
 

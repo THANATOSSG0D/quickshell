@@ -3,8 +3,8 @@ import QtQuick.Layouts
 import qs
 import '../../components' as C
 
-// modules/default/config/tabs/widgets/WidgetsTabSystem.qml → modules/widgets/system/
-import '../../../../widgets/system' as Shared
+// modules/default/config/tabs/widgets/WidgetsTabProcess.qml → modules/widgets/process/
+import '../../../../widgets/process' as Shared
 
 Item {
   id: root
@@ -20,20 +20,20 @@ Item {
 
   anchors.fill: parent
 
-  Shared.SystemConfig { id: config }
+  Shared.ProcessConfig { id: config }
 
   C.CfgScroll {
 
-    C.CfgSection { title: "WIDGET DE SISTEMA"; colorTextDim: root.colorTextDim }
+    C.CfgSection { title: "WIDGET DE PROCESSOS"; colorTextDim: root.colorTextDim }
 
     Text {
       width: parent.width
       wrapMode: Text.WordWrap
       color: root.colorTextDim
       font.pixelSize: 10
-      text: "Uptime, kernel, hostname e distro. Tudo lido direto de /proc e /etc/os-release " +
-            "— não roda nenhum processo externo, é o widget mais leve de todos. Some da " +
-            "tela quando 'Sistema' estiver marcado num grupo combinado."
+      text: "Top processos via ps, ordenável por CPU ou RAM clicando nos chips dentro do " +
+            "próprio widget (a escolha fica salva). Some da tela quando 'Processos' " +
+            "estiver marcado num grupo combinado."
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
@@ -58,14 +58,14 @@ Item {
     C.CfgSection { title: "TAMANHO"; colorTextDim: root.colorTextDim }
 
     C.CfgSlider {
-      label: "Largura"; from: 140; to: 340; step: 4; unit: " px"
+      label: "Largura"; from: 160; to: 340; step: 4; unit: " px"
       value: config.fixedWidth
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorProgressBg: root.colorProgressBg
       onMoved: (v) => config.fixedWidth = v
     }
     C.CfgSlider {
-      label: "Altura"; from: 80; to: 220; step: 4; unit: " px"
+      label: "Altura"; from: 90; to: 320; step: 4; unit: " px"
       value: config.fixedHeight
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -75,35 +75,12 @@ Item {
     C.CfgDiv { colorDivider: root.colorDivider }
     C.CfgSection { title: "DETALHES"; colorTextDim: root.colorTextDim }
 
-    C.CfgToggle {
-      label: "Hostname"
-      checked: config.showHostname
+    C.CfgSlider {
+      label: "Quantos processos mostrar"; from: 3; to: 10; step: 1; unit: ""
+      value: config.count
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-      onToggled: config.showHostname = !config.showHostname
-    }
-    C.CfgToggle {
-      label: "Distro"
-      checked: config.showDistro
-      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-      onToggled: config.showDistro = !config.showDistro
-    }
-    C.CfgToggle {
-      label: "Versão do kernel"
-      checked: config.showKernel
-      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-      onToggled: config.showKernel = !config.showKernel
-    }
-    C.CfgToggle {
-      label: "Usuários logados"
-      checked: config.showUsers
-      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-      onToggled: config.showUsers = !config.showUsers
-    }
-    C.CfgToggle {
-      label: "Processos rodando/total"
-      checked: config.showProcesses
-      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-      onToggled: config.showProcesses = !config.showProcesses
+      colorText: root.colorText; colorProgressBg: root.colorProgressBg
+      onMoved: (v) => config.count = v
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
@@ -116,12 +93,9 @@ Item {
         config.position = 4
         config.edgeMargin = 48
         config.fixedWidth = 220
-        config.fixedHeight = 160
-        config.showHostname = true
-        config.showDistro = true
-        config.showKernel = true
-        config.showUsers = true
-        config.showProcesses = true
+        config.fixedHeight = 170
+        config.sortBy = "cpu"
+        config.count = 5
       }
     }
   }

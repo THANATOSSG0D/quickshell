@@ -171,7 +171,7 @@ PanelWindow {
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
       subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
     { id: "widgets",    icon: "\uf521", label: "Widgets",
-      subtabs: ["Relógio", "Lista de tarefas", "Calendário", "Clima", "CPU", "RAM", "GPU", "Rede", "Disco", "Sistema", "Bluetooth", "Combinar"] },
+      subtabs: ["Relógio", "Lista de tarefas", "Calendário", "Clima", "CPU", "RAM", "GPU", "Rede", "Disco", "Sistema", "Processos", "Bluetooth", "Combinar"] },
     { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
   ]
 

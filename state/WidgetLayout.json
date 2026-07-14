@@ -1,11 +1,12 @@
 {
     "edgeMargin": 20,
     "enabled": {
-        "bluetooth": false
+        "bluetooth": true
     },
     "groupEnabled": false,
     "groups": [
         {
+            "columns": 1,
             "edgeMargin": 20,
             "enabled": true,
             "id": "gmriao7li300",
@@ -15,9 +16,10 @@
                 "calendar",
                 "todo"
             ],
-            "position": 0
+            "position": 3
         },
         {
+            "columns": 2,
             "edgeMargin": 20,
             "enabled": true,
             "id": "gmrirvepa589",
@@ -28,9 +30,18 @@
                 "network",
                 "ram",
                 "disk",
+                "process",
                 "bluetooth"
             ],
-            "position": 2
+            "position": 5
+        },
+        {
+            "edgeMargin": 48,
+            "enabled": false,
+            "id": "gmrl8bmf9196",
+            "members": [
+            ],
+            "position": 6
         }
     ],
     "members": [

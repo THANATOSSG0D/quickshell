@@ -4,6 +4,9 @@
     "colorValue": "primary",
     "colorWrite": "outline",
     "edgeMargin": 48,
+    "extraMounts": [
+        "/mnt/data"
+    ],
     "fixedHeight": 72,
     "fixedWidth": 200,
     "fontSizeValue": 32,

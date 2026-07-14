@@ -4,14 +4,14 @@ import QtQuick
 // Router da aba "Widgets" do ConfigWindow. A ordem dos cases tem que bater
 // com a ordem de _allModules["widgets"].subtabs em ConfigWindow.qml:
 //   0 Relógio · 1 Lista de tarefas · 2 Calendário · 3 Clima ·
-//   4 CPU · 5 RAM · 6 GPU · 7 Rede · 8 Disco · 9 Sistema · 10 Bluetooth ·
-//   11 Combinar
+//   4 CPU · 5 RAM · 6 GPU · 7 Rede · 8 Disco · 9 Sistema · 10 Processos ·
+//   11 Bluetooth · 12 Combinar
 //
 // Cada sub-aba (WidgetsTabClock/Todo/Calendar/Weather/CPU/RAM/GPU/Network/
-// Disk/System/Bluetooth.qml, mesma pasta) abre sua PRÓPRIA instância do
-// Config daquele widget — sincroniza com a instância dentro do respectivo
-// Widget.qml pelo mesmo JSON em state/, via FileView + watchChanges. Não
-// precisa passar nada pelo shell.qml.
+// Disk/System/Process/Bluetooth.qml, mesma pasta) abre sua PRÓPRIA
+// instância do Config daquele widget — sincroniza com a instância dentro
+// do respectivo Widget.qml pelo mesmo JSON em state/, via FileView +
+// watchChanges. Não precisa passar nada pelo shell.qml.
 
 Item {
   id: root
@@ -31,8 +31,8 @@ Item {
 
   // Ordem tem que bater com _allModules["widgets"].subtabs em ConfigWindow.qml:
   //   0 Relógio · 1 Lista de tarefas · 2 Calendário · 3 Clima ·
-  //   4 CPU · 5 RAM · 6 GPU · 7 Rede · 8 Disco · 9 Sistema · 10 Bluetooth ·
-  //   11 Combinar
+  //   4 CPU · 5 RAM · 6 GPU · 7 Rede · 8 Disco · 9 Sistema · 10 Processos ·
+  //   11 Bluetooth · 12 Combinar
 
   Loader {
     id: subLoader
@@ -49,8 +49,9 @@ Item {
         case 7:  return _networkTab
         case 8:  return _diskTab
         case 9:  return _systemTab
-        case 10: return _bluetoothTab
-        case 11: return _combineTab
+        case 10: return _processTab
+        case 11: return _bluetoothTab
+        case 12: return _combineTab
         default: return _clockTab
       }
     }
@@ -140,6 +141,15 @@ Item {
   Component {
     id: _systemTab
     WidgetsTabSystem {
+      overlay: root.overlay; colors: root.colors
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      colorText: root.colorText; colorDivider: root.colorDivider
+      colorSidebar: root.colorSidebar; colorProgressBg: root.colorProgressBg
+    }
+  }
+  Component {
+    id: _processTab
+    WidgetsTabProcess {
       overlay: root.overlay; colors: root.colors
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorDivider: root.colorDivider

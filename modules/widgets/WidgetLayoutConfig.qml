@@ -12,10 +12,12 @@ import Quickshell.Io
 // TODA parte (individual e dentro de qualquer grupo combinado).
 //
 // ids válidos: "clock", "todo", "calendar", "weather", "cpu", "ram",
-// "gpu", "network", "disk", "bluetooth"
+// "gpu", "network", "disk", "system", "process", "bluetooth"
 //
 // Formato de cada grupo:
-//   { id: string, enabled: bool, position: int, edgeMargin: int, members: [] }
+//   { id, enabled, position, edgeMargin, columns, members }
+//   `columns` controla quantas colunas o card usa pra organizar os
+//   membros (grid em vez de uma pilha vertical única) — default 1.
 
 Item {
   id: config
@@ -45,7 +47,7 @@ Item {
 
   function addGroup() {
     const g = groups.slice()
-    g.push({ id: _uid(), enabled: true, position: 4, edgeMargin: 48, members: [] })
+    g.push({ id: _uid(), enabled: true, position: 4, edgeMargin: 48, columns: 1, members: [] })
     groups = g
   }
 
@@ -60,6 +62,7 @@ Item {
   function setGroupEnabled(groupId, enabled)     { _updateGroup(groupId, { enabled }) }
   function setGroupPosition(groupId, position)   { _updateGroup(groupId, { position }) }
   function setGroupEdgeMargin(groupId, edgeMargin) { _updateGroup(groupId, { edgeMargin }) }
+  function setGroupColumns(groupId, columns)     { _updateGroup(groupId, { columns }) }
 
   // Alterna widgetId dentro do grupo groupId. Se ele já estiver em outro
   // grupo, é removido de lá primeiro (associação é exclusiva).

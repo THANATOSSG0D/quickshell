@@ -32,8 +32,10 @@ Item {
       color: root.colorTextDim
       font.pixelSize: 10
       text: "Detecta automaticamente a interface ativa via NetworkManager (prioriza cabo " +
-            "sobre Wi-Fi) e mostra down/upload em tempo real. Some da tela quando 'Rede' " +
-            "estiver marcado num grupo combinado."
+            "sobre Wi-Fi) e mostra down/upload em tempo real, IP local, DNS (via " +
+            "/etc/resolv.conf — se aparecer só 127.0.0.53 é o stub do systemd-resolved) " +
+            "e se tem VPN ativa. Some da tela quando 'Rede' estiver marcado num grupo " +
+            "combinado."
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
@@ -87,6 +89,24 @@ Item {
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       onToggled: config.showIface = !config.showIface
     }
+    C.CfgToggle {
+      label: "IP do dispositivo"
+      checked: config.showIP
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.showIP = !config.showIP
+    }
+    C.CfgToggle {
+      label: "DNS"
+      checked: config.showDNS
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.showDNS = !config.showDNS
+    }
+    C.CfgToggle {
+      label: "VPN ativa"
+      checked: config.showVPN
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.showVPN = !config.showVPN
+    }
 
     C.CfgDiv { colorDivider: root.colorDivider }
 
@@ -98,9 +118,12 @@ Item {
         config.position = 4
         config.edgeMargin = 48
         config.fixedWidth = 200
-        config.fixedHeight = 110
+        config.fixedHeight = 150
         config.showHistory = true
         config.showIface = true
+        config.showIP = true
+        config.showDNS = true
+        config.showVPN = true
       }
     }
   }

@@ -113,6 +113,12 @@ Item {
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       onToggled: config.showModel = !config.showModel
     }
+    C.CfgToggle {
+      label: "Governor (ex: performance, powersave)"
+      checked: config.showGovernor
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.showGovernor = !config.showGovernor
+    }
 
     C.CfgDiv { colorDivider: root.colorDivider }
 
@@ -130,6 +136,7 @@ Item {
         config.showFreq = true
         config.showTemp = true
         config.showModel = true
+        config.showGovernor = true
       }
     }
   }

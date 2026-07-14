@@ -9,24 +9,20 @@ Item {
   property int position: 4
   property int edgeMargin: 48
 
-  property int    fontSizeValue: 20
+  property int fixedWidth:  220
+  property int fixedHeight: 170
+
+  property int    fontSizeValue: 12
   property string colorValue: "primary"
-  property string colorUp:    "outline"
   property string colorLabel: "on_surface"
   property string colorLine:  "outline"
 
-  property int fixedWidth:  200
-  property int fixedHeight: 150
-
-  property bool showHistory: true
-  property bool showIface:   true  // nome da interface / SSID
-  property bool showIP:      true  // IP local
-  property bool showDNS:     true  // servidores DNS (/etc/resolv.conf)
-  property bool showVPN:     true  // conexão VPN ativa
+  property string sortBy: "cpu"  // "cpu" | "ram" — alternável clicando no próprio widget
+  property int    count:  5      // quantos processos mostrar
 
   FileView {
     id: file
-    path: Quickshell.shellDir + "/state/NetworkWidget.json"
+    path: Quickshell.shellDir + "/state/ProcessWidget.json"
     watchChanges: true
     onFileChanged: reload()
     onAdapterUpdated: writeAdapter()
@@ -36,35 +32,27 @@ Item {
       property int position:   4
       property int edgeMargin: 48
 
-      property int    fontSizeValue: 20
+      property int fixedWidth:  220
+      property int fixedHeight: 170
+
+      property int    fontSizeValue: 12
       property string colorValue: "primary"
-      property string colorUp:    "outline"
       property string colorLabel: "on_surface"
       property string colorLine:  "outline"
 
-      property int fixedWidth:  200
-      property int fixedHeight: 150
-
-      property bool showHistory: true
-      property bool showIface:   true
-      property bool showIP:      true
-      property bool showDNS:     true
-      property bool showVPN:     true
+      property string sortBy: "cpu"
+      property int    count:  5
 
       onPositionChanged:      config.position      = position
       onEdgeMarginChanged:    config.edgeMargin    = edgeMargin
       onFontSizeValueChanged: config.fontSizeValue = fontSizeValue
       onColorValueChanged:    config.colorValue    = colorValue
-      onColorUpChanged:       config.colorUp       = colorUp
       onColorLabelChanged:    config.colorLabel    = colorLabel
       onColorLineChanged:     config.colorLine     = colorLine
       onFixedWidthChanged:    config.fixedWidth    = fixedWidth
       onFixedHeightChanged:   config.fixedHeight   = fixedHeight
-      onShowHistoryChanged:   config.showHistory   = showHistory
-      onShowIfaceChanged:     config.showIface     = showIface
-      onShowIPChanged:        config.showIP        = showIP
-      onShowDNSChanged:       config.showDNS       = showDNS
-      onShowVPNChanged:       config.showVPN       = showVPN
+      onSortByChanged:        config.sortBy        = sortBy
+      onCountChanged:         config.count         = count
     }
   }
 
@@ -72,26 +60,18 @@ Item {
   onEdgeMarginChanged:    adapter.edgeMargin    = edgeMargin
   onFontSizeValueChanged: adapter.fontSizeValue = fontSizeValue
   onColorValueChanged:    adapter.colorValue    = colorValue
-  onColorUpChanged:       adapter.colorUp       = colorUp
   onColorLabelChanged:    adapter.colorLabel    = colorLabel
   onColorLineChanged:     adapter.colorLine     = colorLine
   onFixedWidthChanged:    adapter.fixedWidth    = fixedWidth
   onFixedHeightChanged:   adapter.fixedHeight   = fixedHeight
-  onShowHistoryChanged:   adapter.showHistory   = showHistory
-  onShowIfaceChanged:     adapter.showIface     = showIface
-  onShowIPChanged:        adapter.showIP        = showIP
-  onShowDNSChanged:       adapter.showDNS       = showDNS
-  onShowVPNChanged:       adapter.showVPN       = showVPN
+  onSortByChanged:        adapter.sortBy        = sortBy
+  onCountChanged:         adapter.count         = count
 
   Process {
     id: mkdirProc
     command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
     onExited: {
       file.reload()
-      // garante que o JSON existe no disco mesmo se o usuário nunca
-      // mexer em nenhum slider/toggle desse widget — sem isso,
-      // writeAdapter() só dispara quando alguma propriedade muda, e o
-      // arquivo nunca chega a ser criado (fica warnando pra sempre)
       initTimer.start()
     }
   }

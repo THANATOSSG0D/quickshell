@@ -33,6 +33,7 @@ Item {
     { id: "network",   label: "Rede"             },
     { id: "disk",      label: "Disco"            },
     { id: "system",    label: "Sistema"          },
+    { id: "process",   label: "Processos"        },
     { id: "bluetooth", label: "Bluetooth"        },
   ]
 
@@ -79,10 +80,11 @@ Item {
       wrapMode: Text.WordWrap
       color: root.colorTextDim
       font.pixelSize: 10
-      text: "Cada grupo junta os widgets marcados nele num único card, empilhados na ordem " +
-            "escolhida, com divisores em vez de flutuar cada um separado. Um widget só pode " +
-            "estar em um grupo por vez. Widgets fora de qualquer grupo continuam aparecendo " +
-            "do jeito de sempre, na posição individual deles."
+      text: "Cada grupo junta os widgets marcados nele num único card. Com 1 coluna " +
+            "(padrão) fica empilhado verticalmente, com divisores finos; com mais " +
+            "colunas vira um grid, lado a lado. Um widget só pode estar em um grupo " +
+            "por vez. Widgets fora de qualquer grupo continuam aparecendo do jeito de " +
+            "sempre, na posição individual deles."
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
@@ -154,6 +156,15 @@ Item {
             colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
             colorText: root.colorText; colorProgressBg: root.colorProgressBg
             onMoved: (v) => layoutCfg.setGroupEdgeMargin(groupBlock.group.id, v)
+          }
+
+          C.CfgSlider {
+            Layout.fillWidth: true
+            label: "Colunas"; from: 1; to: 4; step: 1; unit: ""
+            value: groupBlock.group.columns || 1
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorProgressBg: root.colorProgressBg
+            onMoved: (v) => layoutCfg.setGroupColumns(groupBlock.group.id, v)
           }
 
           // ── widgets do grupo ──

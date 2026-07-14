@@ -22,6 +22,7 @@ Item {
   property real cpuFreqGHz: 0
   property var  cpuTemp:    null   // null até a primeira leitura de sensors
   property string cpuModel: ""     // ex: "i7-8750H"
+  property string cpuGovernor: ""  // ex: "performance", "powersave", "schedutil"
 
   property var _prevStat: null     // { "cpu": {idle,total}, "cpu0": {...}, ... }
 
@@ -116,6 +117,14 @@ Item {
     return m ? m[1] : full.replace(/\s*CPU.*$/, "")
   }
 
+  // ── governor atual (scaling_governor do cpu0 — sysfs simples, sem processo) ──
+  FileView {
+    id: governorFile
+    path: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+    watchChanges: false
+    onLoaded: root.cpuGovernor = text().trim()
+  }
+
   // ── sensors — temperatura do pacote ─────────────────────────────────
   Process {
     id: sensorsProc
@@ -144,6 +153,7 @@ Item {
       if (config.showTemp && _tick % 2 === 0 && !sensorsProc.running) {
         sensorsProc.running = true
       }
+      if (config.showGovernor && _tick % 2 === 0) governorFile.reload()
     }
   }
 
@@ -189,6 +199,13 @@ Item {
           opacity: 0.7
           font.pixelSize: 11
         }
+        Text {
+          visible: config.showGovernor && root.cpuGovernor !== ""
+          text: root.cpuGovernor
+          color: Colors[config.colorLabel]
+          opacity: 0.7
+          font.pixelSize: 11
+        }
       }
     }
 
@@ -212,21 +229,32 @@ Item {
       fillColor: Qt.rgba(Colors[config.colorValue].r, Colors[config.colorValue].g, Colors[config.colorValue].b, 0.15)
     }
 
-    RowLayout {
-      visible: config.showPerCore && root.coreLoads.length > 0
+    // altura RESERVADA fixa (28px = altura máxima de uma barra a 100%) —
+    // antes o container media a altura pelos filhos, que ficava pulando
+    // entre 0 (sem dados ainda) e o valor real a cada atualização
+    Item {
+      visible: config.showPerCore
       Layout.alignment: Qt.AlignHCenter
-      spacing: 3
+      implicitWidth: coreBarsRow.implicitWidth
+      implicitHeight: 28
 
-      Repeater {
-        model: root.coreLoads
-        delegate: Rectangle {
-          required property real modelData
-          width: 6
-          height: 6 + (modelData / 100) * 22
-          radius: 2
-          color: Colors[config.colorValue]
-          opacity: 0.35 + (modelData / 100) * 0.65
-          Layout.alignment: Qt.AlignBottom
+      RowLayout {
+        id: coreBarsRow
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 3
+
+        Repeater {
+          model: root.coreLoads
+          delegate: Rectangle {
+            required property real modelData
+            width: 6
+            height: 6 + (modelData / 100) * 22
+            radius: 2
+            color: Colors[config.colorValue]
+            opacity: 0.35 + (modelData / 100) * 0.65
+            Layout.alignment: Qt.AlignBottom
+          }
         }
       }
     }

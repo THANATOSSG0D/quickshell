@@ -17,6 +17,10 @@ Item {
   property string ifaceName: ""     // ex: "wlan0", "enp3s0"
   property string ifaceType: ""     // "wifi" | "ethernet" | ""
   property string connName:  ""     // SSID ou nome da conexão cabeada
+  property string ipAddress: ""     // IP local da interface ativa
+  property string dnsServers: ""    // nameservers do /etc/resolv.conf, separados por vírgula
+  property bool   vpnActive: false
+  property string vpnName:   ""
 
   property real downBps: 0
   property real upBps:   0
@@ -75,7 +79,71 @@ Item {
 
   Timer {
     interval: 5000; running: true; repeat: true; triggeredOnStart: true
-    onTriggered: { if (!ifaceProc.running) ifaceProc.running = true }
+    onTriggered: {
+      if (!ifaceProc.running) ifaceProc.running = true
+      if (config.showIP && root.ifaceName !== "" && !ipProc.running) ipProc.running = true
+      if (config.showVPN && !vpnProc.running) vpnProc.running = true
+    }
+  }
+
+  // ── IP local da interface ativa ──────────────────────────────────────
+  Process {
+    id: ipProc
+    running: false
+    command: root.ifaceName === "" ? ["true"] : ["ip", "-4", "-o", "addr", "show", "dev", root.ifaceName]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const m = text.match(/inet ([\d.]+)\//)
+        root.ipAddress = m ? m[1] : ""
+      }
+    }
+  }
+
+  // ── DNS — via /etc/resolv.conf (sem processo). Se aparecer só
+  // 127.0.0.53, é o stub do systemd-resolved; o DNS "de verdade" fica
+  // configurado no NetworkManager, não dá pra ver aqui sem chamar
+  // resolvectl (deixei simples de propósito) ──────────────────────────
+  FileView {
+    id: resolvFile
+    path: "/etc/resolv.conf"
+    watchChanges: true
+    onFileChanged: reload()
+    onLoaded: {
+      root.dnsServers = root._parseResolv(text())
+    }
+  }
+
+  function _parseResolv(text) {
+    const lines = text.split("\n")
+    const servers = []
+    for (const line of lines) {
+      const m = line.trim().match(/^nameserver\s+([\d.:a-fA-F]+)/)
+      if (m) servers.push(m[1])
+    }
+    return servers.join(", ")
+  }
+
+  Component.onCompleted: { if (config.showDNS) resolvFile.reload() }
+
+  // ── VPN ativa (WireGuard/OpenVPN/etc via NetworkManager) ────────────
+  Process {
+    id: vpnProc
+    running: false
+    command: ["nmcli", "-t", "-f", "TYPE,STATE,NAME", "connection", "show", "--active"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = text.trim().split("\n")
+        let found = null
+        for (const line of lines) {
+          const parts = line.split(":")
+          if (parts.length < 3) continue
+          const type = parts[0]
+          if (type === "vpn" || type === "wireguard") { found = parts.slice(2).join(":"); break }
+        }
+        root.vpnActive = found !== null
+        root.vpnName   = found || ""
+      }
+    }
   }
 
   // ── throughput (rx/tx bytes da interface ativa) ─────────────────────
@@ -164,6 +232,34 @@ Item {
         color: Colors[config.colorLabel]
         opacity: 0.6
         font.pixelSize: 10
+      }
+      Text {
+        visible: config.showIP && root.ipAddress !== ""
+        Layout.alignment: Qt.AlignHCenter
+        text: root.ipAddress
+        color: Colors[config.colorLabel]
+        opacity: 0.55
+        font.pixelSize: 10
+      }
+      Text {
+        visible: config.showDNS && root.dnsServers !== ""
+        Layout.alignment: Qt.AlignHCenter
+        text: "DNS " + root.dnsServers
+        color: Colors[config.colorLabel]
+        opacity: 0.55
+        font.pixelSize: 9
+        elide: Text.ElideRight
+        Layout.maximumWidth: config.fixedWidth - 16
+      }
+      Text {
+        visible: config.showVPN && root.vpnActive
+        Layout.alignment: Qt.AlignHCenter
+        text: "󰖂 VPN: " + root.vpnName
+        color: Colors[config.colorValue]
+        opacity: 0.85
+        font { pixelSize: 10; family: "JetBrainsMono Nerd Font" }
+        elide: Text.ElideRight
+        Layout.maximumWidth: config.fixedWidth - 16
       }
     }
 
