@@ -13,4 +13,19 @@ BarTabModulos        bar/BarTabModulos.qml
 TabWallpaper  wallpaper/TabWallpaper.qml
 DmenuTabConfig  dmenu/DmenuTabConfig.qml
 PanelTab 1.0 paineis/PanelTab.qml
+
+PositionGrid 1.0 widgets/PositionGrid.qml
+ResetButton 1.0 widgets/ResetButton.qml
 WidgetsTab 1.0 widgets/WidgetsTab.qml
+WidgetsTabBluetooth 1.0 widgets/WidgetsTabBluetooth.qml
+WidgetsTabCalendar 1.0 widgets/WidgetsTabCalendar.qml
+WidgetsTabClock 1.0 widgets/WidgetsTabClock.qml
+WidgetsTabCombine 1.0 widgets/WidgetsTabCombine.qml
+WidgetsTabCPU 1.0 widgets/WidgetsTabCPU.qml
+WidgetsTabDisk 1.0 widgets/WidgetsTabDisk.qml
+WidgetsTabGPU 1.0 widgets/WidgetsTabGPU.qml
+WidgetsTabNetwork 1.0 widgets/WidgetsTabNetwork.qml
+WidgetsTabRAM 1.0 widgets/WidgetsTabRAM.qml
+WidgetsTabSystem 1.0 widgets/WidgetsTabSystem.qml
+WidgetsTabTodo 1.0 widgets/WidgetsTabTodo.qml
+WidgetsTabWeather 1.0 widgets/WidgetsTabWeather.qml

@@ -9,13 +9,16 @@ import QtQuick.Layouts
 import "../" as Shared
 
 Scope {
-  id: calendarWidget
+  id: networkWidget
 
-  CalendarConfig { id: config }
+  NetworkConfig { id: config }
   Shared.WidgetLayoutConfig { id: layoutCfg }
 
+  property int position: config.position
+  onPositionChanged: config.position = position
+
   Variants {
-    model: (layoutCfg.isGrouped("calendar") || !layoutCfg.isEnabled("calendar")) ? [] : Quickshell.screens
+    model: layoutCfg.isGrouped("network") ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {
@@ -27,7 +30,7 @@ Scope {
         color: "transparent"
 
         WlrLayershell.layer: WlrLayer.Bottom
-        WlrLayershell.namespace: "calendar-widget"
+        WlrLayershell.namespace: "network-widget"
 
         mask: Region { item: content }
 
@@ -46,19 +49,30 @@ Scope {
         Item {
           id: content
           x: {
-            if (positions[config.position].h === Qt.AlignLeft)  return config.edgeMargin
-            if (positions[config.position].h === Qt.AlignRight) return parent.width - width - config.edgeMargin
+            if (positions[position].h === Qt.AlignLeft)  return config.edgeMargin
+            if (positions[position].h === Qt.AlignRight) return parent.width - width - config.edgeMargin
             return (parent.width - width) / 2
           }
           y: {
-            if (positions[config.position].v === Qt.AlignTop)    return config.edgeMargin
-            if (positions[config.position].v === Qt.AlignBottom) return parent.height - height - config.edgeMargin
+            if (positions[position].v === Qt.AlignTop)    return config.edgeMargin
+            if (positions[position].v === Qt.AlignBottom) return parent.height - height - config.edgeMargin
             return (parent.height - height) / 2
           }
-          width: calContent.implicitWidth
-          height: calContent.implicitHeight
+          width: networkContent.implicitWidth
+          height: networkContent.implicitHeight
 
-          CalendarContent { id: calContent; grouped: false }
+          MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+              if (mouse.button === Qt.RightButton)
+                networkWidget.position = (networkWidget.position + 8) % 9
+              else
+                networkWidget.position = (networkWidget.position + 1) % 9
+            }
+          }
+
+          NetworkContent { id: networkContent; grouped: false }
         }
       }
     }

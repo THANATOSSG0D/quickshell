@@ -3,13 +3,16 @@ import Quickshell
 import Quickshell.Io
 
 // ── WidgetLayoutConfig ──────────────────────────────────────────────────
-// Config do "modo combinado": agora suporta MÚLTIPLOS grupos simultâneos.
-// Cada grupo tem sua própria posição/margem e sua própria lista de
-// `members` (na ordem em que aparecem dentro do card). Um widget só pode
-// pertencer a um grupo por vez — ao marcá-lo num grupo, ele é removido
-// automaticamente de qualquer outro.
+// Config compartilhada dos widgets: (1) modo combinado, com MÚLTIPLOS
+// grupos simultâneos — cada um com sua própria posição/margem e sua
+// própria lista de `members` (na ordem em que aparecem dentro do card).
+// Um widget só pode pertencer a um grupo por vez — ao marcá-lo num grupo,
+// ele é removido automaticamente de qualquer outro. (2) enabled/disabled
+// por widget — independente de agrupamento, um widget desativado some de
+// TODA parte (individual e dentro de qualquer grupo combinado).
 //
-// ids válidos em `members`: "clock", "todo", "calendar", "weather"
+// ids válidos: "clock", "todo", "calendar", "weather", "cpu", "ram",
+// "gpu", "network", "disk", "bluetooth"
 //
 // Formato de cada grupo:
 //   { id: string, enabled: bool, position: int, edgeMargin: int, members: [] }
@@ -19,6 +22,22 @@ Item {
   visible: false
 
   property var groups: [] // [{ id, enabled, position, edgeMargin, members }]
+
+  // Mapa widgetId → bool. Ausente ou undefined = ATIVO (default é sempre
+  // ligado; só existe entrada explícita pra quem já foi desativado alguma
+  // vez — assim widgets novos que eu adicionar no futuro já nascem
+  // habilitados sem precisar tocar nesse JSON).
+  property var enabled: ({})
+
+  function isEnabled(widgetId) {
+    return enabled[widgetId] !== false
+  }
+
+  function setEnabled(widgetId, value) {
+    const e = Object.assign({}, enabled)
+    e[widgetId] = value
+    enabled = e
+  }
 
   function _uid() {
     return "g" + Date.now().toString(36) + Math.floor(Math.random() * 1000)
@@ -104,10 +123,15 @@ Item {
       property var members: []
 
       property var groups: []
+      property var enabled: ({})
 
       onGroupsChanged: {
         if (JSON.stringify(groups) !== JSON.stringify(config.groups))
           config.groups = groups
+      }
+      onEnabledChanged: {
+        if (JSON.stringify(enabled) !== JSON.stringify(config.enabled))
+          config.enabled = enabled
       }
 
       // Dispara depois que os campos legados forem lidos do JSON antigo;
@@ -135,6 +159,10 @@ Item {
   onGroupsChanged: {
     if (JSON.stringify(groups) !== JSON.stringify(adapter.groups))
       adapter.groups = groups
+  }
+  onEnabledChanged: {
+    if (JSON.stringify(enabled) !== JSON.stringify(adapter.enabled))
+      adapter.enabled = enabled
   }
 
   Process {

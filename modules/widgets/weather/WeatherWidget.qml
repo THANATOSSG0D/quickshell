@@ -15,7 +15,7 @@ Scope {
   Shared.WidgetLayoutConfig { id: layoutCfg }
 
   Variants {
-    model: layoutCfg.isGrouped("weather") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("weather") || !layoutCfg.isEnabled("weather")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

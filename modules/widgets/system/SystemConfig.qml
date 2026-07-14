@@ -1,0 +1,94 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+Item {
+  id: config
+  visible: false
+
+  property int position: 4
+  property int edgeMargin: 48
+
+  property int fixedWidth:  220
+  property int fixedHeight: 140
+
+  property int    fontSizeValue: 22
+  property string colorValue: "primary"
+  property string colorLabel: "on_surface"
+  property string colorLine:  "outline"
+
+  property bool showHostname: true
+  property bool showDistro:   true
+  property bool showKernel:   true
+
+  FileView {
+    id: file
+    path: Quickshell.shellDir + "/state/SystemWidget.json"
+    watchChanges: true
+    onFileChanged: reload()
+    onAdapterUpdated: writeAdapter()
+
+    JsonAdapter {
+      id: adapter
+      property int position:   4
+      property int edgeMargin: 48
+
+      property int fixedWidth:  220
+      property int fixedHeight: 140
+
+      property int    fontSizeValue: 22
+      property string colorValue: "primary"
+      property string colorLabel: "on_surface"
+      property string colorLine:  "outline"
+
+      property bool showHostname: true
+      property bool showDistro:   true
+      property bool showKernel:   true
+
+      onPositionChanged:      config.position      = position
+      onEdgeMarginChanged:    config.edgeMargin    = edgeMargin
+      onFontSizeValueChanged: config.fontSizeValue = fontSizeValue
+      onColorValueChanged:    config.colorValue    = colorValue
+      onColorLabelChanged:    config.colorLabel    = colorLabel
+      onColorLineChanged:     config.colorLine     = colorLine
+      onFixedWidthChanged:    config.fixedWidth    = fixedWidth
+      onFixedHeightChanged:   config.fixedHeight   = fixedHeight
+      onShowHostnameChanged:  config.showHostname  = showHostname
+      onShowDistroChanged:    config.showDistro    = showDistro
+      onShowKernelChanged:    config.showKernel    = showKernel
+    }
+  }
+
+  onPositionChanged:      adapter.position      = position
+  onEdgeMarginChanged:    adapter.edgeMargin    = edgeMargin
+  onFontSizeValueChanged: adapter.fontSizeValue = fontSizeValue
+  onColorValueChanged:    adapter.colorValue    = colorValue
+  onColorLabelChanged:    adapter.colorLabel    = colorLabel
+  onColorLineChanged:     adapter.colorLine     = colorLine
+  onFixedWidthChanged:    adapter.fixedWidth    = fixedWidth
+  onFixedHeightChanged:   adapter.fixedHeight   = fixedHeight
+  onShowHostnameChanged:  adapter.showHostname  = showHostname
+  onShowDistroChanged:    adapter.showDistro    = showDistro
+  onShowKernelChanged:    adapter.showKernel    = showKernel
+
+  Process {
+    id: mkdirProc
+    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
+    onExited: {
+      file.reload()
+      // garante que o JSON existe no disco mesmo se o usuário nunca
+      // mexer em nenhum slider/toggle desse widget — sem isso,
+      // writeAdapter() só dispara quando alguma propriedade muda, e o
+      // arquivo nunca chega a ser criado (fica warnando pra sempre)
+      initTimer.start()
+    }
+  }
+
+  Timer {
+    id: initTimer
+    interval: 300
+    onTriggered: file.writeAdapter()
+  }
+
+  Component.onCompleted: mkdirProc.running = true
+}

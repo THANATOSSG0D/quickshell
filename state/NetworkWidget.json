@@ -1,0 +1,13 @@
+{
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorUp": "outline",
+    "colorValue": "primary",
+    "edgeMargin": 48,
+    "fixedHeight": 110,
+    "fixedWidth": 200,
+    "fontSizeValue": 20,
+    "position": 4,
+    "showHistory": true,
+    "showIface": true
+}

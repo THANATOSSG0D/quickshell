@@ -1,9 +1,12 @@
 {
     "edgeMargin": 20,
+    "enabled": {
+        "bluetooth": false
+    },
     "groupEnabled": false,
     "groups": [
         {
-            "edgeMargin": 48,
+            "edgeMargin": 20,
             "enabled": true,
             "id": "gmriao7li300",
             "members": [
@@ -13,6 +16,20 @@
                 "todo"
             ],
             "position": 0
+        },
+        {
+            "edgeMargin": 20,
+            "enabled": true,
+            "id": "gmrirvepa589",
+            "members": [
+                "system",
+                "cpu",
+                "gpu",
+                "network",
+                "ram",
+                "disk"
+            ],
+            "position": 2
         }
     ],
     "members": [

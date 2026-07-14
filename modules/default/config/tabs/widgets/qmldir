@@ -1,9 +1,17 @@
 module config.tabs.widgets
-WidgetsTab 1.0 WidgetsTab.qml
-WidgetsTabClock 1.0 WidgetsTabClock.qml
-WidgetsTabTodo 1.0 WidgetsTabTodo.qml
-WidgetsTabCalendar 1.0 WidgetsTabCalendar.qml
-WidgetsTabWeather 1.0 WidgetsTabWeather.qml
-WidgetsTabCombine 1.0 WidgetsTabCombine.qml
+
 PositionGrid 1.0 PositionGrid.qml
 ResetButton 1.0 ResetButton.qml
+WidgetsTab 1.0 WidgetsTab.qml
+WidgetsTabBluetooth 1.0 WidgetsTabBluetooth.qml
+WidgetsTabCalendar 1.0 WidgetsTabCalendar.qml
+WidgetsTabClock 1.0 WidgetsTabClock.qml
+WidgetsTabCombine 1.0 WidgetsTabCombine.qml
+WidgetsTabCPU 1.0 WidgetsTabCPU.qml
+WidgetsTabDisk 1.0 WidgetsTabDisk.qml
+WidgetsTabGPU 1.0 WidgetsTabGPU.qml
+WidgetsTabNetwork 1.0 WidgetsTabNetwork.qml
+WidgetsTabRAM 1.0 WidgetsTabRAM.qml
+WidgetsTabSystem 1.0 WidgetsTabSystem.qml
+WidgetsTabTodo 1.0 WidgetsTabTodo.qml
+WidgetsTabWeather 1.0 WidgetsTabWeather.qml

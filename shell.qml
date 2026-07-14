@@ -8,6 +8,13 @@ import "modules/widgets/clock"
 import "modules/widgets/todo"
 import "modules/widgets/calendar"
 import "modules/widgets/weather"
+import "modules/widgets/cpu"
+import "modules/widgets/ram"
+import "modules/widgets/gpu"
+import "modules/widgets/network"
+import "modules/widgets/disk"
+import "modules/widgets/system"
+import "modules/widgets/bluetooth"
 import "modules/widgets"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
@@ -21,6 +28,13 @@ Scope {
   TodoWidget {}
   CalendarWidget {}
   WeatherWidget {}
+  CpuWidget {}
+  RamWidget {}
+  GpuWidget {}
+  NetworkWidget {}
+  DiskWidget {}
+  SystemWidget {}
+  BluetoothWidget {}
   WidgetHost {}
 
   // Lembretes de tarefa vencida/vencendo hoje via notify-send — instância

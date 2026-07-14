@@ -10,6 +10,13 @@ import "clock"
 import "todo"
 import "calendar"
 import "weather"
+import "cpu"
+import "ram"
+import "gpu"
+import "network"
+import "disk"
+import "system"
+import "bluetooth"
 
 // ── WidgetHost ──────────────────────────────────────────────────────────
 // Quando existe pelo menos um grupo ativo em WidgetLayoutConfig.groups,
@@ -42,23 +49,40 @@ Scope {
   Component { id: todoComp;     TodoContent     { grouped: true } }
   Component { id: calendarComp; CalendarContent { grouped: true } }
   Component { id: weatherComp;  WeatherContent  { grouped: true } }
+  Component { id: cpuComp;      CpuContent      { grouped: true } }
+  Component { id: ramComp;      RamContent      { grouped: true } }
+  Component { id: gpuComp;      GpuContent      { grouped: true } }
+  Component { id: networkComp;  NetworkContent  { grouped: true } }
+  Component { id: diskComp;     DiskContent     { grouped: true } }
+  Component { id: systemComp;   SystemContent   { grouped: true } }
+  Component { id: bluetoothComp; BluetoothContent { grouped: true } }
 
   function componentFor(id) {
     switch (id) {
-      case "clock":    return clockComp
-      case "todo":     return todoComp
-      case "calendar": return calendarComp
-      case "weather":  return weatherComp
+      case "clock":     return clockComp
+      case "todo":      return todoComp
+      case "calendar":  return calendarComp
+      case "weather":   return weatherComp
+      case "cpu":       return cpuComp
+      case "ram":       return ramComp
+      case "gpu":       return gpuComp
+      case "network":   return networkComp
+      case "disk":      return diskComp
+      case "system":    return systemComp
+      case "bluetooth": return bluetoothComp
     }
     return null
   }
 
   // produto cartesiano tela × grupo-ativo — cada combinação vira uma
   // PanelWindow própria, então grupos com posições diferentes na mesma
-  // tela não brigam pela mesma janela/máscara
+  // tela não brigam pela mesma janela/máscara. Um grupo só entra aqui se
+  // tiver pelo menos 1 membro que também esteja HABILITADO (widget
+  // desativado não conta, mesmo que ainda esteja marcado no grupo).
   readonly property var _instances: {
     const list = []
-    const activeGroups = layoutCfg.groups.filter(g => g.enabled && g.members.length > 0)
+    const activeGroups = layoutCfg.groups.filter(g =>
+      g.enabled && g.members.some(id => layoutCfg.isEnabled(id)))
     for (const screen of Quickshell.screens) {
       for (const group of activeGroups) {
         list.push({ screen: screen, group: group })
@@ -90,6 +114,11 @@ Scope {
         // Loader abaixo: não é específico de tipo, só liga quando os dois
         // membros existem e expõem as propriedades/sinais esperados.
         property string todoFilterDate: ""
+
+        // membros do grupo já filtrados pelos que estão habilitados —
+        // widget desativado desaparece do card sem precisar sair do
+        // grupo (fica só "pausado", volta sozinho se reativar)
+        readonly property var activeMembers: group.members.filter(id => layoutCfg.isEnabled(id))
 
         mask: Region { item: content }
 
@@ -134,7 +163,7 @@ Scope {
               spacing: 0
 
               Repeater {
-                model: panel.group.members
+                model: panel.activeMembers
                 delegate: ColumnLayout {
                   required property string modelData
                   required property int index
@@ -178,7 +207,7 @@ Scope {
                     Layout.fillWidth: true
                     Layout.topMargin: 10; Layout.bottomMargin: 10
                     height: 1
-                    visible: index < panel.group.members.length - 1
+                    visible: index < panel.activeMembers.length - 1
                     color: Qt.rgba(1, 1, 1, 0.1)
                   }
                 }

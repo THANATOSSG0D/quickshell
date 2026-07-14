@@ -1,0 +1,12 @@
+{
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorValue": "primary",
+    "edgeMargin": 48,
+    "fixedHeight": 84,
+    "fixedWidth": 200,
+    "fontSizeValue": 36,
+    "position": 4,
+    "showHistory": true,
+    "showSwap": true
+}

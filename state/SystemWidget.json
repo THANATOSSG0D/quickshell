@@ -1,0 +1,13 @@
+{
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorValue": "primary",
+    "edgeMargin": 48,
+    "fixedHeight": 120,
+    "fixedWidth": 220,
+    "fontSizeValue": 22,
+    "position": 7,
+    "showDistro": true,
+    "showHostname": true,
+    "showKernel": true
+}

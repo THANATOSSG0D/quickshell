@@ -29,7 +29,7 @@ Scope {
   }
 
   Variants {
-    model: layoutCfg.isGrouped("todo") ? [] : Quickshell.screens
+    model: (layoutCfg.isGrouped("todo") || !layoutCfg.isEnabled("todo")) ? [] : Quickshell.screens
 
     delegate: Component {
       PanelWindow {

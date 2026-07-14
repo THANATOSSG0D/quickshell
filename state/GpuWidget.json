@@ -1,0 +1,16 @@
+{
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorValue": "primary",
+    "edgeMargin": 48,
+    "fixedHeight": 132,
+    "fixedWidth": 210,
+    "fontSizeValue": 36,
+    "position": 4,
+    "showHistory": true,
+    "showIntel": true,
+    "showModel": true,
+    "showPower": true,
+    "showTemp": true,
+    "showVram": true
+}

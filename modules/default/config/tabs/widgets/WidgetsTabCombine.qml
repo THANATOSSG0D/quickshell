@@ -23,14 +23,55 @@ Item {
   Shared.WidgetLayoutConfig { id: layoutCfg }
 
   readonly property var _allWidgets: [
-    { id: "clock",    label: "Relógio"         },
-    { id: "todo",     label: "Lista de tarefas" },
-    { id: "calendar", label: "Calendário"       },
-    { id: "weather",  label: "Clima"            },
+    { id: "clock",     label: "Relógio"          },
+    { id: "todo",      label: "Lista de tarefas" },
+    { id: "calendar",  label: "Calendário"       },
+    { id: "weather",   label: "Clima"            },
+    { id: "cpu",       label: "CPU"              },
+    { id: "ram",       label: "RAM"              },
+    { id: "gpu",       label: "GPU"              },
+    { id: "network",   label: "Rede"             },
+    { id: "disk",      label: "Disco"            },
+    { id: "system",    label: "Sistema"          },
+    { id: "bluetooth", label: "Bluetooth"        },
   ]
 
   C.CfgScroll {
 
+    C.CfgSection { title: "WIDGETS ATIVOS"; colorTextDim: root.colorTextDim }
+
+    Text {
+      width: parent.width
+      wrapMode: Text.WordWrap
+      color: root.colorTextDim
+      font.pixelSize: 10
+      text: "Desativar aqui tira o widget de TODO lugar — individual e de dentro de " +
+            "qualquer grupo combinado — sem precisar desmarcar ele do grupo. Fica " +
+            "'pausado': volta sozinho pra onde estava se reativar depois."
+    }
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 2
+
+      Repeater {
+        model: root._allWidgets
+        delegate: RowLayout {
+          required property var modelData
+          Layout.fillWidth: true
+
+          C.CfgToggle {
+            Layout.fillWidth: true
+            label: modelData.label
+            checked: layoutCfg.isEnabled(modelData.id)
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onToggled: layoutCfg.setEnabled(modelData.id, !layoutCfg.isEnabled(modelData.id))
+          }
+        }
+      }
+    }
+
+    C.CfgDiv { colorDivider: root.colorDivider }
     C.CfgSection { title: "MODO COMBINADO"; colorTextDim: root.colorTextDim }
 
     Text {
@@ -131,13 +172,14 @@ Item {
                 readonly property bool included: memberIndex !== -1
                 readonly property string otherGroupId: layoutCfg.groupForWidget(modelData.id)
                 readonly property bool inOtherGroup: !included && otherGroupId !== "" && otherGroupId !== groupBlock.group.id
+                readonly property bool widgetDisabled: !layoutCfg.isEnabled(modelData.id)
 
                 Rectangle {
                   width: 16; height: 16; radius: 4
                   border.width: 1.5
                   border.color: parent.included ? root.colorAccent : root.colorTextDim
                   color: parent.included ? root.colorAccent : "transparent"
-                  opacity: parent.inOtherGroup ? 0.4 : 1
+                  opacity: (parent.inOtherGroup || parent.widgetDisabled) ? 0.4 : 1
                   MouseArea {
                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                     onClicked: layoutCfg.toggleMember(groupBlock.group.id, modelData.id)
@@ -149,7 +191,8 @@ Item {
                   text: modelData.label
                         + (parent.included ? "  ·  posição " + (parent.memberIndex + 1) : "")
                         + (parent.inOtherGroup ? "  ·  já em outro grupo" : "")
-                  color: parent.inOtherGroup ? root.colorTextDim : root.colorText
+                        + (parent.widgetDisabled ? "  ·  desativado" : "")
+                  color: (parent.inOtherGroup || parent.widgetDisabled) ? root.colorTextDim : root.colorText
                   font.pixelSize: 12
                 }
 
