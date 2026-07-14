@@ -1,6 +1,9 @@
 {
     "bar": {
         "alwaysVisible": true,
+        "cornersEnabled": true,
+        "cornersMode": "edge",
+        "cornersRadius": 16,
         "enabled": true,
         "floating": false,
         "pinned": false,

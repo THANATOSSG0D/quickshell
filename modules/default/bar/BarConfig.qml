@@ -77,6 +77,17 @@ Item {
   property string tooltipAlign:    "module"
   property int    tooltipOffset:   0
 
+  // ── Cantos da tela (globais, não por tema) ──────────────────────────────
+  property bool   cornersEnabled: false
+  property int    cornersRadius:  24
+  // "edge" (extremidade física) | "bar" | "dock" | "both"
+  property string cornersMode:    "edge"
+  // Por padrão os cantos somem enquanto há uma janela em fullscreen (mesmo
+  // mecanismo de detecção que autoHide/pinned usam via Hyprland rawEvent
+  // "fullscreen" — ver ScreenCorners.qml). Com isto em true, ficam sempre
+  // visíveis (layer Overlay já garante que renderizam por cima).
+  property bool   cornersOverFullscreen: false
+
   // ── Props "bar" — por tema ───────────────────────────────────────────────
   // NOTA: estas são properties ARMAZENADAS (não bindings calculados via
   // get()/getModules() direto). Usar "readonly property X: get(...)" aqui
@@ -394,6 +405,12 @@ Item {
     if (opts.tooltipAlign    !== undefined) root.tooltipAlign    = opts.tooltipAlign
     if (opts.tooltipOffset   !== undefined) root.tooltipOffset   = opts.tooltipOffset
 
+    // ── Cantos da tela (globais) ─────────────────────────────────────────
+    if (opts.cornersEnabled !== undefined) root.cornersEnabled = opts.cornersEnabled
+    if (opts.cornersRadius  !== undefined) root.cornersRadius  = opts.cornersRadius
+    if (opts.cornersMode    !== undefined) root.cornersMode    = opts.cornersMode
+    if (opts.cornersOverFullscreen !== undefined) root.cornersOverFullscreen = opts.cornersOverFullscreen
+
     // ── "bar" — por tema, via set() (mesma cascata dos demais módulos) ──
     if (opts.autoHide       !== undefined) set("bar", "autoHide",       opts.autoHide)
     if (opts.position       !== undefined) set("bar", "position",       opts.position)
@@ -465,7 +482,9 @@ Item {
       pinned: root.pinned, floating: root.floating, enabled: root.panelEnabled,
       tooltipEnabled: root.tooltipEnabled, tooltipMinWidth: root.tooltipMinWidth,
       tooltipMaxWidth: root.tooltipMaxWidth,
-      tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset
+      tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset,
+      cornersEnabled: root.cornersEnabled, cornersRadius: root.cornersRadius,
+      cornersMode: root.cornersMode, cornersOverFullscreen: root.cornersOverFullscreen
     }
     // Garante que themes não foi zerado antes de gravar
     if (!barAdapter.themes || Object.keys(barAdapter.themes).length === 0) {
@@ -710,6 +729,10 @@ Item {
         if (b.tooltipMaxWidth !== undefined) root.tooltipMaxWidth = b.tooltipMaxWidth
         if (b.tooltipAlign    !== undefined) root.tooltipAlign    = b.tooltipAlign
         if (b.tooltipOffset   !== undefined) root.tooltipOffset   = b.tooltipOffset
+        if (b.cornersEnabled !== undefined) root.cornersEnabled = b.cornersEnabled
+        if (b.cornersRadius  !== undefined) root.cornersRadius  = b.cornersRadius
+        if (b.cornersMode    !== undefined) root.cornersMode    = b.cornersMode
+        if (b.cornersOverFullscreen !== undefined) root.cornersOverFullscreen = b.cornersOverFullscreen
         root._bump()
       }
 

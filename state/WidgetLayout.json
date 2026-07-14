@@ -27,7 +27,8 @@
                 "gpu",
                 "network",
                 "ram",
-                "disk"
+                "disk",
+                "bluetooth"
             ],
             "position": 2
         }

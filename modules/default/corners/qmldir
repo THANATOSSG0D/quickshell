@@ -1,0 +1,3 @@
+module modules.default.corners
+CornerMask    1.0 CornerMask.qml
+ScreenCorners 1.0 ScreenCorners.qml

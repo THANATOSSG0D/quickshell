@@ -22,6 +22,7 @@ import './modules/default/notifications' as NotifModule
 import './modules/default/powermenu'     as PowerModule
 import './modules/default/dmenu'         as DmenuModule
 import './modules/default/config' as ConfigModule
+import './modules/default/corners' as CornersModule
 
 Scope {
   ClockWidget {}
@@ -122,6 +123,14 @@ Scope {
 
     osdService:   osd.osdService
     notifService: notifService
+  }
+
+  // ── Cantos da tela — máscara decorativa arredondando os 4 cantos do
+  // monitor. Config única (Bar.json, aba Geral → "Cantos da Tela"); pega
+  // também a posição/tamanho da Dock quando cornersMode = "dock"/"both".
+  CornersModule.ScreenCorners {
+    configBar:  bar.configRef
+    configDock: dockBar.configRef
   }
 
   // ── DmenuIpc — habilita scripts externos via: cmd | qs-dmenu ────────────

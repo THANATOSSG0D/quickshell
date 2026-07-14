@@ -178,4 +178,55 @@ C.CfgScroll {
       }
     }
   }
+
+  C.CfgDiv { colorDivider: root.colorTextDim }
+
+  // ── Cantos da tela ───────────────────────────────────────────────────
+  // Config global (Bar.json), independente de tema. Editar isso pela aba
+  // "Dock" NÃO tem efeito — ScreenCorners.qml só lê de bar.configRef.
+  C.CfgSection { title: "CANTOS DA TELA"; colorTextDim: root.colorTextDim }
+  C.CfgToggle {
+    label:        "Arredondar os 4 cantos do monitor"
+    checked:      root.g("cornersEnabled", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ cornersEnabled: !(root.g("cornersEnabled", false) === true) })
+  }
+  C.CfgSlider {
+    label: "Raio"; value: root.g("cornersRadius", 24)
+    from: 4; to: 60; step: 2; unit: "px"
+    enabled:      root.g("cornersEnabled", false) === true
+    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
+    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ cornersRadius: v })
+  }
+  C.CfgToggle {
+    label:        "Manter visível sobre janelas em fullscreen"
+    checked:      root.g("cornersOverFullscreen", false) === true
+    enabled:      root.g("cornersEnabled", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ cornersOverFullscreen: !(root.g("cornersOverFullscreen", false) === true) })
+  }
+  Row {
+    spacing: 6
+    enabled: root.g("cornersEnabled", false) === true
+    opacity: enabled ? 1 : 0.4
+    Repeater {
+      model: [
+        { id: "edge", label: "Extremidade da tela" },
+        { id: "bar",  label: "Abaixo da Barra" },
+        { id: "dock", label: "Abaixo da Dock" },
+        { id: "both", label: "Barra + Dock" },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:        modelData.label
+        active:       root.g("cornersMode", "edge") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changed({ cornersMode: modelData.id })
+      }
+    }
+  }
 }
