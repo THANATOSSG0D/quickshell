@@ -124,6 +124,31 @@ Scope {
         // grupo (fica só "pausado", volta sozinho se reativar)
         readonly property var activeMembers: group.members.filter(id => layoutCfg.isEnabled(id))
 
+        // cada membro vira { id, col, row } — col vem de group.memberColumns
+        // (1-indexed, sem entrada = coluna 1), row é a posição dele DENTRO
+        // daquela coluna (quantos já foram colocados ali antes dele)
+        readonly property var memberGrid: {
+          const cols = group.columns || 1
+          const mc = group.memberColumns || {}
+          const colCounts = {}
+          const result = []
+          for (const id of activeMembers) {
+            let col = mc[id] || 1
+            if (col < 1) col = 1
+            if (col > cols) col = cols
+            const row = colCounts[col] || 0
+            colCounts[col] = row + 1
+            result.push({ id, col: col - 1, row })
+          }
+          return result
+        }
+
+        // divisor entre itens só faz sentido na pilha vertical simples
+        // (1 coluna, sem posicionamento custom) — em qualquer coisa mais
+        // elaborada (grid de verdade, colunas custom) ele é omitido
+        readonly property bool simpleStack:
+          (group.columns || 1) === 1 && Object.keys(group.memberColumns || {}).length === 0
+
         mask: Region { item: content }
 
         readonly property var positions: [
@@ -157,9 +182,18 @@ Scope {
             id: card
             width: memberColumn.implicitWidth + 24
             implicitHeight: memberColumn.implicitHeight + 24
-            radius: 14
-            color: Qt.rgba(0.07, 0.07, 0.08, 0.55)
-            border.color: Qt.rgba(1, 1, 1, 0.08); border.width: 1
+            radius: panel.group.radius !== undefined ? panel.group.radius : 14
+            color: {
+              const c = Colors[panel.group.bgColor || "surface_container"]
+              const o = panel.group.bgOpacity !== undefined ? panel.group.bgOpacity : 0.55
+              return Qt.rgba(c.r, c.g, c.b, o)
+            }
+            border.width: panel.group.borderWidth !== undefined ? panel.group.borderWidth : 1
+            border.color: {
+              const c = Colors[panel.group.borderColor || "outline_variant"]
+              const o = panel.group.borderOpacity !== undefined ? panel.group.borderOpacity : 0.4
+              return Qt.rgba(c.r, c.g, c.b, o)
+            }
 
             GridLayout {
               id: memberColumn
@@ -169,16 +203,18 @@ Scope {
               rowSpacing: 0
 
               Repeater {
-                model: panel.activeMembers
+                model: panel.memberGrid
                 delegate: ColumnLayout {
-                  required property string modelData
+                  required property var modelData
                   required property int index
+                  Layout.row: modelData.row
+                  Layout.column: modelData.col
                   Layout.fillWidth: true
                   spacing: 0
 
                   Loader {
                     Layout.alignment: Qt.AlignHCenter
-                    sourceComponent: widgetHost.componentFor(modelData)
+                    sourceComponent: widgetHost.componentFor(modelData.id)
                     onLoaded: {
                       if (item && item.addTaskRequested !== undefined)
                         item.addTaskRequested.connect(function() { addTaskWindow.openForm() })
@@ -213,7 +249,7 @@ Scope {
                     Layout.fillWidth: true
                     Layout.topMargin: 10; Layout.bottomMargin: 10
                     height: 1
-                    visible: index < panel.activeMembers.length - 1
+                    visible: panel.simpleStack && index < panel.memberGrid.length - 1
                     color: Qt.rgba(1, 1, 1, 0.1)
                   }
                 }

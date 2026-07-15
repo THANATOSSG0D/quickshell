@@ -23,6 +23,12 @@
             "edgeMargin": 20,
             "enabled": true,
             "id": "gmrirvepa589",
+            "memberColumns": {
+                "cpu": 2,
+                "gpu": 2,
+                "process": 2,
+                "ram": 2
+            },
             "members": [
                 "system",
                 "cpu",
@@ -34,14 +40,6 @@
                 "bluetooth"
             ],
             "position": 5
-        },
-        {
-            "edgeMargin": 48,
-            "enabled": false,
-            "id": "gmrl8bmf9196",
-            "members": [
-            ],
-            "position": 6
         }
     ],
     "members": [

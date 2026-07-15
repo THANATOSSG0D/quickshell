@@ -32,10 +32,9 @@ Item {
       color: root.colorTextDim
       font.pixelSize: 10
       text: "Detecta automaticamente a interface ativa via NetworkManager (prioriza cabo " +
-            "sobre Wi-Fi) e mostra down/upload em tempo real, IP local, DNS (via " +
-            "/etc/resolv.conf — se aparecer só 127.0.0.53 é o stub do systemd-resolved) " +
-            "e se tem VPN ativa. Some da tela quando 'Rede' estiver marcado num grupo " +
-            "combinado."
+            "sobre Wi-Fi) e mostra down/upload em tempo real, IP local, DNS configurado " +
+            "na conexão (via nmcli, não o stub do systemd-resolved) e se tem VPN ativa. " +
+            "Some da tela quando 'Rede' estiver marcado num grupo combinado."
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }

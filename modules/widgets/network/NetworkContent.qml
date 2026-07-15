@@ -18,7 +18,7 @@ Item {
   property string ifaceType: ""     // "wifi" | "ethernet" | ""
   property string connName:  ""     // SSID ou nome da conexão cabeada
   property string ipAddress: ""     // IP local da interface ativa
-  property string dnsServers: ""    // nameservers do /etc/resolv.conf, separados por vírgula
+  property string dnsServers: ""    // DNS da conexão ativa (via nmcli, não mais /etc/resolv.conf)
   property bool   vpnActive: false
   property string vpnName:   ""
 
@@ -72,6 +72,8 @@ Item {
           root.ifaceName = ""
           root.ifaceType = ""
           root.connName  = ""
+          root.ipAddress = ""
+          root.dnsServers = ""
         }
       }
     }
@@ -82,6 +84,7 @@ Item {
     onTriggered: {
       if (!ifaceProc.running) ifaceProc.running = true
       if (config.showIP && root.ifaceName !== "" && !ipProc.running) ipProc.running = true
+      if (config.showDNS && root.connName !== "" && !dnsProc.running) dnsProc.running = true
       if (config.showVPN && !vpnProc.running) vpnProc.running = true
     }
   }
@@ -99,31 +102,22 @@ Item {
     }
   }
 
-  // ── DNS — via /etc/resolv.conf (sem processo). Se aparecer só
-  // 127.0.0.53, é o stub do systemd-resolved; o DNS "de verdade" fica
-  // configurado no NetworkManager, não dá pra ver aqui sem chamar
-  // resolvectl (deixei simples de propósito) ──────────────────────────
-  FileView {
-    id: resolvFile
-    path: "/etc/resolv.conf"
-    watchChanges: true
-    onFileChanged: reload()
-    onLoaded: {
-      root.dnsServers = root._parseResolv(text())
+  // ── DNS — via nmcli connection show <nome> (não usa mais
+  // /etc/resolv.conf, que só mostra o stub 127.0.0.53 do
+  // systemd-resolved quando ele está ativo) ───────────────────────────
+  Process {
+    id: dnsProc
+    running: false
+    command: root.connName === "" ? ["true"] : ["nmcli", "-g", "IP4.DNS", "connection", "show", root.connName]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        // nmcli -g junta múltiplos valores com " | " (ou quebra de linha,
+        // dependendo da versão) — trata os dois casos
+        const servers = text.trim().split(/\s*\|\s*|\n/).map(s => s.trim()).filter(s => s.length > 0)
+        root.dnsServers = servers.join(", ")
+      }
     }
   }
-
-  function _parseResolv(text) {
-    const lines = text.split("\n")
-    const servers = []
-    for (const line of lines) {
-      const m = line.trim().match(/^nameserver\s+([\d.:a-fA-F]+)/)
-      if (m) servers.push(m[1])
-    }
-    return servers.join(", ")
-  }
-
-  Component.onCompleted: { if (config.showDNS) resolvFile.reload() }
 
   // ── VPN ativa (WireGuard/OpenVPN/etc via NetworkManager) ────────────
   Process {

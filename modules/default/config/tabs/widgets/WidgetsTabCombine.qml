@@ -167,7 +167,71 @@ Item {
             onMoved: (v) => layoutCfg.setGroupColumns(groupBlock.group.id, v)
           }
 
+          C.CfgSection { title: "APARÊNCIA DO CARD"; colorTextDim: root.colorTextDim }
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            C.CfgPalette {
+              Layout.fillWidth: true
+              label: "Cor de fundo"
+              value: groupBlock.group.bgColor || "surface_container"
+              colors: root.colors; overlay: root.overlay
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              colorText: root.colorText; colorSidebar: root.colorSidebar
+              colorDivider: root.colorDivider
+              onEdited: (v) => layoutCfg.setGroupBgColor(groupBlock.group.id, v)
+            }
+            C.CfgSlider {
+              Layout.fillWidth: true
+              label: "Opacidade do fundo"; from: 0; to: 100; step: 5; unit: "%"
+              value: Math.round((groupBlock.group.bgOpacity !== undefined ? groupBlock.group.bgOpacity : 0.55) * 100)
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              colorText: root.colorText; colorProgressBg: root.colorProgressBg
+              onMoved: (v) => layoutCfg.setGroupBgOpacity(groupBlock.group.id, v / 100)
+            }
+
+            C.CfgPalette {
+              Layout.fillWidth: true
+              label: "Cor da borda"
+              value: groupBlock.group.borderColor || "outline_variant"
+              colors: root.colors; overlay: root.overlay
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              colorText: root.colorText; colorSidebar: root.colorSidebar
+              colorDivider: root.colorDivider
+              onEdited: (v) => layoutCfg.setGroupBorderColor(groupBlock.group.id, v)
+            }
+            C.CfgSlider {
+              Layout.fillWidth: true
+              label: "Opacidade da borda"; from: 0; to: 100; step: 5; unit: "%"
+              value: Math.round((groupBlock.group.borderOpacity !== undefined ? groupBlock.group.borderOpacity : 0.4) * 100)
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              colorText: root.colorText; colorProgressBg: root.colorProgressBg
+              onMoved: (v) => layoutCfg.setGroupBorderOpacity(groupBlock.group.id, v / 100)
+            }
+            C.CfgSlider {
+              Layout.fillWidth: true
+              label: "Espessura da borda"; from: 0; to: 4; step: 1; unit: " px"
+              value: groupBlock.group.borderWidth !== undefined ? groupBlock.group.borderWidth : 1
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              colorText: root.colorText; colorProgressBg: root.colorProgressBg
+              onMoved: (v) => layoutCfg.setGroupBorderWidth(groupBlock.group.id, v)
+            }
+            C.CfgSlider {
+              Layout.fillWidth: true
+              label: "Arredondamento"; from: 0; to: 30; step: 2; unit: " px"
+              value: groupBlock.group.radius !== undefined ? groupBlock.group.radius : 14
+              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+              colorText: root.colorText; colorProgressBg: root.colorProgressBg
+              onMoved: (v) => layoutCfg.setGroupRadius(groupBlock.group.id, v)
+            }
+          }
+
           // ── widgets do grupo ──
+          C.CfgDiv { Layout.fillWidth: true; colorDivider: root.colorDivider }
+          C.CfgSection { title: "WIDGETS DO GRUPO"; colorTextDim: root.colorTextDim }
+
           ColumnLayout {
             Layout.fillWidth: true
             spacing: 4
@@ -175,6 +239,7 @@ Item {
             Repeater {
               model: root._allWidgets
               delegate: RowLayout {
+                id: widgetRow
                 required property var modelData
                 Layout.fillWidth: true
                 spacing: 8
@@ -225,6 +290,36 @@ Item {
                   MouseArea {
                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                     onClicked: layoutCfg.moveMember(groupBlock.group.id, modelData.id, 1)
+                  }
+                }
+
+                // coluna do widget dentro do card — só faz sentido mostrar
+                // quando o grupo tem mais de 1 coluna disponível
+                Row {
+                  visible: widgetRow.included && (groupBlock.group.columns || 1) > 1
+                  spacing: 3
+                  Repeater {
+                    model: groupBlock.group.columns || 1
+                    delegate: Rectangle {
+                      required property int modelData
+                      readonly property int colNum: modelData + 1
+                      readonly property bool active: layoutCfg.memberColumn(groupBlock.group, widgetRow.modelData.id) === colNum
+                      width: 16; height: 16; radius: 3
+                      color: active ? root.colorAccent : "transparent"
+                      border.width: 1
+                      border.color: active ? root.colorAccent : root.colorTextDim
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: parent.colNum
+                        font.pixelSize: 8
+                        color: parent.active ? Colors.background : root.colorTextDim
+                      }
+                      MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: layoutCfg.setMemberColumn(groupBlock.group.id, widgetRow.modelData.id, colNum)
+                      }
+                    }
                   }
                 }
               }

@@ -15,9 +15,13 @@ import Quickshell.Io
 // "gpu", "network", "disk", "system", "process", "bluetooth"
 //
 // Formato de cada grupo:
-//   { id, enabled, position, edgeMargin, columns, members }
-//   `columns` controla quantas colunas o card usa pra organizar os
-//   membros (grid em vez de uma pilha vertical única) — default 1.
+//   { id, enabled, position, edgeMargin, columns, memberColumns, members,
+//     bgColor, bgOpacity, borderColor, borderOpacity, borderWidth, radius }
+//   `columns` controla quantas colunas o card tem disponíveis.
+//   `memberColumns` é um mapa widgetId → coluna (1-indexed) — cada membro
+//   pode ser posicionado numa coluna específica; sem entrada = coluna 1.
+//   `bgColor`/`borderColor` são chaves do singleton Colors (ex: "primary",
+//   "on_surface", "outline", "background", "error").
 
 Item {
   id: config
@@ -47,7 +51,13 @@ Item {
 
   function addGroup() {
     const g = groups.slice()
-    g.push({ id: _uid(), enabled: true, position: 4, edgeMargin: 48, columns: 1, members: [] })
+    g.push({
+      id: _uid(), enabled: true, position: 4, edgeMargin: 48,
+      columns: 1, memberColumns: {}, members: [],
+      bgColor: "surface_container", bgOpacity: 0.55,
+      borderColor: "outline_variant", borderOpacity: 0.4,
+      borderWidth: 1, radius: 14,
+    })
     groups = g
   }
 
@@ -63,6 +73,26 @@ Item {
   function setGroupPosition(groupId, position)   { _updateGroup(groupId, { position }) }
   function setGroupEdgeMargin(groupId, edgeMargin) { _updateGroup(groupId, { edgeMargin }) }
   function setGroupColumns(groupId, columns)     { _updateGroup(groupId, { columns }) }
+  function setGroupBgColor(groupId, bgColor)         { _updateGroup(groupId, { bgColor }) }
+  function setGroupBgOpacity(groupId, bgOpacity)     { _updateGroup(groupId, { bgOpacity }) }
+  function setGroupBorderColor(groupId, borderColor) { _updateGroup(groupId, { borderColor }) }
+  function setGroupBorderOpacity(groupId, borderOpacity) { _updateGroup(groupId, { borderOpacity }) }
+  function setGroupBorderWidth(groupId, borderWidth) { _updateGroup(groupId, { borderWidth }) }
+  function setGroupRadius(groupId, radius)           { _updateGroup(groupId, { radius }) }
+
+  // Coluna (1-indexed) de um membro específico dentro do grupo. Widget
+  // não assinalado explicitamente cai na coluna 1 por padrão.
+  function setMemberColumn(groupId, widgetId, column) {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    const mc = Object.assign({}, group.memberColumns || {})
+    mc[widgetId] = column
+    _updateGroup(groupId, { memberColumns: mc })
+  }
+
+  function memberColumn(group, widgetId) {
+    return (group.memberColumns && group.memberColumns[widgetId]) || 1
+  }
 
   // Alterna widgetId dentro do grupo groupId. Se ele já estiver em outro
   // grupo, é removido de lá primeiro (associação é exclusiva).
