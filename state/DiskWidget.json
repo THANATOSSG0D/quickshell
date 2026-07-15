@@ -7,11 +7,11 @@
     "extraMounts": [
         "/mnt/data"
     ],
-    "fixedHeight": 72,
+    "fixedHeight": 140,
     "fixedWidth": 200,
     "fontSizeValue": 32,
     "mountPoint": "/",
     "position": 4,
-    "showHistory": false,
-    "showIO": false
+    "showHistory": true,
+    "showIO": true
 }

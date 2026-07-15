@@ -1,24 +1,35 @@
 {
     "edgeMargin": 20,
     "enabled": {
-        "bluetooth": true
+        "bluetooth": true,
+        "favorites": false
     },
     "groupEnabled": false,
     "groups": [
         {
+            "bgColor": "background",
+            "bgOpacity": 0.8,
+            "borderWidth": 1,
             "columns": 1,
             "edgeMargin": 20,
             "enabled": true,
             "id": "gmriao7li300",
+            "memberColumns": {
+                "clock": 2,
+                "habits": 2,
+                "mediaplayer": 2
+            },
             "members": [
-                "weather",
                 "clock",
+                "weather",
                 "calendar",
                 "todo"
             ],
-            "position": 3
+            "position": 0
         },
         {
+            "bgColor": "background",
+            "bgOpacity": 0.8,
             "columns": 2,
             "edgeMargin": 20,
             "enabled": true,
@@ -39,7 +50,28 @@
                 "process",
                 "bluetooth"
             ],
-            "position": 5
+            "position": 2
+        },
+        {
+            "bgColor": "background",
+            "bgOpacity": 0.8,
+            "borderColor": "outline_variant",
+            "borderOpacity": 0.4,
+            "borderWidth": 1,
+            "columns": 2,
+            "edgeMargin": 20,
+            "enabled": true,
+            "id": "gmrlk9t9c945",
+            "memberColumns": {
+                "habits": 2
+            },
+            "members": [
+                "favorites",
+                "habits",
+                "mediaplayer"
+            ],
+            "position": 8,
+            "radius": 14
         }
     ],
     "members": [

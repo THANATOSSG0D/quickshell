@@ -1,0 +1,15 @@
+{
+    "appLabel": "Media Player",
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorValue": "primary",
+    "edgeMargin": 48,
+    "fixedHeight": 150,
+    "fixedWidth": 260,
+    "fontSizeValue": 14,
+    "launchCommand": "com.spotify.Client",
+    "position": 4,
+    "preferredPlayerId": "spotify",
+    "showCoverArt": true,
+    "showProgress": true
+}

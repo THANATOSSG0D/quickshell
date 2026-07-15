@@ -1,0 +1,37 @@
+{
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorValue": "primary",
+    "edgeMargin": 48,
+    "fixedHeight": 240,
+    "fixedWidth": 240,
+    "fontSizeValue": 20,
+    "habits": [
+        {
+            "color": "primary",
+            "history": {
+            },
+            "id": "hmrlkiisy571",
+            "name": "Beber agua"
+        },
+        {
+            "color": "secondary",
+            "history": {
+            },
+            "id": "hmrlkj00a848",
+            "name": "Fazer Alongamento"
+        },
+        {
+            "color": "tertiary",
+            "history": {
+            },
+            "id": "hmrlkj9ob221",
+            "name": "Escovar os Dentes"
+        }
+    ],
+    "heatmapWeeks": 10,
+    "maxVisible": 4,
+    "position": 4,
+    "showHeatmap": true,
+    "squareSize": 10
+}

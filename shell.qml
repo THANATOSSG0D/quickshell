@@ -16,6 +16,9 @@ import "modules/widgets/disk"
 import "modules/widgets/system"
 import "modules/widgets/process"
 import "modules/widgets/bluetooth"
+import "modules/widgets/habits"
+import "modules/widgets/mediaplayer"
+import "modules/widgets/favorites"
 import "modules/widgets"
 import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
@@ -38,6 +41,9 @@ Scope {
   SystemWidget {}
   ProcessWidget {}
   BluetoothWidget {}
+  HabitsWidget {}
+  MediaPlayerWidget {}
+  FavoritesWidget {}
   WidgetHost {}
 
   // Lembretes de tarefa vencida/vencendo hoje via notify-send — instância

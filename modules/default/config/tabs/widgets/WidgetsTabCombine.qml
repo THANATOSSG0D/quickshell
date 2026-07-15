@@ -35,6 +35,9 @@ Item {
     { id: "system",    label: "Sistema"          },
     { id: "process",   label: "Processos"        },
     { id: "bluetooth", label: "Bluetooth"        },
+    { id: "favorites",   label: "Apps favoritos" },
+    { id: "habits",      label: "Hábitos"        },
+    { id: "mediaplayer", label: "Media Player"   },
   ]
 
   C.CfgScroll {

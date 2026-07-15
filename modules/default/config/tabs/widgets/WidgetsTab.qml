@@ -5,10 +5,11 @@ import QtQuick
 // com a ordem de _allModules["widgets"].subtabs em ConfigWindow.qml:
 //   0 Relógio · 1 Lista de tarefas · 2 Calendário · 3 Clima ·
 //   4 CPU · 5 RAM · 6 GPU · 7 Rede · 8 Disco · 9 Sistema · 10 Processos ·
-//   11 Bluetooth · 12 Combinar
+//   11 Bluetooth · 12 Hábitos · 13 Media Player · 14 Apps Favoritos · 15 Combinar
 //
 // Cada sub-aba (WidgetsTabClock/Todo/Calendar/Weather/CPU/RAM/GPU/Network/
-// Disk/System/Process/Bluetooth.qml, mesma pasta) abre sua PRÓPRIA
+// Disk/System/Process/Bluetooth/Habits/MediaPlayer/Favorites.qml, mesma
+// pasta) abre sua PRÓPRIA
 // instância do Config daquele widget — sincroniza com a instância dentro
 // do respectivo Widget.qml pelo mesmo JSON em state/, via FileView +
 // watchChanges. Não precisa passar nada pelo shell.qml.
@@ -32,7 +33,7 @@ Item {
   // Ordem tem que bater com _allModules["widgets"].subtabs em ConfigWindow.qml:
   //   0 Relógio · 1 Lista de tarefas · 2 Calendário · 3 Clima ·
   //   4 CPU · 5 RAM · 6 GPU · 7 Rede · 8 Disco · 9 Sistema · 10 Processos ·
-  //   11 Bluetooth · 12 Combinar
+  //   11 Bluetooth · 12 Hábitos · 13 Media Player · 14 Apps Favoritos · 15 Combinar
 
   Loader {
     id: subLoader
@@ -51,7 +52,10 @@ Item {
         case 9:  return _systemTab
         case 10: return _processTab
         case 11: return _bluetoothTab
-        case 12: return _combineTab
+        case 12: return _habitsTab
+        case 13: return _mediaPlayerTab
+        case 14: return _favoritesTab
+        case 15: return _combineTab
         default: return _clockTab
       }
     }
@@ -159,6 +163,33 @@ Item {
   Component {
     id: _bluetoothTab
     WidgetsTabBluetooth {
+      overlay: root.overlay; colors: root.colors
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      colorText: root.colorText; colorDivider: root.colorDivider
+      colorSidebar: root.colorSidebar; colorProgressBg: root.colorProgressBg
+    }
+  }
+  Component {
+    id: _habitsTab
+    WidgetsTabHabits {
+      overlay: root.overlay; colors: root.colors
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      colorText: root.colorText; colorDivider: root.colorDivider
+      colorSidebar: root.colorSidebar; colorProgressBg: root.colorProgressBg
+    }
+  }
+  Component {
+    id: _mediaPlayerTab
+    WidgetsTabMediaPlayer {
+      overlay: root.overlay; colors: root.colors
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      colorText: root.colorText; colorDivider: root.colorDivider
+      colorSidebar: root.colorSidebar; colorProgressBg: root.colorProgressBg
+    }
+  }
+  Component {
+    id: _favoritesTab
+    WidgetsTabFavorites {
       overlay: root.overlay; colors: root.colors
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorDivider: root.colorDivider

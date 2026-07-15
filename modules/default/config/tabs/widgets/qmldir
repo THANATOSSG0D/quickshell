@@ -16,3 +16,6 @@ WidgetsTabSystem 1.0 WidgetsTabSystem.qml
 WidgetsTabTodo 1.0 WidgetsTabTodo.qml
 WidgetsTabWeather 1.0 WidgetsTabWeather.qml
 WidgetsTabProcess 1.0 WidgetsTabProcess.qml
+WidgetsTabMediaPlayer 1.0 WidgetsTabMediaPlayer.qml
+WidgetsTabHabits 1.0 WidgetsTabHabits.qml
+WidgetsTabFavorites 1.0 WidgetsTabFavorites.qml

@@ -12,7 +12,8 @@ import Quickshell.Io
 // TODA parte (individual e dentro de qualquer grupo combinado).
 //
 // ids válidos: "clock", "todo", "calendar", "weather", "cpu", "ram",
-// "gpu", "network", "disk", "system", "process", "bluetooth"
+// "gpu", "network", "disk", "system", "process", "bluetooth", "habits",
+// "mediaplayer", "favorites"
 //
 // Formato de cada grupo:
 //   { id, enabled, position, edgeMargin, columns, memberColumns, members,

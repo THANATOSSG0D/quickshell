@@ -11,7 +11,8 @@ import Quickshell.Io
 // salvo pela última vez).
 //
 // ids válidos: "clock", "todo", "calendar", "weather", "cpu", "ram",
-//              "gpu", "network", "disk", "bluetooth"
+//              "gpu", "network", "disk", "bluetooth", "habits",
+//              "mediaplayer", "favorites"
 
 Item {
   id: config

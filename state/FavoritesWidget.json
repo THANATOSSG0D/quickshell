@@ -1,0 +1,14 @@
+{
+    "apps": [
+    ],
+    "colorLabel": "on_surface",
+    "colorLine": "outline",
+    "colorValue": "primary",
+    "columns": 4,
+    "edgeMargin": 48,
+    "fixedHeight": 140,
+    "fixedWidth": 220,
+    "fontSizeValue": 20,
+    "iconSize": 22,
+    "position": 4
+}

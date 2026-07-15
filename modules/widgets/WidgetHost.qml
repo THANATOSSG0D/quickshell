@@ -18,6 +18,9 @@ import "disk"
 import "system"
 import "process"
 import "bluetooth"
+import "habits"
+import "mediaplayer"
+import "favorites"
 
 // ── WidgetHost ──────────────────────────────────────────────────────────
 // Quando existe pelo menos um grupo ativo em WidgetLayoutConfig.groups,
@@ -59,6 +62,9 @@ Scope {
   Component { id: systemComp;   SystemContent   { grouped: true } }
   Component { id: processComp;  ProcessContent  { grouped: true } }
   Component { id: bluetoothComp; BluetoothContent { grouped: true } }
+  Component { id: habitsComp;      HabitsContent      { grouped: true } }
+  Component { id: mediaPlayerComp; MediaPlayerContent { grouped: true } }
+  Component { id: favoritesComp;   FavoritesContent   { grouped: true } }
 
   function componentFor(id) {
     switch (id) {
@@ -74,6 +80,9 @@ Scope {
       case "system":    return systemComp
       case "process":   return processComp
       case "bluetooth": return bluetoothComp
+      case "habits":      return habitsComp
+      case "mediaplayer": return mediaPlayerComp
+      case "favorites":   return favoritesComp
     }
     return null
   }
