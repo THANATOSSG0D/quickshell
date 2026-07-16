@@ -4,12 +4,16 @@
     "colorLine": "outline",
     "colorValue": "primary",
     "edgeMargin": 48,
-    "fixedHeight": 150,
-    "fixedWidth": 260,
+    "fixedHeight": 168,
+    "fixedWidth": 248,
     "fontSizeValue": 14,
     "launchCommand": "com.spotify.Client",
+    "marqueeText": true,
     "position": 4,
     "preferredPlayerId": "spotify",
+    "rotateCoverArt": true,
     "showCoverArt": true,
-    "showProgress": true
+    "showProgress": true,
+    "showShuffleRepeat": true,
+    "showVisualizer": true
 }

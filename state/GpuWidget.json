@@ -8,7 +8,7 @@
     "fontSizeValue": 36,
     "position": 4,
     "showHistory": true,
-    "showIntel": false,
+    "showIntel": true,
     "showModel": true,
     "showPower": true,
     "showTemp": true,

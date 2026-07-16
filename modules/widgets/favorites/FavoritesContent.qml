@@ -3,6 +3,7 @@ import qs
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import Quickshell.Widgets
 
 Item {
   id: root
@@ -69,11 +70,29 @@ Item {
             radius: 10
             color: iconArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
+            IconImage {
+              id: iconImg
+              anchors.centerIn: parent
+              width: config.iconSize; height: config.iconSize
+              smooth: true
+              opacity: status === Image.Ready ? 1 : 0
+              source: {
+                const ico = modelData.icon || ""
+                if (ico === "") return ""
+                if (ico.startsWith("/") || ico.startsWith("file://")) return ico
+                return "image://icon/" + ico
+              }
+            }
+
+            // avatar com a primeira letra — fallback quando não há ícone
+            // resolvível (mesmo padrão usado no dmenu)
             Text {
               anchors.centerIn: parent
-              text: modelData.icon
+              visible: iconImg.status !== Image.Ready
+              text: (modelData.name || "?").charAt(0).toUpperCase()
               color: Colors[config.colorValue]
-              font { pixelSize: config.iconSize; family: "JetBrainsMono Nerd Font" }
+              opacity: 0.6
+              font { pixelSize: config.iconSize * 0.55; bold: true }
             }
 
             MouseArea {

@@ -139,6 +139,22 @@ Item {
     onTriggered: diskstatsFile.reload()
   }
 
+  FontMetrics {
+    id: bigNumberMetrics
+    font.pixelSize: root.fontSizeValue
+    font.family: "Inter"
+  }
+  FontMetrics {
+    id: secondaryMetrics
+    font.pixelSize: 11
+    font.family: "Inter"
+  }
+  FontMetrics {
+    id: ioMetrics
+    font.pixelSize: 12
+    font.family: "Inter"
+  }
+
   // ── visual GRANDE (disco principal) ─────────────────────────────────
   ColumnLayout {
     id: bigLayout
@@ -154,6 +170,8 @@ Item {
         text: root.diskPercent.toFixed(0) + "%"
         color: root.colorValue
         font { pixelSize: root.fontSizeValue; family: "Inter"; weight: Font.Light }
+        horizontalAlignment: Text.AlignRight
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -162,7 +180,12 @@ Item {
       }
 
       ColumnLayout {
+        id: secondaryCol
         spacing: 0
+        // "9999 / 9999 GB" cobre até discos de vários TB sem recalcular
+        readonly property real reservedWidth: secondaryMetrics.boundingRect("9999 / 9999 GB").width
+        Layout.preferredWidth: reservedWidth
+
         Text {
           text: "DISCO"
           color: root.colorLabel
@@ -187,7 +210,13 @@ Item {
         RowLayout {
           spacing: 4
           Text { text: "R"; color: root.colorValue; opacity: 0.7; font.pixelSize: 10 }
-          Text { text: root.formatSpeed(root.readBps); color: root.colorValue; font.pixelSize: 12 }
+          Text {
+            text: root.formatSpeed(root.readBps)
+            color: root.colorValue
+            font.pixelSize: 12
+            horizontalAlignment: Text.AlignLeft
+            Layout.preferredWidth: ioMetrics.boundingRect("999.9 MB/s").width
+          }
         }
         Shared.Sparkline {
           visible: root.showHistory
@@ -204,7 +233,13 @@ Item {
         RowLayout {
           spacing: 4
           Text { text: "W"; color: root.colorWrite; opacity: 0.7; font.pixelSize: 10 }
-          Text { text: root.formatSpeed(root.writeBps); color: root.colorWrite; font.pixelSize: 12 }
+          Text {
+            text: root.formatSpeed(root.writeBps)
+            color: root.colorWrite
+            font.pixelSize: 12
+            horizontalAlignment: Text.AlignLeft
+            Layout.preferredWidth: ioMetrics.boundingRect("999.9 MB/s").width
+          }
         }
         Shared.Sparkline {
           visible: root.showHistory
@@ -237,12 +272,16 @@ Item {
       text: root.diskPercent.toFixed(0) + "%"
       color: root.colorValue
       font.pixelSize: 11
+      horizontalAlignment: Text.AlignRight
+      Layout.preferredWidth: secondaryMetrics.boundingRect("100%").width
     }
     Text {
       text: root.usedGB.toFixed(0) + "/" + root.totalGB.toFixed(0) + "GB"
       color: root.colorLabel
       opacity: 0.6
       font.pixelSize: 10
+      horizontalAlignment: Text.AlignLeft
+      Layout.preferredWidth: secondaryMetrics.boundingRect("9999/9999GB").width
     }
     Text {
       visible: root.showIO && root._diskDev !== ""

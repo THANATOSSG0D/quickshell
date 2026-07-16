@@ -165,7 +165,7 @@ Item {
       onMoved: (v) => config.fixedWidth = v
     }
     C.CfgSlider {
-      label: "Altura"; from: 100; to: 260; step: 4; unit: " px"
+      label: "Altura"; from: 100; to: 320; step: 4; unit: " px"
       value: config.fixedHeight
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       colorText: root.colorText; colorProgressBg: root.colorProgressBg
@@ -182,10 +182,34 @@ Item {
       onToggled: config.showCoverArt = !config.showCoverArt
     }
     C.CfgToggle {
+      label: "Girar capa estilo vinil (ao tocar)"
+      checked: config.rotateCoverArt
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.rotateCoverArt = !config.rotateCoverArt
+    }
+    C.CfgToggle {
       label: "Mostrar barra de progresso (com seek)"
       checked: config.showProgress
       colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
       onToggled: config.showProgress = !config.showProgress
+    }
+    C.CfgToggle {
+      label: "Mostrar visualizador (equalizador animado)"
+      checked: config.showVisualizer
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.showVisualizer = !config.showVisualizer
+    }
+    C.CfgToggle {
+      label: "Rolar título quando não couber (marquee)"
+      checked: config.marqueeText
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.marqueeText = !config.marqueeText
+    }
+    C.CfgToggle {
+      label: "Mostrar botões de aleatório e repetir"
+      checked: config.showShuffleRepeat
+      colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+      onToggled: config.showShuffleRepeat = !config.showShuffleRepeat
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }
@@ -198,9 +222,13 @@ Item {
         config.position = 4
         config.edgeMargin = 48
         config.fixedWidth = 260
-        config.fixedHeight = 150
+        config.fixedHeight = 190
         config.showCoverArt = true
         config.showProgress = true
+        config.showVisualizer = true
+        config.rotateCoverArt = true
+        config.marqueeText = true
+        config.showShuffleRepeat = true
       }
     }
   }

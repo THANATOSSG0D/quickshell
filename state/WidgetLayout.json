@@ -2,7 +2,7 @@
     "edgeMargin": 20,
     "enabled": {
         "bluetooth": true,
-        "favorites": false
+        "favorites": true
     },
     "groupEnabled": false,
     "groups": [
@@ -10,8 +10,9 @@
             "bgColor": "background",
             "bgOpacity": 0.8,
             "borderWidth": 1,
+            "columnMinWidth": 0,
             "columns": 1,
-            "edgeMargin": 20,
+            "edgeMargin": 8,
             "enabled": true,
             "id": "gmriao7li300",
             "memberColumns": {
@@ -30,48 +31,43 @@
         {
             "bgColor": "background",
             "bgOpacity": 0.8,
+            "columnMinWidth": 0,
+            "columnSpacing": 8,
             "columns": 2,
-            "edgeMargin": 20,
+            "edgeMargin": 8,
             "enabled": true,
             "id": "gmrirvepa589",
+            "itemSpacing": 8,
             "memberColumns": {
                 "cpu": 2,
-                "gpu": 2,
+                "disk": 1,
+                "favorites": 1,
+                "gpu": 1,
+                "habits": 1,
+                "mediaplayer": 2,
+                "network": 1,
                 "process": 2,
-                "ram": 2
+                "ram": 2,
+                "system": 1
+            },
+            "memberFullWidth": {
+                "favorites": true,
+                "habits": false,
+                "system": true
             },
             "members": [
                 "system",
                 "cpu",
                 "gpu",
-                "network",
                 "ram",
                 "disk",
+                "network",
                 "process",
-                "bluetooth"
+                "mediaplayer",
+                "habits",
+                "favorites"
             ],
             "position": 2
-        },
-        {
-            "bgColor": "background",
-            "bgOpacity": 0.8,
-            "borderColor": "outline_variant",
-            "borderOpacity": 0.4,
-            "borderWidth": 1,
-            "columns": 2,
-            "edgeMargin": 20,
-            "enabled": true,
-            "id": "gmrlk9t9c945",
-            "memberColumns": {
-                "habits": 2
-            },
-            "members": [
-                "favorites",
-                "habits",
-                "mediaplayer"
-            ],
-            "position": 8,
-            "radius": 14
         }
     ],
     "members": [

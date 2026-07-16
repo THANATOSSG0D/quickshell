@@ -203,6 +203,12 @@ Item {
     return bps.toFixed(0) + " B/s"
   }
 
+  FontMetrics {
+    id: speedMetrics
+    font.pixelSize: config.fontSizeValue
+    font.family: "Inter"
+  }
+
   ColumnLayout {
     id: layout
     anchors.centerIn: parent
@@ -218,6 +224,8 @@ Item {
         text: root.ifaceName === "" ? "Sem conexão" : (root.connName || root.ifaceName)
         color: Colors[config.colorLabel]
         font { pixelSize: 13; family: "Inter"; weight: Font.DemiBold }
+        elide: Text.ElideRight
+        Layout.maximumWidth: config.fixedWidth - 16
       }
       Text {
         visible: root.ifaceName !== ""
@@ -271,6 +279,11 @@ Item {
             text: root.formatSpeed(root.downBps)
             color: Colors[config.colorValue]
             font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
+            horizontalAlignment: Text.AlignLeft
+            // largura reservada pro maior valor plausível — sem isso, o
+            // texto pula de tamanho toda vez que passa de B/s pra KB/s
+            // pra MB/s, e o lado "↑" inteiro desliza junto
+            Layout.preferredWidth: speedMetrics.boundingRect("999.9 MB/s").width
           }
         }
         Shared.Sparkline {
@@ -292,6 +305,8 @@ Item {
             text: root.formatSpeed(root.upBps)
             color: Colors[config.colorUp]
             font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
+            horizontalAlignment: Text.AlignLeft
+            Layout.preferredWidth: speedMetrics.boundingRect("999.9 MB/s").width
           }
         }
         Shared.Sparkline {

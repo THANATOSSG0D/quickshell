@@ -17,6 +17,18 @@ Scope {
   property int position: config.position
   onPositionChanged: config.position = position
 
+  // Janela centralizada de "novo/editar hábito" — única por Scope,
+  // reaproveitada por qualquer tela (mesmo padrão do TodoAddWindow).
+  HabitsAddWindow { id: addHabitWindow }
+
+  // Painel grande (Hábitos / Histórico) — mesma ideia, uma instância só.
+  // Edição de hábito dentro do painel abre a mesma HabitsAddWindow acima.
+  HabitsDashboard {
+    id: dashboardWindow
+    onEditHabitRequested: (habit) => addHabitWindow.openEdit(habit)
+    onAddHabitRequested: addHabitWindow.openForm()
+  }
+
   Variants {
     model: (layoutCfg.isGrouped("habits") || !layoutCfg.isEnabled("habits")) ? [] : Quickshell.screens
 
@@ -62,9 +74,9 @@ Scope {
           height: habitsContent.implicitHeight
 
           // clique direito muda posição (padrão dos outros widgets); o
-          // clique esquerdo é usado pelos checkboxes internos, então não
-          // capturamos aqui — só a área fora dos checkboxes de fato clica
-          // neles porque o MouseArea de cada checkbox está por cima.
+          // clique esquerdo é usado pelos checkboxes/botões internos, então
+          // não capturamos aqui — só a área fora deles de fato clica neles
+          // porque o MouseArea de cada um está por cima.
           MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.RightButton
@@ -73,7 +85,13 @@ Scope {
             }
           }
 
-          HabitsContent { id: habitsContent; grouped: false }
+          HabitsContent {
+            id: habitsContent
+            grouped: false
+            onAddHabitRequested: addHabitWindow.openForm()
+            onEditHabitRequested: (habit) => addHabitWindow.openEdit(habit)
+            onHabitsDashboardRequested: dashboardWindow.open()
+          }
         }
       }
     }

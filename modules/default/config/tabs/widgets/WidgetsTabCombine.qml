@@ -56,6 +56,11 @@ Item {
 
     ColumnLayout {
       width: parent.width
+      // sem isso, esse ColumnLayout (que não está dentro de outro Layout —
+      // o pai é o Column cru do CfgScroll) só recebe height = implicitHeight
+      // UMA VEZ na criação; virar binding vivo garante que o Column pai
+      // recalcula a altura total sempre que o conteúdo mudar de tamanho.
+      height: implicitHeight
       spacing: 2
 
       Repeater {
@@ -84,8 +89,11 @@ Item {
       color: root.colorTextDim
       font.pixelSize: 10
       text: "Cada grupo junta os widgets marcados nele num único card. Com 1 coluna " +
-            "(padrão) fica empilhado verticalmente, com divisores finos; com mais " +
-            "colunas vira um grid, lado a lado. Um widget só pode estar em um grupo " +
+            "(padrão) fica empilhado verticalmente; com mais colunas, cada uma empilha " +
+            "só os SEUS widgets pela própria altura — nunca esticada pra bater com a " +
+            "coluna vizinha. Marque um widget como 'linha inteira' pra ele ocupar a " +
+            "largura toda e quebrar o fluxo de colunas naquele ponto (as colunas " +
+            "recomeçam balanceadas depois dele). Um widget só pode estar em um grupo " +
             "por vez. Widgets fora de qualquer grupo continuam aparecendo do jeito de " +
             "sempre, na posição individual deles."
     }
@@ -94,6 +102,10 @@ Item {
 
     ColumnLayout {
       width: parent.width
+      // idem: binding vivo, não atribuição única — esse é o container que
+      // mais muda de altura no tab inteiro (grupos, colunas, toggles),
+      // então era onde o corte mais aparecia.
+      height: implicitHeight
       spacing: 10
 
       Repeater {
@@ -168,6 +180,92 @@ Item {
             colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
             colorText: root.colorText; colorProgressBg: root.colorProgressBg
             onMoved: (v) => layoutCfg.setGroupColumns(groupBlock.group.id, v)
+          }
+
+          // ── auto-organizar ──
+          Rectangle {
+            Layout.fillWidth: true
+            visible: (groupBlock.group.columns || 1) > 1
+            height: 28
+            radius: 8
+            color: autoMa.containsMouse
+              ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
+              : "transparent"
+            border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b,
+                                  autoMa.containsMouse ? 0.6 : 0.3)
+            border.width: 1
+
+            Row {
+              anchors.centerIn: parent; spacing: 6
+              Text {
+                text: "󰒓"; color: root.colorAccent
+                font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
+                anchors.verticalCenter: parent.verticalCenter
+              }
+              Text {
+                text: "Auto-organizar colunas"; color: root.colorAccent
+                font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter
+              }
+            }
+
+            MouseArea {
+              id: autoMa; anchors.fill: parent; hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: layoutCfg.autoBalanceGroup(groupBlock.group.id)
+            }
+          }
+        Item {
+            visible: (groupBlock.group.columns || 1) > 1
+            width: parent.width
+            height: textItem.implicitHeight
+
+          Text {
+              id: textItem
+              width: parent.width
+              wrapMode: Text.WordWrap
+              color: root.colorTextDim
+              font.pixelSize: 9
+              text: "Redistribui os widgets (que não estão em 'linha inteira') tentando " +
+                    "equilibrar a altura total de cada coluna — usa uma estimativa por tipo " +
+                    "de widget, não é exato, mas evita ter que arrumar coluna por coluna."
+            }
+        }
+
+          C.CfgDiv { Layout.fillWidth: true; colorDivider: root.colorDivider }
+          C.CfgSection { title: "TAMANHO E ESPAÇAMENTO"; colorTextDim: root.colorTextDim }
+
+          C.CfgSlider {
+            Layout.fillWidth: true
+            label: "Largura mínima da coluna"; from: 0; to: 400; step: 10; unit: " px"
+            value: groupBlock.group.columnMinWidth || 0
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorProgressBg: root.colorProgressBg
+            onMoved: (v) => layoutCfg.setGroupColumnMinWidth(groupBlock.group.id, v)
+          }
+          Text {
+            visible: (groupBlock.group.columnMinWidth || 0) === 0
+            width: parent.width
+            wrapMode: Text.WordWrap
+            color: root.colorTextDim
+            font.pixelSize: 9
+            text: "0 = sem piso, cada coluna usa só o tamanho do maior widget dela."
+          }
+          C.CfgSlider {
+            Layout.fillWidth: true
+            visible: (groupBlock.group.columns || 1) > 1
+            label: "Espaçamento entre colunas"; from: 0; to: 60; step: 2; unit: " px"
+            value: groupBlock.group.columnSpacing !== undefined ? groupBlock.group.columnSpacing : 20
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorProgressBg: root.colorProgressBg
+            onMoved: (v) => layoutCfg.setGroupColumnSpacing(groupBlock.group.id, v)
+          }
+          C.CfgSlider {
+            Layout.fillWidth: true
+            label: "Espaçamento entre widgets (vertical)"; from: 0; to: 60; step: 2; unit: " px"
+            value: groupBlock.group.itemSpacing !== undefined ? groupBlock.group.itemSpacing : 20
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorProgressBg: root.colorProgressBg
+            onMoved: (v) => layoutCfg.setGroupItemSpacing(groupBlock.group.id, v)
           }
 
           C.CfgSection { title: "APARÊNCIA DO CARD"; colorTextDim: root.colorTextDim }
@@ -297,9 +395,12 @@ Item {
                 }
 
                 // coluna do widget dentro do card — só faz sentido mostrar
-                // quando o grupo tem mais de 1 coluna disponível
+                // quando o grupo tem mais de 1 coluna disponível E o
+                // widget não estiver marcado como "linha inteira" (nesse
+                // caso a coluna dele não importa, ele quebra o fluxo)
                 Row {
                   visible: widgetRow.included && (groupBlock.group.columns || 1) > 1
+                           && !layoutCfg.memberIsFullWidth(groupBlock.group, widgetRow.modelData.id)
                   spacing: 3
                   Repeater {
                     model: groupBlock.group.columns || 1
@@ -323,6 +424,30 @@ Item {
                         onClicked: layoutCfg.setMemberColumn(groupBlock.group.id, widgetRow.modelData.id, colNum)
                       }
                     }
+                  }
+                }
+
+                // "ocupar linha inteira" — só faz sentido com mais de 1
+                // coluna (com 1 coluna já é sempre largura total mesmo)
+                Rectangle {
+                  visible: widgetRow.included && (groupBlock.group.columns || 1) > 1
+                  readonly property bool active: layoutCfg.memberIsFullWidth(groupBlock.group, widgetRow.modelData.id)
+                  width: fwLabel.implicitWidth + 10; height: 16; radius: 3
+                  color: active ? root.colorAccent : "transparent"
+                  border.width: 1
+                  border.color: active ? root.colorAccent : root.colorTextDim
+
+                  Text {
+                    id: fwLabel
+                    anchors.centerIn: parent
+                    text: "linha inteira"
+                    font.pixelSize: 8
+                    color: parent.active ? Colors.background : root.colorTextDim
+                  }
+                  MouseArea {
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                    onClicked: layoutCfg.setMemberFullWidth(
+                      groupBlock.group.id, widgetRow.modelData.id, !parent.active)
                   }
                 }
               }

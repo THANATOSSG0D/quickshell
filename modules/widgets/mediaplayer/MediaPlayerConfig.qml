@@ -21,10 +21,14 @@ Item {
   property string colorLine:  "outline"
 
   property int fixedWidth:  260
-  property int fixedHeight: 150
+  property int fixedHeight: 190
 
   property bool showCoverArt: true
   property bool showProgress: true
+  property bool showShuffleRepeat: true
+  property bool showVisualizer:    true
+  property bool rotateCoverArt:    true
+  property bool marqueeText:       true
 
   // identity ou desktopEntry do player preferido; vazio = automático
   // (prioriza um player tocando agora, senão pega o primeiro disponível)
@@ -52,10 +56,14 @@ Item {
       property string colorLine:  "outline"
 
       property int fixedWidth:  260
-      property int fixedHeight: 150
+      property int fixedHeight: 190
 
       property bool showCoverArt: true
       property bool showProgress: true
+      property bool showShuffleRepeat: true
+      property bool showVisualizer:    true
+      property bool rotateCoverArt:    true
+      property bool marqueeText:       true
 
       property string preferredPlayerId: ""
       property string launchCommand: ""
@@ -71,6 +79,10 @@ Item {
       onFixedHeightChanged:       config.fixedHeight       = fixedHeight
       onShowCoverArtChanged:      config.showCoverArt      = showCoverArt
       onShowProgressChanged:      config.showProgress      = showProgress
+      onShowShuffleRepeatChanged: config.showShuffleRepeat = showShuffleRepeat
+      onShowVisualizerChanged:    config.showVisualizer    = showVisualizer
+      onRotateCoverArtChanged:    config.rotateCoverArt    = rotateCoverArt
+      onMarqueeTextChanged:       config.marqueeText       = marqueeText
       onPreferredPlayerIdChanged: config.preferredPlayerId = preferredPlayerId
       onLaunchCommandChanged:     config.launchCommand     = launchCommand
       onAppLabelChanged:          config.appLabel          = appLabel
@@ -87,6 +99,10 @@ Item {
   onFixedHeightChanged:       adapter.fixedHeight       = fixedHeight
   onShowCoverArtChanged:      adapter.showCoverArt      = showCoverArt
   onShowProgressChanged:      adapter.showProgress      = showProgress
+  onShowShuffleRepeatChanged: adapter.showShuffleRepeat = showShuffleRepeat
+  onShowVisualizerChanged:    adapter.showVisualizer    = showVisualizer
+  onRotateCoverArtChanged:    adapter.rotateCoverArt    = rotateCoverArt
+  onMarqueeTextChanged:       adapter.marqueeText       = marqueeText
   onPreferredPlayerIdChanged: adapter.preferredPlayerId = preferredPlayerId
   onLaunchCommandChanged:     adapter.launchCommand     = launchCommand
   onAppLabelChanged:          adapter.appLabel          = appLabel

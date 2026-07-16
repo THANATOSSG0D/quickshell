@@ -47,6 +47,12 @@ Item {
   // trocar config.sortBy já refaz o comando do Process (é uma binding),
   // e o próximo tick do Timer acima reordena — não precisa de mais nada aqui
 
+  FontMetrics {
+    id: percentMetrics
+    font.pixelSize: config.fontSizeValue
+    font.family: "Inter"
+  }
+
   ColumnLayout {
     id: layout
     anchors.centerIn: parent
@@ -131,6 +137,8 @@ Item {
               text: (config.sortBy === "ram" ? modelData.mem : modelData.cpu).toFixed(1) + "%"
               color: Colors[config.colorValue]
               font.pixelSize: config.fontSizeValue
+              horizontalAlignment: Text.AlignRight
+              Layout.preferredWidth: percentMetrics.boundingRect("100.0%").width
             }
           }
         }

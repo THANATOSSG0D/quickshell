@@ -16,11 +16,23 @@ import Quickshell.Io
 // "mediaplayer", "favorites"
 //
 // Formato de cada grupo:
-//   { id, enabled, position, edgeMargin, columns, memberColumns, members,
-//     bgColor, bgOpacity, borderColor, borderOpacity, borderWidth, radius }
+//   { id, enabled, position, edgeMargin, columns, memberColumns,
+//     memberFullWidth, members, bgColor, bgOpacity, borderColor,
+//     borderOpacity, borderWidth, radius, columnMinWidth, columnSpacing,
+//     itemSpacing }
 //   `columns` controla quantas colunas o card tem disponíveis.
 //   `memberColumns` é um mapa widgetId → coluna (1-indexed) — cada membro
 //   pode ser posicionado numa coluna específica; sem entrada = coluna 1.
+//   `memberFullWidth` é um mapa widgetId → bool — widget marcado quebra
+//   o fluxo de colunas naquele ponto e ocupa a largura inteira do card.
+//   Cada coluna empilha só os SEUS membros pela própria altura (tipo
+//   "alvenaria"/masonry) — não existe altura de linha compartilhada
+//   entre colunas, então um widget pequeno nunca fica esticado só pra
+//   bater com um grande na coluna vizinha.
+//   `columnMinWidth` é um piso (px) pra largura de toda coluna — 0 (ou
+//   ausente) = só o tamanho natural do maior widget dela, sem piso.
+//   `columnSpacing`/`itemSpacing` são os espaçamentos horizontal (entre
+//   colunas) e vertical (entre widgets empilhados na mesma coluna), em px.
 //   `bgColor`/`borderColor` são chaves do singleton Colors (ex: "primary",
 //   "on_surface", "outline", "background", "error").
 
@@ -54,10 +66,11 @@ Item {
     const g = groups.slice()
     g.push({
       id: _uid(), enabled: true, position: 4, edgeMargin: 48,
-      columns: 1, memberColumns: {}, members: [],
+      columns: 1, memberColumns: {}, memberFullWidth: {}, members: [],
       bgColor: "surface_container", bgOpacity: 0.55,
       borderColor: "outline_variant", borderOpacity: 0.4,
       borderWidth: 1, radius: 14,
+      columnMinWidth: 0, columnSpacing: 20, itemSpacing: 20,
     })
     groups = g
   }
@@ -80,6 +93,9 @@ Item {
   function setGroupBorderOpacity(groupId, borderOpacity) { _updateGroup(groupId, { borderOpacity }) }
   function setGroupBorderWidth(groupId, borderWidth) { _updateGroup(groupId, { borderWidth }) }
   function setGroupRadius(groupId, radius)           { _updateGroup(groupId, { radius }) }
+  function setGroupColumnMinWidth(groupId, columnMinWidth) { _updateGroup(groupId, { columnMinWidth }) }
+  function setGroupColumnSpacing(groupId, columnSpacing)   { _updateGroup(groupId, { columnSpacing }) }
+  function setGroupItemSpacing(groupId, itemSpacing)       { _updateGroup(groupId, { itemSpacing }) }
 
   // Coluna (1-indexed) de um membro específico dentro do grupo. Widget
   // não assinalado explicitamente cai na coluna 1 por padrão.
@@ -93,6 +109,71 @@ Item {
 
   function memberColumn(group, widgetId) {
     return (group.memberColumns && group.memberColumns[widgetId]) || 1
+  }
+
+  // Sobrescreve o mapa memberColumns inteiro de uma vez (usado pelo
+  // auto-organizar, pra não disparar N escritas em sequência)
+  function setGroupMemberColumns(groupId, memberColumns) {
+    _updateGroup(groupId, { memberColumns })
+  }
+
+  // Estimativa de altura (px) de cada tipo de widget, só pra o
+  // auto-organizar ter uma noção de "peso" ao distribuir — não precisa
+  // ser exata, é só pra balancear razoavelmente. Widgets que eu não
+  // conheço (ex: adicionados depois, como os seus habits/mediaplayer/
+  // favorites) caem no valor padrão de 150.
+  readonly property var _heightEstimate: ({
+    clock: 90, todo: 220, calendar: 200, weather: 130,
+    cpu: 176, ram: 110, gpu: 190, network: 150, disk: 110,
+    system: 160, process: 170, bluetooth: 130,
+  })
+
+  // Auto-organiza os membros do grupo nas colunas disponíveis, tentando
+  // deixar a altura TOTAL de cada coluna o mais parecida possível
+  // (bin-packing guloso: o próximo widget sempre vai pra coluna mais
+  // baixa até agora). Membros marcados "linha inteira" não entram nessa
+  // conta (eles não pertencem a nenhuma coluna). Não mexe na ORDEM
+  // dentro de cada coluna — essa ainda segue a ordem de `members`.
+  function autoBalanceGroup(groupId) {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    const cols = group.columns || 1
+    if (cols <= 1) return // com 1 coluna só, não tem o que balancear
+
+    const fw = group.memberFullWidth || {}
+    const candidates = group.members.filter(id => !fw[id])
+
+    // maior primeiro deixa o guloso mais preciso
+    const sorted = candidates.slice().sort((a, b) =>
+      (_heightEstimate[b] || 150) - (_heightEstimate[a] || 150))
+
+    const colHeights = new Array(cols).fill(0)
+    const mc = {}
+    for (const id of sorted) {
+      let minCol = 0
+      for (let c = 1; c < cols; c++) {
+        if (colHeights[c] < colHeights[minCol]) minCol = c
+      }
+      mc[id] = minCol + 1
+      colHeights[minCol] += (_heightEstimate[id] || 150)
+    }
+    setGroupMemberColumns(groupId, mc)
+  }
+
+  // Widget "ocupa linha inteira" — quebra o empilhamento por coluna
+  // naquele ponto: tudo que veio antes fecha suas colunas, o widget
+  // aparece numa faixa sozinho ocupando a largura toda do card, e o que
+  // vem depois recomeça colunas novas (balanceadas de novo).
+  function setMemberFullWidth(groupId, widgetId, value) {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    const fw = Object.assign({}, group.memberFullWidth || {})
+    fw[widgetId] = value
+    _updateGroup(groupId, { memberFullWidth: fw })
+  }
+
+  function memberIsFullWidth(group, widgetId) {
+    return !!(group.memberFullWidth && group.memberFullWidth[widgetId])
   }
 
   // Alterna widgetId dentro do grupo groupId. Se ele já estiver em outro

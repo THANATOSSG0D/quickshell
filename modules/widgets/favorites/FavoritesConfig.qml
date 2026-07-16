@@ -3,10 +3,15 @@ import Quickshell
 import Quickshell.Io
 
 // ── FavoritesConfig ─────────────────────────────────────────────────────
-// Config do widget de apps favoritos: lista curada manualmente, cada item
-// { id, name, command, icon } onde `icon` é um glyph de Nerd Font (mesma
-// convenção usada em ConfigWindow._allModules, ex: "\uf001"). Clique
-// dispara `command` via `sh -c`. Mesmo esqueleto de BluetoothConfig.
+// Config do widget de apps favoritos: lista curada de atalhos, cada item
+// { id, name, command, icon }. `icon` é um nome de ícone do tema (ou
+// caminho absoluto) — mesma convenção usada pelo DesktopEntries no dmenu
+// (renderizado via "image://icon/<nome>"), com fallback pra avatar-letra
+// quando vazio ou não resolvível. Entradas normalmente vêm da busca
+// automática em DesktopEntries.applications (aba de config), mas também
+// dá pra cadastrar manualmente (nome + comando, ícone opcional) pra apps
+// que não têm .desktop instalado. Clique dispara `command` via `sh -c`.
+// Mesmo esqueleto de BluetoothConfig.
 
 Item {
   id: config
@@ -39,7 +44,7 @@ Item {
       id: _uid(),
       name: (name && name.trim().length > 0) ? name.trim() : "App",
       command: command || "",
-      icon: (icon && icon.length > 0) ? icon : "\uf2d0",
+      icon: icon || "",
     })
     apps = a
   }
@@ -50,6 +55,10 @@ Item {
 
   function updateApp(id, patch) {
     apps = apps.map(a => a.id === id ? Object.assign({}, a, patch) : a)
+  }
+
+  function hasCommand(command) {
+    return apps.some(a => a.command === command)
   }
 
   function moveApp(id, dir) {

@@ -40,7 +40,8 @@
                 "textStatic": false
             },
             "palette": {
-                "barBg": "background"
+                "barBg": "scrim",
+                "barBgPill": "scrim"
             },
             "workspaces": {
                 "current": {
@@ -65,6 +66,10 @@
                 "iconMonochrome": false,
                 "iconSize": 20,
                 "iconSpacing": 4,
+                "number": {
+                    "bgPaddingHActive": 0,
+                    "bgPaddingVActive": 0
+                },
                 "numberBgEnabled": true,
                 "numberBgPaddingH": 0,
                 "numberBgPaddingV": 0,
@@ -74,7 +79,7 @@
                 "scrollInvert": false,
                 "showAddButton": true,
                 "spacing": 4,
-                "style": "focus"
+                "style": "number"
             }
         }
     }

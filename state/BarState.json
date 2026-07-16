@@ -136,7 +136,8 @@
                 "textStatic": true
             },
             "palette": {
-                "barBg": "background"
+                "barBg": "scrim",
+                "barBgPill": "scrim"
             },
             "volume": {
                 "showSource": false

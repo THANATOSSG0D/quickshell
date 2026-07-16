@@ -158,6 +158,15 @@ Item {
   }
 
   // ── Layout ────────────────────────────────────────────────────────────
+  // FontMetrics mede o texto no tamanho de fonte ATUAL (que é configurável
+  // por slider), então a largura reservada acompanha se o usuário mudar
+  // o tamanho da fonte — não é um número mágico fixo no código.
+  FontMetrics {
+    id: bigNumberMetrics
+    font.pixelSize: config.fontSizeValue
+    font.family: "Inter"
+  }
+
   ColumnLayout {
     id: layout
     anchors.centerIn: parent
@@ -171,6 +180,11 @@ Item {
         text: root.cpuPercent.toFixed(0) + "%"
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
+        horizontalAlignment: Text.AlignRight
+        // largura reservada pro maior valor possível ("100%") — o texto
+        // nunca empurra o resto do layout quando o número muda de 1 pra
+        // 2 pra 3 dígitos
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -179,7 +193,14 @@ Item {
       }
 
       ColumnLayout {
+        id: secondaryCol
         spacing: 0
+        // largura reservada pra coluna de texto secundária inteira, pelo
+        // maior conteúdo plausível — assim "performance"/"conservative"
+        // (governor) não faz a coluna (e a linha toda) mudar de largura
+        readonly property real reservedWidth: Math.max(60, secondaryMetrics.boundingRect("conservative").width)
+        Layout.preferredWidth: reservedWidth
+
         Text {
           text: "CPU"
           color: Colors[config.colorLabel]
@@ -205,6 +226,14 @@ Item {
           color: Colors[config.colorLabel]
           opacity: 0.7
           font.pixelSize: 11
+          elide: Text.ElideRight
+          Layout.maximumWidth: secondaryCol.reservedWidth
+        }
+
+        FontMetrics {
+          id: secondaryMetrics
+          font.pixelSize: 11
+          font.family: "Inter"
         }
       }
     }

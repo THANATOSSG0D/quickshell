@@ -1,14 +1,38 @@
 {
     "apps": [
+        {
+            "command": "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=startvesktop --file-forwarding dev.vencord.Vesktop @@u  @@",
+            "icon": "dev.vencord.Vesktop",
+            "id": "amrmhgqms381",
+            "name": "Vesktop"
+        },
+        {
+            "command": "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=spotify --file-forwarding com.spotify.Client @@u  @@",
+            "icon": "com.spotify.Client",
+            "id": "amrmhguho321",
+            "name": "Spotify"
+        },
+        {
+            "command": "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com",
+            "icon": "/home/antonio/.local/share/applications/icons/Youtube.png",
+            "id": "amrmhh0nu325",
+            "name": "Youtube"
+        },
+        {
+            "command": "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai",
+            "icon": "/home/antonio/.local/share/applications/icons/Claude.png",
+            "id": "amrmhh5gu6",
+            "name": "Claude"
+        }
     ],
     "colorLabel": "on_surface",
     "colorLine": "outline",
     "colorValue": "primary",
     "columns": 4,
     "edgeMargin": 48,
-    "fixedHeight": 140,
-    "fixedWidth": 220,
+    "fixedHeight": 104,
+    "fixedWidth": 176,
     "fontSizeValue": 20,
-    "iconSize": 22,
-    "position": 4
+    "iconSize": 19,
+    "position": 1
 }

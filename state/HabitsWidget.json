@@ -3,35 +3,50 @@
     "colorLine": "outline",
     "colorValue": "primary",
     "edgeMargin": 48,
-    "fixedHeight": 240,
-    "fixedWidth": 240,
+    "fixedHeight": 232,
+    "fixedWidth": 244,
     "fontSizeValue": 20,
     "habits": [
         {
-            "color": "primary",
-            "history": {
-            },
-            "id": "hmrlkiisy571",
-            "name": "Beber agua"
-        },
-        {
             "color": "secondary",
             "history": {
+                "2026-07-15": 1,
+                "2026-07-16": 1
             },
-            "id": "hmrlkj00a848",
-            "name": "Fazer Alongamento"
+            "id": "hmrmj3gmv8",
+            "kind": "count",
+            "name": "Escovar os dentes",
+            "target": 3,
+            "unit": ""
         },
         {
             "color": "tertiary",
             "history": {
+                "2026-07-15": 3,
+                "2026-07-16": 2
             },
-            "id": "hmrlkj9ob221",
-            "name": "Escovar os Dentes"
+            "id": "hmrmj413p626",
+            "kind": "count",
+            "name": "Tomar agua",
+            "target": 10,
+            "unit": "500 ml"
+        },
+        {
+            "color": "error",
+            "history": {
+                "2026-07-15": 1,
+                "2026-07-16": 1
+            },
+            "id": "hmrmj737j419",
+            "kind": "count",
+            "name": "Fazer Alongamento",
+            "target": 1,
+            "unit": ""
         }
     ],
-    "heatmapWeeks": 10,
-    "maxVisible": 4,
-    "position": 4,
+    "heatmapWeeks": 20,
+    "maxVisible": 6,
+    "position": 6,
     "showHeatmap": true,
-    "squareSize": 10
+    "squareSize": 8
 }

@@ -129,6 +129,17 @@ Item {
     }
   }
 
+  FontMetrics {
+    id: bigNumberMetrics
+    font.pixelSize: config.fontSizeValue
+    font.family: "Inter"
+  }
+  FontMetrics {
+    id: secondaryMetrics
+    font.pixelSize: 11
+    font.family: "Inter"
+  }
+
   ColumnLayout {
     id: layout
     anchors.centerIn: parent
@@ -143,6 +154,8 @@ Item {
         text: root.gpuUtil.toFixed(0) + "%"
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
+        horizontalAlignment: Text.AlignRight
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -151,7 +164,16 @@ Item {
       }
 
       ColumnLayout {
+        id: secondaryCol
         spacing: 0
+        // maior conteúdo plausível entre as 3 linhas: VRAM "99.9 / 99.9 GB",
+        // "999°C  ·  999W", ou "iGPU 100%" — pega o mais largo dos três
+        readonly property real reservedWidth: Math.max(
+          secondaryMetrics.boundingRect("99.9 / 99.9 GB").width,
+          secondaryMetrics.boundingRect("999°C  ·  999W").width,
+          secondaryMetrics.boundingRect("iGPU 100%").width)
+        Layout.preferredWidth: reservedWidth
+
         Text {
           text: "GPU"
           color: Colors[config.colorLabel]

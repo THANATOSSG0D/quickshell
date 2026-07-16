@@ -73,6 +73,17 @@ Item {
     onTriggered: meminfoFile.reload()
   }
 
+  FontMetrics {
+    id: bigNumberMetrics
+    font.pixelSize: config.fontSizeValue
+    font.family: "Inter"
+  }
+  FontMetrics {
+    id: secondaryMetrics
+    font.pixelSize: 11
+    font.family: "Inter"
+  }
+
   ColumnLayout {
     id: layout
     anchors.centerIn: parent
@@ -86,6 +97,8 @@ Item {
         text: root.ramPercent.toFixed(0) + "%"
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
+        horizontalAlignment: Text.AlignRight
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -94,7 +107,13 @@ Item {
       }
 
       ColumnLayout {
+        id: secondaryCol
         spacing: 0
+        // maior conteúdo plausível: "999.9 / 999.9 GB" cobre até discos
+        // gigantescos de RAM/swap sem nunca precisar recalcular
+        readonly property real reservedWidth: secondaryMetrics.boundingRect("999.9 / 999.9 GB").width
+        Layout.preferredWidth: reservedWidth
+
         Text {
           text: "RAM"
           color: Colors[config.colorLabel]
@@ -112,6 +131,8 @@ Item {
           color: Colors[config.colorLabel]
           opacity: 0.7
           font.pixelSize: 11
+          elide: Text.ElideRight
+          Layout.maximumWidth: secondaryCol.reservedWidth
         }
       }
     }
