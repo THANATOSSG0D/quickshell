@@ -32,10 +32,13 @@ Item {
       color: root.colorTextDim
       font.pixelSize: 10
       text: "Dois tipos de hábito: \"marcar feito\" (ex: meditar) ou \"meta com contador\" pra " +
-            "coisas que você registra várias vezes ao dia (ex: 8 copos de água, 30min de " +
-            "exercício). Adicionar, editar e ver o histórico agora é feito direto no widget: " +
-            "clique em \"+ novo hábito\" ou no ícone de painel (\uf0e4) no canto dele — essa " +
-            "aba aqui é só pra ajustes visuais/comportamento."
+            "coisas que você registra várias vezes ao dia. O contador tem duas variantes: " +
+            "\"pelo menos\" — meta mínima, quanto mais melhor (ex: 8 copos de água, 3 " +
+            "pomodoros) — ou \"no máximo\" — um limite que não deve estourar (ex: no máximo " +
+            "2 cafés, 1h de tela). Cada dia fica marcado como meta batida, no limite, " +
+            "passou do limite, ou ficou a desejar. Adicionar, editar e ver o histórico é " +
+            "feito direto no widget: clique em \"+ novo hábito\" ou no ícone de painel " +
+            "(\uf0e4) no canto dele — essa aba aqui é só pra ajustes visuais/comportamento."
     }
 
     C.CfgDiv { colorDivider: root.colorDivider }

@@ -16,6 +16,10 @@ RowLayout {
 
   property string unit: ""
 
+  // Step usado no scroll do mouse. Por padrão igual a `step`, mas pode ser
+  // menor (ex: step/5) pra permitir ajuste fino sem precisar segurar Ctrl.
+  property real wheelStep: root.step
+
   signal moved(real v)
 
   width:   parent ? parent.width : 0
@@ -31,13 +35,22 @@ RowLayout {
   // AGORA: a quantidade de casas decimais é derivada do próprio step
   // (0.05 → 2 casas; 1 → 0 casas) e usada tanto para exibir quanto para
   // arredondar o valor após o snap, eliminando o ruído de float.
-  readonly property int _decimals: {
-    if (!root.step || root.step <= 0) return 0
-    var s = root.step.toString()
+  function _decimalsOf(n) {
+    if (!n || n <= 0) return 0
+    var s = n.toString()
     if (s.indexOf("e-") !== -1) return parseInt(s.split("e-")[1], 10)
     var dot = s.indexOf(".")
     return dot === -1 ? 0 : (s.length - dot - 1)
   }
+
+  // Considera step, wheelStep, e o wheelStep "fino" (Ctrl, 1/5) — pega o
+  // maior número de casas decimais entre os três, pra nunca arredondar um
+  // ajuste de scroll mais preciso do que o clique/arraste.
+  readonly property int _decimals: Math.max(
+    _decimalsOf(root.step),
+    _decimalsOf(root.wheelStep),
+    _decimalsOf(root.wheelStep * 0.2)
+  )
 
   Text {
     text:                  root.label
@@ -96,6 +109,22 @@ RowLayout {
       }
       onPositionChanged: (m) => apply(m.x)
       onClicked:         (m) => apply(m.x)
+
+      // ── Ajuste fino via scroll ──────────────────────────────────────────
+      // Cada "tique" da roda (angleDelta.y, ±120 tipicamente) soma/subtrai
+      // um `wheelStep` ao valor atual, em vez de recalcular a partir da
+      // posição do mouse. Isso dá controle preciso — sem depender do quão
+      // largo é o slider em pixels. Segurando Ctrl, o passo cai pra 1/5,
+      // pra afinar ainda mais (ex: opacidade, gaps).
+      onWheel: (w) => {
+        var dir  = w.angleDelta.y > 0 ? 1 : -1
+        var st   = root.wheelStep * (w.modifiers & Qt.ControlModifier ? 0.2 : 1)
+        var next = root.value + dir * st
+        next = Math.max(root.from, Math.min(root.to, next))
+        // Corrige erro de ponto flutuante, igual ao apply().
+        root.moved(parseFloat(next.toFixed(root._decimals)))
+        w.accepted = true
+      }
     }
   }
 }

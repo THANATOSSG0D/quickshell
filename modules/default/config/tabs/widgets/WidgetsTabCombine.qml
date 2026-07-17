@@ -93,8 +93,11 @@ Item {
             "só os SEUS widgets pela própria altura — nunca esticada pra bater com a " +
             "coluna vizinha. Marque um widget como 'linha inteira' pra ele ocupar a " +
             "largura toda e quebrar o fluxo de colunas naquele ponto (as colunas " +
-            "recomeçam balanceadas depois dele). Um widget só pode estar em um grupo " +
-            "por vez. Widgets fora de qualquer grupo continuam aparecendo do jeito de " +
+            "recomeçam balanceadas depois dele). Além da posição em grid, dá pra " +
+            "afinar o card com os sliders de ajuste fino (px), e cada widget dentro " +
+            "do grupo tem seu próprio controle de escala (50%–200%) pra diminuir ou " +
+            "aumentar ele individualmente. Um widget só pode estar em um grupo por " +
+            "vez. Widgets fora de qualquer grupo continuam aparecendo do jeito de " +
             "sempre, na posição individual deles."
     }
 
@@ -171,6 +174,31 @@ Item {
             colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
             colorText: root.colorText; colorProgressBg: root.colorProgressBg
             onMoved: (v) => layoutCfg.setGroupEdgeMargin(groupBlock.group.id, v)
+          }
+
+          Text {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: root.colorTextDim
+            font.pixelSize: 9
+            text: "Ajuste fino: desloca o card por cima da posição do grid acima, " +
+                  "pra quando os 9 pontos não bastam. Positivo = direita/baixo."
+          }
+          C.CfgSlider {
+            Layout.fillWidth: true
+            label: "Ajuste fino horizontal"; from: -300; to: 300; step: 2; unit: " px"
+            value: groupBlock.group.offsetX || 0
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorProgressBg: root.colorProgressBg
+            onMoved: (v) => layoutCfg.setGroupOffsetX(groupBlock.group.id, v)
+          }
+          C.CfgSlider {
+            Layout.fillWidth: true
+            label: "Ajuste fino vertical"; from: -300; to: 300; step: 2; unit: " px"
+            value: groupBlock.group.offsetY || 0
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            colorText: root.colorText; colorProgressBg: root.colorProgressBg
+            onMoved: (v) => layoutCfg.setGroupOffsetY(groupBlock.group.id, v)
           }
 
           C.CfgSlider {
@@ -422,6 +450,58 @@ Item {
                       MouseArea {
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                         onClicked: layoutCfg.setMemberColumn(groupBlock.group.id, widgetRow.modelData.id, colNum)
+                      }
+                    }
+                  }
+                }
+
+                // escala individual do widget dentro do card — 50% a
+                // 200%, em passos de 10%. Sempre visível pra qualquer
+                // widget incluído, independente de coluna/linha inteira.
+                Row {
+                  visible: widgetRow.included
+                  spacing: 3
+
+                  Rectangle {
+                    width: 16; height: 16; radius: 3
+                    border.width: 1; border.color: root.colorTextDim
+                    color: "transparent"
+                    Text {
+                      anchors.centerIn: parent
+                      text: "−"; font.pixelSize: 10; color: root.colorTextDim
+                    }
+                    MouseArea {
+                      anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        const cur = layoutCfg.memberScale(groupBlock.group, widgetRow.modelData.id)
+                        layoutCfg.setMemberScale(groupBlock.group.id, widgetRow.modelData.id,
+                          Math.round((cur - 0.1) * 10) / 10)
+                      }
+                    }
+                  }
+
+                  Text {
+                    width: 30
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Math.round(layoutCfg.memberScale(groupBlock.group, widgetRow.modelData.id) * 100) + "%"
+                    color: root.colorTextDim
+                    font.pixelSize: 9
+                  }
+
+                  Rectangle {
+                    width: 16; height: 16; radius: 3
+                    border.width: 1; border.color: root.colorTextDim
+                    color: "transparent"
+                    Text {
+                      anchors.centerIn: parent
+                      text: "+"; font.pixelSize: 10; color: root.colorTextDim
+                    }
+                    MouseArea {
+                      anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        const cur = layoutCfg.memberScale(groupBlock.group, widgetRow.modelData.id)
+                        layoutCfg.setMemberScale(groupBlock.group.id, widgetRow.modelData.id,
+                          Math.round((cur + 0.1) * 10) / 10)
                       }
                     }
                   }

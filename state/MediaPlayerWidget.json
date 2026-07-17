@@ -7,7 +7,7 @@
     "fixedHeight": 168,
     "fixedWidth": 248,
     "fontSizeValue": 14,
-    "launchCommand": "com.spotify.Client",
+    "launchCommand": "~/.config/hypr/scripts/toggle_app.sh 'spotify' 1 'uwsm app -- com.spotify.Client",
     "marqueeText": true,
     "position": 4,
     "preferredPlayerId": "spotify",

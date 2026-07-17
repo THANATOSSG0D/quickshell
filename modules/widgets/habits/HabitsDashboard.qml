@@ -73,9 +73,13 @@ PanelWindow {
       for (let row = 0; row < 7; row++) {
         const d = new Date(startCol)
         d.setDate(d.getDate() + col * 7 + row)
-        if (d > today) { cells.push({ row, col, future: true, ratio: 0, date: "" }); continue }
+        if (d > today) { cells.push({ row, col, future: true, ratio: 0, date: "", status: "empty" }); continue }
         const key = Qt.formatDate(d, "yyyy-MM-dd")
-        cells.push({ row, col, future: false, ratio: config.progressOn(win.selectedHabit, key), date: key })
+        cells.push({
+          row, col, future: false, date: key,
+          ratio: config.progressOn(win.selectedHabit, key),
+          status: config.habitStatus(win.selectedHabit, key),
+        })
       }
     }
     return cells
@@ -299,11 +303,20 @@ PanelWindow {
                       Layout.fillWidth: true
                     }
                     Text {
-                      text: habitRow.isCount ? ("meta: " + modelData.target + (modelData.unit ? " " + modelData.unit : "") + "/dia")
-                                              : "marcar feito"
+                      text: habitRow.isCount
+                        ? ((modelData.goalType === "max" ? "limite: máx " : "meta: ") + modelData.target + (modelData.unit ? " " + modelData.unit : "") + "/dia")
+                        : "marcar feito"
                       color: Qt.rgba(1, 1, 1, 0.45)
                       font.pixelSize: 9
                     }
+                  }
+
+                  Text {
+                    readonly property string todayStatus: config.habitStatus(modelData, config._todayKey())
+                    text: config.statusLabel(todayStatus)
+                    color: config.statusColor(todayStatus) || (Colors[modelData.color] || win.accentColor)
+                    opacity: todayStatus === "empty" ? 0.35 : 1
+                    font { pixelSize: 9; weight: Font.DemiBold }
                   }
 
                   Text {
@@ -418,12 +431,21 @@ PanelWindow {
               spacing: 8
 
               Repeater {
-                model: win.selectedHabit ? [
-                  { label: "streak atual",  value: config.streakFor(win.selectedHabit) + "d" },
-                  { label: "streak recorde", value: config.longestStreak(win.selectedHabit) + "d" },
-                  { label: "total",          value: config.totalCompletions(win.selectedHabit) + "×" },
-                  { label: "este mês",       value: config.completionsInMonth(win.selectedHabit, win.viewYear, win.viewMonth) + "×" },
-                ] : []
+                model: {
+                  if (!win.selectedHabit) return []
+                  const h = win.selectedHabit
+                  const base = [
+                    { label: "streak atual",   value: config.streakFor(h) + "d" },
+                    { label: "streak recorde", value: config.longestStreak(h) + "d" },
+                    { label: "total",          value: config.totalCompletions(h) + "×" },
+                    { label: "este mês",       value: config.completionsInMonth(h, win.viewYear, win.viewMonth) + "×" },
+                  ]
+                  if (h.kind === "count" && h.goalType === "max") {
+                    const overCount = Object.keys(h.history || {}).filter(k => config.habitStatus(h, k) === "over").length
+                    base.push({ label: "excessos", value: overCount + "×", warn: overCount > 0 })
+                  }
+                  return base
+                }
                 delegate: Rectangle {
                   required property var modelData
                   Layout.fillWidth: true
@@ -435,7 +457,7 @@ PanelWindow {
                     Text {
                       Layout.alignment: Qt.AlignHCenter
                       text: modelData.value
-                      color: win.selectedHabit ? (Colors[win.selectedHabit.color] || win.accentColor) : win.accentColor
+                      color: modelData.warn ? config.statusColorOver : (win.selectedHabit ? (Colors[win.selectedHabit.color] || win.accentColor) : win.accentColor)
                       font { pixelSize: 16; weight: Font.DemiBold }
                     }
                     Text {
@@ -464,9 +486,9 @@ PanelWindow {
                 Item { Layout.fillWidth: true }
                 // dia sob o mouse — atualiza ao passar pelas células
                 Text {
-                  text: win.hoveredCell ? (win.hoveredCell.date + " · " + Math.round(win.hoveredCell.ratio * 100) + "%") : ""
-                  color: Qt.rgba(1, 1, 1, 0.6)
-                  font.pixelSize: 9
+                  text: win.hoveredCell ? (win.hoveredCell.date + " · " + config.statusLabel(win.hoveredCell.status)) : ""
+                  color: win.hoveredCell ? (config.statusColor(win.hoveredCell.status) || (win.selectedHabit ? (Colors[win.selectedHabit.color] || win.accentColor) : win.accentColor)) : Qt.rgba(1, 1, 1, 0.6)
+                  font { pixelSize: 9; weight: Font.DemiBold }
                 }
               }
 
@@ -498,18 +520,22 @@ PanelWindow {
                     Layout.column: modelData.col
                     width: 11; height: 11; radius: 2
                     readonly property color base: win.selectedHabit ? (Colors[win.selectedHabit.color] || win.accentColor) : win.accentColor
-                    color: modelData.future
-                           ? "transparent"
-                           : (modelData.ratio > 0
-                              ? Qt.rgba(base.r, base.g, base.b, 0.15 + modelData.ratio * 0.85)
-                              : Qt.rgba(base.r, base.g, base.b, 0.10))
+                    readonly property color statusOverride: config.statusColor(modelData.status)
+                    color: {
+                      if (modelData.future) return "transparent"
+                      if (statusOverride) return Qt.rgba(statusOverride.r, statusOverride.g, statusOverride.b, 0.75)
+                      return modelData.ratio > 0
+                        ? Qt.rgba(base.r, base.g, base.b, 0.15 + modelData.ratio * 0.85)
+                        : Qt.rgba(base.r, base.g, base.b, 0.10)
+                    }
+                    Behavior on color { ColorAnimation { duration: 150 } }
                     border.width: (win.hoveredCell && win.hoveredCell.date === modelData.date && modelData.date) ? 1 : 0
                     border.color: Colors[config.colorLabel]
 
                     HoverHandler {
                       enabled: !!heatCell.modelData.date
                       onHoveredChanged: {
-                        if (hovered) win.hoveredCell = { date: heatCell.modelData.date, ratio: heatCell.modelData.ratio }
+                        if (hovered) win.hoveredCell = { date: heatCell.modelData.date, ratio: heatCell.modelData.ratio, status: heatCell.modelData.status }
                         else if (win.hoveredCell && win.hoveredCell.date === heatCell.modelData.date) win.hoveredCell = null
                       }
                     }
@@ -548,9 +574,17 @@ PanelWindow {
                   }
                   Item { Layout.fillWidth: true }
                   Text {
-                    visible: modelData.done
-                    text: "\uf00c"
-                    color: "#45a249"
+                    text: config.statusLabel(modelData.status)
+                    color: config.statusColor(modelData.status) || (win.selectedHabit ? (Colors[win.selectedHabit.color] || win.accentColor) : win.accentColor)
+                    font { pixelSize: 9; weight: Font.DemiBold }
+                  }
+                  Text {
+                    text: modelData.status === "over" ? "\uf071"
+                          : (modelData.status === "hit" || modelData.status === "limit") ? "\uf00c"
+                          : "\uf00d"
+                    color: modelData.status === "over" ? config.statusColorOver
+                           : (modelData.status === "hit" || modelData.status === "limit") ? "#45a249"
+                           : Qt.rgba(1, 1, 1, 0.35)
                     font { pixelSize: 9; family: "JetBrainsMono Nerd Font" }
                   }
                 }

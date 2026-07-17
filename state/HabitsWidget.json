@@ -11,7 +11,8 @@
             "color": "secondary",
             "history": {
                 "2026-07-15": 1,
-                "2026-07-16": 1
+                "2026-07-16": 1,
+                "2026-07-17": 1
             },
             "id": "hmrmj3gmv8",
             "kind": "count",
@@ -21,14 +22,15 @@
         },
         {
             "color": "tertiary",
+            "goalType": "min",
             "history": {
                 "2026-07-15": 3,
-                "2026-07-16": 2
+                "2026-07-16": 3
             },
             "id": "hmrmj413p626",
             "kind": "count",
             "name": "Tomar agua",
-            "target": 10,
+            "target": 5,
             "unit": "500 ml"
         },
         {
@@ -47,6 +49,6 @@
     "heatmapWeeks": 20,
     "maxVisible": 6,
     "position": 6,
-    "showHeatmap": true,
+    "showHeatmap": false,
     "squareSize": 8
 }

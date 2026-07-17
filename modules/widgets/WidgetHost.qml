@@ -190,8 +190,21 @@ Scope {
         // só centralizado cada um com o próprio tamanho
         property var colWidths: ({})
 
-        function bindColWidth(item, col) {
-          const w = item.implicitWidth
+        // Escala individual (0.5–2.0) do widget widgetId dentro DESTE
+        // grupo — lida direto do layoutCfg, então reage sozinha se o
+        // usuário mexer no slider de escala na aba de config.
+        function memberScale(widgetId) {
+          return layoutCfg.memberScale(panel.group, widgetId)
+        }
+
+        // `cell` é o Item-wrapper (ver colunas mais abaixo) que já reserva
+        // o espaço de layout JÁ escalado (implicitWidth/Height multiplicados
+        // pela escala do widget) — bindColWidth alinha as colunas por essa
+        // largura já escalada, e ajusta a largura "real" do item carregado
+        // (widgetId) de volta pra escala 1:1 dividindo pela escala, já que
+        // quem produz o tamanho final na tela é o `scale` do Loader.
+        function bindColWidth(cell, col, item, widgetId) {
+          const w = cell.implicitWidth
           if (w <= 0) return
           const cw = Object.assign({}, colWidths)
           if (!cw[col] || w > cw[col]) {
@@ -203,9 +216,13 @@ Scope {
           // o slider depois, todo item já carregado recalcula sozinho
           // (se aplicasse só na hora do load, teria que esperar o widget
           // recarregar pra pegar um piso novo)
-          item.width = Qt.binding(function() {
-            const measured = panel.colWidths[col] || item.implicitWidth
+          cell.width = Qt.binding(function() {
+            const measured = panel.colWidths[col] || cell.implicitWidth
             return Math.max(measured, panel.group.columnMinWidth || 0)
+          })
+          item.width = Qt.binding(function() {
+            const s = panel.memberScale(widgetId)
+            return cell.width / s
           })
         }
 
@@ -266,15 +283,22 @@ Scope {
 
         Item {
           id: content
+          // offsetX/offsetY são um ajuste fino (px) somado por cima da
+          // posição já resolvida pelo grid de 9 pontos — destrava o card
+          // daquele grid quando os 9 pontos não bastam.
           x: {
-            if (positions[panel.group.position].h === Qt.AlignLeft)  return panel.group.edgeMargin
-            if (positions[panel.group.position].h === Qt.AlignRight) return parent.width - width - panel.group.edgeMargin
-            return (parent.width - width) / 2
+            let base
+            if (positions[panel.group.position].h === Qt.AlignLeft)  base = panel.group.edgeMargin
+            else if (positions[panel.group.position].h === Qt.AlignRight) base = parent.width - width - panel.group.edgeMargin
+            else base = (parent.width - width) / 2
+            return base + (panel.group.offsetX || 0)
           }
           y: {
-            if (positions[panel.group.position].v === Qt.AlignTop)    return panel.group.edgeMargin
-            if (positions[panel.group.position].v === Qt.AlignBottom) return parent.height - height - panel.group.edgeMargin
-            return (parent.height - height) / 2
+            let base
+            if (positions[panel.group.position].v === Qt.AlignTop)    base = panel.group.edgeMargin
+            else if (positions[panel.group.position].v === Qt.AlignBottom) base = parent.height - height - panel.group.edgeMargin
+            else base = (parent.height - height) / 2
+            return base + (panel.group.offsetY || 0)
           }
           width: card.width
           height: card.implicitHeight
@@ -320,10 +344,23 @@ Scope {
                   // ── faixa "widget sozinho, largura total" ──────────
                   Component {
                     id: spanBandComp
-                    Loader {
+                    Item {
+                      id: spanCell
                       anchors.centerIn: parent
-                      sourceComponent: widgetHost.componentFor(bandItem.modelData.id)
-                      onLoaded: panel.wireItem(item)
+                      readonly property real wScale: panel.memberScale(bandItem.modelData.id)
+                      implicitWidth: spanLoader.item ? spanLoader.item.implicitWidth * wScale : 0
+                      implicitHeight: spanLoader.item ? spanLoader.item.implicitHeight * wScale : 0
+                      width: implicitWidth
+                      height: implicitHeight
+
+                      Loader {
+                        id: spanLoader
+                        anchors.centerIn: parent
+                        scale: spanCell.wScale
+                        transformOrigin: Item.Center
+                        sourceComponent: widgetHost.componentFor(bandItem.modelData.id)
+                        onLoaded: panel.wireItem(item)
+                      }
                     }
                   }
 
@@ -344,16 +381,34 @@ Scope {
                           Repeater {
                             model: colStack.modelData
                             delegate: ColumnLayout {
+                              id: memberBlock
                               required property string modelData  // widgetId
                               required property int index          // posição na coluna
                               spacing: 0
 
-                              Loader {
+                              // `cell` reserva o espaço de layout JÁ escalado
+                              // (implicitWidth/Height × escala do widget) —
+                              // o widget de verdade (memberLoader.item) fica
+                              // no tamanho natural dele e é só visualmente
+                              // esticado/encolhido via `scale`, centralizado
+                              // dentro da célula.
+                              Item {
+                                id: cell
+                                readonly property real wScale: panel.memberScale(memberBlock.modelData)
                                 Layout.alignment: Qt.AlignHCenter
-                                sourceComponent: widgetHost.componentFor(modelData)
-                                onLoaded: {
-                                  panel.bindColWidth(item, colStack.index)
-                                  panel.wireItem(item)
+                                implicitWidth: memberLoader.item ? memberLoader.item.implicitWidth * wScale : 0
+                                implicitHeight: memberLoader.item ? memberLoader.item.implicitHeight * wScale : 0
+
+                                Loader {
+                                  id: memberLoader
+                                  anchors.centerIn: parent
+                                  scale: cell.wScale
+                                  transformOrigin: Item.Center
+                                  sourceComponent: widgetHost.componentFor(memberBlock.modelData)
+                                  onLoaded: {
+                                    panel.bindColWidth(cell, colStack.index, item, memberBlock.modelData)
+                                    panel.wireItem(item)
+                                  }
                                 }
                               }
 

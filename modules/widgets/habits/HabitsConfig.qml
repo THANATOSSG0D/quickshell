@@ -5,17 +5,28 @@ import Quickshell.Io
 // ── HabitsConfig ─────────────────────────────────────────────────────────
 // Config do widget de Habit Tracking, pensado pro dia a dia: hábitos podem
 // ser do tipo "check" (marca feito/não feito, ex: "meditar") ou "count" —
-// uma meta numérica registrada ao longo do dia (ex: "8 copos de água",
-// "30min de exercício"), incrementada com +1 conforme o uso. Cada hábito
-// guarda { id, name, color, kind: "check"|"count", target, unit,
-// history: { "yyyy-MM-dd": number } } — pra "check" o valor no histórico é
-// sempre 0 ou 1; pra "count" é a quantidade acumulada naquele dia (pode
-// passar do alvo, fica sobressalente). Isso unifica streak/heatmap: um dia
-// é "concluído" quando o valor registrado bate a meta (1 pro check, target
-// pro count). Heatmap agregado estilo GitHub. Mesmo esqueleto de
-// BluetoothConfig (FileView/JsonAdapter + mkdir init), com o cuidado extra
-// de WidgetLayoutConfig pra propriedades `var` (arrays/objetos):
-// comparação via JSON.stringify pra não disparar loop de escrita infinito.
+// uma quantidade registrada ao longo do dia (ex: "8 copos de água", "no
+// máximo 2 cafés"), incrementada/decrementada com +1/-1 conforme o uso.
+// "count" tem um goalType: "min" (meta mínima — quanto mais, melhor; ex:
+// água, pomodoros) ou "max" (limite máximo — não passar; ex: café, telas).
+// Cada hábito guarda { id, name, color, kind: "check"|"count", goalType:
+// "min"|"max", target, unit, history: { "yyyy-MM-dd": number } }.
+//
+// O estado do dia (habitStatus) tem 5 valores:
+//   "empty" — sem registro ainda
+//   "hit"   — bateu a meta (min: amount>=target) ou ficou dentro do limite
+//             (max: amount<target)
+//   "limit" — bateu exatamente o teto do limite (max: amount===target) —
+//             ok, mas no talo
+//   "over"  — passou do limite (max: amount>target) — estourou
+//   "short" — ficou a desejar (min: 0<amount<target, ou check não marcado
+//             num dia que já passou)
+// isDoneOn/streak/heatmap tratam "hit" e "limit" como sucesso do dia.
+//
+// Heatmap agregado estilo GitHub. Mesmo esqueleto de BluetoothConfig
+// (FileView/JsonAdapter + mkdir init), com o cuidado extra de
+// WidgetLayoutConfig pra propriedades `var` (arrays/objetos): comparação
+// via JSON.stringify pra não disparar loop de escrita infinito.
 
 Item {
   id: config
@@ -32,8 +43,8 @@ Item {
   property int fixedWidth:  240
   property int fixedHeight: 240
 
-  // [{ id, name, color, kind: "check"|"count", target, unit,
-  //    history: { "yyyy-MM-dd": number } }]
+  // [{ id, name, color, kind: "check"|"count", goalType: "min"|"max",
+  //    target, unit, history: { "yyyy-MM-dd": number } }]
   property var habits: []
 
   property bool showHeatmap:  true
@@ -53,16 +64,20 @@ Item {
     return Qt.formatDate(new Date(), "yyyy-MM-dd")
   }
 
-  // kind: "check" (padrão) ou "count". target/unit só valem pra "count"
-  // (ex: addHabit("Água", "count", 8, "copos")).
-  function addHabit(name, kind, target, unit) {
+  // kind: "check" (padrão) ou "count". target/unit/goalType só valem pra
+  // "count" (ex: addHabit("Água", "count", 8, "copos", "min") ou
+  // addHabit("Café", "count", 2, "xícaras", "max")). goalType "min" = meta
+  // mínima (padrão), "max" = limite máximo (não passar).
+  function addHabit(name, kind, target, unit, goalType) {
     const h = habits.slice()
     const k = (kind === "count") ? "count" : "check"
+    const gt = (goalType === "max") ? "max" : "min"
     h.push({
       id: _uid(),
       name: (name && name.trim().length > 0) ? name.trim() : "Novo hábito",
       color: _colorRotation[h.length % _colorRotation.length],
       kind: k,
+      goalType: k === "count" ? gt : "min",
       target: k === "count" ? Math.max(1, target || 8) : 1,
       unit: k === "count" ? (unit || "") : "",
       history: {},
@@ -89,10 +104,19 @@ Item {
     setHabitColor(id, _colorRotation[(idx + 1) % _colorRotation.length])
   }
 
-  function setHabitTarget(id, target, unit) {
+  function setHabitTarget(id, target, unit, goalType) {
     habits = habits.map(h => h.id === id
-      ? Object.assign({}, h, { target: Math.max(1, target || 1), unit: unit !== undefined ? unit : h.unit })
+      ? Object.assign({}, h, {
+          target: Math.max(1, target || 1),
+          unit: unit !== undefined ? unit : h.unit,
+          goalType: (goalType === "min" || goalType === "max") ? goalType : (h.goalType || "min"),
+        })
       : h)
+  }
+
+  function setHabitGoalType(id, goalType) {
+    const gt = (goalType === "max") ? "max" : "min"
+    habits = habits.map(h => h.id === id ? Object.assign({}, h, { goalType: gt }) : h)
   }
 
   // ── check (feito/não feito) ────────────────────────────────────────
@@ -135,15 +159,41 @@ Item {
     return (habit.history && habit.history[dateKey]) || 0
   }
 
-  // 0..1 — fração da meta cumprida naquele dia (1 = concluído ou excedido)
+  // 0..1 — fração da meta/limite "usada" naquele dia. Pra "min" é o quanto
+  // já bateu da meta (1 = bateu ou passou). Pra "max" é o quanto já
+  // ocupou do limite (1 = bateu o teto — sinal de alerta, não de sucesso;
+  // ver habitStatus() pra saber se é "hit"/"limit"/"over").
   function progressOn(habit, dateKey) {
     const amount = amountOn(habit, dateKey)
     const target = (habit.kind === "count") ? (habit.target || 1) : 1
     return target > 0 ? Math.max(0, Math.min(1, amount / target)) : 0
   }
 
+  // estado do dia: "empty" | "hit" | "limit" | "over" | "short"
+  function habitStatus(habit, dateKey) {
+    const amount = amountOn(habit, dateKey)
+    if (habit.kind !== "count") {
+      // check: feito, ou (se o dia já passou) ficou a desejar, ou ainda
+      // sem registro (dia de hoje, ainda dá tempo)
+      if (amount >= 1) return "hit"
+      return (dateKey < _todayKey()) ? "short" : "empty"
+    }
+    if (amount === 0) return "empty"
+    const target = habit.target || 1
+    if (habit.goalType === "max") {
+      if (amount < target)  return "hit"
+      if (amount === target) return "limit"
+      return "over"
+    }
+    // goalType "min" (padrão)
+    return (amount >= target) ? "hit" : "short"
+  }
+
+  // um dia "concluído" pra streak/heatmap: bateu a meta OU ficou certinho
+  // no teto do limite. "over" e "short" não contam.
   function isDoneOn(habit, dateKey) {
-    return progressOn(habit, dateKey) >= 1
+    const s = habitStatus(habit, dateKey)
+    return s === "hit" || s === "limit"
   }
 
   // streak atual: conta dias consecutivos até hoje; se hoje ainda não bateu
@@ -202,7 +252,35 @@ Item {
       .filter(k => (habit.history[k] || 0) > 0)
       .sort((a, b) => a < b ? 1 : -1)
       .slice(0, limit || 90)
-      .map(k => ({ date: k, amount: habit.history[k], done: isDoneOn(habit, k) }))
+      .map(k => ({ date: k, amount: habit.history[k], done: isDoneOn(habit, k), status: habitStatus(habit, k) }))
+  }
+
+  // cores fixas de estado (mesma linha do resto do código, que já usa hex
+  // direto tipo "#45a249"/"#e5484d" pra feedback semântico em vez de token
+  // de tema — aqui queremos que "estourou o limite" seja sempre vermelho,
+  // não a cor do hábito)
+  readonly property color statusColorOver:  "#e5484d" // passou do limite
+  readonly property color statusColorLimit: "#e0a840" // no talo do limite
+  readonly property color statusColorShort: "#8b8f98" // ficou a desejar
+
+  // cor a usar pro estado do dia; retorna null pra "hit"/"empty" — nesses
+  // casos quem chama usa a cor do próprio hábito (Colors[habit.color]),
+  // já que este arquivo não importa "qs" e não resolve o singleton Colors
+  function statusColor(status) {
+    if (status === "over")  return statusColorOver
+    if (status === "limit") return statusColorLimit
+    if (status === "short") return statusColorShort
+    return null
+  }
+
+  function statusLabel(status) {
+    switch (status) {
+      case "hit":   return "meta batida"
+      case "limit": return "no limite"
+      case "over":  return "passou do limite"
+      case "short": return "ficou a desejar"
+      default:      return "sem registro"
+    }
   }
 
   // remove entradas de histórico com mais de ~1 ano, pra não crescer sem limite

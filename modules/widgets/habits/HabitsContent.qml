@@ -64,7 +64,10 @@ Item {
   }
 
   // intensidade do dia = média da fração de meta cumprida entre todos os
-  // hábitos (partial credit: meio copo d'água pinta o quadrado pela metade)
+  // hábitos (partial credit: meio copo d'água pinta o quadrado pela metade).
+  // Se qualquer hábito "estourou o limite" naquele dia, o quadrado marca
+  // isso (over: true) e é pintado de alerta em vez da cor de tema — assim
+  // um dia ruim não fica escondido atrás da média dos hábitos bons.
   readonly property var heatmapCells: {
     if (!config.showHeatmap) return []
     const weeks = Math.max(1, config.heatmapWeeks)
@@ -79,12 +82,15 @@ Item {
       for (let row = 0; row < 7; row++) {
         const d = new Date(startCol)
         d.setDate(d.getDate() + col * 7 + row)
-        if (d > today) { cells.push({ row, col, future: true, ratio: 0 }); continue }
+        if (d > today) { cells.push({ row, col, future: true, ratio: 0, over: false }); continue }
         const key = Qt.formatDate(d, "yyyy-MM-dd")
-        let sum = 0
-        for (const h of config.habits) sum += config.progressOn(h, key)
+        let sum = 0, over = false
+        for (const h of config.habits) {
+          sum += config.progressOn(h, key)
+          if (config.habitStatus(h, key) === "over") over = true
+        }
         const ratio = totalHabits > 0 ? sum / totalHabits : 0
-        cells.push({ row, col, future: false, ratio })
+        cells.push({ row, col, future: false, ratio, over })
       }
     }
     return cells
@@ -209,11 +215,14 @@ Item {
           height: config.squareSize
           radius: 2
           readonly property color base: Colors[config.colorValue]
+          readonly property color overC: config.statusColorOver
           color: modelData.future
                  ? "transparent"
-                 : (modelData.ratio > 0
-                    ? Qt.rgba(base.r, base.g, base.b, 0.15 + modelData.ratio * 0.85)
-                    : Qt.rgba(base.r, base.g, base.b, 0.10))
+                 : (modelData.over
+                    ? Qt.rgba(overC.r, overC.g, overC.b, 0.55)
+                    : (modelData.ratio > 0
+                       ? Qt.rgba(base.r, base.g, base.b, 0.15 + modelData.ratio * 0.85)
+                       : Qt.rgba(base.r, base.g, base.b, 0.10)))
           Behavior on color { ColorAnimation { duration: 200 } }
         }
       }
@@ -289,7 +298,7 @@ Item {
     }
   }
 
-  // ── linha de hábito tipo "count" (meta numérica, ex: água) ───────────
+  // ── linha de hábito tipo "count" (meta mínima ou limite máximo) ───────
   Component {
     id: countRow
     RowLayout {
@@ -298,15 +307,18 @@ Item {
 
       readonly property int amount: config.amountOn(habit, config._todayKey())
       readonly property real ratio: config.progressOn(habit, config._todayKey())
-      readonly property bool done: ratio >= 1
+      readonly property string status: config.habitStatus(habit, config._todayKey())
+      readonly property bool done: countRowRoot.status === "hit" || countRowRoot.status === "limit"
+      // cor efetiva pro estado de hoje: amarelo no talo, vermelho se
+      // estourou, cinza se ficou a desejar — senão a cor do próprio hábito
+      readonly property color statusC: config.statusColor(countRowRoot.status) || Colors[habit.color]
 
-      // anel de progresso miniatura (Canvas)
+      // anel de progresso miniatura (Canvas) — vermelho e cheio se estourou
       Canvas {
         id: ring
         width: 18; height: 18
-        readonly property color c: Colors[habit.color]
-        // cópia local da ratio — repinta sempre que ela mudar
-        property real _ratio: countRowRoot.ratio
+        property color c: countRowRoot.statusC
+        property real _ratio: countRowRoot.status === "over" ? 1 : countRowRoot.ratio
         onPaint: {
           const ctx = getContext("2d")
           ctx.reset()
@@ -322,6 +334,7 @@ Item {
             ctx.stroke()
           }
         }
+        onCChanged: requestPaint()
         on_RatioChanged: requestPaint()
         Component.onCompleted: requestPaint()
       }
@@ -335,11 +348,21 @@ Item {
         elide: Text.ElideRight
       }
 
+      // glifo de estado — só aparece quando há algo a sinalizar (estourou
+      // ou ficou a desejar); "hit"/"limit" já ficam claros pela cor do anel
+      Text {
+        visible: countRowRoot.status === "over"
+        text: "\uf071" // triângulo de alerta
+        color: config.statusColorOver
+        font { pixelSize: 9; family: "JetBrainsMono Nerd Font" }
+      }
+
       Text {
         text: countRowRoot.amount + "/" + habit.target + (habit.unit ? " " + habit.unit : "")
-        color: countRowRoot.done ? Colors[habit.color] : Colors[config.colorLabel]
-        opacity: countRowRoot.done ? 1 : 0.6
-        font { pixelSize: 10; family: "Inter"; weight: countRowRoot.done ? Font.DemiBold : Font.Normal }
+        color: countRowRoot.done ? countRowRoot.statusC
+               : (countRowRoot.status === "over" ? config.statusColorOver : Colors[config.colorLabel])
+        opacity: countRowRoot.status === "empty" ? 0.6 : 1
+        font { pixelSize: 10; family: "Inter"; weight: countRowRoot.status === "empty" ? Font.Normal : Font.DemiBold }
       }
 
       Text {
@@ -358,13 +381,14 @@ Item {
 
       Rectangle {
         width: 16; height: 16; radius: 4
-        color: Qt.rgba(Colors[habit.color].r, Colors[habit.color].g, Colors[habit.color].b, 0.18)
+        color: Qt.rgba(countRowRoot.statusC.r, countRowRoot.statusC.g, countRowRoot.statusC.b, 0.18)
+        Behavior on color { ColorAnimation { duration: 150 } }
         scale: plusArea.pressed ? 0.85 : 1.0
         Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
         Text {
           anchors.centerIn: parent
           text: "+"
-          color: Colors[habit.color]
+          color: countRowRoot.statusC
           font { pixelSize: 12; bold: true }
         }
         MouseArea {
@@ -432,11 +456,22 @@ Item {
 
       Text {
         visible: !!(root.tooltipHabit && root.tooltipHabit.kind === "count")
-        text: root.tooltipHabit
-          ? ("Hoje: " + config.amountOn(root.tooltipHabit, config._todayKey()) + "/" + root.tooltipHabit.target + (root.tooltipHabit.unit ? " " + root.tooltipHabit.unit : ""))
-          : ""
+        text: {
+          if (!root.tooltipHabit) return ""
+          const amount = config.amountOn(root.tooltipHabit, config._todayKey())
+          const unit = root.tooltipHabit.unit ? (" " + root.tooltipHabit.unit) : ""
+          const label = root.tooltipHabit.goalType === "max" ? "limite" : "meta"
+          return "Hoje: " + amount + "/" + root.tooltipHabit.target + unit + " (" + label + ")"
+        }
         color: Qt.rgba(1, 1, 1, 0.7)
         font.pixelSize: 10
+      }
+
+      Text {
+        visible: !!root.tooltipHabit
+        text: root.tooltipHabit ? config.statusLabel(config.habitStatus(root.tooltipHabit, config._todayKey())) : ""
+        color: root.tooltipHabit ? (config.statusColor(config.habitStatus(root.tooltipHabit, config._todayKey())) || (Colors[root.tooltipHabit.color] || Colors[config.colorValue])) : Qt.rgba(1,1,1,0.7)
+        font { pixelSize: 10; weight: Font.DemiBold }
       }
 
       RowLayout {

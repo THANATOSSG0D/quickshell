@@ -38,6 +38,7 @@ PanelWindow {
 
   property string formName: ""
   property string formKind: "check"
+  property string formGoalType: "min" // "min" (meta mínima) | "max" (limite máximo) — só pra kind "count"
   property string formTarget: "8"
   property string formUnit: ""
   property string formColor: "primary"
@@ -52,7 +53,7 @@ PanelWindow {
 
   function openForm() {
     editingHabitId = ""
-    formName = ""; formKind = "check"; formTarget = "8"; formUnit = ""
+    formName = ""; formKind = "check"; formGoalType = "min"; formTarget = "8"; formUnit = ""
     formColor = colorList[config.habits.length % colorList.length]
     _reveal()
   }
@@ -62,11 +63,12 @@ PanelWindow {
   function openEdit(habit) {
     if (!habit) return
     editingHabitId = habit.id
-    formName   = habit.name || ""
-    formKind   = habit.kind || "check"
-    formTarget = String(habit.target || 8)
-    formUnit   = habit.unit || ""
-    formColor  = habit.color || "primary"
+    formName     = habit.name || ""
+    formKind     = habit.kind || "check"
+    formGoalType = habit.goalType === "max" ? "max" : "min"
+    formTarget   = String(habit.target || 8)
+    formUnit     = habit.unit || ""
+    formColor    = habit.color || "primary"
     _reveal()
   }
 
@@ -76,11 +78,11 @@ PanelWindow {
       const target = Math.max(1, parseInt(formTarget) || 8)
       if (win.isEditing) {
         config.renameHabit(win.editingHabitId, formName)
-        config.setHabitTarget(win.editingHabitId, target, formUnit)
+        config.setHabitTarget(win.editingHabitId, target, formUnit, formGoalType)
         config.setHabitColor(win.editingHabitId, formColor)
         win.habitUpdated()
       } else {
-        config.addHabit(formName, formKind, target, formUnit)
+        config.addHabit(formName, formKind, target, formUnit, formGoalType)
         // addHabit já escolhe uma cor por rotação — sobrescreve com a
         // que a pessoa escolheu no formulário, se for diferente
         const created = config.habits[config.habits.length - 1]
@@ -265,6 +267,46 @@ PanelWindow {
         }
       }
 
+      // ── Meta mínima vs limite máximo (só pro tipo contador) ─────────────
+      ColumnLayout {
+        Layout.fillWidth: true
+        visible: win.formKind === "count"
+        spacing: 4
+        Text { text: "Meta ou limite"; color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 8 }
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+
+          Rectangle {
+            Layout.fillWidth: true
+            height: 28; radius: 8
+            color: win.formGoalType === "min" ? Qt.rgba(0.3, 0.6, 1, 0.28) : Qt.rgba(1, 1, 1, 0.08)
+            border.color: win.formGoalType === "min" ? Qt.rgba(0.4, 0.7, 1, 0.55) : "transparent"; border.width: 1
+            Behavior on color { ColorAnimation { duration: 80 } }
+            Text { anchors.centerIn: parent; text: "pelo menos (meta)"; color: Colors[config.colorLabel]; font.pixelSize: 11 }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: win.formGoalType = "min" }
+          }
+          Rectangle {
+            Layout.fillWidth: true
+            height: 28; radius: 8
+            color: win.formGoalType === "max" ? Qt.rgba(0.9, 0.66, 0.25, 0.28) : Qt.rgba(1, 1, 1, 0.08)
+            border.color: win.formGoalType === "max" ? Qt.rgba(0.9, 0.66, 0.25, 0.55) : "transparent"; border.width: 1
+            Behavior on color { ColorAnimation { duration: 80 } }
+            Text { anchors.centerIn: parent; text: "no máximo (limite)"; color: Colors[config.colorLabel]; font.pixelSize: 11 }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: win.formGoalType = "max" }
+          }
+        }
+        Text {
+          text: win.formGoalType === "max"
+            ? "estourar o número vira \"passou do limite\" (ex: café, telas)"
+            : "bater o número vira \"meta batida\" (ex: água, pomodoros)"
+          wrapMode: Text.WordWrap
+          Layout.fillWidth: true
+          color: Qt.rgba(1, 1, 1, 0.35)
+          font.pixelSize: 9
+        }
+      }
+
       // ── Meta / unidade (só pro tipo contador) ──────────────────────────
       RowLayout {
         Layout.fillWidth: true
@@ -273,7 +315,7 @@ PanelWindow {
 
         ColumnLayout {
           spacing: 4
-          Text { text: "Meta"; color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 8 }
+          Text { text: win.formGoalType === "max" ? "Limite" : "Meta"; color: Qt.rgba(1, 1, 1, 0.5); font.pixelSize: 8 }
           Rectangle {
             width: 60; height: 28; radius: 7
             color: Qt.rgba(1, 1, 1, 0.08)

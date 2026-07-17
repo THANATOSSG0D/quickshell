@@ -16,15 +16,24 @@ import Quickshell.Io
 // "mediaplayer", "favorites"
 //
 // Formato de cada grupo:
-//   { id, enabled, position, edgeMargin, columns, memberColumns,
-//     memberFullWidth, members, bgColor, bgOpacity, borderColor,
-//     borderOpacity, borderWidth, radius, columnMinWidth, columnSpacing,
-//     itemSpacing }
+//   { id, enabled, position, edgeMargin, offsetX, offsetY, columns,
+//     memberColumns, memberFullWidth, memberScale, members, bgColor,
+//     bgOpacity, borderColor, borderOpacity, borderWidth, radius,
+//     columnMinWidth, columnSpacing, itemSpacing }
+//   `offsetX`/`offsetY` são um ajuste fino (px) somado por cima da posição
+//   já resolvida pelo grid de 9 pontos + edgeMargin — servem pra destravar
+//   o card daquele grid quando os 9 pontos não bastam (ex: "quase
+//   centralizado mas 30px mais pra cima"). Positivo = direita/baixo.
 //   `columns` controla quantas colunas o card tem disponíveis.
 //   `memberColumns` é um mapa widgetId → coluna (1-indexed) — cada membro
 //   pode ser posicionado numa coluna específica; sem entrada = coluna 1.
 //   `memberFullWidth` é um mapa widgetId → bool — widget marcado quebra
 //   o fluxo de colunas naquele ponto e ocupa a largura inteira do card.
+//   `memberScale` é um mapa widgetId → número (0.5 a 2.0) — escala visual
+//   individual daquele widget dentro do card. Ausente ou undefined = 1.0
+//   (tamanho normal). Widget maior/menor por causa da escala ainda entra
+//   na conta de largura da coluna (todos da mesma coluna alinham pela
+//   maior largura JÁ escalada) e na estimativa de altura do auto-balanço.
 //   Cada coluna empilha só os SEUS membros pela própria altura (tipo
 //   "alvenaria"/masonry) — não existe altura de linha compartilhada
 //   entre colunas, então um widget pequeno nunca fica esticado só pra
@@ -66,7 +75,9 @@ Item {
     const g = groups.slice()
     g.push({
       id: _uid(), enabled: true, position: 4, edgeMargin: 48,
-      columns: 1, memberColumns: {}, memberFullWidth: {}, members: [],
+      offsetX: 0, offsetY: 0,
+      columns: 1, memberColumns: {}, memberFullWidth: {}, memberScale: {},
+      members: [],
       bgColor: "surface_container", bgOpacity: 0.55,
       borderColor: "outline_variant", borderOpacity: 0.4,
       borderWidth: 1, radius: 14,
@@ -86,6 +97,8 @@ Item {
   function setGroupEnabled(groupId, enabled)     { _updateGroup(groupId, { enabled }) }
   function setGroupPosition(groupId, position)   { _updateGroup(groupId, { position }) }
   function setGroupEdgeMargin(groupId, edgeMargin) { _updateGroup(groupId, { edgeMargin }) }
+  function setGroupOffsetX(groupId, offsetX)     { _updateGroup(groupId, { offsetX }) }
+  function setGroupOffsetY(groupId, offsetY)     { _updateGroup(groupId, { offsetY }) }
   function setGroupColumns(groupId, columns)     { _updateGroup(groupId, { columns }) }
   function setGroupBgColor(groupId, bgColor)         { _updateGroup(groupId, { bgColor }) }
   function setGroupBgOpacity(groupId, bgOpacity)     { _updateGroup(groupId, { bgOpacity }) }
@@ -117,6 +130,22 @@ Item {
     _updateGroup(groupId, { memberColumns })
   }
 
+  // Escala individual (0.5–2.0) de um widget dentro do grupo. Sem entrada
+  // explícita = 1.0 (tamanho normal).
+  function setMemberScale(groupId, widgetId, scale) {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    const clamped = Math.max(0.5, Math.min(2.0, scale))
+    const ms = Object.assign({}, group.memberScale || {})
+    ms[widgetId] = clamped
+    _updateGroup(groupId, { memberScale: ms })
+  }
+
+  function memberScale(group, widgetId) {
+    const v = group.memberScale && group.memberScale[widgetId]
+    return (v === undefined || v === null) ? 1.0 : v
+  }
+
   // Estimativa de altura (px) de cada tipo de widget, só pra o
   // auto-organizar ter uma noção de "peso" ao distribuir — não precisa
   // ser exata, é só pra balancear razoavelmente. Widgets que eu não
@@ -143,9 +172,12 @@ Item {
     const fw = group.memberFullWidth || {}
     const candidates = group.members.filter(id => !fw[id])
 
+    // peso de cada widget = altura estimada × sua própria escala — um
+    // widget escalado pra 150% pesa 1.5x mais na hora de balancear
+    const weight = (id) => (_heightEstimate[id] || 150) * memberScale(group, id)
+
     // maior primeiro deixa o guloso mais preciso
-    const sorted = candidates.slice().sort((a, b) =>
-      (_heightEstimate[b] || 150) - (_heightEstimate[a] || 150))
+    const sorted = candidates.slice().sort((a, b) => weight(b) - weight(a))
 
     const colHeights = new Array(cols).fill(0)
     const mc = {}
@@ -155,7 +187,7 @@ Item {
         if (colHeights[c] < colHeights[minCol]) minCol = c
       }
       mc[id] = minCol + 1
-      colHeights[minCol] += (_heightEstimate[id] || 150)
+      colHeights[minCol] += weight(id)
     }
     setGroupMemberColumns(groupId, mc)
   }

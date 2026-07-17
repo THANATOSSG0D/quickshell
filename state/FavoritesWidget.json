@@ -23,16 +23,22 @@
             "icon": "/home/antonio/.local/share/applications/icons/Claude.png",
             "id": "amrmhh5gu6",
             "name": "Claude"
+        },
+        {
+            "command": "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv",
+            "icon": "/home/antonio/.local/share/applications/icons/Twitch.png",
+            "id": "amro1if3k673",
+            "name": "Twitch"
         }
     ],
     "colorLabel": "on_surface",
     "colorLine": "outline",
     "colorValue": "primary",
-    "columns": 4,
+    "columns": 6,
     "edgeMargin": 48,
     "fixedHeight": 104,
-    "fixedWidth": 176,
+    "fixedWidth": 240,
     "fontSizeValue": 20,
-    "iconSize": 19,
+    "iconSize": 20,
     "position": 1
 }

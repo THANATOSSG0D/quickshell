@@ -34,14 +34,14 @@
             "columnMinWidth": 0,
             "columnSpacing": 8,
             "columns": 2,
-            "edgeMargin": 8,
+            "edgeMargin": 20,
             "enabled": true,
             "id": "gmrirvepa589",
             "itemSpacing": 8,
             "memberColumns": {
                 "cpu": 2,
                 "disk": 1,
-                "favorites": 1,
+                "favorites": 2,
                 "gpu": 1,
                 "habits": 1,
                 "mediaplayer": 2,
@@ -51,9 +51,12 @@
                 "system": 1
             },
             "memberFullWidth": {
-                "favorites": true,
+                "favorites": false,
                 "habits": false,
                 "system": true
+            },
+            "memberScale": {
+                "favorites": 1
             },
             "members": [
                 "system",
@@ -67,7 +70,9 @@
                 "habits",
                 "favorites"
             ],
-            "position": 2
+            "offsetX": 0,
+            "offsetY": 0,
+            "position": 5
         }
     ],
     "members": [
