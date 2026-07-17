@@ -7,16 +7,19 @@ import QtQuick
 //
 // USO:
 //   QsSwitch { checked: root.wifiEnabled; colorAccent: ...; onToggled: ... }
+//   QsSwitch { compact: true; checked: ...; onToggled: ... }   // versão pequena p/ tiles
 Item {
     id: root
 
     property bool  checked:     false
     property color colorAccent: "#ffb4a9"
+    // Versão reduzida — usada dentro de QsToggleTile, onde o espaço é apertado.
+    property bool  compact:     false
 
     signal toggled()
 
-    implicitWidth:  36
-    implicitHeight: 20
+    implicitWidth:  compact ? 26 : 36
+    implicitHeight: compact ? 15 : 20
 
     Rectangle {
         anchors.fill: parent
@@ -32,10 +35,17 @@ Item {
             Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
         }
 
+        // Leve "encolhida" no press — mesmo feedback tátil do resto do painel.
+        scale: switchMa.pressed ? 0.92 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
         MouseArea {
+            id: switchMa
             anchors.fill: parent
-            cursorShape:  Qt.PointingHandCursor
-            onClicked:    root.toggled()
+            cursorShape: Qt.PointingHandCursor
+            // Impede que o clique "vaze" pro card por trás (ex.: QsToggleTile),
+            // que abriria a subpágina ao mesmo tempo em que o switch alterna.
+            onClicked: (mouse) => { root.toggled(); mouse.accepted = true }
         }
     }
 }

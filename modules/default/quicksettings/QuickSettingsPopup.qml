@@ -11,7 +11,7 @@ Bar.BarPopup {
     objectName: "QuickSettingsPopup"
 
     popupW: 320
-    popupH: 540
+    popupH: 620
 
     property color colorText:       "#e2e2e2"
     property color colorTextDim:    "#c6c6c6"

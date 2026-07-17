@@ -16,11 +16,12 @@
         {
             "created": "2026-07-11T18:21:11.076Z",
             "done": false,
-            "due": "2026-07-18",
+            "due": "2026-08-01",
             "id": "1783794071076-22",
-            "lastCompleted": "2026-07-12T00:53:12.939Z",
+            "lastCompleted": "2026-07-17T08:44:59.598Z",
             "priority": "media",
             "recurrence": "weekly",
+            "status": "",
             "tags": [
                 "system"
             ],

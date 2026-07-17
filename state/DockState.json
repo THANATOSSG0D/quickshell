@@ -79,7 +79,7 @@
                 "scrollInvert": false,
                 "showAddButton": true,
                 "spacing": 4,
-                "style": "number"
+                "style": "focus"
             }
         }
     }

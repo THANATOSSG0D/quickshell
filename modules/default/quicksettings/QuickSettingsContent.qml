@@ -5,6 +5,8 @@ import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 import "./components" as Qs
+import "../../widgets/todo" as TodoMod
+import "../../widgets/habits" as HabitsMod
 
 // ── QuickSettingsContent ─────────────────────────────────────────────────────
 // API CORRETA do Quickshell para ler stdout de processos:
@@ -33,7 +35,7 @@ Item {
     signal closeRequested()
     property bool   panelOpen:    false
     property var    parentWindow: null
-    // Aba fixa no topo: "dashboard" | "media" | "performance" | "system"
+    // Aba fixa no topo: "dashboard" | "media" | "performance"
     property string activeTab:    "dashboard"
     // Sub-tela com botão voltar, válida dentro da aba ativa:
     //   Dashboard:   "" | "wifi" | "ethernet" | "bluetooth"
@@ -106,6 +108,175 @@ Item {
     }
 
     readonly property string ctl: Quickshell.shellDir + "/scripts/network-ctl.sh"
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Todo — só leitura, pra marcar dias com tarefa no QsCalendar do Dashboard.
+    // Mesmo arquivo (state/TodoWidget.json) que o TodoWidget/TodoDashboard já
+    // usam — não chama nenhuma função de escrita (addTask/toggleTask/etc.),
+    // só lê `tasks` reativamente.
+    // ═══════════════════════════════════════════════════════════════════════
+    TodoMod.TodoConfig { id: todoConfig }
+
+    readonly property var _taskPriorityColor: ({
+        alta:  "#e5484d",
+        media: "#f5a524",
+        baixa: "#45a249"
+    })
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Habits — mesma ideia do Todo acima: só leitura + as duas ações do dia
+    // (toggleToday/logCount), pro widget compacto ao lado do calendário.
+    // Os tokens de cor do hábito (primary/secondary/etc.) vêm do tema Material
+    // You e esse arquivo não importa o singleton Colors — mapeei pra hex fixo
+    // só pra esse widget compacto; a cor "de verdade" continua no Habits.
+    // ═══════════════════════════════════════════════════════════════════════
+    HabitsMod.HabitsConfig { id: habitsConfig }
+
+    readonly property var _habitColorHex: ({
+        primary:           root.colorAccent,
+        secondary:         "#7986cb",
+        tertiary:          "#45a249",
+        error:             "#e5484d",
+        primary_container: "#f5a524"
+    })
+
+    readonly property var todayHabits: {
+        var out      = []
+        var todayKey = Qt.formatDate(new Date(), "yyyy-MM-dd")
+        var list     = habitsConfig.habits || []
+        for (var i = 0; i < list.length; i++) {
+            var h      = list[i]
+            var amount = habitsConfig.amountOn(h, todayKey)
+            var status = habitsConfig.habitStatus(h, todayKey)
+            out.push({
+                id:             h.id,
+                name:           h.name,
+                kind:           h.kind,
+                target:         h.target,
+                amount:         amount,
+                status:         status,
+                colorHex:       root._habitColorHex[h.color] || root.colorAccent,
+                statusColorHex: habitsConfig.statusColor(status) || ""
+            })
+        }
+        return out
+    }
+
+    // "2/4 hoje" — resumo pro cabeçalho quando o card está recolhido
+    readonly property string habitsSubtitle: {
+        var total = root.todayHabits.length
+        if (total === 0) return "nenhum hábito"
+        var done = 0
+        for (var i = 0; i < total; i++) {
+            var s = root.todayHabits[i].status
+            if (s === "hit" || s === "limit") done++
+        }
+        return done + "/" + total + " hoje"
+    }
+
+    // { "yyyy-MM-dd": "#cor" } — cor da tarefa pendente de maior prioridade
+    // naquele dia; dias sem tarefa pendente não entram no mapa.
+    readonly property var calendarTaskDates: {
+        var order = ({ alta: 0, media: 1, baixa: 2 })
+        var best  = ({})   // "yyyy-MM-dd" -> { prio: number }
+        var out   = ({})   // "yyyy-MM-dd" -> "#cor" (o que o QsCalendar consome)
+        var tasks = todoConfig.tasks || []
+        for (var i = 0; i < tasks.length; i++) {
+            var t = tasks[i]
+            if (!t.due || t.done) continue
+            var p = order[t.priority] !== undefined ? order[t.priority] : 1
+            if (!best[t.due] || p < best[t.due].prio) {
+                best[t.due] = { prio: p }
+                out[t.due]  = root._taskPriorityColor[t.priority] || root.colorAccent
+            }
+        }
+        return out
+    }
+
+    // Tarefas pendentes com prazo hoje ou atrasado — pra lista direta no
+    // Dashboard (os pontinhos do calendário mostram ONDE tem prazo, isso aqui
+    // mostra efetivamente O QUÊ, sem precisar abrir o Todo).
+    readonly property var todayTasks: {
+        var order    = ({ alta: 0, media: 1, baixa: 2 })
+        var todayStr = Qt.formatDate(new Date(), "yyyy-MM-dd")
+        var tasks    = todoConfig.tasks || []
+        var out = []
+        for (var i = 0; i < tasks.length; i++) {
+            var t = tasks[i]
+            if (!t.due || t.done) continue
+            if (t.due > todayStr) continue   // prazo no futuro — não é "de hoje"
+            out.push({
+                id:       t.id,
+                text:     t.text,
+                priority: t.priority || "media",
+                overdue:  t.due < todayStr,
+                done:     false
+            })
+        }
+        out.sort(function(a, b) {
+            if (a.overdue !== b.overdue) return a.overdue ? -1 : 1
+            var pa = order[a.priority] !== undefined ? order[a.priority] : 1
+            var pb = order[b.priority] !== undefined ? order[b.priority] : 1
+            return pa - pb
+        })
+        return out
+    }
+
+    // ── Dia selecionado no calendário do Dashboard (clique) ──────────────────
+    // "" = nada selecionado → a lista mostra "hoje + atrasadas" (todayTasks).
+    property string selectedCalendarDate: ""
+    readonly property bool showingSelectedDate: root.selectedCalendarDate !== ""
+
+    // Calendário completo vem recolhido por padrão — é o item mais alto do
+    // Dashboard e a maior parte do tempo só a lista de tarefas já basta.
+    // Ver princípio geral: abas não devem precisar de scroll pra mostrar o
+    // conteúdo essencial; seções "boas de ter, mas não sempre necessárias"
+    // (como o mês inteiro) ficam colapsadas até o usuário pedir.
+    property bool calendarExpanded: false
+    readonly property string calendarSubtitle: {
+        var d = new Date()
+        var months = ["janeiro","fevereiro","março","abril","maio","junho",
+                       "julho","agosto","setembro","outubro","novembro","dezembro"]
+        return d.getDate() + " de " + months[d.getMonth()]
+    }
+
+    // Hábitos vêm expandidos por padrão — diferente do calendário, aqui é
+    // exatamente o "check rápido do dia" que se quer ver de cara.
+    property bool habitsExpanded: true
+
+    // Todas as tarefas com prazo EXATAMENTE no dia selecionado — inclui as já
+    // concluídas (diferente de todayTasks), porque aqui o usuário está
+    // inspecionando um dia específico, não só "o que falta fazer agora".
+    readonly property var selectedDateTasks: {
+        if (root.selectedCalendarDate === "") return []
+        var order = ({ alta: 0, media: 1, baixa: 2 })
+        var tasks = todoConfig.tasks || []
+        var out = []
+        for (var i = 0; i < tasks.length; i++) {
+            var t = tasks[i]
+            if (t.due !== root.selectedCalendarDate) continue
+            out.push({
+                id: t.id, text: t.text, priority: t.priority || "media",
+                overdue: false, done: !!t.done
+            })
+        }
+        out.sort(function(a, b) {
+            if (a.done !== b.done) return a.done ? 1 : -1   // concluídas por último
+            var pa = order[a.priority] !== undefined ? order[a.priority] : 1
+            var pb = order[b.priority] !== undefined ? order[b.priority] : 1
+            return pa - pb
+        })
+        return out
+    }
+
+    readonly property var displayedTasks: root.showingSelectedDate ? root.selectedDateTasks : root.todayTasks
+
+    // "18/07" — rótulo curto do dia selecionado, sem depender de locale
+    readonly property string selectedDateLabel: {
+        if (!root.showingSelectedDate) return ""
+        var parts = root.selectedCalendarDate.split("-")
+        return parts[2] + "/" + parts[1]
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // Estado de rede — lido via "network-ctl.sh status"
@@ -404,8 +575,7 @@ Item {
             tabs: [
                 { id: "dashboard",   label: "\uf2dc  Dashboard"   },
                 { id: "media",       label: "\uf001  Mídia"       },
-                { id: "performance", label: "\uf2db  Performance" },
-                { id: "system",      label: "\uf108  Sistema"     }
+                { id: "performance", label: "\uf2db  Performance" }
             ]
             onTabClicked: (id) => { root.activeTab = id; root.subPage = "" }
         }
@@ -434,77 +604,194 @@ Item {
                         id: dashCol; x: 14; y: 10
                         width: parent.width - 28; spacing: 10
 
-                        // ── Clima + Mídia (mesma linha) ─────────────────────────
+                        // ── Card: clima + mídia + tarefas + calendário ──────────
+                        Qs.QsSectionCard {
+                            Layout.fillWidth: true
+                            colorTextDim: root.colorTextDim
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 0
+
+                                Qs.QsWeather {
+                                    Layout.fillWidth: true; Layout.preferredWidth: 1
+                                    compact: true; flat: true
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                }
+                                Rectangle {
+                                    Layout.preferredWidth: 1; Layout.fillHeight: true
+                                    Layout.topMargin: 4; Layout.bottomMargin: 4
+                                    color: root.colorDivider; opacity: 0.3
+                                }
+                                Qs.QsMiniPlayer {
+                                    Layout.fillWidth: true; Layout.preferredWidth: 1
+                                    compact: true; flat: true
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    // Scroll sobre o card ajusta o volume sem precisar ir na aba Mídia.
+                                    onVolumeWheel: (delta) => {
+                                        if (root.sink && root.sink.audio)
+                                            root.sink.audio.volume = Math.max(0, Math.min(1, root.sink.audio.volume + delta * 0.05))
+                                    }
+                                }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.25 }
+
+                            // Cabeçalho da lista — muda conforme "hoje" ou um dia
+                            // específico clicado no calendário abaixo.
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Text {
+                                    text: root.showingSelectedDate ? ("Tarefas · " + root.selectedDateLabel) : "Hoje"
+                                    color: root.colorTextDim
+                                    font.pixelSize: 9; font.weight: Font.DemiBold
+                                    opacity: 0.65
+                                    Layout.fillWidth: true
+                                }
+                                Text {
+                                    visible: root.showingSelectedDate
+                                    text: "\uf00d"   // nf-fa-times — limpa a seleção, volta pra "hoje"
+                                    color: root.colorTextDim
+                                    font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font"
+                                    opacity: 0.6
+                                    MouseArea {
+                                        anchors.fill: parent; anchors.margins: -6
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.selectedCalendarDate = ""
+                                    }
+                                }
+                            }
+
+                            // Tarefas de hoje/atrasadas (padrão) ou do dia clicado no
+                            // calendário — direto do TodoConfig, com checkbox pra
+                            // concluir sem sair do Dashboard.
+                            Qs.QsTaskList {
+                                Layout.fillWidth: true
+                                tasks: root.displayedTasks
+                                emptyText: root.showingSelectedDate ? "Nenhuma tarefa nesse dia" : "Nenhuma tarefa por hoje"
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onToggle: (id) => todoConfig.toggleTask(id)
+                            }
+                        }
+
+                        // ── Calendário + Hábitos lado a lado — dois cards colapsáveis
+                        // independentes; o calendário começa fechado (raramente
+                        // precisa do mês inteiro), hábitos começam abertos (é
+                        // exatamente o check rápido que se quer ver de cara) ────
                         RowLayout {
                             Layout.fillWidth: true; spacing: 8
 
-                            Qs.QsWeather {
+                            Qs.QsCollapsibleCard {
                                 Layout.fillWidth: true; Layout.preferredWidth: 1
-                                compact: true
+                                Layout.alignment: Qt.AlignTop
+                                icon: "\uf133"; title: "Calendário"
+                                subtitle: root.calendarSubtitle
+                                expanded: root.calendarExpanded
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onToggleRequested: root.calendarExpanded = !root.calendarExpanded
+
+                                Qs.QsCalendar {
+                                    Layout.fillWidth: true
+                                    compact: true
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    taskDates:    root.calendarTaskDates
+                                    selectedDate: root.selectedCalendarDate
+                                    onDateClicked: (date) => {
+                                        // clicar de novo no mesmo dia desmarca — volta pra "hoje"
+                                        root.selectedCalendarDate = (root.selectedCalendarDate === date) ? "" : date
+                                    }
+                                }
                             }
-                            Qs.QsMiniPlayer {
+
+                            Qs.QsCollapsibleCard {
                                 Layout.fillWidth: true; Layout.preferredWidth: 1
-                                compact: true
+                                Layout.alignment: Qt.AlignTop
+                                icon: "\uf058"; title: "Hábitos"
+                                subtitle: root.habitsSubtitle
+                                expanded: root.habitsExpanded
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onToggleRequested: root.habitsExpanded = !root.habitsExpanded
+
+                                Qs.QsHabitList {
+                                    Layout.fillWidth: true
+                                    habits: root.todayHabits
+                                    colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    onToggleCheck: (id) => habitsConfig.toggleToday(id)
+                                    onLogCount:    (id, delta) => habitsConfig.logCount(id, delta)
+                                }
                             }
                         }
 
-                        // ── Calendário (compacto, sem card de fundo) ────────────
-                        Qs.QsCalendar {
+                        // ── Card "Controles rápidos": tiles de rede/BT/caffeine ──
+                        Qs.QsSectionCard {
                             Layout.fillWidth: true
-                            compact: true
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            title: "Controles rápidos"; colorTextDim: root.colorTextDim
+
+                            GridLayout {
+                                Layout.fillWidth: true
+                                columns: 2; rowSpacing: 6; columnSpacing: 6
+
+                                Qs.QsToggleTile {
+                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    icon: "\uf1eb"; label: "Wi-Fi"
+                                    badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
+                                    active: root.wifiEnabled
+                                    showSwitch: true   // liga/desliga na hora; card abre a lista de redes
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    onClicked:       root.subPage = "wifi"
+                                    onSwitchToggled: root._toggleWifi()
+                                }
+                                Qs.QsToggleTile {
+                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    icon: "\uf6ff"; label: "Ethernet"
+                                    badge: root.ethConnected
+                                        ? (root.ethDevice || "cabo")
+                                        : (root.ethDevice ? "desconectado" : "indisponível")
+                                    active: root.ethConnected
+                                    showSwitch: root.ethDevice !== ""   // sem cabo detectado, não faz sentido ter switch
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    onClicked:       root.subPage = "ethernet"
+                                    onSwitchToggled: root._toggleEth()
+                                }
+                                Qs.QsToggleTile {
+                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    icon: "\uf294"; label: "Bluetooth"
+                                    badge: root.btEnabled ? "ligado" : "desligado"
+                                    active: root.btEnabled
+                                    showSwitch: true   // liga/desliga na hora; card abre pareados/scan
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    onClicked:       root.subPage = "bluetooth"
+                                    onSwitchToggled: root._toggleBluetooth()
+                                }
+                                Qs.QsToggleTile {
+                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    icon: root.caffeineActive ? "\uf0f4" : "\uf017"
+                                    label: "Caffeine"
+                                    badge: root.caffeineActive ? "suspensão off" : ""
+                                    active: root.caffeineActive
+                                    // Sem subpágina — não faz sentido duplicar o alvo com um switch,
+                                    // o card inteiro já é o toggle.
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    onClicked: root._toggleCaffeine()
+                                }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.3 }
+
+                            // Atalho de Perfil de Energia — mesma fonte (root.powerProfileSummary)
+                            // usada na aba Performance; clicar leva direto pra lá.
+                            Qs.QsNavRow {
+                                Layout.fillWidth: true
+                                icon: "\uf2db"; label: "Perfil de energia"
+                                sub:     root.powerProfileSummary
+                                loading: root.powerProfileSummary === "Carregando…"
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: { root.activeTab = "performance"; root.subPage = "power" }
+
+                                Component.onCompleted: root._refreshPowerProfileSummary()
+                            }
                         }
 
-                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-                        // ── Tiles ────────────────────────────────────────────────
-                        GridLayout {
-                            Layout.fillWidth: true
-                            columns: 2; rowSpacing: 6; columnSpacing: 6
-
-                            Qs.QsToggleTile {
-                                Layout.fillWidth: true; Layout.preferredHeight: 50
-                                icon: "\uf1eb"; label: "Wi-Fi"
-                                badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
-                                active: root.wifiEnabled
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked:      root.subPage = "wifi"
-                                onRightClicked: root._toggleWifi()
-                            }
-                            Qs.QsToggleTile {
-                                Layout.fillWidth: true; Layout.preferredHeight: 50
-                                icon: "\uf6ff"; label: "Ethernet"
-                                badge: root.ethConnected
-                                    ? (root.ethDevice || "cabo")
-                                    : (root.ethDevice ? "desconectado" : "indisponível")
-                                active: root.ethConnected
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked:      root.subPage = "ethernet"
-                                onRightClicked: root._toggleEth()
-                            }
-                            Qs.QsToggleTile {
-                                Layout.fillWidth: true; Layout.preferredHeight: 50
-                                icon: "\uf294"; label: "Bluetooth"
-                                badge: root.btEnabled ? "ligado" : "desligado"
-                                active: root.btEnabled
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked:      root.subPage = "bluetooth"
-                                onRightClicked: root._toggleBluetooth()
-                            }
-                            Qs.QsToggleTile {
-                                Layout.fillWidth: true; Layout.preferredHeight: 50
-                                icon: root.caffeineActive ? "\uf0f4" : "\uf017"
-                                label: "Caffeine"
-                                badge: root.caffeineActive ? "suspensão off" : ""
-                                active: root.caffeineActive
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root._toggleCaffeine()   // sem sub-página — alterna direto
-                            }
-                        }
-
-                        // ── Tray inline (compacto, sem divisor próprio) ───────────
+                        // ── Tray inline (compacto, sem card — mantém leve) ──────
                         Qs.QsTabTray {
                             id: tabTray
                             Layout.fillWidth: true; Layout.preferredHeight: 36
@@ -812,7 +1099,8 @@ Item {
                         Qs.QsNavRow {
                             Layout.fillWidth: true
                             icon: "\uf2db"; label: "Perfil de energia"
-                            sub:  root.powerProfileSummary
+                            sub:     root.powerProfileSummary
+                            loading: root.powerProfileSummary === "Carregando…"
                             colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                             onClicked: root.subPage = "power"
 
@@ -821,7 +1109,8 @@ Item {
                         Qs.QsNavRow {
                             Layout.fillWidth: true
                             icon: "\uf185"; label: "Shader"
-                            sub:  root.shaderSummary
+                            sub:     root.shaderSummary
+                            loading: root.shaderSummary === "Carregando…"
                             colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                             onClicked: root.subPage = "shader"
 
@@ -884,17 +1173,6 @@ Item {
                             }
                         }
                     }
-                }
-            }
-
-            // ── ABA: Sistema ──────────────────────────────────────────────────
-            Item {
-                anchors.fill: parent
-                visible: root.activeTab === "system"
-
-                Qs.QsTabSystem {
-                    anchors.fill: parent; anchors.margins: 14
-                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                 }
             }
         }

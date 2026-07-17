@@ -18,6 +18,7 @@ Item {
     property string icon:        ""
     property string label:       ""
     property string sub:         ""   // texto pequeno de apoio, ex.: resumo do que tem dentro
+    property bool   loading:     false   // true → mostra shimmer no lugar do sub (ex.: "Carregando…")
     property color  colorAccent: "#ffb4a9"
     property color  colorText:   "#e2e2e2"
     property color  colorTextDim:"#c6c6c6"
@@ -31,6 +32,9 @@ Item {
         radius: 12
         color: ma.containsMouse ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.06)
         Behavior on color { ColorAnimation { duration: 120 } }
+
+        scale: ma.pressed ? 0.985 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
         RowLayout {
             anchors.fill: parent
@@ -51,10 +55,18 @@ Item {
                     font.pixelSize: 11; font.weight: Font.Medium
                 }
                 Text {
-                    visible: root.sub.length > 0
+                    visible: root.sub.length > 0 && !root.loading
                     text: root.sub; color: root.colorTextDim
                     font.pixelSize: 9; elide: Text.ElideRight
                     Layout.fillWidth: true
+                }
+                QsSkeleton {
+                    visible: root.loading
+                    active:  root.loading
+                    baseColor: root.colorTextDim
+                    Layout.preferredWidth: 90
+                    Layout.preferredHeight: 7
+                    Layout.topMargin: 1
                 }
             }
 
@@ -63,6 +75,8 @@ Item {
                 color: root.colorTextDim
                 font.pixelSize: 11
                 font.family: "JetBrainsMono Nerd Font"
+                x: ma.containsMouse ? 2 : 0
+                Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
             }
         }
 

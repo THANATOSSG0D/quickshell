@@ -32,7 +32,7 @@ PanelWindow {
 
     // ── Dimensões fixas do painel ──────────────────────────────────────────
     readonly property int panelW: 320
-    readonly property int panelH: 540
+    readonly property int panelH: 620
 
     // ── Configuração da janela ─────────────────────────────────────────────
     screen:        barScreen

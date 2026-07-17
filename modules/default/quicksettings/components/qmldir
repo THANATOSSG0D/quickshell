@@ -11,6 +11,7 @@ QsCalendar    1.0 QsCalendar.qml
 QsEasyEffects    1.0 QsEasyEffects.qml
 QsEthernetList    1.0 QsEthernetList.qml
 QsFooter    1.0 QsFooter.qml
+QsHabitList    1.0 QsHabitList.qml
 QsInlineDropdown    1.0 QsInlineDropdown.qml
 QsMediaPlayerFull    1.0 QsMediaPlayerFull.qml
 QsMiniPlayer    1.0 QsMiniPlayer.qml
@@ -18,6 +19,8 @@ QsNavRow    1.0 QsNavRow.qml
 QsNightMode    1.0 QsNightMode.qml
 QsPageHeader    1.0 QsPageHeader.qml
 QsPresetList    1.0 QsPresetList.qml
+QsSectionCard    1.0 QsSectionCard.qml
+QsSkeleton    1.0 QsSkeleton.qml
 QsSwitch    1.0 QsSwitch.qml
 QsTabBar    1.0 QsTabBar.qml
 QsTabBluetooth    1.0 QsTabBluetooth.qml
@@ -25,6 +28,7 @@ QsTabNetworks    1.0 QsTabNetworks.qml
 QsTabSystem    1.0 QsTabSystem.qml
 QsTabTray    1.0 QsTabTray.qml
 QsTabTrayImpl    1.0 QsTabTrayImpl.qml
+QsTaskList    1.0 QsTaskList.qml
 QsThermalSection    1.0 QsThermalSection.qml
 QsToggleTile    1.0 QsToggleTile.qml
 QsVolumeSlider    1.0 QsVolumeSlider.qml

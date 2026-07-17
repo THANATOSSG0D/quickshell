@@ -70,9 +70,6 @@ Singleton {
   readonly property string _outputDevice: root._source ? root._source.outputDeviceName : ""
   readonly property string _inputDevice:  root._source ? root._source.inputDeviceName  : ""
 
-  readonly property bool   _eeRunning:    root._source ? root._source.tipEeRunning      : false
-  readonly property string _eeOutPreset:  root._source ? root._source.tipEeOutputPreset : ""
-  readonly property string _eeInPreset:   root._source ? root._source.tipEeInputPreset  : ""
   readonly property string _powerProfile: root._source ? root._source.tipPowerProfile   : ""
   readonly property string _shaderName:   root._source ? root._source.tipShaderName   : ""
   readonly property string _shaderMode:   root._source ? root._source.tipShaderMode   : ""
@@ -248,24 +245,6 @@ Singleton {
           visible: root._ready
           width: parent.width; height: 1
           color: Qt.rgba(1, 1, 1, 0.08)
-        }
-
-        // ── EasyEffects (status + presets ativos de saída/entrada) ─────────
-        StatusRow {
-          visible: root._ready
-          icon: "\uf028"
-          label: root._eeRunning ? "EasyEffects ativo" : "EasyEffects desligado"
-          on: root._eeRunning
-        }
-        StatusRow {
-          visible: root._ready && root._eeRunning && root._eeOutPreset !== ""
-          icon: "\uf2db"; on: true
-          label: "Saída: " + root._eeOutPreset
-        }
-        StatusRow {
-          visible: root._ready && root._eeRunning && root._eeInPreset !== ""
-          icon: "\uf130"; on: true
-          label: "Entrada: " + root._eeInPreset
         }
 
         // ── Power profile ────────────────────────────────────────────────

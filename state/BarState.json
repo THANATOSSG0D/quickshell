@@ -2,7 +2,7 @@
     "overrides": {
         "Aurora": {
             "bar": {
-                "position": 4
+                "position": 1
             },
             "mediaplayer": {
                 "bgEnabled": false,
@@ -52,6 +52,11 @@
                 "textColorActive": "source_color",
                 "textMode": "artistAndTitle",
                 "textStatic": true
+            },
+            "palette": {
+                "accentBg": "on_primary_fixed_variant",
+                "accentText": "on_primary",
+                "barBg": "scrim"
             }
         },
         "Dock": {
@@ -79,6 +84,7 @@
         "Minimal": {
             "bar": {
                 "barMargin": 0,
+                "moduleScale": 0.75,
                 "modules": {
                     "bottom": [
                         "clock",
@@ -288,7 +294,7 @@
                 "autoHide": false,
                 "pillMinSpacing": 20,
                 "pillWidth": 400,
-                "position": 4
+                "position": 1
             },
             "workspaces": {
                 "showAddButton": false

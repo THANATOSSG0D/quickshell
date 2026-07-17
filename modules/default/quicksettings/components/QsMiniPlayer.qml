@@ -18,6 +18,7 @@ Item {
     property color colorTextDim:  "#c6c6c6"
 
     property bool compact: false   // true = card menor, lado a lado com outro widget
+    property bool flat:    false   // true = sem fundo/borda próprios (já está dentro de outro card)
 
     // ── Seleção de player — mesma regra do MediaPlayer.qml da barra ─────────
     readonly property var player: {
@@ -39,14 +40,19 @@ Item {
     visible:        root.compact || player !== null
     implicitHeight: visible ? (root.compact ? 54 : 64) : 0
 
+    // Emitido ao rolar o scroll sobre o card — permite ajustar o volume do
+    // sistema sem sair do Dashboard nem trocar para a aba Mídia.
+    // delta: +1 (roda pra cima) / -1 (roda pra baixo)
+    signal volumeWheel(int delta)
+
     Rectangle {
         anchors.fill: parent
         radius: 12
-        color: Qt.rgba(1, 1, 1, 0.07)
+        color: root.flat ? "transparent" : Qt.rgba(1, 1, 1, 0.07)
 
         RowLayout {
             anchors.fill: parent
-            anchors.margins: root.compact ? 8 : 10
+            anchors.margins: root.flat ? 0 : (root.compact ? 8 : 10)
             spacing: root.compact ? 6 : 10
 
             // ── Capa ──────────────────────────────────────────────────────
@@ -131,6 +137,15 @@ Item {
                     onClicked: { if (root.player) root.player.togglePlaying() }
                 }
             }
+        }
+
+        // ── Scroll-to-volume ─────────────────────────────────────────────────
+        // acceptedButtons: NoButton → nunca rouba cliques do play/pause acima,
+        // só reage à roda do mouse em qualquer ponto do card.
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            onWheel: (wheel) => root.volumeWheel(wheel.angleDelta.y > 0 ? 1 : -1)
         }
     }
 }

@@ -110,11 +110,8 @@ Item {
         if (!tipWeatherProc.running && root.tipWeatherStale) tipWeatherProc.running = true
     }
 
-    // ── EasyEffects / Power Profile / Shader / Temperatura — combinados num
-    // único Process para reduzir forks (tudo sob demanda, no hover) ─────────
-    property bool   tipEeRunning:     false
-    property string tipEeOutputPreset: ""
-    property string tipEeInputPreset:  ""
+    // ── Power Profile / Shader / Temperatura — combinados num único Process
+    // para reduzir forks (tudo sob demanda, no hover) ──────────────────────
     property string tipPowerProfile:  ""
     property string tipShaderName:    ""
     property string tipShaderMode:    ""   // "auto" | "off" | "manual:<nome>"
@@ -132,7 +129,6 @@ Item {
     Process {
         id: tipExtraProc
         command: ["bash", "-c",
-            "easyeffects -s 2>/dev/null; echo '###POWER###'; " +
             "thermal-profile waybar 2>/dev/null; echo '###SHADER###'; " +
             "hyprshade current 2>/dev/null; echo '###MODE###'; " +
             "cat ~/.cache/hyprnight/shader-mode 2>/dev/null; echo '###TEMPLOG###'; " +
@@ -147,25 +143,13 @@ Item {
             if (running) return
             var raw = tipExtraProc._buf; tipExtraProc._buf = ""
 
-            var eeOut     = raw.split("###POWER###")[0] || ""
-            var powerOut  = (raw.split("###POWER###")[1] || "").split("###SHADER###")[0]
+            var powerOut  = raw.split("###SHADER###")[0] || ""
             var shaderOut = (raw.split("###SHADER###")[1] || "").split("###MODE###")[0]
             var modeOut   = (raw.split("###MODE###")[1] || "").split("###TEMPLOG###")[0]
             var tempLogOut    = (raw.split("###TEMPLOG###")[1]    || "").split("###TEMPAUTO###")[0]
             var tempAutoOut   = (raw.split("###TEMPAUTO###")[1]   || "").split("###TEMPMANUAL###")[0]
             var tempManualOut = (raw.split("###TEMPMANUAL###")[1] || "").split("###GAMMAMANUAL###")[0]
             var gammaManualOut = raw.split("###GAMMAMANUAL###")[1] || ""
-
-            root.tipEeRunning = eeOut.trim() !== "" && !eeOut.includes("not running")
-
-            root.tipEeOutputPreset = ""
-            root.tipEeInputPreset  = ""
-            var eeLines = eeOut.split("\n")
-            for (var i = 0; i < eeLines.length; i++) {
-                var el = eeLines[i].trim()
-                if (el.startsWith("output:")) root.tipEeOutputPreset = el.replace("output:", "").trim()
-                if (el.startsWith("input:"))  root.tipEeInputPreset  = el.replace("input:",  "").trim()
-            }
 
             try {
                 var pdata = JSON.parse(powerOut.trim())

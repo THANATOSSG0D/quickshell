@@ -13,7 +13,8 @@
             "popupW": 480
         },
         "QuickSettingsPopup": {
-            "popupW": 420
+            "popupH": 620,
+            "popupW": 460
         }
     }
 }

@@ -17,6 +17,7 @@ Item {
     property color colorTextDim: "#c6c6c6"
 
     property bool compact: false   // true = card menor, lado a lado com outro widget
+    property bool flat:    false   // true = sem fundo/borda próprios (já está dentro de outro card)
 
     property string city: "Belo Horizonte"
 
@@ -79,11 +80,11 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 12
-        color: Qt.rgba(1, 1, 1, 0.07)
+        color: root.flat ? "transparent" : Qt.rgba(1, 1, 1, 0.07)
 
         RowLayout {
             anchors.fill: parent
-            anchors.margins: root.compact ? 8 : 10
+            anchors.margins: root.flat ? 0 : (root.compact ? 8 : 10)
             spacing: root.compact ? 6 : 10
 
             Text {
