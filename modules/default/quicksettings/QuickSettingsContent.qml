@@ -673,51 +673,56 @@ Item {
                             }
                         }
 
-                        // ── Calendário + Hábitos lado a lado — dois cards colapsáveis
-                        // independentes; o calendário começa fechado (raramente
-                        // precisa do mês inteiro), hábitos começam abertos (é
-                        // exatamente o check rápido que se quer ver de cara) ────
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 8
+                        // ── Calendário + Hábitos — dois cards colapsáveis empilhados.
+                        // Antes ficavam lado a lado numa RowLayout com 50/50 forçado
+                        // (Layout.preferredWidth: 1 nos dois), mas o painel só tem
+                        // 320px (popupW da QuickSettingsPopup) — descontando os 28px
+                        // de margem do conteúdo e os 8px de spacing entre os cards,
+                        // cada metade ficava com ~140px. O grid do calendário (mesmo
+                        // em modo compact: 7 colunas × 26px + 6 gaps × 1px = 188px)
+                        // não cabe nisso e era cortado pela QsCollapsibleCard. Empilhado,
+                        // cada card usa a largura cheia do conteúdo (~292px), que sobra
+                        // até pro modo não-compact se algum dia quiser mais espaço. Como
+                        // os dois são colapsáveis, não desperdiça espaço vertical quando
+                        // um dos dois está fechado — calendário começa fechado (raramente
+                        // precisa do mês inteiro), hábitos começam abertos (é exatamente
+                        // o check rápido que se quer ver de cara) ──────────────────────
+                        Qs.QsCollapsibleCard {
+                            Layout.fillWidth: true
+                            icon: "\uf133"; title: "Calendário"
+                            subtitle: root.calendarSubtitle
+                            expanded: root.calendarExpanded
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onToggleRequested: root.calendarExpanded = !root.calendarExpanded
 
-                            Qs.QsCollapsibleCard {
-                                Layout.fillWidth: true; Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignTop
-                                icon: "\uf133"; title: "Calendário"
-                                subtitle: root.calendarSubtitle
-                                expanded: root.calendarExpanded
+                            Qs.QsCalendar {
+                                Layout.fillWidth: true
+                                compact: true
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onToggleRequested: root.calendarExpanded = !root.calendarExpanded
-
-                                Qs.QsCalendar {
-                                    Layout.fillWidth: true
-                                    compact: true
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    taskDates:    root.calendarTaskDates
-                                    selectedDate: root.selectedCalendarDate
-                                    onDateClicked: (date) => {
-                                        // clicar de novo no mesmo dia desmarca — volta pra "hoje"
-                                        root.selectedCalendarDate = (root.selectedCalendarDate === date) ? "" : date
-                                    }
+                                taskDates:    root.calendarTaskDates
+                                selectedDate: root.selectedCalendarDate
+                                onDateClicked: (date) => {
+                                    // clicar de novo no mesmo dia desmarca — volta pra "hoje"
+                                    root.selectedCalendarDate = (root.selectedCalendarDate === date) ? "" : date
                                 }
                             }
+                        }
 
-                            Qs.QsCollapsibleCard {
-                                Layout.fillWidth: true; Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignTop
-                                icon: "\uf058"; title: "Hábitos"
-                                subtitle: root.habitsSubtitle
-                                expanded: root.habitsExpanded
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onToggleRequested: root.habitsExpanded = !root.habitsExpanded
+                        Qs.QsCollapsibleCard {
+                            Layout.fillWidth: true
+                            icon: "\uf058"; title: "Hábitos"
+                            subtitle: root.habitsSubtitle
+                            expanded: root.habitsExpanded
+                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            onToggleRequested: root.habitsExpanded = !root.habitsExpanded
 
-                                Qs.QsHabitList {
-                                    Layout.fillWidth: true
-                                    habits: root.todayHabits
-                                    colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    onToggleCheck: (id) => habitsConfig.toggleToday(id)
-                                    onLogCount:    (id, delta) => habitsConfig.logCount(id, delta)
-                                }
+                            Qs.QsHabitList {
+                                Layout.fillWidth: true
+                                habits: root.todayHabits
+                                maxVisible: 0   // sem limite — mostra a lista inteira, sem "+N · ver todos"
+                                colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onToggleCheck: (id) => habitsConfig.toggleToday(id)
+                                onLogCount:    (id, delta) => habitsConfig.logCount(id, delta)
                             }
                         }
 
