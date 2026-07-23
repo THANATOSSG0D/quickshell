@@ -245,6 +245,8 @@ Item {
                         : itemMA.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                     border.color: netItem.isActive ? root.colorAccent : "transparent"; border.width: 1
                     Behavior on color { ColorAnimation { duration: 120 } }
+                    scale: itemMA.pressed ? 0.985 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
                     RowLayout {
                         anchors.fill: parent

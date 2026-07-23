@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 
-// ── Barra de abas estilo pill ────────────────────────────────────────────────
-// Idêntica ao VolumeContent: Rectangle radius height/2, border accent quando ativo,
-// fundo colorAccent alpha 0.2 ativo / Qt.rgba(1,1,1,0.05) inativo.
+// ── Barra de abas estilo segmented control ──────────────────────────────────
+// Abas com largura igual, ocupando a linha inteira; a ativa vira um pill
+// sólido preenchido de accent (não só um tint) — mais "seletor de central de
+// controle" do que "menu de texto colorido".
 // Uso: passe tabs como [{id, label}] e conecte onTabClicked(id).
 Item {
     id: root
@@ -18,11 +19,11 @@ Item {
 
     signal tabClicked(string tabId)
 
-    implicitHeight: 22
+    implicitHeight: 28
 
     RowLayout {
         anchors.fill: parent
-        spacing: 6
+        spacing: 4
 
         Repeater {
             model: root.tabs
@@ -33,32 +34,33 @@ Item {
 
                 readonly property bool active: root.activeTab === tabPill.modelData.id
 
-                Layout.preferredHeight: 22
-                Layout.preferredWidth:  tabLabel.implicitWidth + 14
-                radius:       height / 2
-                color: tabPill.active
-                    ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
-                    : Qt.rgba(1, 1, 1, 0.05)
-                border.color: tabPill.active ? root.colorAccent : "transparent"
-                border.width: 1
+                Layout.fillWidth: true
+                Layout.preferredHeight: 26
+                radius: height / 2
+                color: tabPill.active ? root.colorAccent : "transparent"
+                Behavior on color { ColorAnimation { duration: 150 } }
+
+                scale: tabMa.pressed ? 0.95 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
                 Text {
                     id: tabLabel
                     anchors.centerIn: parent
                     text:           tabPill.modelData.label
-                    color:          tabPill.active ? root.colorAccent : root.colorTextDim
+                    color:          tabPill.active ? "#1a1a1a" : root.colorTextDim
                     font.pixelSize: 10
+                    font.weight:    tabPill.active ? Font.DemiBold : Font.Normal
                     font.family:    "JetBrainsMono Nerd Font"
+                    Behavior on color { ColorAnimation { duration: 150 } }
                 }
 
                 MouseArea {
+                    id: tabMa
                     anchors.fill: parent
-                    onClicked:    root.tabClicked(tabPill.modelData.id)
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked:   root.tabClicked(tabPill.modelData.id)
                 }
             }
         }
-
-        // Espaço flexível à direita
-        Item { Layout.fillWidth: true }
     }
 }

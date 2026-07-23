@@ -126,6 +126,8 @@ Item {
                         : Qt.rgba(1, 1, 1, 0.1)
                     border.width: 1
                     Behavior on color { ColorAnimation { duration: 80 } }
+                    scale: bypassHov.pressed ? 0.95 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                     Text {
                         id: bypassLbl; anchors.centerIn: parent
                         text: root.eeBypassed ? "\uf074  Bypass ON" : "\uf074  Bypass OFF"
@@ -142,6 +144,8 @@ Item {
                     color: refreshHov.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
                     border.color: Qt.rgba(1, 1, 1, 0.1); border.width: 1
                     Behavior on color { ColorAnimation { duration: 80 } }
+                    scale: refreshHov.pressed ? 0.9 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                     Text { anchors.centerIn: parent; text: "\uf021"
                         color: root.colorTextDim; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
                     MouseArea { id: refreshHov; anchors.fill: parent; hoverEnabled: true

@@ -63,8 +63,9 @@ Item {
 
                 // ── Capa ──────────────────────────────────────────────────
                 Rectangle {
-                    Layout.preferredWidth: 64; Layout.preferredHeight: 64
+                    Layout.preferredWidth: 64; Layout.preferredHeight: 64; radius: 10
                     color: Qt.rgba(1, 1, 1, 0.08)
+                    clip: true
 
                     Image {
                         id: artImg
@@ -123,7 +124,9 @@ Item {
                     color: root.colorText
                     font.pixelSize: 14; font.family: "JetBrainsMono Nerd Font"
                     opacity: root.player && root.player.canGoPrevious ? 1.0 : 0.35
-                    MouseArea { anchors.fill: parent; anchors.margins: -6
+                    scale: prevMA.pressed ? 0.85 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+                    MouseArea { id: prevMA; anchors.fill: parent; anchors.margins: -6
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { if (root.player) root.player.previous() } }
                 }
@@ -132,13 +135,15 @@ Item {
                     Layout.preferredWidth: 38; Layout.preferredHeight: 38; radius: 19
                     color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
                     border.color: root.colorAccent; border.width: 1
+                    scale: playMA.pressed ? 0.92 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                     Text {
                         anchors.centerIn: parent
                         text: root.player && root.player.isPlaying ? "\uf04c" : "\uf04b"
                         color: root.colorAccent
                         font.pixelSize: 14; font.family: "JetBrainsMono Nerd Font"
                     }
-                    MouseArea { anchors.fill: parent
+                    MouseArea { id: playMA; anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { if (root.player) root.player.togglePlaying() } }
                 }
@@ -148,7 +153,9 @@ Item {
                     color: root.colorText
                     font.pixelSize: 14; font.family: "JetBrainsMono Nerd Font"
                     opacity: root.player && root.player.canGoNext ? 1.0 : 0.35
-                    MouseArea { anchors.fill: parent; anchors.margins: -6
+                    scale: nextMA.pressed ? 0.85 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+                    MouseArea { id: nextMA; anchors.fill: parent; anchors.margins: -6
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { if (root.player) root.player.next() } }
                 }

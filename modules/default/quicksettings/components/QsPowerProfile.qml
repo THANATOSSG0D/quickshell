@@ -30,6 +30,20 @@ Item {
         { id: "cool",          icon: "\uf2c7", label: "Cool",           tdp: "15/25W" }
     ]
 
+    // Fonte única de verdade pro nome do perfil atual — quem precisa mostrar
+    // isso fora daqui (ex.: atalho no Dashboard) lê daqui, em vez de ter seu
+    // próprio processo lendo `thermal-profile waybar` por conta própria.
+    // Ter duas leituras independentes foi o que causava o atalho e a lista
+    // mostrarem nomes diferentes/desatualizados entre si.
+    readonly property string currentLabel: {
+        if (root.loading) return "Carregando…"
+        if (root.hasError) return "Indisponível"
+        for (var i = 0; i < root.profiles.length; i++) {
+            if (root.profiles[i].id === root.activeProfile) return root.profiles[i].label
+        }
+        return root.activeProfile || "—"
+    }
+
     function refresh() {
         if (statusProc.running) return
         root.loading = true; root.hasError = false
@@ -107,9 +121,12 @@ Item {
         anchors.left: parent.left; anchors.right: parent.right
         spacing: 6
 
-        Text {
+        QsSkeleton {
             visible: root.loading
-            text: "Carregando…"; color: root.colorTextDim; font.pixelSize: 10
+            active:  root.loading
+            baseColor: root.colorTextDim
+            Layout.preferredWidth: 110
+            Layout.preferredHeight: 8
         }
         Text {
             visible: root.hasError && !root.loading
@@ -121,19 +138,29 @@ Item {
             delegate: Rectangle {
                 required property var modelData
                 readonly property bool isActive: root.activeProfile === modelData.id
-                Layout.fillWidth: true; Layout.preferredHeight: 36; radius: 8
+                Layout.fillWidth: true; Layout.preferredHeight: 42; radius: 10
                 color: isActive
                     ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
                     : (pMA.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04))
                 border.color: isActive ? root.colorAccent : "transparent"; border.width: 1
                 Behavior on color { ColorAnimation { duration: 120 } }
+                scale: pMA.pressed ? 0.98 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
                 RowLayout {
-                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
-                    Text {
-                        text: modelData.icon
-                        color: isActive ? root.colorAccent : root.colorText
-                        font.pixelSize: 12; font.family: "JetBrainsMono Nerd Font"
+                    anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 10; spacing: 8
+
+                    Rectangle {
+                        implicitWidth: 24; implicitHeight: 24; radius: 12
+                        color: isActive ? root.colorAccent : Qt.rgba(1, 1, 1, 0.10)
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.icon
+                            color: isActive ? "#1a1a1a" : root.colorText
+                            font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+                            Behavior on color { ColorAnimation { duration: 120 } }
+                        }
                     }
                     Text {
                         text: modelData.label

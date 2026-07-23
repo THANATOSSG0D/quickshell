@@ -25,8 +25,8 @@ Singleton {
   // paleta matugen (mesmo problema que o NotificationToast.qml tinha,
   // já corrigido lá) — esse tooltip tinha ficado de fora daquela limpeza.
   // Agora usa os mesmos tokens (Colors.*) que o resto do módulo.
-  property color bgColor:      Qt.rgba(Colors.surface_container.r, Colors.surface_container.g, Colors.surface_container.b, 0.92)
-  property color fgColor:      Colors.on_surface
+  property color bgColor:      Qt.rgba(0.05, 0.05, 0.05, 0.92)
+  property color fgColor:      "#e2e2e2"
   property color fgDimColor:   Colors.on_surface_variant
   property color accentColor:  Colors.primary
   property color mutedColor:   Colors.error

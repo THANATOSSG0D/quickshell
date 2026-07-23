@@ -561,6 +561,8 @@ Item {
         required property color accentColor
         signal clicked()
         implicitWidth: pillTxt.implicitWidth + 14; implicitHeight: 18
+        scale: pillMA.pressed ? 0.92 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
         Rectangle {
             anchors.fill: parent; radius: height / 2
@@ -598,6 +600,8 @@ Item {
         required property bool active   // true = ligado (vermelho), false = desligado (cinza)
         signal clicked()
         implicitWidth: 18; implicitHeight: 18
+        scale: pwrMA.pressed ? 0.9 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
         Rectangle {
             anchors.fill: parent; radius: height / 2
@@ -638,9 +642,12 @@ Item {
         required property color  dimColor
         signal picked()
         implicitHeight: 28
+        scale: diMA.pressed ? 0.98 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
         Rectangle {
             anchors.fill: parent
+            radius: 8
             color: di.active
                 ? Qt.rgba(di.accentColor.r, di.accentColor.g, di.accentColor.b, 0.12)
                 : (diMA.containsMouse ? Qt.rgba(1,1,1,0.07) : "transparent")

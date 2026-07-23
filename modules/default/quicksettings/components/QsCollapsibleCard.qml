@@ -30,15 +30,20 @@ Item {
 
     signal toggleRequested()
 
+    // implicitHeight reflete o tamanho NATURAL (baseado no conteúdo). Quando
+    // usado lado a lado com outro card sincronizado (ver Layout.preferredHeight
+    // no QuickSettingsContent), o item pode receber uma altura maior de fora —
+    // anchors.fill no bg garante que o fundo/borda acompanhem esse tamanho
+    // maior, em vez de deixar um vão vazio embaixo do conteúdo.
     implicitHeight: bg.implicitHeight
 
     Rectangle {
         id: bg
-        anchors.left: parent.left; anchors.right: parent.right
+        anchors.fill: parent
         implicitHeight: headerRow.implicitHeight + 20 + (root.expanded ? contentHolder.implicitHeight + 14 : 0)
-        radius: 12
+        radius: 14
         color: Qt.rgba(1, 1, 1, 0.05)
-        border.color: root.expanded ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.3) : "transparent"
+        border.color: root.expanded ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.4) : "transparent"
         border.width: 1
 
         Behavior on implicitHeight { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
@@ -51,11 +56,19 @@ Item {
                 id: headerRow
                 Layout.fillWidth: true; spacing: 8
 
-                Text {
-                    text: root.icon
-                    color: root.expanded ? root.colorAccent : root.colorText
-                    font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+                Rectangle {
+                    implicitWidth: 22; implicitHeight: 22
+                    radius: 11
+                    color: root.expanded ? root.colorAccent : Qt.rgba(1, 1, 1, 0.10)
                     Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.icon
+                        color: root.expanded ? "#1a1a1a" : root.colorText
+                        font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
                 }
                 Text {
                     text: root.title

@@ -49,12 +49,33 @@ Item {
             Layout.fillWidth: true
             spacing: 6
 
-            Text {
-                text:           root.volIcon
-                color:          root.muted ? root.colorMuted : root.colorAccent
-                font.pixelSize: 13
-                font.family:    "JetBrainsMono Nerd Font"
+            Rectangle {
+                implicitWidth: 24; implicitHeight: 24; radius: 12
+                color: root.muted ? root.colorMuted : Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
                 Behavior on color { ColorAnimation { duration: 150 } }
+                scale: muteMA.pressed ? 0.9 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text:           root.volIcon
+                    color:          root.muted ? "#1a1a1a" : root.colorAccent
+                    font.pixelSize: 12
+                    font.family:    "JetBrainsMono Nerd Font"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+
+                // Clique alterna mudo — não existia nenhum jeito rápido de mutar
+                // antes, só arrastar o volume até zero.
+                MouseArea {
+                    id: muteMA
+                    anchors.fill: parent; anchors.margins: -3
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: root.node !== null
+                    onClicked: {
+                        if (root.node && root.node.audio) root.node.audio.muted = !root.node.audio.muted
+                    }
+                }
             }
             Text {
                 text:           "Volume"

@@ -60,14 +60,16 @@ Item {
                 model: root.quickActions
                 delegate: Rectangle {
                     id: qBtn; required property var modelData
-                    Layout.fillWidth: true; height: 26; radius: 13
+                    Layout.fillWidth: true; height: 28; radius: 14
                     color: qBtnMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.07)
                     Behavior on color { ColorAnimation { duration: 100 } }
+                    scale: qBtnMA.pressed ? 0.95 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                     RowLayout { anchors.centerIn: parent; spacing: 5
                         Text { text: qBtn.modelData.icon; color: root.colorText; font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font" }
                         Text { text: qBtn.modelData.label; color: root.colorText; font.pixelSize: 10 }
                     }
-                    MouseArea { id: qBtnMA; anchors.fill: parent; hoverEnabled: true; onClicked: root._execute(qBtn.modelData.id) }
+                    MouseArea { id: qBtnMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root._execute(qBtn.modelData.id) }
                 }
             }
         }
@@ -80,26 +82,28 @@ Item {
                 delegate: Rectangle {
                     id: dBtn; required property var modelData
                     readonly property bool pending: root.confirmPending === dBtn.modelData.id
-                    Layout.fillWidth: true; height: 26; radius: 13
+                    Layout.fillWidth: true; height: 28; radius: 14
                     color: dBtn.pending
-                        ? Qt.rgba(root.colorMuted.r, root.colorMuted.g, root.colorMuted.b, 0.18)
+                        ? root.colorMuted
                         : dBtnMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.07)
                     Behavior on color { ColorAnimation { duration: 150 } }
+                    scale: dBtnMA.pressed ? 0.95 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                     RowLayout { anchors.centerIn: parent; spacing: 5
                         Text {
                             text: dBtn.modelData.icon
-                            color: dBtn.pending ? root.colorMuted : root.colorText
+                            color: dBtn.pending ? "#1a1a1a" : root.colorText
                             font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
                             Behavior on color { ColorAnimation { duration: 150 } }
                         }
                         Text {
                             text: dBtn.pending ? "Confirmar?" : dBtn.modelData.label
-                            color: dBtn.pending ? root.colorMuted : root.colorText
-                            font.pixelSize: 10
+                            color: dBtn.pending ? "#1a1a1a" : root.colorText
+                            font.pixelSize: 10; font.weight: dBtn.pending ? Font.DemiBold : Font.Normal
                             Behavior on color { ColorAnimation { duration: 150 } }
                         }
                     }
-                    MouseArea { id: dBtnMA; anchors.fill: parent; hoverEnabled: true; onClicked: root._handleDanger(dBtn.modelData.id) }
+                    MouseArea { id: dBtnMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root._handleDanger(dBtn.modelData.id) }
                 }
             }
         }

@@ -86,9 +86,13 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true; spacing: 4
             RowLayout {
-                Layout.fillWidth: true; spacing: 6
-                Text { text: "\uf2db"; color: root.colorAccent
-                    font.pixelSize: 12; font.family: "JetBrainsMono Nerd Font" }
+                Layout.fillWidth: true; spacing: 8
+                Rectangle {
+                    implicitWidth: 22; implicitHeight: 22; radius: 11
+                    color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+                    Text { anchors.centerIn: parent; text: "\uf2db"; color: root.colorAccent
+                        font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
+                }
                 Text { text: "CPU"; color: root.colorText; font.pixelSize: 10; Layout.fillWidth: true }
                 Text { text: Math.round(root.cpuPercent) + "%"; color: root.colorTextDim; font.pixelSize: 10 }
             }
@@ -106,9 +110,13 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true; spacing: 4
             RowLayout {
-                Layout.fillWidth: true; spacing: 6
-                Text { text: "\uf538"; color: root.colorAccent
-                    font.pixelSize: 12; font.family: "JetBrainsMono Nerd Font" }
+                Layout.fillWidth: true; spacing: 8
+                Rectangle {
+                    implicitWidth: 22; implicitHeight: 22; radius: 11
+                    color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+                    Text { anchors.centerIn: parent; text: "\uf538"; color: root.colorAccent
+                        font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
+                }
                 Text { text: "RAM"; color: root.colorText; font.pixelSize: 10; Layout.fillWidth: true }
                 Text {
                     text: (root.ramUsedLabel !== "" ? (root.ramUsedLabel + " / " + root.ramTotalLabel) : "—")

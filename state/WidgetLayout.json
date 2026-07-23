@@ -26,7 +26,7 @@
                 "calendar",
                 "todo"
             ],
-            "position": 0
+            "position": 3
         },
         {
             "bgColor": "background",
@@ -41,19 +41,19 @@
             "memberColumns": {
                 "cpu": 2,
                 "disk": 1,
-                "favorites": 1,
+                "favorites": 2,
                 "gpu": 1,
                 "habits": 1,
                 "mediaplayer": 2,
                 "network": 1,
                 "process": 2,
-                "ram": 2,
-                "system": 1
+                "ram": 1,
+                "system": 2
             },
             "memberFullWidth": {
                 "favorites": false,
                 "habits": false,
-                "system": true
+                "system": false
             },
             "memberScale": {
                 "cpu": 1,

@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import QtQuick
 import "./components" as QsComp
 
@@ -30,6 +31,12 @@ PanelWindow {
     property color colorProgressBg: "#474747"
     property color colorDivider:    "#474747"
 
+    // Opcional — conecte a partir do Bar.qml (mesma referência que já é
+    // passada pra outros módulos, ex.: notifService: notifService) pra
+    // habilitar o botão de Não Perturbe no cabeçalho. Sem isso, o botão
+    // simplesmente não aparece (ver notifService no QuickSettingsContent).
+    property var notifService: null
+
     // ── Dimensões fixas do painel ──────────────────────────────────────────
     readonly property int panelW: 320
     readonly property int panelH: 620
@@ -38,6 +45,12 @@ PanelWindow {
     screen:        barScreen
     color:         "transparent"
     exclusionMode: ExclusionMode.Ignore
+
+    // Namespace próprio — é o que o Hyprland usa pra mirar o blur nesse
+    // layer surface especificamente (ver `layerrule = blur, quicksettings`
+    // no seu hyprland.conf). Sem isso o Hyprland não sabe diferenciar essa
+    // janela das outras do Quickshell.
+    WlrLayershell.namespace: "quicksettings"
 
     readonly property bool barIsHorizontal: barPosition === 1 || barPosition === 3
 
@@ -105,18 +118,21 @@ PanelWindow {
         }
 
         // ── Fundo arredondado ──────────────────────────────────────────
+        // Opacidade menor de propósito — com a layerrule de blur do
+        // Hyprland (ver namespace "quicksettings" acima), isso vira
+        // frosted-glass de verdade, não só uma cor semi-transparente boiando.
         Rectangle {
             anchors.fill: parent
-            radius: 12
+            radius: 20
             color: Qt.rgba(panel.colorPanelBg.r, panel.colorPanelBg.g,
-                           panel.colorPanelBg.b, 0.95)
+                           panel.colorPanelBg.b, 0.72)
         }
 
         // ── Retângulo sem radius no lado que encosta na barra ──────────
         // Evita a borda arredondada que ficaria visível colada à barra.
         Rectangle {
             color: Qt.rgba(panel.colorPanelBg.r, panel.colorPanelBg.g,
-                           panel.colorPanelBg.b, 0.95)
+                           panel.colorPanelBg.b, 0.72)
             anchors.top:    barPosition === 1 ? parent.top
                           : panel.barIsHorizontal ? parent.top : undefined
             anchors.bottom: barPosition === 3 ? parent.bottom
@@ -135,6 +151,7 @@ PanelWindow {
             anchors.fill:    parent
             panelOpen:       panel.panelOpen
             parentWindow:    panel
+            notifService:    panel.notifService
             colorPanelBg:    panel.colorPanelBg
             colorText:       panel.colorText
             colorTextDim:    panel.colorTextDim

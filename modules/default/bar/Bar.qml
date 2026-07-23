@@ -1955,6 +1955,7 @@ Scope {
         popupH: barRoot.popupHQs
 
         panelOpen: bar.qsPanelOpen
+        notifService: barRoot.notifService
 
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText

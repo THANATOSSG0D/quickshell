@@ -49,6 +49,8 @@ Item {
                 width: 32; height: 32; radius: 8
                 color: tdMA.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.07)
                 Behavior on color { ColorAnimation { duration: 100 } }
+                scale: tdMA.pressed ? 0.92 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
                 Image {
                     id: trayImg
@@ -102,6 +104,7 @@ Item {
                     anchors.fill:    parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     hoverEnabled:    true
+                    cursorShape:     Qt.PointingHandCursor
                     onClicked: (mouse) => {
                         var it = td.trayItem
                         if (!it) return

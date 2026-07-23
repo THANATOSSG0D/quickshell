@@ -26,7 +26,7 @@ Rectangle {
     property color  colorTextDim: "#c6c6c6"
     property int    contentSpacing: 8
 
-    radius: 12
+    radius: 14
     color: Qt.rgba(1, 1, 1, 0.045)
     border.color: Qt.rgba(1, 1, 1, 0.07)
     border.width: 1

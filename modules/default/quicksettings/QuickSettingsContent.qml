@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
@@ -35,6 +36,12 @@ Item {
     signal closeRequested()
     property bool   panelOpen:    false
     property var    parentWindow: null
+
+    // Injetado de fora (Bar.qml → QuickSettingsPanel/Popup → aqui), mesmo
+    // padrão que osdService/notifService já usam em outros módulos. null-safe
+    // em tudo que usa isso — se não for conectado, o botão de DND some.
+    property var    notifService: null
+    readonly property bool dndActive: root.notifService ? root.notifService.doNotDisturb === true : false
     // Aba fixa no topo: "dashboard" | "media" | "performance"
     property string activeTab:    "dashboard"
     // Sub-tela com botão voltar, válida dentro da aba ativa:
@@ -72,42 +79,51 @@ Item {
         shaderSummaryProc.running = true
     }
 
-    // ── Resumo leve do perfil de energia ativo, só para exibir no QsNavRow ──
-    property string powerProfileSummary: "Carregando…"
-
-    readonly property var _powerProfileLabels: ({
-        "performance":   "Performance",
-        "gaming":        "Gaming",
-        "balanced":      "Balanced",
-        "balanced_cool": "Balanced Cool",
-        "cool":          "Cool"
-    })
-
-    Process {
-        id: powerProfileSummaryProc
-        property string _buf: ""
-        stdout: SplitParser { onRead: (l) => powerProfileSummaryProc._buf += l }
-        onRunningChanged: {
-            if (running) return
-            var out = powerProfileSummaryProc._buf.trim()
-            powerProfileSummaryProc._buf = ""
-            if (out === "") { root.powerProfileSummary = "Indisponível"; return }
-            try {
-                var data = JSON.parse(out)
-                var id = (data.class || "").replace("-", "_")
-                root.powerProfileSummary = root._powerProfileLabels[id] || id || "—"
-            } catch (e) {
-                root.powerProfileSummary = "Indisponível"
-            }
-        }
-    }
-    function _refreshPowerProfileSummary() {
-        if (powerProfileSummaryProc.running) return
-        powerProfileSummaryProc.command = ["bash", "-c", "thermal-profile waybar 2>/dev/null"]
-        powerProfileSummaryProc.running = true
-    }
+    // Resumo do perfil de energia — NÃO tem estado próprio aqui. A fonte de
+    // verdade é a instância única de Qs.QsPowerProfile (id: powerProfileState,
+    // declarada dentro da subpágina "power", mas sempre viva — QML não destrói
+    // itens filhos só por estarem com visible:false). Ter um processo próprio
+    // aqui, além do que já existe dentro do QsPowerProfile, foi o que causava
+    // o atalho do Dashboard e a lista de dentro mostrarem estados diferentes.
 
     readonly property string ctl: Quickshell.shellDir + "/scripts/network-ctl.sh"
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Cabeçalho — hora/data. Atualiza a cada 20s (sobra pra não notar atraso
+    // no minuto, sem gastar um Timer de 1s à toa igual um relógio de verdade).
+    // ═══════════════════════════════════════════════════════════════════════
+    property var _now: new Date()
+    Timer { interval: 20000; running: true; repeat: true; onTriggered: root._now = new Date() }
+
+    readonly property var _weekDayNames: ["domingo","segunda","terça","quarta","quinta","sexta","sábado"]
+    readonly property var _monthNamesShort: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"]
+    readonly property string _headerDateLabel:
+        root._weekDayNames[root._now.getDay()] + ", " + root._now.getDate() + " " + root._monthNamesShort[root._now.getMonth()]
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Bateria — cabeçalho. Todo control center de laptop mostra isso; esse
+    // painel não mostrava em lugar nenhum antes.
+    // ═══════════════════════════════════════════════════════════════════════
+    readonly property var _battDevice: UPower.displayDevice
+    // UPower.displayDevice "nunca é null, mas pode não estar inicializado
+    // ainda" (doc oficial) — daí o check de `ready` além de isLaptopBattery,
+    // pra não mostrar 0%/ícone errado por um instante logo no boot do shell.
+    readonly property bool hasBattery:
+        root._battDevice && root._battDevice.ready === true && root._battDevice.isLaptopBattery === true
+    readonly property int  batteryPct: root._battDevice ? Math.round(root._battDevice.percentage * 100) : 0
+    readonly property bool batteryCharging:
+        root._battDevice && root._battDevice.state === UPowerDeviceState.Charging
+    readonly property color batteryColor: root.batteryCharging ? root.colorAccent
+        : (root.batteryPct <= 15 ? root.colorMuted : root.colorTextDim)
+    readonly property string batteryIcon: {
+        if (root.batteryCharging) return "\uf0e7"   // nf-fa-bolt
+        var p = root.batteryPct
+        if (p >= 90) return "\uf240"
+        if (p >= 65) return "\uf241"
+        if (p >= 40) return "\uf242"
+        if (p >= 15) return "\uf243"
+        return "\uf244"
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // Todo — só leitura, pra marcar dias com tarefa no QsCalendar do Dashboard.
@@ -232,17 +248,20 @@ Item {
     // Ver princípio geral: abas não devem precisar de scroll pra mostrar o
     // conteúdo essencial; seções "boas de ter, mas não sempre necessárias"
     // (como o mês inteiro) ficam colapsadas até o usuário pedir.
+    // Calendário e Hábitos ficam lado a lado, cada um com seu próprio estado
+    // de expansão independente — MAS sempre com a mesma altura entre os dois
+    // quando exibidos juntos (ver Layout.preferredHeight sincronizado no
+    // RowLayout abaixo). Sem isso, um card fechado do lado de um aberto fica
+    // torto (uma caixa bem mais baixa que a outra, no mesmo eixo horizontal).
     property bool calendarExpanded: false
+    property bool habitsExpanded:   true
+
     readonly property string calendarSubtitle: {
         var d = new Date()
         var months = ["janeiro","fevereiro","março","abril","maio","junho",
                        "julho","agosto","setembro","outubro","novembro","dezembro"]
         return d.getDate() + " de " + months[d.getMonth()]
     }
-
-    // Hábitos vêm expandidos por padrão — diferente do calendário, aqui é
-    // exatamente o "check rápido do dia" que se quer ver de cara.
-    property bool habitsExpanded: true
 
     // Todas as tarefas com prazo EXATAMENTE no dia selecionado — inclui as já
     // concluídas (diferente de todayTasks), porque aqui o usuário está
@@ -463,6 +482,30 @@ Item {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Modo Avião — desliga Wi-Fi + Bluetooth juntos. "Ativo" é derivado
+    // direto do estado real dos dois rádios (não é uma flag própria) — se o
+    // usuário desligar os dois manualmente pelos tiles, o botão já reflete
+    // isso sozinho, sem ficar dessincronizado.
+    // ═══════════════════════════════════════════════════════════════════════
+    property bool _preAirplaneWifi: true
+    property bool _preAirplaneBt:   true
+    readonly property bool airplaneActive: !root.wifiEnabled && !root.btEnabled
+
+    function _toggleAirplane() {
+        if (root.airplaneActive) {
+            // Desligando o modo avião → restaura o que estava ligado antes
+            if (root._preAirplaneWifi) root._toggleWifi()
+            if (root._preAirplaneBt)   root._toggleBluetooth()
+        } else {
+            // Ligando o modo avião → guarda o estado atual e desliga os dois
+            root._preAirplaneWifi = root.wifiEnabled
+            root._preAirplaneBt   = root.btEnabled
+            if (root.wifiEnabled) root._toggleWifi()
+            if (root.btEnabled)   root._toggleBluetooth()
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Caffeine
     // ═══════════════════════════════════════════════════════════════════════
     property bool dndEnabled:     false
@@ -564,11 +607,111 @@ Item {
         anchors.fill: parent
         spacing: 8
 
+        // ── Cabeçalho: hora + data ────────────────────────────────────────────
+        // Compacto de propósito (uma linha só) — o objetivo é dar identidade de
+        // "tela própria" ao painel, não competir por espaço com o conteúdo.
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 12
+            spacing: 6
+
+            Text {
+                text: Qt.formatDateTime(root._now, "HH:mm")
+                color: root.colorText
+                font.pixelSize: 16; font.weight: Font.DemiBold
+            }
+            Text {
+                text: root._headerDateLabel
+                color: root.colorTextDim
+                font.pixelSize: 10
+                opacity: 0.75
+            }
+            Item { Layout.fillWidth: true }
+
+            // ── Não Perturbe ────────────────────────────────────────────────
+            // Some sozinho se o notifService não foi conectado (ver prop
+            // notifService acima) — não fica um botão morto no ar.
+            Rectangle {
+                visible: root.notifService !== null
+                implicitWidth: 24; implicitHeight: 24; radius: 12
+                color: root.dndActive ? root.colorAccent : Qt.rgba(1, 1, 1, 0.07)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                scale: dndMA.pressed ? 0.9 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.dndActive ? "\uf1f6" : "\uf0f3"   // bell-slash / bell
+                    color: root.dndActive ? "#1a1a1a" : root.colorTextDim
+                    font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+
+                MouseArea {
+                    id: dndMA
+                    anchors.fill: parent; anchors.margins: -3
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (root.notifService) root.notifService.toggleDnd()
+                }
+            }
+
+            // ── Modo Avião ─────────────────────────────────────────────────
+            Rectangle {
+                implicitWidth: 24; implicitHeight: 24; radius: 12
+                color: root.airplaneActive ? root.colorAccent : Qt.rgba(1, 1, 1, 0.07)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                scale: airplaneMA.pressed ? 0.9 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "\uf072"   // nf-fa-plane
+                    color: root.airplaneActive ? "#1a1a1a" : root.colorTextDim
+                    font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+
+                MouseArea {
+                    id: airplaneMA
+                    anchors.fill: parent; anchors.margins: -3
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root._toggleAirplane()
+                }
+            }
+
+            // ── Bateria ─────────────────────────────────────────────────────
+            Rectangle {
+                visible: root.hasBattery
+                implicitHeight: 22
+                implicitWidth: battRow.implicitWidth + 14
+                radius: 11
+                color: root.batteryPct <= 15 && !root.batteryCharging
+                    ? Qt.rgba(root.colorMuted.r, root.colorMuted.g, root.colorMuted.b, 0.15)
+                    : Qt.rgba(1, 1, 1, 0.07)
+
+                RowLayout {
+                    id: battRow
+                    anchors.centerIn: parent
+                    spacing: 4
+                    Text {
+                        text: root.batteryIcon
+                        color: root.batteryColor
+                        font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+                    }
+                    Text {
+                        text: root.batteryPct + "%"
+                        color: root.colorTextDim
+                        font.pixelSize: 10
+                    }
+                }
+            }
+        }
+
         // ── Barra de abas fixa ──────────────────────────────────────────────
         Qs.QsTabBar {
             Layout.fillWidth: true
             Layout.margins: 10
-            Layout.topMargin: 10
+            Layout.topMargin: 4
             Layout.bottomMargin: 0
             activeTab: root.activeTab
             colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -604,37 +747,10 @@ Item {
                         id: dashCol; x: 14; y: 10
                         width: parent.width - 28; spacing: 10
 
-                        // ── Card: clima + mídia + tarefas + calendário ──────────
+                        // ── Card: tarefas de hoje ────────────────────────────────
                         Qs.QsSectionCard {
                             Layout.fillWidth: true
                             colorTextDim: root.colorTextDim
-
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 0
-
-                                Qs.QsWeather {
-                                    Layout.fillWidth: true; Layout.preferredWidth: 1
-                                    compact: true; flat: true
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                }
-                                Rectangle {
-                                    Layout.preferredWidth: 1; Layout.fillHeight: true
-                                    Layout.topMargin: 4; Layout.bottomMargin: 4
-                                    color: root.colorDivider; opacity: 0.3
-                                }
-                                Qs.QsMiniPlayer {
-                                    Layout.fillWidth: true; Layout.preferredWidth: 1
-                                    compact: true; flat: true
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    // Scroll sobre o card ajusta o volume sem precisar ir na aba Mídia.
-                                    onVolumeWheel: (delta) => {
-                                        if (root.sink && root.sink.audio)
-                                            root.sink.audio.volume = Math.max(0, Math.min(1, root.sink.audio.volume + delta * 0.05))
-                                    }
-                                }
-                            }
-
-                            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.25 }
 
                             // Cabeçalho da lista — muda conforme "hoje" ou um dia
                             // específico clicado no calendário abaixo.
@@ -673,56 +789,52 @@ Item {
                             }
                         }
 
-                        // ── Calendário + Hábitos — dois cards colapsáveis empilhados.
-                        // Antes ficavam lado a lado numa RowLayout com 50/50 forçado
-                        // (Layout.preferredWidth: 1 nos dois), mas o painel só tem
-                        // 320px (popupW da QuickSettingsPopup) — descontando os 28px
-                        // de margem do conteúdo e os 8px de spacing entre os cards,
-                        // cada metade ficava com ~140px. O grid do calendário (mesmo
-                        // em modo compact: 7 colunas × 26px + 6 gaps × 1px = 188px)
-                        // não cabe nisso e era cortado pela QsCollapsibleCard. Empilhado,
-                        // cada card usa a largura cheia do conteúdo (~292px), que sobra
-                        // até pro modo não-compact se algum dia quiser mais espaço. Como
-                        // os dois são colapsáveis, não desperdiça espaço vertical quando
-                        // um dos dois está fechado — calendário começa fechado (raramente
-                        // precisa do mês inteiro), hábitos começam abertos (é exatamente
-                        // o check rápido que se quer ver de cara) ──────────────────────
-                        Qs.QsCollapsibleCard {
-                            Layout.fillWidth: true
-                            icon: "\uf133"; title: "Calendário"
-                            subtitle: root.calendarSubtitle
-                            expanded: root.calendarExpanded
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onToggleRequested: root.calendarExpanded = !root.calendarExpanded
+                        // ── Calendário + Hábitos lado a lado — altura sempre
+                        // sincronizada entre os dois (a do maior), pra nunca ficar
+                        // torto quando só um dos dois está expandido ──────────────
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
 
-                            Qs.QsCalendar {
-                                Layout.fillWidth: true
-                                compact: true
+                            Qs.QsCollapsibleCard {
+                                id: calCard
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                Layout.preferredHeight: Math.max(calCard.implicitHeight, habCard.implicitHeight)
+                                icon: "\uf133"; title: "Calendário"
+                                subtitle: root.calendarSubtitle
+                                expanded: root.calendarExpanded
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                taskDates:    root.calendarTaskDates
-                                selectedDate: root.selectedCalendarDate
-                                onDateClicked: (date) => {
-                                    // clicar de novo no mesmo dia desmarca — volta pra "hoje"
-                                    root.selectedCalendarDate = (root.selectedCalendarDate === date) ? "" : date
+                                onToggleRequested: root.calendarExpanded = !root.calendarExpanded
+
+                                Qs.QsCalendar {
+                                    Layout.fillWidth: true
+                                    compact: true
+                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    taskDates:    root.calendarTaskDates
+                                    selectedDate: root.selectedCalendarDate
+                                    onDateClicked: (date) => {
+                                        // clicar de novo no mesmo dia desmarca — volta pra "hoje"
+                                        root.selectedCalendarDate = (root.selectedCalendarDate === date) ? "" : date
+                                    }
                                 }
                             }
-                        }
 
-                        Qs.QsCollapsibleCard {
-                            Layout.fillWidth: true
-                            icon: "\uf058"; title: "Hábitos"
-                            subtitle: root.habitsSubtitle
-                            expanded: root.habitsExpanded
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onToggleRequested: root.habitsExpanded = !root.habitsExpanded
+                            Qs.QsCollapsibleCard {
+                                id: habCard
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                Layout.preferredHeight: Math.max(calCard.implicitHeight, habCard.implicitHeight)
+                                icon: "\uf058"; title: "Hábitos"
+                                subtitle: root.habitsSubtitle
+                                expanded: root.habitsExpanded
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onToggleRequested: root.habitsExpanded = !root.habitsExpanded
 
-                            Qs.QsHabitList {
-                                Layout.fillWidth: true
-                                habits: root.todayHabits
-                                maxVisible: 0   // sem limite — mostra a lista inteira, sem "+N · ver todos"
-                                colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onToggleCheck: (id) => habitsConfig.toggleToday(id)
-                                onLogCount:    (id, delta) => habitsConfig.logCount(id, delta)
+                                Qs.QsHabitList {
+                                    Layout.fillWidth: true
+                                    habits: root.todayHabits
+                                    colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    onToggleCheck: (id) => habitsConfig.toggleToday(id)
+                                    onLogCount:    (id, delta) => habitsConfig.logCount(id, delta)
+                                }
                             }
                         }
 
@@ -736,7 +848,7 @@ Item {
                                 columns: 2; rowSpacing: 6; columnSpacing: 6
 
                                 Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    Layout.fillWidth: true; Layout.preferredHeight: 60
                                     icon: "\uf1eb"; label: "Wi-Fi"
                                     badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
                                     active: root.wifiEnabled
@@ -746,7 +858,7 @@ Item {
                                     onSwitchToggled: root._toggleWifi()
                                 }
                                 Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    Layout.fillWidth: true; Layout.preferredHeight: 60
                                     icon: "\uf6ff"; label: "Ethernet"
                                     badge: root.ethConnected
                                         ? (root.ethDevice || "cabo")
@@ -758,7 +870,7 @@ Item {
                                     onSwitchToggled: root._toggleEth()
                                 }
                                 Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    Layout.fillWidth: true; Layout.preferredHeight: 60
                                     icon: "\uf294"; label: "Bluetooth"
                                     badge: root.btEnabled ? "ligado" : "desligado"
                                     active: root.btEnabled
@@ -768,7 +880,7 @@ Item {
                                     onSwitchToggled: root._toggleBluetooth()
                                 }
                                 Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 56
+                                    Layout.fillWidth: true; Layout.preferredHeight: 60
                                     icon: root.caffeineActive ? "\uf0f4" : "\uf017"
                                     label: "Caffeine"
                                     badge: root.caffeineActive ? "suspensão off" : ""
@@ -782,17 +894,16 @@ Item {
 
                             Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.3 }
 
-                            // Atalho de Perfil de Energia — mesma fonte (root.powerProfileSummary)
-                            // usada na aba Performance; clicar leva direto pra lá.
+                            // Atalho de Perfil de Energia — lê direto da instância única
+                            // (powerProfileState, dentro da subpágina "power" abaixo);
+                            // clicar leva direto pra lá.
                             Qs.QsNavRow {
                                 Layout.fillWidth: true
                                 icon: "\uf2db"; label: "Perfil de energia"
-                                sub:     root.powerProfileSummary
-                                loading: root.powerProfileSummary === "Carregando…"
+                                sub:     powerProfileState.currentLabel
+                                loading: powerProfileState.loading
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                                 onClicked: { root.activeTab = "performance"; root.subPage = "power" }
-
-                                Component.onCompleted: root._refreshPowerProfileSummary()
                             }
                         }
 
@@ -1104,12 +1215,10 @@ Item {
                         Qs.QsNavRow {
                             Layout.fillWidth: true
                             icon: "\uf2db"; label: "Perfil de energia"
-                            sub:     root.powerProfileSummary
-                            loading: root.powerProfileSummary === "Carregando…"
+                            sub:     powerProfileState.currentLabel
+                            loading: powerProfileState.loading
                             colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                             onClicked: root.subPage = "power"
-
-                            Component.onCompleted: root._refreshPowerProfileSummary()
                         }
                         Qs.QsNavRow {
                             Layout.fillWidth: true
@@ -1139,10 +1248,11 @@ Item {
                             Layout.fillWidth: true
                             title: "Perfil de energia"; icon: "\uf2db"
                             colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onBackClicked: { root.subPage = ""; root._refreshPowerProfileSummary() }
+                            onBackClicked: { root.subPage = ""; powerProfileState.refresh() }
                         }
 
                         Qs.QsPowerProfile {
+                            id: powerProfileState
                             Layout.fillWidth: true; Layout.fillHeight: true
                             colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                         }

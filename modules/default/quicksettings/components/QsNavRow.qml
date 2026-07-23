@@ -25,11 +25,11 @@ Item {
 
     signal clicked()
 
-    implicitHeight: 46
+    implicitHeight: 48
 
     Rectangle {
         anchors.fill: parent
-        radius: 12
+        radius: 14
         color: ma.containsMouse ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.06)
         Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -38,14 +38,21 @@ Item {
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 12; anchors.rightMargin: 12
+            anchors.leftMargin: 10; anchors.rightMargin: 12
             spacing: 10
 
-            Text {
-                text: root.icon
-                color: root.colorAccent
-                font.pixelSize: 14
-                font.family: "JetBrainsMono Nerd Font"
+            Rectangle {
+                implicitWidth: 26; implicitHeight: 26
+                radius: 13
+                color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.icon
+                    color: root.colorAccent
+                    font.pixelSize: 12
+                    font.family: "JetBrainsMono Nerd Font"
+                }
             }
 
             ColumnLayout {

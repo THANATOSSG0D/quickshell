@@ -78,6 +78,8 @@ Item {
                             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.4) : "transparent"
                         border.width: 1
                         Behavior on color { ColorAnimation { duration: 80 } }
+                        scale: (modelData !== null && outMA.pressed) ? 0.985 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                         RowLayout {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                             spacing: 6
@@ -92,7 +94,7 @@ Item {
                                 font.pixelSize: 10; elide: Text.ElideRight }
                         }
                         MouseArea { id: outMA; anchors.fill: parent; hoverEnabled: true
-                            enabled: modelData !== null
+                            enabled: modelData !== null; cursorShape: Qt.PointingHandCursor
                             onClicked: Pipewire.preferredDefaultAudioSink = modelData }
                     }
                 }
@@ -129,6 +131,8 @@ Item {
                             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.4) : "transparent"
                         border.width: 1
                         Behavior on color { ColorAnimation { duration: 80 } }
+                        scale: (modelData !== null && inMA.pressed) ? 0.985 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                         RowLayout {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                             spacing: 6
@@ -143,7 +147,7 @@ Item {
                                 font.pixelSize: 10; elide: Text.ElideRight }
                         }
                         MouseArea { id: inMA; anchors.fill: parent; hoverEnabled: true
-                            enabled: modelData !== null
+                            enabled: modelData !== null; cursorShape: Qt.PointingHandCursor
                             onClicked: Pipewire.preferredDefaultAudioSource = modelData }
                     }
                 }

@@ -33,13 +33,13 @@ Item {
     signal switchToggled()   // switch — sempre liga/desliga na hora
     signal rightClicked()    // mantido por compatibilidade; não é mais o único caminho
 
-    implicitHeight: 56
+    implicitHeight: 60
 
     // ── Visual ─────────────────────────────────────────────────────────────
     Rectangle {
         id: card
         anchors.fill: parent
-        radius: 12
+        radius: 10
 
         color: root.active
             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
@@ -58,18 +58,39 @@ Item {
 
         ColumnLayout {
             anchors.fill:    parent
-            anchors.margins: 10
-            spacing: 3
+            anchors.margins: 9
+            spacing: 4
 
             RowLayout {
-                Layout.fillWidth: true; spacing: 6
+                Layout.fillWidth: true; spacing: 8
 
-                Text {
-                    text:            root.icon
-                    color:           root.active ? root.colorAccent : root.colorText
-                    font.pixelSize:  13
-                    font.family:     "JetBrainsMono Nerd Font"
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                // ── Badge circular do ícone — preenchido + halo quando ativo ────
+                Item {
+                    implicitWidth: 26; implicitHeight: 26
+
+                    Rectangle {
+                        visible: root.active
+                        anchors.centerIn: parent
+                        width: 34; height: 34; radius: 17
+                        color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.22)
+                    }
+
+                    Rectangle {
+                        id: iconBadge
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: root.active ? root.colorAccent : Qt.rgba(1, 1, 1, 0.10)
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.icon
+                            font.pixelSize: 12
+                            font.family: "JetBrainsMono Nerd Font"
+                            color: root.active ? "#1a1a1a" : root.colorText
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+                    }
                 }
 
                 Text {

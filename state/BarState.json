@@ -142,7 +142,7 @@
                 "textStatic": true
             },
             "palette": {
-                "barBg": "scrim",
+                "barBg": "shadow",
                 "barBgPill": "scrim"
             },
             "volume": {

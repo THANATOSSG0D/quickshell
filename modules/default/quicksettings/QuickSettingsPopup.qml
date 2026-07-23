@@ -20,6 +20,10 @@ Bar.BarPopup {
     property color colorProgressBg: "#474747"
     property color colorDivider:    "#474747"
 
+    // Opcional — conecte a partir do Bar.qml pra habilitar o botão de Não
+    // Perturbe no cabeçalho (mesmo padrão do QuickSettingsPanel.qml).
+    property var notifService: null
+
     // Suspende o focus grab enquanto menu de tray estiver aberto.
     // Quando trayMenuOpen=true, focusGrabActive=false → onCleared não dispara
     // → closeRequested não é emitido → painel permanece aberto.
@@ -32,6 +36,7 @@ Bar.BarPopup {
         anchors.fill:    parent
         panelOpen:       popup.panelOpen
         parentWindow:    popup
+        notifService:    popup.notifService
         colorPanelBg:    popup.colorPanelBg
         colorText:       popup.colorText
         colorTextDim:    popup.colorTextDim

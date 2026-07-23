@@ -162,6 +162,8 @@ Item {
                             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.4) : "transparent"
                         border.width: 1
                         Behavior on color { ColorAnimation { duration: 80 } }
+                        scale: itMA.pressed ? 0.985 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                         Row {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                             spacing: 8
@@ -193,11 +195,12 @@ Item {
             Layout.fillWidth: true; spacing: 5
 
             RowLayout {
-                Layout.fillWidth: true; spacing: 6
-                Text {
-                    text: "\uf042"   // brilho/gamma
-                    color: root.colorAccent
-                    font.pixelSize: 12; font.family: "JetBrainsMono Nerd Font"
+                Layout.fillWidth: true; spacing: 8
+                Rectangle {
+                    implicitWidth: 22; implicitHeight: 22; radius: 11
+                    color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+                    Text { anchors.centerIn: parent; text: "\uf042"; color: root.colorAccent
+                        font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
                 }
                 Text { text: "Gamma"; color: root.colorText; font.pixelSize: 11; Layout.fillWidth: true }
                 Text { text: root.gamma + "%"; color: root.colorAccent; font.pixelSize: 11; font.weight: Font.Light }

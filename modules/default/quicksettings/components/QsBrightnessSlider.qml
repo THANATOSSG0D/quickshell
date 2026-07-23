@@ -62,11 +62,16 @@ Item {
             Layout.fillWidth: true
             spacing: 6
 
-            Text {
-                text:           root.brightIcon
-                color:          root.colorAccent
-                font.pixelSize: 13
-                font.family:    "JetBrainsMono Nerd Font"
+            Rectangle {
+                implicitWidth: 24; implicitHeight: 24; radius: 12
+                color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+                Text {
+                    anchors.centerIn: parent
+                    text:           root.brightIcon
+                    color:          root.colorAccent
+                    font.pixelSize: 12
+                    font.family:    "JetBrainsMono Nerd Font"
+                }
             }
             Text {
                 text:           "Brilho"
