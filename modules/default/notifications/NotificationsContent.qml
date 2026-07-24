@@ -135,48 +135,59 @@ Item {
         }
 
         // ── Filtro de prioridade ───────────────────────────────────────────
-        Row {
-            width:   parent.width
-            height:  36
-            padding: 8
-            spacing: 6
+        Item {
+            width:  parent.width
+            height: 36
 
-            Repeater {
-                model: [
-                    { label: "Todas",    filter: 0 },
-                    { label: "Normais",  filter: 1 },
-                    { label: "Críticas", filter: 2 }
-                ]
+            Row {
+                id: filterRow
+                anchors.fill: parent
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                spacing: 4
 
-                delegate: Rectangle {
-                    required property var  modelData
-                    required property int  index
-                    height:  20
-                    width:   lbl.implicitWidth + 14
-                    radius:  10
-                    anchors.verticalCenter: parent.verticalCenter
+                readonly property real pillW: (width - spacing * 2) / 3
 
-                    color: root.urgencyFilter === modelData.filter
-                           ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.20)
-                           : "transparent"
+                Repeater {
+                    model: [
+                        { label: "Todas",    filter: 0 },
+                        { label: "Normais",  filter: 1 },
+                        { label: "Críticas", filter: 2 }
+                    ]
 
-                    Text {
-                        id: lbl
-                        anchors.centerIn: parent
-                        text:           modelData.label
-                        font.pixelSize: 11
-                        color:          root.urgencyFilter === modelData.filter
-                                        ? root.colorAccent : root.colorTextDim
-                    }
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property bool active: root.urgencyFilter === modelData.filter
 
-                    MouseArea {
-                        anchors.fill:  parent
-                        cursorShape:   Qt.PointingHandCursor
-                        onClicked:     root.urgencyFilter = modelData.filter
+                        width:  filterRow.pillW
+                        height: 24
+                        anchors.verticalCenter: parent.verticalCenter
+                        radius: 12
+                        color: active ? root.colorAccent : "transparent"
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        scale: filterMA.pressed ? 0.95 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text:           parent.modelData.label
+                            font.pixelSize: 11
+                            font.weight:    parent.active ? Font.DemiBold : Font.Normal
+                            color:          parent.active ? "#1a1a1a" : root.colorTextDim
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+
+                        MouseArea {
+                            id: filterMA
+                            anchors.fill:  parent
+                            cursorShape:   Qt.PointingHandCursor
+                            onClicked:     root.urgencyFilter = parent.modelData.filter
+                        }
                     }
                 }
             }
         }
+
 
         // Divider filtro
         Rectangle {
@@ -291,12 +302,14 @@ Item {
 
         width:  28
         height: 28
-        radius: 8
+        radius: width / 2
         color:  hbtnArea.containsMouse
                 ? Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.15)
                 : colorBg
 
         Behavior on color { ColorAnimation { duration: 100 } }
+        scale: hbtnArea.pressed ? 0.9 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
         Text {
             anchors.centerIn: parent

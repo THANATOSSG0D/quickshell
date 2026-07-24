@@ -40,6 +40,34 @@
                 "system"
             ],
             "text": "atualizar os pacotes e containers do homelab"
+        },
+        {
+            "created": "2026-07-23T03:30:35.283Z",
+            "done": false,
+            "due": "2026-07-24",
+            "id": "1784777435283-842",
+            "lastCompleted": "2026-07-23T16:55:35.607Z",
+            "priority": "media",
+            "recurrence": "daily",
+            "status": "",
+            "tags": [
+            ],
+            "text": "Tomar o multivitaminico",
+            "time": "13:50"
+        },
+        {
+            "created": "2026-07-23T03:30:59.305Z",
+            "done": false,
+            "due": "2026-07-24",
+            "id": "1784777459305-901",
+            "lastCompleted": "2026-07-24T01:03:25.135Z",
+            "priority": "media",
+            "recurrence": "daily",
+            "status": "",
+            "tags": [
+            ],
+            "text": "Tomar a vitamina para cabelo",
+            "time": "22:00"
         }
     ]
 }

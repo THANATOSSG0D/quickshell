@@ -16,15 +16,18 @@ if [ -f "$LOCK_FILE" ]; then
   fi
   rm -f "$LOCK_FILE"
 fi
-echo $$ > "$LOCK_FILE"
+echo $$ >"$LOCK_FILE"
 trap 'rm -f "$LOCK_FILE"; log "Encerrado"' EXIT
 
-[ -z "${WAYLAND_DISPLAY:-}" ] && { log "Wayland não disponível"; exit 1; }
+[ -z "${WAYLAND_DISPLAY:-}" ] && {
+  log "Wayland não disponível"
+  exit 1
+}
 
 # ── Pré-lock ──────────────────────────────────────────────────────────────────
 command -v playerctl >/dev/null 2>&1 && playerctl pause 2>/dev/null || true
-systemctl --user is-active --quiet swaync.service 2>/dev/null \
-  && swaync-client -dn 2>/dev/null || true
+systemctl --user is-active --quiet swaync.service 2>/dev/null &&
+  swaync-client -dn 2>/dev/null || true
 timeout 4 bwmenu-hyprland -l 2>/dev/null || true
 
 # Pausa o timer de wallpaper para evitar que swww/hyprpaper acorde o display
@@ -47,5 +50,5 @@ if [[ $_wp_timer_was_active -eq 1 ]]; then
   log "wallpaper-schedule.timer reativado"
 fi
 
-systemctl --user is-active --quiet swaync.service 2>/dev/null \
-  && swaync-client -dn 2>/dev/null || true
+systemctl --user is-active --quiet swaync.service 2>/dev/null &&
+  swaync-client -dn 2>/dev/null || true

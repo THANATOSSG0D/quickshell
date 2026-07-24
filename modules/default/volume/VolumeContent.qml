@@ -183,7 +183,7 @@ Item {
     // ── Abas ──────────────────────────────────────────────────────────
     RowLayout {
       Layout.fillWidth: true
-      spacing: 6
+      spacing: 4
 
       Repeater {
         // "id" é palavra reservada em QML — modelData.id retorna undefined.
@@ -196,31 +196,32 @@ Item {
           required property var modelData
           readonly property bool active: root.activeTab === modelData.tabId
 
-          Layout.preferredHeight: 22
-          Layout.preferredWidth:  tabLabel.implicitWidth + 14
+          Layout.fillWidth: true
+          Layout.preferredHeight: 26
           radius: height / 2
-          color: active
-            ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
-            : Qt.rgba(1, 1, 1, 0.05)
-          border.color: active ? root.colorAccent : "transparent"
-          border.width: 1
+          color: active ? root.colorAccent : "transparent"
+          Behavior on color { ColorAnimation { duration: 150 } }
+          scale: tabMA.pressed ? 0.95 : 1.0
+          Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
           Text {
             id: tabLabel
             anchors.centerIn: parent
             text:           parent.modelData.label
-            color:          parent.active ? root.colorAccent : root.colorTextDim
+            color:          parent.active ? "#1a1a1a" : root.colorTextDim
             font.pixelSize: 10
+            font.weight:    parent.active ? Font.DemiBold : Font.Normal
             font.family:    "JetBrainsMono Nerd Font"
+            Behavior on color { ColorAnimation { duration: 150 } }
           }
           MouseArea {
+            id: tabMA
             anchors.fill: parent
-            onClicked:    root.activeTab = parent.modelData.tabId
+            cursorShape: Qt.PointingHandCursor
+            onClicked:   root.activeTab = parent.modelData.tabId
           }
         }
       }
-
-      Item { Layout.fillWidth: true }
     }
 
     // ── Aba: Dispositivos ──────────────────────────────────────────────
@@ -238,17 +239,25 @@ Item {
         RowLayout {
           Layout.fillWidth: true
 
-          Text {
-            text:           root.sink && root.sink.audio && root.sink.audio.muted
-                              ? "\uf026" : "\uf028"
-            color:          root.sink && root.sink.audio && root.sink.audio.muted
-                              ? root.colorMuted : root.colorAccent
-            font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+          Rectangle {
+            implicitWidth: 24; implicitHeight: 24; radius: 12
+            color: root.sink && root.sink.audio && root.sink.audio.muted
+              ? root.colorMuted
+              : Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
             Behavior on color { ColorAnimation { duration: 150 } }
+            Text {
+              anchors.centerIn: parent
+              text:           root.sink && root.sink.audio && root.sink.audio.muted
+                                ? "\uf026" : "\uf028"
+              color:          root.sink && root.sink.audio && root.sink.audio.muted
+                                ? "#1a1a1a" : root.colorAccent
+              font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+              Behavior on color { ColorAnimation { duration: 150 } }
+            }
           }
 
           Text {
-            Layout.fillWidth: true; Layout.leftMargin: 6
+            Layout.fillWidth: true; Layout.leftMargin: 8
             text:           root.sink ? root.deviceName(root.sink) : "Saída"
             color:          root.colorText; font.pixelSize: 11; font.weight: Font.Medium
             elide:          Text.ElideRight
@@ -297,17 +306,25 @@ Item {
         RowLayout {
           Layout.fillWidth: true
 
-          Text {
-            text:           root.source && root.source.audio && root.source.audio.muted
-                              ? "\uf131" : "\uf130"
-            color:          root.source && root.source.audio && root.source.audio.muted
-                              ? root.colorMuted : root.colorAccent
-            font.pixelSize: 13; font.family: "JetBrainsMono Nerd Font"
+          Rectangle {
+            implicitWidth: 24; implicitHeight: 24; radius: 12
+            color: root.source && root.source.audio && root.source.audio.muted
+              ? root.colorMuted
+              : Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
             Behavior on color { ColorAnimation { duration: 150 } }
+            Text {
+              anchors.centerIn: parent
+              text:           root.source && root.source.audio && root.source.audio.muted
+                                ? "\uf131" : "\uf130"
+              color:          root.source && root.source.audio && root.source.audio.muted
+                                ? "#1a1a1a" : root.colorAccent
+              font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+              Behavior on color { ColorAnimation { duration: 150 } }
+            }
           }
 
           Text {
-            Layout.fillWidth: true; Layout.leftMargin: 6
+            Layout.fillWidth: true; Layout.leftMargin: 8
             text:           root.source ? root.deviceName(root.source) : "Microfone"
             color:          root.colorText; font.pixelSize: 11; font.weight: Font.Medium
             elide:          Text.ElideRight
@@ -502,6 +519,8 @@ Item {
       color: parent.muted
         ? Qt.rgba(parent.mutedColor.r, parent.mutedColor.g, parent.mutedColor.b, 0.2)
         : Qt.rgba(1, 1, 1, 0.06)
+      scale: muteMA.pressed ? 0.88 : 1.0
+      Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
     }
     Text {
       anchors.centerIn: parent
@@ -514,7 +533,9 @@ Item {
       Behavior on color { ColorAnimation { duration: 150 } }
     }
     MouseArea {
+      id: muteMA
       anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
       onClicked: { if (parent.node && parent.node.audio) parent.node.audio.muted = !parent.node.audio.muted }
     }
   }
@@ -597,10 +618,13 @@ Item {
     height: 26; visible: node !== null
 
     Rectangle {
-      anchors.fill: parent; radius: 6
+      anchors.fill: parent; radius: 8
       color: parent.isDefault
         ? Qt.rgba(parent.accentColor.r, parent.accentColor.g, parent.accentColor.b, 0.12)
-        : "transparent"
+        : (rowMA.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent")
+      Behavior on color { ColorAnimation { duration: 100 } }
+      scale: rowMA.pressed ? 0.98 : 1.0
+      Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
     }
     RowLayout {
       anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 6
@@ -619,6 +643,8 @@ Item {
         font.pixelSize: 10; elide: Text.ElideRight
       }
     }
-    MouseArea { anchors.fill: parent; onClicked: parent.setDefault() }
+    MouseArea { id: rowMA; anchors.fill: parent; hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: parent.setDefault() }
   }
 }

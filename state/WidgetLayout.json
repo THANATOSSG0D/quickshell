@@ -2,7 +2,8 @@
     "edgeMargin": 20,
     "enabled": {
         "bluetooth": false,
-        "favorites": true
+        "favorites": true,
+        "weather": false
     },
     "groupEnabled": false,
     "groups": [

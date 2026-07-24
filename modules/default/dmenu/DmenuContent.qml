@@ -767,11 +767,13 @@ Item {
         readonly property bool isSelected: index === root._selectedIdx
 
         Rectangle {
-          anchors.fill: parent; radius: 7
+          anchors.fill: parent; radius: 8
           color: dlg.isSelected
             ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.13)
             : "transparent"
           Behavior on color { ColorAnimation { duration: 80 } }
+          scale: itemMA.pressed ? 0.99 : 1.0
+          Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
           Rectangle {
             width: 3; radius: 2
@@ -870,6 +872,7 @@ Item {
         }
 
         MouseArea {
+          id: itemMA
           anchors.fill: parent; hoverEnabled: true
           onEntered: root._selectedIdx = index
           onClicked: { root._selectedIdx = index; root._launch() }

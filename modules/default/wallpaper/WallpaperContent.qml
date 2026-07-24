@@ -346,6 +346,8 @@ Item {
                 ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
                 : (tma.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent")
               Behavior on color { ColorAnimation { duration: 120 } }
+              scale: tma.pressed ? 0.96 : 1.0
+              Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
             }
 
             RowLayout {
@@ -382,9 +384,11 @@ Item {
         Item {
           width: 34; height: 34
           Rectangle {
-            anchors.fill: parent; radius: 8
+            anchors.fill: parent; radius: width / 2
             color: cma.containsMouse ? Qt.rgba(1,0.3,0.3,0.15) : "transparent"
             Behavior on color { ColorAnimation { duration: 100 } }
+            scale: cma.pressed ? 0.9 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
             Text {
               anchors.centerIn: parent; text: "\uf00d"
               font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12

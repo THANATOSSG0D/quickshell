@@ -278,7 +278,10 @@ Item {
           font.pixelSize: 14
           font.family:    "JetBrainsMono Nerd Font"
         }
+        scale: shuffleMA.pressed ? 0.85 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
         MouseArea {
+          id: shuffleMA
           anchors.fill: parent
           enabled: root.activePlayer && root.activePlayer.shuffleSupported
           onClicked: root.activePlayer.shuffle = !root.activePlayer.shuffle
@@ -293,7 +296,9 @@ Item {
           anchors.centerIn: parent; text: "\uf048"
           color: root.colorText; font.pixelSize: 16; font.family: "JetBrainsMono Nerd Font"
         }
-        MouseArea { anchors.fill: parent; onClicked: if (root.activePlayer) root.activePlayer.previous() }
+        scale: prevMA.pressed ? 0.85 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+        MouseArea { id: prevMA; anchors.fill: parent; onClicked: if (root.activePlayer) root.activePlayer.previous() }
       }
 
       // Play/Pause
@@ -302,8 +307,8 @@ Item {
         Rectangle {
           anchors.fill: parent; radius: width / 2
           color: root.colorAccent
-          opacity: playPauseArea.pressed ? 0.7 : 1.0
-          Behavior on opacity { NumberAnimation { duration: 80 } }
+          scale: playPauseArea.pressed ? 0.9 : 1.0
+          Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
         }
         Text {
           anchors.centerIn: parent
@@ -327,7 +332,9 @@ Item {
           anchors.centerIn: parent; text: "\uf051"
           color: root.colorText; font.pixelSize: 16; font.family: "JetBrainsMono Nerd Font"
         }
-        MouseArea { anchors.fill: parent; onClicked: if (root.activePlayer) root.activePlayer.next() }
+        scale: nextMA.pressed ? 0.85 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+        MouseArea { id: nextMA; anchors.fill: parent; onClicked: if (root.activePlayer) root.activePlayer.next() }
       }
 
       // Loop
@@ -353,7 +360,10 @@ Item {
           font.pixelSize: 14
           font.family:    "JetBrainsMono Nerd Font"
         }
+        scale: loopMA.pressed ? 0.85 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
         MouseArea {
+          id: loopMA
           anchors.fill: parent
           enabled: root.activePlayer && root.activePlayer.loopSupported
           onClicked: {

@@ -537,23 +537,27 @@ Item {
           Rectangle {
             required property var modelData
             readonly property bool active: root.activeMode === modelData.id
-            height: 22
-            width:  ml.implicitWidth + 14
+            height: 24
+            width:  ml.implicitWidth + 18
             radius: height / 2
-            color:        active ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.2)
-                                 : Qt.rgba(1, 1, 1, 0.05)
-            border.color: active ? root.colorAccent : "transparent"
-            border.width: 1
+            color: active ? root.colorAccent : Qt.rgba(1, 1, 1, 0.06)
+            Behavior on color { ColorAnimation { duration: 150 } }
+            scale: modeMA.pressed ? 0.95 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
             Text {
               id: ml
               anchors.centerIn: parent
               text:           parent.modelData.label
               font.pixelSize: 10
+              font.weight:    parent.active ? Font.DemiBold : Font.Normal
               font.family:    "JetBrainsMono Nerd Font"
-              color:          parent.active ? root.colorAccent : root.colorTextDim
+              color:          parent.active ? "#1a1a1a" : root.colorTextDim
+              Behavior on color { ColorAnimation { duration: 150 } }
             }
             MouseArea {
+              id: modeMA
               anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
               onClicked: {
                 if (root.activeMode !== parent.modelData.id) {
                   root.activeMode = parent.modelData.id
@@ -643,6 +647,8 @@ Item {
             anchors.fill: parent; radius: width / 2
             color: ra.containsMouse ? Qt.rgba(1,1,1,0.1) : Qt.rgba(1,1,1,0.05)
             Behavior on color { ColorAnimation { duration: 120 } }
+            scale: ra.pressed ? 0.88 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
           }
           Text {
             anchors.centerIn: parent
@@ -651,7 +657,7 @@ Item {
             font.pixelSize: 14
             font.family:    "JetBrainsMono Nerd Font"
           }
-          MouseArea { id: ra; anchors.fill: parent; hoverEnabled: true; onClicked: root.resetTimer() }
+          MouseArea { id: ra; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.resetTimer() }
         }
 
         // Play/Pause
@@ -661,8 +667,8 @@ Item {
           Rectangle {
             anchors.fill: parent; radius: width / 2
             color:   root.colorAccent
-            opacity: pa.pressed ? 0.7 : 1.0
-            Behavior on opacity { NumberAnimation { duration: 80 } }
+            scale:   pa.pressed ? 0.9 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
           }
           Text {
             anchors.centerIn: parent
@@ -671,7 +677,7 @@ Item {
             font.pixelSize: 20
             font.family:    "JetBrainsMono Nerd Font"
           }
-          MouseArea { id: pa; anchors.fill: parent; onClicked: root.toggleRunning() }
+          MouseArea { id: pa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleRunning() }
         }
 
         // +1 min
@@ -682,6 +688,8 @@ Item {
             anchors.fill: parent; radius: width / 2
             color: aa.containsMouse ? Qt.rgba(1,1,1,0.1) : Qt.rgba(1,1,1,0.05)
             Behavior on color { ColorAnimation { duration: 120 } }
+            scale: aa.pressed ? 0.88 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
           }
           Text {
             anchors.centerIn: parent
@@ -690,7 +698,7 @@ Item {
             font.pixelSize: 11
             font.family:    "JetBrainsMono Nerd Font"
           }
-          MouseArea { id: aa; anchors.fill: parent; hoverEnabled: true; onClicked: root.adjustTimer(60) }
+          MouseArea { id: aa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustTimer(60) }
         }
 
         // Próxima fase (pomodoro)
@@ -702,6 +710,8 @@ Item {
             anchors.fill: parent; radius: width / 2
             color: na.containsMouse ? Qt.rgba(1,1,1,0.1) : Qt.rgba(1,1,1,0.05)
             Behavior on color { ColorAnimation { duration: 120 } }
+            scale: na.pressed ? 0.88 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
           }
           Text {
             anchors.centerIn: parent
@@ -710,7 +720,7 @@ Item {
             font.pixelSize: 13
             font.family:    "JetBrainsMono Nerd Font"
           }
-          MouseArea { id: na; anchors.fill: parent; hoverEnabled: true; onClicked: root.pomodoroNext() }
+          MouseArea { id: na; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.pomodoroNext() }
         }
       }
     }
@@ -800,7 +810,11 @@ Item {
 
           Item {
             width: 20; height: 20
-            Rectangle { anchors.fill: parent; radius: 4; color: Qt.rgba(1,1,1,0.06) }
+            Rectangle {
+              anchors.fill: parent; radius: width / 2; color: Qt.rgba(1,1,1,0.06)
+              scale: stepDownMA.pressed ? 0.85 : 1.0
+              Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+            }
             Text {
               anchors.centerIn: parent
               text:           "\uf068"
@@ -809,7 +823,9 @@ Item {
               font.family:    "JetBrainsMono Nerd Font"
             }
             MouseArea {
+              id: stepDownMA
               anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
               onClicked: {
                 var md = parent.parent.modelData
                 root[md.prop] = Math.max(md.min, root[md.prop] - md.step)
@@ -832,7 +848,11 @@ Item {
 
           Item {
             width: 20; height: 20
-            Rectangle { anchors.fill: parent; radius: 4; color: Qt.rgba(1,1,1,0.06) }
+            Rectangle {
+              anchors.fill: parent; radius: width / 2; color: Qt.rgba(1,1,1,0.06)
+              scale: stepUpMA.pressed ? 0.85 : 1.0
+              Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+            }
             Text {
               anchors.centerIn: parent
               text:           "\uf067"
@@ -841,7 +861,9 @@ Item {
               font.family:    "JetBrainsMono Nerd Font"
             }
             MouseArea {
+              id: stepUpMA
               anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
               onClicked: {
                 var md = parent.parent.modelData
                 root[md.prop] = Math.min(md.max, root[md.prop] + md.step)
@@ -854,21 +876,21 @@ Item {
       Rectangle {
         Layout.alignment: Qt.AlignHCenter
         visible: !root.running && !root.expired
-        height: 26
-        width:  spl.implicitWidth + 20
+        height: 28
+        width:  spl.implicitWidth + 24
         radius: height / 2
-        color:        Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.15)
-        border.color: root.colorAccent
-        border.width: 1
+        color:  root.colorAccent
+        scale:  startPomoMA.pressed ? 0.95 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
         Text {
           id: spl
           anchors.centerIn: parent
           text:           "Iniciar Pomodoro"
-          color:          root.colorAccent
+          color:          "#1a1a1a"
           font.pixelSize: 10
-          font.weight:    Font.Medium
+          font.weight:    Font.DemiBold
         }
-        MouseArea { anchors.fill: parent; onClicked: root.startPomodoro() }
+        MouseArea { id: startPomoMA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.startPomodoro() }
       }
     }
 
