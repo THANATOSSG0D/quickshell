@@ -1,0 +1,91 @@
+{
+    "buttons": [
+    ],
+    "groups": [
+        {
+            "bgColor": "surface_container",
+            "bgEnabled": true,
+            "bgOpacity": 0.55,
+            "borderColor": "outline_variant",
+            "borderOpacity": 0.4,
+            "borderWidth": 1,
+            "columnSpacing": 20,
+            "columns": 1,
+            "edgeMargin": 48,
+            "id": "default-main",
+            "itemSpacing": 26,
+            "memberColumns": {
+            },
+            "members": [
+                "clock",
+                "auth",
+                "buttons"
+            ],
+            "offsetX": 0,
+            "offsetY": -20,
+            "padding": 20,
+            "position": 5,
+            "radius": 16
+        },
+        {
+            "bgColor": "surface_container",
+            "bgEnabled": true,
+            "bgOpacity": 0.45,
+            "borderColor": "outline_variant",
+            "borderOpacity": 0.4,
+            "borderWidth": 1,
+            "columnSpacing": 20,
+            "columns": 1,
+            "edgeMargin": 40,
+            "id": "default-buttons",
+            "itemSpacing": 10,
+            "memberColumns": {
+            },
+            "members": [
+                "calendar",
+                "todo",
+                "habits"
+            ],
+            "offsetX": 0,
+            "offsetY": 0,
+            "padding": 12,
+            "position": 3,
+            "radius": 22
+        },
+        {
+            "bgColor": "surface_container",
+            "bgEnabled": false,
+            "bgOpacity": 0.55,
+            "borderColor": "outline_variant",
+            "borderOpacity": 0.4,
+            "borderWidth": 1,
+            "columnSpacing": 20,
+            "columns": 1,
+            "edgeMargin": 48,
+            "id": "gms3x9w96834",
+            "itemSpacing": 20,
+            "memberColumns": {
+            },
+            "members": [
+                "mediaplayer"
+            ],
+            "offsetX": 0,
+            "offsetY": 0,
+            "padding": 20,
+            "position": 7,
+            "radius": 14
+        }
+    ],
+    "settings": {
+        "authAlign": "right",
+        "authBgEnabled": true,
+        "authPosition": 5,
+        "buttonsPosition": 8,
+        "clockAlign": "right",
+        "clockBgEnabled": true,
+        "clockOffsetY": 300,
+        "clockPosition": 2,
+        "scrimOpacity": 0.3,
+        "widgetsPosition": 3
+    }
+}

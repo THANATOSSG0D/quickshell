@@ -24,6 +24,7 @@ import "modules/default/bar"
 import './modules/default/osd'           as OsdModule
 import './modules/default/notifications' as NotifModule
 import './modules/default/powermenu'     as PowerModule
+import './modules/default/screenlock'    as ScreenLockModule
 import './modules/default/dmenu'         as DmenuModule
 import './modules/default/config' as ConfigModule
 import './modules/default/corners/' as CornersModule
@@ -172,8 +173,31 @@ Scope {
     function open()    { dmenuIpc.openNative(dmenuIpc.configRef.dmenuDefaultMode) }
   }
 
+  // ── PowerMenuConfig — mesmo padrão do dmenuIpc.configRef: config própria
+  // (entries + aparência) persistida em state/PowerMenu.json, editável pela
+  // aba "Power Menu" do ConfigWindow.
+  PowerModule.PowerMenuConfig {
+    id: powerMenuConfig
+  }
+
   PowerModule.PowerMenu {
     id: powerMenu
+    config: powerMenuConfig
+  }
+
+  // ── ScreenLockConfig — mesmo padrão: config própria persistida em
+  // state/ScreenLock.json, editável pela aba "Screenlock" do ConfigWindow.
+  // O lock em si roda como processo ISOLADO (scripts/screenlock → qs -c),
+  // então essa instância aqui é só pra a UI de config conseguir ler/escrever
+  // o mesmo JSON — não afeta um lock já em andamento, só o PRÓXIMO.
+  ScreenLockModule.ScreenLockConfig {
+    id: screenLockConfig
+  }
+
+  // IPC screenLock (usado pelo PowerMenu "Bloquear" e por keybinds do
+  // Hyprland) — não estava instanciado na shell principal ainda.
+  ScreenLockModule.ScreenLock {
+    id: screenLock
   }
 
   property bool configOpen: false
@@ -186,6 +210,8 @@ Scope {
     popupConfigBar:  bar.popupConfigRef       // ← config dos POPUPS (aba Painéis), separada bar/dock
     popupConfigDock: dockBar.popupConfigRef
     dmenuConfig: dmenuIpc.configRef   // ← novo: config separado para a aba dmenu
+    configPowerMenu: powerMenuConfig  // ← config do Power Menu (entries + aparência)
+    configScreenLock: screenLockConfig // ← config do Screenlock (botões + aparência)
     colors:      Colors
     onCloseRequested: configOpen = false
   }

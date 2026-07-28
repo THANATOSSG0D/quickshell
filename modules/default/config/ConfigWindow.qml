@@ -44,6 +44,8 @@ PanelWindow {
   property var  popupConfigDock: null
   property var  colors:      null
   property var  dmenuConfig: null   // DmenuConfig instanciado em DmenuIpc
+  property var  configPowerMenu: null   // PowerMenuConfig instanciado em shell.qml
+  property var  configScreenLock: null  // ScreenLockConfig instanciado em shell.qml
 
   // "bar" ou "dock" — qual das duas está sendo editada agora
   property string activeTarget: "bar"
@@ -172,7 +174,10 @@ PanelWindow {
       subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
     { id: "widgets",    icon: "\uf521", label: "Widgets",
       subtabs: ["Relógio", "Lista de tarefas", "Calendário", "Clima", "CPU", "RAM", "GPU", "Rede", "Disco", "Sistema", "Processos", "Bluetooth", "Hábitos", "Media Player", "Apps Favoritos", "Combinar"] },
-    { id: "screenlock", icon: "\uf023", label: "Screenlock", subtabs: [] },
+    { id: "powermenu",  icon: "\uf011", label: "Power Menu",
+      subtabs: ["Entradas", "Aparência", "Layout", "Comportamento"] },
+    { id: "screenlock", icon: "\uf023", label: "Screenlock",
+      subtabs: ["Botões", "Aparência", "Layout", "Comportamento", "Grupos"] },
   ]
 
   // A aba "Dock" só existe quando o shell.qml de fato passou uma config de
@@ -869,10 +874,54 @@ PanelWindow {
             }
           }
 
-          // ── Placeholder para módulos ainda não implementados ─────────
+          // ── POWER MENU ───────────────────────────────────────────────
           Loader {
+            id: loaderPowerMenu
+            anchors.fill: parent
+            active: win._activeId === "powermenu"
+            sourceComponent: Component {
+              Tabs.PowerMenuTab {
+                activeSubtab:    win.subtab(win.activeModule)
+                overlay:         popupOverlay
+                colors:          win._effectiveColors
+                config:          win.configPowerMenu
+                colorAccent:     win.colorAccent
+                colorTextDim:    win.colorTextDim
+                colorText:       win.colorText
+                colorDivider:    win.colorDivider
+                colorSidebar:    win.colorSidebar
+                colorProgressBg: win.colorProgressBg
+              }
+            }
+          }
+
+          // ── SCREENLOCK ───────────────────────────────────────────────
+          Loader {
+            id: loaderScreenLock
             anchors.fill: parent
             active: win._activeId === "screenlock"
+            sourceComponent: Component {
+              Tabs.ScreenLockTab {
+                activeSubtab:    win.subtab(win.activeModule)
+                overlay:         popupOverlay
+                colors:          win._effectiveColors
+                config:          win.configScreenLock
+                colorAccent:     win.colorAccent
+                colorTextDim:    win.colorTextDim
+                colorText:       win.colorText
+                colorDivider:    win.colorDivider
+                colorSidebar:    win.colorSidebar
+                colorProgressBg: win.colorProgressBg
+              }
+            }
+          }
+
+          // ── Placeholder para módulos ainda não implementados ─────────
+          // Nenhum módulo aponta pra cá no momento (screenlock ganhou o
+          // Loader dedicado acima) — deixado como scaffold pro próximo.
+          Loader {
+            anchors.fill: parent
+            active: false
             sourceComponent: Item {
               Column {
                 anchors.centerIn: parent; spacing: 14

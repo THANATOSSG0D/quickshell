@@ -2,5 +2,66 @@
   "doNotDisturb": false,
   "dndAllowCritical": true,
   "toastPosition": "bottom-right",
-  "history": []
+  "history": [
+    {
+      "id": 5,
+      "appName": "Vivaldi",
+      "appIcon": "file:///tmp/.com.vivaldi.Vivaldi.scoped_dir.bB9z5W/logo.png",
+      "image": "image://icon//tmp/.com.vivaldi.Vivaldi.scoped_dir.bB9z5W/icon.png",
+      "summary": "Download Completo",
+      "body": "Vivaldi\n\nLockContent.qml",
+      "urgency": 1,
+      "timestamp": 1785198680719,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    },
+    {
+      "id": 4,
+      "appName": "Vivaldi",
+      "appIcon": "file:///tmp/.com.vivaldi.Vivaldi.scoped_dir.fv4QZ7/logo.png",
+      "image": "image://icon//tmp/.com.vivaldi.Vivaldi.scoped_dir.fv4QZ7/icon.png",
+      "summary": "Download Completo",
+      "body": "Vivaldi\n\nScreenLockTab.qml",
+      "urgency": 1,
+      "timestamp": 1785198680717,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    },
+    {
+      "id": 3,
+      "appName": "Vivaldi",
+      "appIcon": "file:///tmp/.com.vivaldi.Vivaldi.scoped_dir.7ZS5yT/logo.png",
+      "image": "image://icon//tmp/.com.vivaldi.Vivaldi.scoped_dir.7ZS5yT/icon.png",
+      "summary": "Download Completo",
+      "body": "Vivaldi\n\nScreenLockConfig.qml",
+      "urgency": 1,
+      "timestamp": 1785198680708,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    },
+    {
+      "id": 2,
+      "appName": "Vivaldi",
+      "appIcon": "file:///tmp/.com.vivaldi.Vivaldi.scoped_dir.a8IMlM/logo.png",
+      "image": "image://icon//tmp/.com.vivaldi.Vivaldi.scoped_dir.a8IMlM/icon.png",
+      "summary": "Download Completo",
+      "body": "Vivaldi\n\nConfigWindow.qml",
+      "urgency": 1,
+      "timestamp": 1785198680686,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    }
+  ]
 }

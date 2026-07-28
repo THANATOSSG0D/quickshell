@@ -7,13 +7,27 @@ import "."
 PanelWindow {
   id: root
 
-  readonly property string layoutPath: Quickshell.shellDir + "/state/layout-powermenu.json"
+  // PowerMenuConfig injetada pelo shell.qml (mesmo padrão de bar.configRef /
+  // dmenuIpc.configRef). Fica nullable pra o componente não quebrar se for
+  // usado sem essa integração — nesse caso cai nos defaultEntries do config
+  // OU, se nem config for passado, num fallback mínimo hardcoded.
+  property var config: null
 
-  property bool _open:    false
-  property var  _entries: []
-  property int  _focused: -1
+  readonly property var _entries: root.config
+    ? root.config.getEntries()
+    : [
+        { id: "lock",     text: "\uf023", label: "Travar",    keybind: "l", action: "loginctl lock-session", confirm: false, danger: false },
+        { id: "logout",   text: "\uf08b", label: "Sair",      keybind: "e", action: "hyprctl dispatch exit", confirm: true,  danger: false },
+        { id: "reboot",   text: "\uf021", label: "Reiniciar", keybind: "r", action: "systemctl reboot",      confirm: true,  danger: true  },
+        { id: "shutdown", text: "\uf011", label: "Desligar",  keybind: "d", action: "systemctl poweroff",    confirm: true,  danger: true  },
+      ]
 
-  visible: _open
+  property bool _open:         false
+  property int  _focused:      -1
+  // Índice aguardando confirmação (segundo Enter/clique). -1 = nenhum.
+  property int  _pendingIndex: -1
+
+  visible: _alive
   color:   "transparent"
 
   anchors.top:    true
@@ -26,31 +40,63 @@ PanelWindow {
   WlrLayershell.exclusiveZone: 0
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
-  // ── Leitura do JSON ───────────────────────────────────────────────────────
-  FileView {
-    id: layoutView
-    path: root.layoutPath
-    watchChanges: true
+  // ── Animação de entrada/saída (mesmo padrão do ConfigWindow) ─────────────
+  property real _anim:    0.0
+  property bool _alive:   false
+  property bool _closing: false
 
-    // onTextChanged NÃO dispara no boot — lemos manualmente no onCompleted
-    onTextChanged: { root._parseJson() }
-  }
+  readonly property int _panelAnimMs: root.config ? root.config.get("panelAnimMs", 200) : 200
 
-  Component.onCompleted: {
-    // leitura inicial forçada — o FileView já tem o conteúdo mas não emitiu signal
-    Qt.callLater(root._parseJson)
-  }
-
-  function _parseJson() {
-    var content = layoutView.text()
-    if (!content || content.trim() === "") return
-    try {
-      var parsed = JSON.parse(content)
-      root._entries = parsed
-      console.log("[PowerMenu] layout carregado:", parsed.length, "entradas")
-    } catch(e) {
-      console.error("[PowerMenu] Erro ao parsear layout.json:", e)
+  on_OpenChanged: {
+    if (_open) {
+      _closing = false; _alive = true
+      _unmapTimer.stop(); _safetyTimer.stop(); closeAnim.stop()
+      openAnim.duration = root._panelAnimMs
+      openAnim.from = _anim; openAnim.to = 1.0; openAnim.start()
+    } else {
+      _pendingIndex = -1
+      _closing = true; openAnim.stop()
+      closeAnim.duration = Math.round(root._panelAnimMs * 0.9)
+      closeAnim.from = _anim; closeAnim.to = 0.0; closeAnim.start()
+      _safetyTimer.interval = closeAnim.duration + 240
+      _safetyTimer.restart()
     }
+  }
+
+  NumberAnimation { id: openAnim;  target: root; property: "_anim"; duration: 200; easing.type: Easing.OutCubic }
+  NumberAnimation { id: closeAnim; target: root; property: "_anim"; duration: 180; easing.type: Easing.OutCubic
+    onStopped: { if (root._closing) _unmapTimer.restart() } }
+  Timer { id: _unmapTimer;  interval: 17;  onTriggered: { if (root._closing) { root._alive = false; root._closing = false } } }
+  Timer { id: _safetyTimer; interval: 440; onTriggered: { if (!root._open) { root._alive = false; root._closing = false; _unmapTimer.stop() } } }
+
+  // ── Timer de auto-cancelamento da confirmação pendente ────────────────────
+  Timer {
+    id: pendingTimer
+    interval: root.config ? root.config.get("confirmTimeoutMs", 4000) : 4000
+    running: false
+    onTriggered: root._pendingIndex = -1
+  }
+
+  // ── Fluxo central de ativação — usado tanto pelo mouse (Panel) quanto
+  // pelo teclado (Tab/Enter/letra abaixo). Garante que os dois caminhos
+  // respeitem a MESMA regra de confirmação. ─────────────────────────────────
+  function requestAction(idx) {
+    if (idx < 0 || idx >= root._entries.length) return
+    var entry = root._entries[idx]
+    var needsConfirm = entry.confirm === true &&
+      (root.config ? root.config.get("confirmDestructive", true) : true)
+
+    if (needsConfirm && root._pendingIndex !== idx) {
+      root._pendingIndex = idx
+      root._focused      = idx
+      pendingTimer.restart()
+      return
+    }
+
+    root._pendingIndex = -1
+    root._open = false
+    runner.command = ["bash", "-c", entry.action]
+    runner.running  = true
   }
 
   // ── IPC ───────────────────────────────────────────────────────────────────
@@ -58,8 +104,9 @@ PanelWindow {
     target: "powerMenu"
 
     function open() {
-      root._focused = -1
-      root._open    = true
+      root._focused      = -1
+      root._pendingIndex = -1
+      root._open         = true
     }
 
     function close() {
@@ -67,8 +114,13 @@ PanelWindow {
     }
 
     function toggle() {
-      if (root._open) root._open = false
-      else { root._focused = -1; root._open = true }
+      if (root._open) {
+        root._open = false
+      } else {
+        root._focused      = -1
+        root._pendingIndex = -1
+        root._open         = true
+      }
     }
   }
 
@@ -82,23 +134,29 @@ PanelWindow {
       if (!root._open) return
 
       if (event.key === Qt.Key_Escape) {
-        root._open = false; event.accepted = true; return
+        if (root._pendingIndex !== -1) {
+          // 1º ESC cancela a confirmação pendente; 2º ESC fecha o menu
+          root._pendingIndex = -1
+        } else {
+          root._open = false
+        }
+        event.accepted = true; return
       }
       if (event.key === Qt.Key_Tab) {
+        root._pendingIndex = -1
         var n = root._entries.length
         if (n > 0) root._focused = (root._focused + 1) % n
         event.accepted = true; return
       }
       if (event.key === Qt.Key_Backtab) {
+        root._pendingIndex = -1
         var n2 = root._entries.length
         if (n2 > 0) root._focused = (root._focused - 1 + n2) % n2
         event.accepted = true; return
       }
       if (event.key === Qt.Key_Return || event.key === Qt.Key_Space) {
         if (root._focused >= 0 && root._focused < root._entries.length) {
-          root._open = false
-          runner.command = ["bash", "-c", root._entries[root._focused].action]
-          runner.running = true
+          root.requestAction(root._focused)
         }
         event.accepted = true; return
       }
@@ -107,9 +165,7 @@ PanelWindow {
         for (var i = 0; i < root._entries.length; i++) {
           var kb = root._entries[i].keybind
           if (kb && kb.toLowerCase() === key) {
-            root._open = false
-            runner.command = ["bash", "-c", root._entries[i].action]
-            runner.running = true
+            root.requestAction(i)
             event.accepted = true; return
           }
         }
@@ -120,9 +176,12 @@ PanelWindow {
       anchors.fill: parent
       entries:      root._entries
       focused:      root._focused
+      pendingIndex: root._pendingIndex
+      config:       root.config
+      anim:         root._anim
 
-      onFocusIndexChanged: (idx) => { root._focused = idx }
-      onActionRequested:   (cmd) => { root._open = false; runner.command = ["bash", "-c", cmd]; runner.running = true }
+      onFocusIndexChanged: (idx) => { root._focused = idx; root._pendingIndex = -1 }
+      onActivateRequested: (idx) => { root.requestAction(idx) }
       onCloseRequested:    { root._open = false }
     }
   }

@@ -1,0 +1,51 @@
+{
+    "entries": [
+        {
+            "action": "loginctl lock-session",
+            "confirm": true,
+            "danger": false,
+            "id": "lock",
+            "keybind": "l",
+            "label": "Travar",
+            "text": ""
+        },
+        {
+            "action": "systemctl suspend",
+            "confirm": false,
+            "danger": false,
+            "id": "suspend",
+            "keybind": "s",
+            "label": "Suspender",
+            "text": ""
+        },
+        {
+            "action": "hyprctl dispatch exit",
+            "confirm": true,
+            "danger": false,
+            "id": "logout",
+            "keybind": "e",
+            "label": "Sair",
+            "text": ""
+        },
+        {
+            "action": "systemctl reboot",
+            "confirm": true,
+            "danger": true,
+            "id": "reboot",
+            "keybind": "r",
+            "label": "Reiniciar",
+            "text": ""
+        },
+        {
+            "action": "systemctl poweroff",
+            "confirm": true,
+            "danger": true,
+            "id": "shutdown",
+            "keybind": "d",
+            "label": "Desligar",
+            "text": ""
+        }
+    ],
+    "settings": {
+    }
+}

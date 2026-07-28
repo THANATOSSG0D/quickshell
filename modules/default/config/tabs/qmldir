@@ -33,3 +33,5 @@ WidgetsTabProcess 1.0 widgets/WidgetsTabProcess.qml
 WidgetsTabMediaPlayer 1.0 widgets/WidgetsTabMediaPlayer.qml
 WidgetsTabHabits 1.0 widgets/WidgetsTabHabits.qml
 WidgetsTabFavorites 1.0 widgets/WidgetsTabFavorites.qml
+PowerMenuTab 1.0 powermenu/PowerMenuTab.qml
+ScreenLockTab 1.0 screenlock/ScreenLockTab.qml

@@ -10,8 +10,16 @@ ShellRoot {
 
     property bool sessionLocked: true
 
+    // ── Config ────────────────────────────────────────────────────────────────
+    // Processo isolado — só precisa ler o JSON uma vez ao iniciar (não tem
+    // "live sync" com a instância principal, e não precisa: cada bloqueio é
+    // um processo `qs -c` novo). Ver comentário no topo de ScreenLockConfig.qml.
+    ScreenLockConfig {
+        id: lockConfig
+    }
+
     // ── DPMS ─────────────────────────────────────────────────────────────────
-    readonly property int    dpmsTimeout:  90000
+    readonly property int    dpmsTimeout:  lockConfig.get("dpmsTimeoutMs", 90000)
     readonly property string dpmsLogFile:  "/tmp/screenlock-dpms.log"
 
     property bool dpmsIsOff:    false
@@ -107,6 +115,7 @@ ShellRoot {
 
             LockContent {
                 anchors.fill: parent
+                config: lockConfig
 
                 onUnlockRequested: {
                     dpmsIdleTimer.stop()

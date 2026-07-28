@@ -1,0 +1,2 @@
+module config.tabs.screenlock
+PmField 1.0 PmField.qml

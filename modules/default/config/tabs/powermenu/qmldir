@@ -1,0 +1,2 @@
+module config.tabs.powermenu
+PmField 1.0 PmField.qml

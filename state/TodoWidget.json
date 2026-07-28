@@ -1,6 +1,6 @@
 {
     "colorText": "on_surface",
-    "dueSoonDays": 6,
+    "dueSoonDays": 5,
     "edgeMargin": 48,
     "fontSize": 15,
     "hideFarTasks": true,
@@ -16,9 +16,9 @@
         {
             "created": "2026-07-11T18:21:11.076Z",
             "done": false,
-            "due": "2026-08-01",
+            "due": "2026-08-02",
             "id": "1783794071076-22",
-            "lastCompleted": "2026-07-17T08:44:59.598Z",
+            "lastCompleted": "2026-07-27T04:30:15.995Z",
             "priority": "media",
             "recurrence": "weekly",
             "status": "",
@@ -26,7 +26,7 @@
                 "system"
             ],
             "text": "atualizar os pacotes do sistema",
-            "time": "15:00"
+            "time": "19:00"
         },
         {
             "created": "2026-07-11T18:22:03.543Z",
@@ -44,9 +44,9 @@
         {
             "created": "2026-07-23T03:30:35.283Z",
             "done": false,
-            "due": "2026-07-24",
+            "due": "2026-07-28",
             "id": "1784777435283-842",
-            "lastCompleted": "2026-07-23T16:55:35.607Z",
+            "lastCompleted": "2026-07-27T16:40:33.313Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",
@@ -58,9 +58,9 @@
         {
             "created": "2026-07-23T03:30:59.305Z",
             "done": false,
-            "due": "2026-07-24",
+            "due": "2026-07-27",
             "id": "1784777459305-901",
-            "lastCompleted": "2026-07-24T01:03:25.135Z",
+            "lastCompleted": "2026-07-27T04:29:30.634Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",

@@ -11,7 +11,7 @@
     "marqueeText": true,
     "position": 4,
     "preferredPlayerId": "spotify",
-    "rotateCoverArt": true,
+    "rotateCoverArt": false,
     "showCoverArt": true,
     "showProgress": true,
     "showShuffleRepeat": true,

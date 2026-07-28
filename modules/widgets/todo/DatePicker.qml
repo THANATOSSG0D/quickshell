@@ -96,19 +96,26 @@ Item {
           required property var modelData
           Layout.preferredWidth: 22; Layout.preferredHeight: 22
           radius: 5
-          visible: modelData.valid
+          // NÃO usar "visible: modelData.valid" aqui — itens com visible:false
+          // são excluídos do GridLayout (não reservam espaço), o que desloca
+          // todos os dias e desalinha a grade com o cabeçalho de dias da semana.
           readonly property bool isSelected: modelData.valid && modelData.dateStr === root.selectedDate
-          color: isSelected ? "#3f9fff" : (dMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent")
+          color: !modelData.valid ? "transparent"
+               : isSelected ? "#3f9fff"
+               : (dMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent")
 
           Text {
             anchors.centerIn: parent
-            text: modelData.day
+            text: modelData.valid ? modelData.day : ""
             color: "#ffffff"
             font.pixelSize: 10
           }
           MouseArea {
             id: dMa
-            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+            anchors.fill: parent
+            enabled: modelData.valid
+            hoverEnabled: modelData.valid
+            cursorShape: Qt.PointingHandCursor
             onClicked: root.dateSelected(modelData.dateStr)
           }
         }
