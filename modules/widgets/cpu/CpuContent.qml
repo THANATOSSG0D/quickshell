@@ -174,7 +174,7 @@ Item {
 
     RowLayout {
       Layout.alignment: Qt.AlignHCenter
-      spacing: 8
+      spacing: 12
 
       Text {
         text: root.cpuPercent.toFixed(0) + "%"
@@ -183,8 +183,11 @@ Item {
         horizontalAlignment: Text.AlignRight
         // largura reservada pro maior valor possível ("100%") — o texto
         // nunca empurra o resto do layout quando o número muda de 1 pra
-        // 2 pra 3 dígitos
-        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
+        // 2 pra 3 dígitos. +4px de folga porque boundingRect() mede a
+        // caixa "apertada" do texto e fica um pouco menor que a largura
+        // real de avanço do glifo — sem a folga o "100%" encosta/invade
+        // a coluna ao lado.
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width + 4
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)

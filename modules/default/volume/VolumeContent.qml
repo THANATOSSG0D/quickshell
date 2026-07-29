@@ -1,7 +1,9 @@
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Widgets
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // ── Conteúdo do Volume Panel ───────────────────────────────────────────────
@@ -28,6 +30,77 @@ Item {
 
   // ── Aba activa ─────────────────────────────────────────────────────────
   property string activeTab: "devices"
+
+  // ── EasyEffects — estado ────────────────────────────────────────────────
+  property bool   eeRunning:        false
+  property bool   eeBypassed:       false
+  property string eeActiveOutput:   ""
+  property string eeActiveInput:    ""
+  property var    eeOutputProfiles: []
+  property var    eeInputProfiles:  []
+
+  Process {
+    id: eeStatusProc
+    property string _buf: ""
+    stdout: SplitParser { onRead: (l) => eeStatusProc._buf += l + "\n" }
+    onRunningChanged: {
+      if (running) return
+      var out = eeStatusProc._buf.trim(); eeStatusProc._buf = ""
+      root.eeRunning = out !== "" && !out.includes("not running")
+      var lines = out.split("\n")
+      for (var i = 0; i < lines.length; i++) {
+        var l = lines[i].trim()
+        if (l.startsWith("output:")) root.eeActiveOutput = l.replace("output:", "").trim()
+        if (l.startsWith("input:"))  root.eeActiveInput  = l.replace("input:",  "").trim()
+      }
+    }
+  }
+
+  Process {
+    id: eeListProc
+    property string _buf: ""
+    stdout: SplitParser { onRead: (l) => eeListProc._buf += l + "\n" }
+    onRunningChanged: {
+      if (running) return
+      var raw = eeListProc._buf.trim(); eeListProc._buf = ""
+      var lines = raw.split("\n")
+      var outputs = []; var inputs = []; var inInput = false
+      for (var i = 0; i < lines.length; i++) {
+        var l = lines[i]
+        if (l.includes("saída") || l.toLowerCase().includes("output")) { inInput = false; continue }
+        if (l.includes("entrada") || l.toLowerCase().includes("input")) { inInput = true;  continue }
+        var m = l.match(/^\s*\d+\s+(.+)$/)
+        if (m) {
+          var name = m[1].trim()
+          if (inInput) inputs.push(name)
+          else         outputs.push(name)
+        }
+      }
+      root.eeOutputProfiles = outputs
+      root.eeInputProfiles  = inputs
+    }
+  }
+
+  Process { id: eeApplyProc }
+  Process { id: eeBypassProc }
+
+  function eeRefresh() {
+    if (!eeStatusProc.running) { eeStatusProc.command = ["easyeffects", "-s"]; eeStatusProc.running = true }
+    if (!eeListProc.running)   { eeListProc.command   = ["easyeffects", "-p"]; eeListProc.running   = true }
+  }
+
+  function eeApplyPreset(type, name) {
+    eeApplyProc.command = ["easyeffects", "-l", name]; eeApplyProc.running = true
+    if (type === "output") root.eeActiveOutput = name
+    else                   root.eeActiveInput  = name
+  }
+
+  function eeToggleBypass() {
+    eeBypassProc.command = ["easyeffects", "--bypass-toggle"]; eeBypassProc.running = true
+    root.eeBypassed = !root.eeBypassed
+  }
+
+  Component.onCompleted: eeRefresh()
 
   // ── Pipewire — nós ─────────────────────────────────────────────────────
   readonly property var sink:   Pipewire.defaultAudioSink
@@ -175,9 +248,23 @@ Item {
   }
 
   // ── Conteúdo ───────────────────────────────────────────────────────────
-  ColumnLayout {
+  // Envolvido em Flickable: com os presets do EasyEffects o conteúdo pode
+  // ultrapassar a altura fixa do painel/popup — aqui ele rola em vez de
+  // cortar. Se preferir sem scroll, aumente panelH/popupH no host e troque
+  // este Flickable de volta por um Item simples.
+  Flickable {
+    id: contentFlick
     anchors.fill:    parent
     anchors.margins: 14
+    contentWidth:    width
+    contentHeight:   mainCol.implicitHeight
+    clip:            true
+    boundsBehavior:  Flickable.StopAtBounds
+    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+  ColumnLayout {
+    id: mainCol
+    width:   contentFlick.width
     spacing: 10
 
     // ── Abas ──────────────────────────────────────────────────────────
@@ -220,6 +307,69 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked:   root.activeTab = parent.modelData.tabId
           }
+        }
+      }
+    }
+
+    // ── Status EasyEffects (compacto) ────────────────────────────────────
+    RowLayout {
+      Layout.fillWidth: true
+      visible: root.activeTab === "devices"
+      spacing: 8
+
+      Rectangle {
+        width: 8; height: 8; radius: 4
+        color: root.eeRunning ? "#a6e3a1" : "#6c7086"
+        Behavior on color { ColorAnimation { duration: 200 } }
+      }
+      Text {
+        Layout.fillWidth: true
+        text: root.eeRunning
+          ? (root.eeBypassed ? "EasyEffects · bypass ativo" : "EasyEffects ativo")
+          : "EasyEffects não detectado"
+        color: root.colorTextDim
+        font.pixelSize: 9
+        elide: Text.ElideRight
+      }
+      Rectangle {
+        visible: root.eeRunning
+        height: 22; width: bypassLbl.implicitWidth + 14; radius: 5
+        color: bypassHov.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
+        border.color: root.eeBypassed
+          ? Qt.rgba(root.colorMuted.r, root.colorMuted.g, root.colorMuted.b, 0.5)
+          : Qt.rgba(1, 1, 1, 0.1)
+        border.width: 1
+        Behavior on color { ColorAnimation { duration: 80 } }
+        scale: bypassHov.pressed ? 0.95 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+        Text {
+          id: bypassLbl
+          anchors.centerIn: parent
+          text: root.eeBypassed ? "\uf074  Bypass ON" : "\uf074  Bypass OFF"
+          color: root.eeBypassed ? root.colorMuted : root.colorTextDim
+          font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font"
+        }
+        MouseArea {
+          id: bypassHov; anchors.fill: parent; hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.eeToggleBypass()
+        }
+      }
+      Rectangle {
+        height: 22; width: 22; radius: 5
+        color: refreshHov.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
+        border.color: Qt.rgba(1, 1, 1, 0.1); border.width: 1
+        Behavior on color { ColorAnimation { duration: 80 } }
+        scale: refreshHov.pressed ? 0.9 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+        Text {
+          anchors.centerIn: parent; text: "\uf021"
+          color: root.colorTextDim; font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font"
+        }
+        MouseArea {
+          id: refreshHov; anchors.fill: parent; hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.eeRefresh()
         }
       }
     }
@@ -288,6 +438,36 @@ Item {
             onSetDefault: Pipewire.preferredDefaultAudioSink = modelData
           }
         }
+
+        // EasyEffects — preset de saída
+        ColumnLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          spacing: 4
+          visible: root.eeRunning && root.eeOutputProfiles.length > 0
+
+          Text {
+            text: "PRESET SAÍDA · EASYEFFECTS"
+            color: root.colorTextDim
+            font.pixelSize: 8; font.weight: Font.Medium
+          }
+          Flow {
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+              model: root.eeOutputProfiles
+              delegate: PresetChip {
+                required property string modelData
+                label:        modelData
+                active:       modelData === root.eeActiveOutput
+                accentColor:  root.colorAccent
+                textColor:    root.colorText
+                textDimColor: root.colorTextDim
+                onClicked:    root.eeApplyPreset("output", modelData)
+              }
+            }
+          }
+        }
       }
 
       // Divisor
@@ -353,6 +533,36 @@ Item {
             node: modelData; isDefault: root.source === modelData
             textColor: root.colorText; dimColor: root.colorTextDim; accentColor: root.colorAccent
             onSetDefault: Pipewire.preferredDefaultAudioSource = modelData
+          }
+        }
+
+        // EasyEffects — preset de entrada
+        ColumnLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          spacing: 4
+          visible: root.eeRunning && root.eeInputProfiles.length > 0
+
+          Text {
+            text: "PRESET ENTRADA · EASYEFFECTS"
+            color: root.colorTextDim
+            font.pixelSize: 8; font.weight: Font.Medium
+          }
+          Flow {
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+              model: root.eeInputProfiles
+              delegate: PresetChip {
+                required property string modelData
+                label:        modelData
+                active:       modelData === root.eeActiveInput
+                accentColor:  root.colorAccent
+                textColor:    root.colorText
+                textDimColor: root.colorTextDim
+                onClicked:    root.eeApplyPreset("input", modelData)
+              }
+            }
           }
         }
       }
@@ -499,7 +709,7 @@ Item {
       }
     }
 
-    Item { Layout.fillHeight: true }
+  }
   }
 
   // ── Componentes inline ─────────────────────────────────────────────────
@@ -604,6 +814,47 @@ Item {
         n.audio.volume = Math.max(0, Math.min(parent.maxVol, x / width * parent.maxVol))
         if (n.audio.volume > 0) n.audio.muted = false
       }
+    }
+  }
+
+  component PresetChip: Rectangle {
+    id: chip
+    property string label:        ""
+    property bool   active:       false
+    property color  accentColor:  "white"
+    property color  textColor:    "white"
+    property color  textDimColor: Qt.rgba(1, 1, 1, 0.6)
+    signal clicked()
+
+    implicitHeight: 22
+    implicitWidth:  chipLabel.implicitWidth + 16
+    radius: height / 2
+    color: chip.active
+      ? Qt.rgba(chip.accentColor.r, chip.accentColor.g, chip.accentColor.b, 0.18)
+      : (chipMA.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04))
+    border.color: chip.active
+      ? Qt.rgba(chip.accentColor.r, chip.accentColor.g, chip.accentColor.b, 0.5)
+      : Qt.rgba(1, 1, 1, 0.08)
+    border.width: 1
+    Behavior on color { ColorAnimation { duration: 120 } }
+    scale: chipMA.pressed ? 0.94 : 1.0
+    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
+    Text {
+      id: chipLabel
+      anchors.centerIn: parent
+      text:  chip.label
+      color: chip.active ? chip.accentColor : chip.textDimColor
+      font.pixelSize: 10
+      font.weight: chip.active ? Font.DemiBold : Font.Normal
+      elide: Text.ElideRight
+    }
+    MouseArea {
+      id: chipMA
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: chip.clicked()
     }
   }
 

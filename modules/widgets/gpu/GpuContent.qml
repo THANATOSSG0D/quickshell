@@ -147,7 +147,7 @@ Item {
 
     RowLayout {
       Layout.alignment: Qt.AlignHCenter
-      spacing: 8
+      spacing: 12
       visible: root.gpuAvailable
 
       Text {
@@ -155,7 +155,10 @@ Item {
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
         horizontalAlignment: Text.AlignRight
-        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
+        // +4px de folga: boundingRect() mede a caixa "apertada" do texto,
+        // um pouco menor que o avanço real do glifo — sem isso "100%"
+        // invade a coluna ao lado
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width + 4
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)

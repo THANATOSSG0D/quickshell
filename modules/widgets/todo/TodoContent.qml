@@ -90,6 +90,81 @@ Item {
   function isFarTask(t) {
     return !t.done && !!t.due && !root.isOverdueTask(t) && root.daysUntil(t.due) > config.dueSoonDays
   }
+  function isDueToday(t) {
+    return !t.done && !!t.due && t.due === root.todayStr()
+  }
+  // "próximos dias": tem prazo, não é hoje nem atrasada, e cai dentro da
+  // janela de "em breve" (config.dueSoonDays) — vira sua própria seção
+  // na lista, separada do resto.
+  function isUpcoming(t) {
+    return !t.done && !!t.due && root.daysUntil(t.due) > 0 && root.daysUntil(t.due) <= config.dueSoonDays
+  }
+
+  function comparePriority(a, b) {
+    const ao = priorityOrder[a.priority] !== undefined ? priorityOrder[a.priority] : 1
+    const bo = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 1
+    return ao - bo
+  }
+  // ordena por prazo (mais cedo primeiro; sem prazo vai pro fim) e usa
+  // prioridade como critério de desempate dentro do mesmo dia
+  function compareDueThenPriority(a, b) {
+    const ad = a.due || "9999-99-99", bd = b.due || "9999-99-99"
+    if (ad !== bd) return ad < bd ? -1 : 1
+    return root.comparePriority(a, b)
+  }
+
+  // ── Seções da lista ──────────────────────────────────────────────────
+  // Em vez de uma lista única, as tarefas são agrupadas por urgência:
+  // Fixadas (sem prazo, prioridade alta/média) → Atrasadas → Hoje →
+  // Próximos dias → Sem prazo próximo → Concluídas. Dentro de cada seção,
+  // prioridade decide empates (e, na seção "Próximos dias", o prazo em si
+  // decide primeiro). Com filterDate ativo (um dia específico escolhido no
+  // Calendário combinado) a lista volta a ser plana, sem seções.
+  function sections() {
+    if (root.filterDate) {
+      const list = config.tasks.filter(function(t) {
+        if (!config.showCompleted && t.done) return false
+        return t.due === root.filterDate || root.isPinned(t)
+      }).sort(function(a, b) {
+        if (a.done !== b.done) return a.done ? 1 : -1
+        return root.comparePriority(a, b)
+      })
+      return list.length ? [{ key: "filtered", label: "", tasks: list }] : []
+    }
+
+    let base = config.tasks.slice()
+    if (config.hideFarTasks) base = base.filter(function(t) { return !root.isFarTask(t) })
+    const pending = base.filter(function(t) { return !t.done })
+
+    const pinned   = pending.filter(root.isPinned).sort(root.comparePriority)
+    const overdue  = pending.filter(function(t) { return !root.isPinned(t) && root.isOverdueTask(t) }).sort(root.comparePriority)
+    const today    = pending.filter(function(t) { return !root.isPinned(t) && root.isDueToday(t) }).sort(root.comparePriority)
+    const upcoming = pending.filter(function(t) { return !root.isPinned(t) && root.isUpcoming(t) }).sort(root.compareDueThenPriority)
+    const other    = pending.filter(function(t) {
+      return !root.isPinned(t) && !root.isOverdueTask(t) && !root.isDueToday(t) && !root.isUpcoming(t)
+    }).sort(root.compareDueThenPriority)
+    const done = config.showCompleted
+      ? base.filter(function(t) { return t.done }).sort(function(a, b) { return (b.due || "") < (a.due || "") ? -1 : 1 })
+      : []
+
+    const result = []
+    if (pinned.length)   result.push({ key: "pinned",   label: "Fixadas",           tasks: pinned })
+    if (overdue.length)  result.push({ key: "overdue",  label: "Atrasadas",         tasks: overdue })
+    if (today.length)    result.push({ key: "today",    label: "Hoje",              tasks: today })
+    if (upcoming.length) result.push({ key: "upcoming", label: "Próximos dias",     tasks: upcoming })
+    if (other.length)    result.push({ key: "other",    label: "Sem prazo próximo", tasks: other })
+    if (done.length)     result.push({ key: "done",     label: "Concluídas",        tasks: done })
+    return result
+  }
+
+  // achatado — usado pra contagens no cabeçalho e pra saber o que está
+  // visível agora (o resto vira "oculto")
+  function visibleTaskList() {
+    const flat = []
+    root.sections().forEach(function(s) { flat.push.apply(flat, s.tasks) })
+    return flat
+  }
+
   // quaisquer tarefas que existem mas não aparecem na lista agora — seja
   // por estarem "muito longe" (hideFarTasks) ou concluídas escondidas
   // (showCompleted desligado). Filtro por data (filterDate) não conta como
@@ -97,7 +172,7 @@ Item {
   function hiddenTasks() {
     if (root.filterDate) return []
     const visibleIds = {}
-    root.sortedTasks().forEach(function(t) { visibleIds[t.id] = true })
+    root.visibleTaskList().forEach(function(t) { visibleIds[t.id] = true })
     return config.tasks.filter(function(t) { return !visibleIds[t.id] })
   }
 
@@ -108,38 +183,6 @@ Item {
   function recurrenceLabel(id) {
     const found = root.recurrenceList.find(function(r) { return r.id === id })
     return found ? found.label : id
-  }
-
-  function sortedTasks() {
-    let list = config.tasks.slice()
-    if (!config.showCompleted) list = list.filter(function(t) { return !t.done })
-    // "muito longe" só se aplica na visão geral — se o usuário clicou num
-    // dia específico do Calendário (filterDate), a tarefa daquele dia tem
-    // que aparecer mesmo que esteja em outro mês
-    if (config.hideFarTasks && !root.filterDate)
-      list = list.filter(function(t) { return !root.isFarTask(t) })
-    if (root.filterDate)
-      list = list.filter(function(t) { return t.due === root.filterDate || root.isPinned(t) })
-    list.sort(function(a, b) {
-      const ap = root.isPinned(a), bp = root.isPinned(b)
-      if (ap !== bp) return ap ? -1 : 1
-      if (a.done !== b.done) return a.done ? 1 : -1
-      if (ap && bp) {
-        // dentro do grupo fixado no topo, prioridade decide (alta antes de média)
-        const ao = priorityOrder[a.priority] !== undefined ? priorityOrder[a.priority] : 1
-        const bo = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 1
-        if (ao !== bo) return ao - bo
-      }
-      if (config.sortBy === "priority") {
-        const ao = priorityOrder[a.priority] !== undefined ? priorityOrder[a.priority] : 1
-        const bo = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 1
-        return ao - bo
-      }
-      if (config.sortBy === "due")
-        return (a.due || "9999-99-99") < (b.due || "9999-99-99") ? -1 : 1
-      return (a.created || "") < (b.created || "") ? -1 : 1
-    })
-    return list
   }
 
   implicitWidth: 260
@@ -185,8 +228,8 @@ Item {
         Layout.fillWidth: true
         horizontalAlignment: root.filterDate ? Text.AlignLeft : Text.AlignHCenter
         text: root.filterDate
-          ? "Tarefas em " + root.filterDate + " · " + root.sortedTasks().length
-          : "Tarefas · " + root.sortedTasks().filter(function(t) { return !t.done }).length + " pendentes"
+          ? "Tarefas em " + root.filterDate + " · " + root.visibleTaskList().length
+          : "Tarefas · " + root.visibleTaskList().filter(function(t) { return !t.done }).length + " pendentes"
         color: Colors[config.colorText]
         font { pixelSize: config.fontSize; family: "Inter"; weight: Font.DemiBold }
       }
@@ -247,9 +290,9 @@ Item {
       }
     }
 
-    Repeater {
-      model: root.sortedTasks()
-      delegate: ColumnLayout {
+    Component {
+      id: taskRowDelegate
+      ColumnLayout {
         id: taskDelegate
         required property var modelData
         Layout.fillWidth: true
@@ -397,6 +440,38 @@ Item {
               }
             }
           }
+        }
+      }
+    }
+
+    Repeater {
+      model: root.sections()
+      delegate: ColumnLayout {
+        id: sectionDelegate
+        required property var modelData
+        Layout.fillWidth: true
+        spacing: 4
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+          visible: !!sectionDelegate.modelData.label
+
+          Text {
+            text: sectionDelegate.modelData.label + " · " + sectionDelegate.modelData.tasks.length
+            color: Qt.rgba(1, 1, 1, 0.45)
+            font { pixelSize: config.fontSize - 6; family: "Inter"; weight: Font.DemiBold }
+          }
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: Qt.rgba(1, 1, 1, 0.08)
+          }
+        }
+
+        Repeater {
+          model: sectionDelegate.modelData.tasks
+          delegate: taskRowDelegate
         }
       }
     }

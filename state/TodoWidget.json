@@ -44,9 +44,9 @@
         {
             "created": "2026-07-23T03:30:35.283Z",
             "done": false,
-            "due": "2026-07-28",
+            "due": "2026-07-30",
             "id": "1784777435283-842",
-            "lastCompleted": "2026-07-27T16:40:33.313Z",
+            "lastCompleted": "2026-07-29T16:50:59.728Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",
@@ -58,9 +58,9 @@
         {
             "created": "2026-07-23T03:30:59.305Z",
             "done": false,
-            "due": "2026-07-27",
+            "due": "2026-07-29",
             "id": "1784777459305-901",
-            "lastCompleted": "2026-07-27T04:29:30.634Z",
+            "lastCompleted": "2026-07-29T03:02:46.863Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",

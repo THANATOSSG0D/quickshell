@@ -29,11 +29,12 @@
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://chatgpt.com": 1,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 15,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://homelab.home": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 13,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 14,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv": 12,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://web.telegram.org/": 2,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.crunchyroll.com/pt-br/discover": 5,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 14,
+            "/home/antonio/.local/bin/hyprsettings": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=com.github.tchx84.Flatseal com.github.tchx84.Flatseal": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=protonplus com.vysp3r.ProtonPlus": 1,
@@ -42,7 +43,10 @@
             "/usr/bin/linuxtoys": 1,
             "ardour9": 1,
             "foot": 1,
-            "inkscape": 3
+            "helvum": 1,
+            "hyprpwcenter": 1,
+            "inkscape": 3,
+            "pipewire-config": 2
         }
     }
 }

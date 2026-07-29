@@ -164,14 +164,17 @@ Item {
 
     RowLayout {
       Layout.alignment: Qt.AlignHCenter
-      spacing: 8
+      spacing: 12
 
       Text {
         text: root.diskPercent.toFixed(0) + "%"
         color: root.colorValue
         font { pixelSize: root.fontSizeValue; family: "Inter"; weight: Font.Light }
         horizontalAlignment: Text.AlignRight
-        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width
+        // +4px de folga: boundingRect() mede a caixa "apertada" do texto,
+        // um pouco menor que o avanço real do glifo — sem isso "100%"
+        // invade a coluna ao lado
+        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width + 4
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -273,7 +276,9 @@ Item {
       color: root.colorValue
       font.pixelSize: 11
       horizontalAlignment: Text.AlignRight
-      Layout.preferredWidth: secondaryMetrics.boundingRect("100%").width
+      // +3px de folga (fonte menor aqui, 11px) pra "100%" não invadir o
+      // texto de uso (GB) logo em seguida
+      Layout.preferredWidth: secondaryMetrics.boundingRect("100%").width + 3
     }
     Text {
       text: root.usedGB.toFixed(0) + "/" + root.totalGB.toFixed(0) + "GB"

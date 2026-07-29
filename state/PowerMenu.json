@@ -2,7 +2,7 @@
     "entries": [
         {
             "action": "loginctl lock-session",
-            "confirm": true,
+            "confirm": false,
             "danger": false,
             "id": "lock",
             "keybind": "l",
