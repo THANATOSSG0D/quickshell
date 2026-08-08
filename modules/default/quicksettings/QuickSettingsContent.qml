@@ -47,44 +47,20 @@ Item {
     // Sub-tela com botão voltar, válida dentro da aba ativa:
     //   Dashboard:   "" | "wifi" | "ethernet" | "bluetooth"
     //   Mídia:       "" | "devices" | "easyeffects"
-    //   Performance: "" | "power" | "shader"
+    //   Performance: não usa mais subPage — Perfil de energia e Shader viraram
+    //                cards colapsáveis no Dashboard (ver dashOpenCard)
     property string subPage:      ""
     // Verdadeiro enquanto um menu de tray estiver aberto — suspende FocusGrab
     readonly property bool trayMenuOpen: tabTray.menuOpen
 
-    // ── Resumo leve do shader, só para exibir no QsNavRow da home ───────────
-    // (a leitura completa — incluindo lista de shaders e gamma — vive dentro
-    // do QsShaderStatus, instanciado só quando a sub-tela abre)
-    property string shaderSummary: "Carregando…"
-
-    Process {
-        id: shaderSummaryProc
-        property string _buf: ""
-        stdout: SplitParser { onRead: (l) => shaderSummaryProc._buf += l + "\n" }
-        onRunningChanged: {
-            if (running) return
-            var parts = shaderSummaryProc._buf.split("---")
-            shaderSummaryProc._buf = ""
-            if (parts.length < 2) return
-            var shader = parts[0].trim()
-            var mode   = parts[1].trim()
-            var modeLabel = mode === "auto" ? "Automático" : mode === "off" ? "Desligado" : "Manual"
-            root.shaderSummary = (shader !== "" ? shader : "Nenhum shader") + " · " + modeLabel
-        }
-    }
-    function _refreshShaderSummary() {
-        if (shaderSummaryProc.running) return
-        shaderSummaryProc.command = ["bash", "-c",
-            "hyprshade current 2>/dev/null; echo '---'; cat ~/.cache/hyprnight/shader-mode 2>/dev/null"]
-        shaderSummaryProc.running = true
-    }
-
-    // Resumo do perfil de energia — NÃO tem estado próprio aqui. A fonte de
-    // verdade é a instância única de Qs.QsPowerProfile (id: powerProfileState,
-    // declarada dentro da subpágina "power", mas sempre viva — QML não destrói
-    // itens filhos só por estarem com visible:false). Ter um processo próprio
-    // aqui, além do que já existe dentro do QsPowerProfile, foi o que causava
-    // o atalho do Dashboard e a lista de dentro mostrarem estados diferentes.
+    // Estado do shader/gamma e do perfil de energia — SEM processos próprios
+    // aqui. As fontes de verdade são as instâncias únicas de Qs.QsShaderStatus
+    // (id: shaderState) e Qs.QsPowerProfile (id: powerProfileState), ambas
+    // vivendo direto no card colapsável do Dashboard (sempre "vivas", mesmo
+    // colapsadas — QML não destrói item filho só por estar dentro de um
+    // ColumnLayout com Layout.preferredHeight menor). Ter um processo próprio
+    // aqui, além do que já existe dentro desses componentes, foi o que causava
+    // estados divergentes entre o resumo e a lista de dentro.
 
     readonly property string ctl: Quickshell.shellDir + "/scripts/network-ctl.sh"
 
@@ -542,6 +518,65 @@ Item {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Accordion do Dashboard — só um card colapsável aberto por vez, entre
+    // "power" (QsPowerProfile), "shader" (QsShaderStatus), "temp" (QsNightMode)
+    // e "volume" (mic + EasyEffects). Mesmo padrão sugerido no cabeçalho do
+    // QsCollapsibleCard: o pai controla qual fica aberto.
+    // ═══════════════════════════════════════════════════════════════════════
+    property string dashOpenCard: ""
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Velocidade de rede — delta de /proc/net/dev a cada 2s (soma todas as
+    // interfaces exceto lo), pro card "Network" do dashboard compacto.
+    // ═══════════════════════════════════════════════════════════════════════
+    property real netDownKBs: 0
+    property real netUpKBs:   0
+    property var  _lastNet:   null   // {rx, tx, t}
+
+    Process {
+        id: netSpeedProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => netSpeedProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (running) return
+            var lines = netSpeedProc._buf.split("\n")
+            netSpeedProc._buf = ""
+            var rx = 0, tx = 0
+            for (var i = 0; i < lines.length; i++) {
+                var ln = lines[i].trim()
+                if (ln === "" || ln.indexOf(":") < 0) continue
+                var iface = ln.split(":")[0].trim()
+                if (iface === "lo") continue
+                var cols = ln.split(":")[1].trim().split(/\s+/)
+                rx += parseFloat(cols[0]) || 0
+                tx += parseFloat(cols[8]) || 0
+            }
+            var now = Date.now()
+            if (root._lastNet) {
+                var dt = (now - root._lastNet.t) / 1000
+                if (dt > 0) {
+                    root.netDownKBs = Math.max(0, (rx - root._lastNet.rx) / 1024 / dt)
+                    root.netUpKBs   = Math.max(0, (tx - root._lastNet.tx) / 1024 / dt)
+                }
+            }
+            root._lastNet = { rx: rx, tx: tx, t: now }
+        }
+    }
+
+    function _pollNetSpeed() {
+        if (netSpeedProc.running) return
+        netSpeedProc.command = ["bash", "-c", "cat /proc/net/dev | tail -n +3"]
+        netSpeedProc.running = true
+    }
+
+    Timer {
+        interval: 2000; repeat: true
+        running: root.panelOpen && root.activeTab === "dashboard" && root.subPage === ""
+        onTriggered: root._pollNetSpeed()
+        onRunningChanged: if (running) root._pollNetSpeed()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Volume Pipewire
     // ═══════════════════════════════════════════════════════════════════════
     PwObjectTracker { objects: [ Pipewire.defaultAudioSink ] }
@@ -707,26 +742,7 @@ Item {
             }
         }
 
-        // ── Barra de abas fixa ──────────────────────────────────────────────
-        Qs.QsTabBar {
-            Layout.fillWidth: true
-            Layout.margins: 10
-            Layout.topMargin: 4
-            Layout.bottomMargin: 0
-            activeTab: root.activeTab
-            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-            tabs: [
-                { id: "dashboard",   label: "\uf2dc  Dashboard"   },
-                { id: "media",       label: "\uf001  Mídia"       },
-                { id: "performance", label: "\uf2db  Performance" }
-            ]
-            onTabClicked: (id) => { root.activeTab = id; root.subPage = "" }
-        }
-
-        Rectangle { Layout.fillWidth: true; Layout.leftMargin: 10; Layout.rightMargin: 10
-            height: 1; color: root.colorDivider; opacity: 0.4 }
-
-        // ── Conteúdo das abas ────────────────────────────────────────────────
+        // ── Conteúdo (só existe uma "aba" agora — Dashboard) ─────────────────
         Item {
             Layout.fillWidth: true; Layout.fillHeight: true
 
@@ -747,172 +763,393 @@ Item {
                         id: dashCol; x: 14; y: 10
                         width: parent.width - 28; spacing: 10
 
-                        // ── Card: tarefas de hoje ────────────────────────────────
-                        Qs.QsSectionCard {
+                        // ── Grid de toggles rápidos (3 colunas x 3 linhas) — Wi-Fi/
+                        // Bluetooth/Ethernet ABREM a lista de redes/dispositivos
+                        // (o toggle on/off de verdade mora dentro de cada subpágina,
+                        // igual já era no QsToggleTile original); Shader, Perfil de
+                        // energia e Temperatura/Gamma abrem o menu único logo abaixo ──
+                        GridLayout {
                             Layout.fillWidth: true
-                            colorTextDim: root.colorTextDim
+                            columns: 3; rowSpacing: 8; columnSpacing: 4
 
-                            // Cabeçalho da lista — muda conforme "hoje" ou um dia
-                            // específico clicado no calendário abaixo.
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 6
-                                Text {
-                                    text: root.showingSelectedDate ? ("Tarefas · " + root.selectedDateLabel) : "Hoje"
-                                    color: root.colorTextDim
-                                    font.pixelSize: 9; font.weight: Font.DemiBold
-                                    opacity: 0.65
-                                    Layout.fillWidth: true
-                                }
-                                Text {
-                                    visible: root.showingSelectedDate
-                                    text: "\uf00d"   // nf-fa-times — limpa a seleção, volta pra "hoje"
-                                    color: root.colorTextDim
-                                    font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font"
-                                    opacity: 0.6
-                                    MouseArea {
-                                        anchors.fill: parent; anchors.margins: -6
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.selectedCalendarDate = ""
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf1eb"; label: "Wi-Fi"; active: root.wifiEnabled
+                                sub: root.wifiEnabled ? root.wifiBadge : ""
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.subPage = "wifi"
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf294"; label: "Bluetooth"; active: root.btEnabled
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.subPage = "bluetooth"
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf6ff"; label: "Ethernet"; active: root.ethConnected
+                                sub: root.ethConnected ? root.ethDevice : ""
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.subPage = "ethernet"
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf072"; label: "Avião"; active: root.airplaneActive
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root._toggleAirplane()
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: root.dndActive ? "\uf1f6" : "\uf0f3"; label: "Não Perturbe"
+                                active: root.dndActive
+                                enabled: root.notifService !== null
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: if (root.notifService) root.notifService.toggleDnd()
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: root.caffeineActive ? "\uf0f4" : "\uf017"; label: "Idle Inhibit"
+                                active: root.caffeineActive
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root._toggleCaffeine()
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf185"; label: "Shader"
+                                // aceso = modo automático (não só "tem shader aplicado")
+                                active: shaderState.mode === "auto"
+                                sub: shaderState.currentShader !== "" ? shaderState.currentShader : "Nenhum"
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.dashOpenCard = (root.dashOpenCard === "shader") ? "" : "shader"
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf2db"; label: "Perfil"
+                                // aceso = modo automático (auto-cpufreq), não só "não-padrão"
+                                active: powerProfileState.activeProfile === "auto"
+                                sub: powerProfileState.currentLabel
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.dashOpenCard = (root.dashOpenCard === "power") ? "" : "power"
+                            }
+                            Qs.QsIconToggle {
+                                Layout.fillWidth: true
+                                icon: "\uf2c9"; label: "Temp/Gamma"
+                                // aceso = modo automático do hyprsunset (ciclo dia/noite)
+                                active: nightMode.tempAutoActive
+                                sub: !nightMode.tempDaemonOn ? "Desligado"
+                                    : (nightMode.tempAutoActive ? "Auto" : (nightMode.tempSlider + "K·" + nightMode.gammaSlider + "%"))
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onClicked: root.dashOpenCard = (root.dashOpenCard === "temp") ? "" : "temp"
+                            }
+                        }
+
+                        // ── Menu único inline — abre/fecha conforme o tile clicado
+                        // acima (Shader/Perfil/Temp). Um só painel compartilhado, com
+                        // cabeçalho próprio (ícone + título + fechar) e o componente
+                        // real dentro, visible-gated (mesmo padrão de "instância única
+                        // sempre viva" usado no resto do arquivo) ────────────────────
+                        Item {
+                            id: dashInlineMenu
+                            Layout.fillWidth: true
+                            visible: root.dashOpenCard === "power" || root.dashOpenCard === "shader" || root.dashOpenCard === "temp"
+                            implicitHeight: visible ? menuBg.implicitHeight : 0
+                            clip: true
+                            Behavior on implicitHeight { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+
+                            Rectangle {
+                                id: menuBg
+                                anchors { left: parent.left; right: parent.right; top: parent.top }
+                                implicitHeight: menuCol.implicitHeight + 20
+                                radius: 14
+                                color: Qt.rgba(1, 1, 1, 0.05)
+                                border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.4)
+                                border.width: 1
+
+                                ColumnLayout {
+                                    id: menuCol
+                                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                                    spacing: 12
+
+                                    RowLayout {
+                                        Layout.fillWidth: true; spacing: 8
+                                        Text {
+                                            text: root.dashOpenCard === "power" ? "\uf2db"
+                                                : root.dashOpenCard === "shader" ? "\uf185" : "\uf2c9"
+                                            color: root.colorAccent; font.pixelSize: 12; font.family: "JetBrainsMono Nerd Font"
+                                        }
+                                        Text {
+                                            text: root.dashOpenCard === "power" ? "Perfil de energia"
+                                                : root.dashOpenCard === "shader" ? "Shader" : "Temperatura & Gamma"
+                                            color: root.colorAccent; font.pixelSize: 11; font.weight: Font.Medium
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: "\uf00d"   // fecha o menu
+                                            color: root.colorTextDim
+                                            font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font"
+                                            MouseArea {
+                                                anchors.fill: parent; anchors.margins: -6
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.dashOpenCard = ""
+                                            }
+                                        }
+                                    }
+
+                                    Qs.QsPowerProfile {
+                                        id: powerProfileState
+                                        Layout.fillWidth: true
+                                        visible: root.dashOpenCard === "power"
+                                        colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    }
+                                    Qs.QsShaderStatus {
+                                        id: shaderState
+                                        Layout.fillWidth: true
+                                        visible: root.dashOpenCard === "shader"
+                                        colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    }
+                                    Qs.QsNightMode {
+                                        id: nightMode
+                                        Layout.fillWidth: true
+                                        visible: root.dashOpenCard === "temp"
+                                        panelOpen: root.dashOpenCard === "temp"
+                                        colorAccent: root.colorAccent; colorText: root.colorText
+                                        colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                                        colorPanelBg: root.colorPanelBg
+                                    }
+
+                                    // Brilho da tela — junto do Temp/Gamma agora, em vez
+                                    // de ter tile próprio (pedido do usuário: os dois
+                                    // "ajustes de tela" ficam no mesmo lugar)
+                                    Rectangle {
+                                        Layout.fillWidth: true; height: 1
+                                        visible: root.dashOpenCard === "temp"
+                                        color: root.colorDivider; opacity: 0.3
+                                    }
+                                    Qs.QsBrightnessSlider {
+                                        Layout.fillWidth: true
+                                        visible: root.dashOpenCard === "temp"
+                                        colorAccent: root.colorAccent; colorText: root.colorText
+                                        colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
                                     }
                                 }
                             }
-
-                            // Tarefas de hoje/atrasadas (padrão) ou do dia clicado no
-                            // calendário — direto do TodoConfig, com checkbox pra
-                            // concluir sem sair do Dashboard.
-                            Qs.QsTaskList {
-                                Layout.fillWidth: true
-                                tasks: root.displayedTasks
-                                emptyText: root.showingSelectedDate ? "Nenhuma tarefa nesse dia" : "Nenhuma tarefa por hoje"
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onToggle: (id) => todoConfig.toggleTask(id)
-                            }
                         }
 
-                        // ── Calendário + Hábitos lado a lado — altura sempre
-                        // sincronizada entre os dois (a do maior), pra nunca ficar
-                        // torto quando só um dos dois está expandido ──────────────
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 8
-
-                            Qs.QsCollapsibleCard {
-                                id: calCard
-                                Layout.fillWidth: true; Layout.preferredWidth: 1
-                                Layout.preferredHeight: Math.max(calCard.implicitHeight, habCard.implicitHeight)
-                                icon: "\uf133"; title: "Calendário"
-                                subtitle: root.calendarSubtitle
-                                expanded: root.calendarExpanded
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onToggleRequested: root.calendarExpanded = !root.calendarExpanded
-
-                                Qs.QsCalendar {
-                                    Layout.fillWidth: true
-                                    compact: true
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    taskDates:    root.calendarTaskDates
-                                    selectedDate: root.selectedCalendarDate
-                                    onDateClicked: (date) => {
-                                        // clicar de novo no mesmo dia desmarca — volta pra "hoje"
-                                        root.selectedCalendarDate = (root.selectedCalendarDate === date) ? "" : date
-                                    }
-                                }
-                            }
-
-                            Qs.QsCollapsibleCard {
-                                id: habCard
-                                Layout.fillWidth: true; Layout.preferredWidth: 1
-                                Layout.preferredHeight: Math.max(calCard.implicitHeight, habCard.implicitHeight)
-                                icon: "\uf058"; title: "Hábitos"
-                                subtitle: root.habitsSubtitle
-                                expanded: root.habitsExpanded
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onToggleRequested: root.habitsExpanded = !root.habitsExpanded
-
-                                Qs.QsHabitList {
-                                    Layout.fillWidth: true
-                                    habits: root.todayHabits
-                                    colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    onToggleCheck: (id) => habitsConfig.toggleToday(id)
-                                    onLogCount:    (id, delta) => habitsConfig.logCount(id, delta)
-                                }
-                            }
-                        }
-
-                        // ── Card "Controles rápidos": tiles de rede/BT/caffeine ──
-                        Qs.QsSectionCard {
-                            Layout.fillWidth: true
-                            title: "Controles rápidos"; colorTextDim: root.colorTextDim
-
-                            GridLayout {
-                                Layout.fillWidth: true
-                                columns: 2; rowSpacing: 6; columnSpacing: 6
-
-                                Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                                    icon: "\uf1eb"; label: "Wi-Fi"
-                                    badge: root.wifiEnabled ? (root.wifiBadge || "ligado") : "desligado"
-                                    active: root.wifiEnabled
-                                    showSwitch: true   // liga/desliga na hora; card abre a lista de redes
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    onClicked:       root.subPage = "wifi"
-                                    onSwitchToggled: root._toggleWifi()
-                                }
-                                Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                                    icon: "\uf6ff"; label: "Ethernet"
-                                    badge: root.ethConnected
-                                        ? (root.ethDevice || "cabo")
-                                        : (root.ethDevice ? "desconectado" : "indisponível")
-                                    active: root.ethConnected
-                                    showSwitch: root.ethDevice !== ""   // sem cabo detectado, não faz sentido ter switch
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    onClicked:       root.subPage = "ethernet"
-                                    onSwitchToggled: root._toggleEth()
-                                }
-                                Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                                    icon: "\uf294"; label: "Bluetooth"
-                                    badge: root.btEnabled ? "ligado" : "desligado"
-                                    active: root.btEnabled
-                                    showSwitch: true   // liga/desliga na hora; card abre pareados/scan
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    onClicked:       root.subPage = "bluetooth"
-                                    onSwitchToggled: root._toggleBluetooth()
-                                }
-                                Qs.QsToggleTile {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 60
-                                    icon: root.caffeineActive ? "\uf0f4" : "\uf017"
-                                    label: "Caffeine"
-                                    badge: root.caffeineActive ? "suspensão off" : ""
-                                    active: root.caffeineActive
-                                    // Sem subpágina — não faz sentido duplicar o alvo com um switch,
-                                    // o card inteiro já é o toggle.
-                                    colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                    onClicked: root._toggleCaffeine()
-                                }
-                            }
-
-                            Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.3 }
-
-                            // Atalho de Perfil de Energia — lê direto da instância única
-                            // (powerProfileState, dentro da subpágina "power" abaixo);
-                            // clicar leva direto pra lá.
-                            Qs.QsNavRow {
-                                Layout.fillWidth: true
-                                icon: "\uf2db"; label: "Perfil de energia"
-                                sub:     powerProfileState.currentLabel
-                                loading: powerProfileState.loading
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: { root.activeTab = "performance"; root.subPage = "power" }
-                            }
-                        }
-
-                        // ── Tray inline (compacto, sem card — mantém leve) ──────
+                        // ── Tray — subiu pra cá (perto do topo, mais acessível
+                        // sem precisar rolar até o fim do painel). PROVISÓRIO:
+                        // voltei com Layout.fillWidth pra garantir que apareça —
+                        // ela provavelmente depende disso pra ter largura. Preciso
+                        // ver o QsTabTray.qml pra centralizar sem quebrar de novo.
                         Qs.QsTabTray {
                             id: tabTray
                             Layout.fillWidth: true; Layout.preferredHeight: 36
                             colorText: root.colorText; colorTextDim: root.colorTextDim
                             parentWindow: root.parentWindow
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
+
+                        // ── Card: Now Playing ─────────────────────────────────────
+                        Qs.QsSectionCard {
+                            Layout.fillWidth: true
+                            visible: nowPlayingCard.player !== null
+                            title: "Now Playing"; colorTextDim: root.colorTextDim
+
+                            Qs.QsMediaPlayerFull {
+                                id: nowPlayingCard
+                                Layout.fillWidth: true
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                            }
+
+                            // Barra de progresso + tempo — a QsMediaPlayerFull não traz
+                            // isso por padrão, então lê position/length direto do player
+                            // exposto por ela (propriedade `player`, já pública).
+                            // ATENÇÃO: confirme os nomes position/length na sua versão do
+                            // Quickshell.Services.Mpris — se o valor não bater, é isso.
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 6
+                                spacing: 3
+                                visible: nowPlayingCard.player !== null
+
+                                Item {
+                                    Layout.fillWidth: true; height: 4
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width; height: 4; radius: 2
+                                        color: Qt.rgba(root.colorProgressBg.r, root.colorProgressBg.g, root.colorProgressBg.b, 0.5)
+                                    }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 4; radius: 2
+                                        width: {
+                                            var p = nowPlayingCard.player
+                                            if (!p || !p.length || p.length <= 0) return 0
+                                            return parent.width * Math.min(1, (p.position || 0) / p.length)
+                                        }
+                                        color: root.colorAccent
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text {
+                                        text: {
+                                            var p = nowPlayingCard.player
+                                            if (!p) return "0:00"
+                                            var s = Math.floor(p.position || 0)
+                                            return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0")
+                                        }
+                                        color: root.colorTextDim; font.pixelSize: 8
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    Text {
+                                        text: {
+                                            var p = nowPlayingCard.player
+                                            if (!p || !p.length) return "0:00"
+                                            var s = Math.floor(p.length)
+                                            return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0")
+                                        }
+                                        color: root.colorTextDim; font.pixelSize: 8
+                                    }
+                                }
+                            }
+
+                            // Poll leve pra "puxar" a posição atual — muitos players MPRIS
+                            // não emitem position em tempo real via binding.
+                            Timer {
+                                interval: 1000; repeat: true
+                                running: nowPlayingCard.player !== null && nowPlayingCard.player.isPlaying
+                                onTriggered: {
+                                    if (nowPlayingCard.player && nowPlayingCard.player.positionSupported !== false)
+                                        nowPlayingCard.player.positionChanged()
+                                }
+                            }
+                        }
+
+                        // ── Battery + Network lado a lado ─────────────────────────
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+
+                            Qs.QsSectionCard {
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                visible: root.hasBattery
+                                title: "Battery"; colorTextDim: root.colorTextDim
+
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 6
+                                    Text {
+                                        text: root.batteryIcon; color: root.batteryColor
+                                        font.pixelSize: 14; font.family: "JetBrainsMono Nerd Font"
+                                    }
+                                    Text {
+                                        text: root.batteryPct + "%"
+                                        color: root.colorText; font.pixelSize: 13; font.weight: Font.DemiBold
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.batteryCharging ? "Carregando" : "Descarregando"
+                                    color: root.colorTextDim; font.pixelSize: 8; opacity: 0.75
+                                }
+                            }
+
+                            Qs.QsSectionCard {
+                                Layout.fillWidth: true; Layout.preferredWidth: 1
+                                title: "Network"; colorTextDim: root.colorTextDim
+
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 10
+                                    ColumnLayout {
+                                        spacing: 0
+                                        Text { text: "\uf062 " + root.netUpKBs.toFixed(1); color: root.colorText; font.pixelSize: 11 }
+                                        Text { text: "KB/s"; color: root.colorTextDim; font.pixelSize: 7; opacity: 0.7 }
+                                    }
+                                    ColumnLayout {
+                                        spacing: 0
+                                        Text { text: "\uf063 " + root.netDownKBs.toFixed(1); color: root.colorText; font.pixelSize: 11 }
+                                        Text { text: "KB/s"; color: root.colorTextDim; font.pixelSize: 7; opacity: 0.7 }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Card: System ───────────────────────────────────────────
+                        Qs.QsSectionCard {
+                            Layout.fillWidth: true
+                            title: "System"; colorTextDim: root.colorTextDim
+
+                            Qs.QsSystemGaugesRow {
+                                Layout.fillWidth: true
+                                active: root.panelOpen && root.activeTab === "dashboard" && root.subPage === ""
+                                colorAccent: root.colorAccent; colorText: root.colorText
+                                colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                            }
+                        }
+
+                        // ── Card: Volume — mais pro final, versão simples: só o
+                        // slider + nome do device. Mic, EasyEffects e escolha de
+                        // dispositivo (antes na aba Mídia) ficam atrás de "Mais
+                        // opções", pra manter o card principal enxuto ────────────
+                        Qs.QsSectionCard {
+                            Layout.fillWidth: true
+                            title: "Volume"; colorTextDim: root.colorTextDim
+
+                            Qs.QsVolumeSlider {
+                                Layout.fillWidth: true
+                                colorAccent: root.colorAccent; colorText: root.colorText
+                                colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                                colorMuted: root.colorMuted
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 2
+                                text: {
+                                    var n = Pipewire.defaultAudioSink
+                                    return (n && n.description) ? n.description : "Saída padrão"
+                                }
+                                color: root.colorTextDim
+                                font.pixelSize: 8; opacity: 0.7
+                                horizontalAlignment: Text.AlignRight
+                                elide: Text.ElideRight
+                            }
+
+                            Qs.QsCollapsibleCard {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 4
+                                icon: "\uf013"; title: "Mais opções"
+                                subtitle: eeState.eeRunning ? "EasyEffects ativo" : ""
+                                expanded: root.dashOpenCard === "volume"
+                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                onToggleRequested: root.dashOpenCard = (root.dashOpenCard === "volume") ? "" : "volume"
+
+                                ColumnLayout {
+                                    width: parent.width; spacing: 12
+
+                                    Qs.QsMicSlider {
+                                        Layout.fillWidth: true
+                                        colorAccent: root.colorAccent; colorText: root.colorText
+                                        colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
+                                        colorMuted: root.colorMuted
+                                    }
+
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.3 }
+
+                                    Qs.QsEasyEffects {
+                                        id: eeState
+                                        Layout.fillWidth: true
+                                        colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    }
+
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.3 }
+
+                                    // Dispositivos de entrada/saída — antes na aba Mídia
+                                    Qs.QsAudioDevices {
+                                        Layout.fillWidth: true
+                                        colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
+                                    }
+                                }
+                            }
                         }
 
                         Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
@@ -1056,240 +1293,6 @@ Item {
                 }
             }
 
-            // ── ABA: Mídia ────────────────────────────────────────────────────
-            Item {
-                anchors.fill: parent
-                visible: root.activeTab === "media"
-
-                // ── Tela principal (compacta, sempre cabe sem rolar) ────────────
-                Item {
-                    anchors.fill: parent
-                    visible: root.subPage === ""
-
-                    ColumnLayout {
-                        anchors { fill: parent; margins: 14 }
-                        spacing: 12
-
-                        Qs.QsMediaPlayerFull {
-                            Layout.fillWidth: true
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-                        Qs.QsVolumeSlider {
-                            Layout.fillWidth: true
-                            colorAccent: root.colorAccent; colorText: root.colorText
-                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
-                            colorMuted: root.colorMuted
-                        }
-                        Qs.QsMicSlider {
-                            Layout.fillWidth: true
-                            colorAccent: root.colorAccent; colorText: root.colorText
-                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
-                            colorMuted: root.colorMuted
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-                        // ── Navegação para sub-telas ───────────────────────────
-                        Qs.QsNavRow {
-                            Layout.fillWidth: true
-                            icon: "\uf2db"; label: "Dispositivos"
-                            sub:  "Saída e entrada padrão"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onClicked: root.subPage = "devices"
-                        }
-                        Qs.QsNavRow {
-                            Layout.fillWidth: true
-                            icon: "\uf028"; label: "EasyEffects"
-                            sub:  "Status, bypass e presets"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onClicked: root.subPage = "easyeffects"
-                        }
-
-                        Item { Layout.fillHeight: true }
-                    }
-                }
-
-                // ── Sub-tela: Dispositivos ────────────────────────────────────
-                Item {
-                    anchors.fill: parent
-                    visible: root.subPage === "devices"
-
-                    ColumnLayout {
-                        anchors { fill: parent; margins: 14 }
-                        spacing: 10
-
-                        Qs.QsPageHeader {
-                            Layout.fillWidth: true
-                            title: "Dispositivos"; icon: "\uf2db"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onBackClicked: root.subPage = ""
-                        }
-
-                        Flickable {
-                            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                            contentWidth: width
-                            contentHeight: devCol.implicitHeight
-                            boundsMovement: Flickable.StopAtBounds
-
-                            Qs.QsAudioDevices {
-                                id: devCol
-                                width: parent.width
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            }
-                        }
-                    }
-                }
-
-                // ── Sub-tela: EasyEffects ──────────────────────────────────────
-                Item {
-                    anchors.fill: parent
-                    visible: root.subPage === "easyeffects"
-
-                    ColumnLayout {
-                        anchors { fill: parent; margins: 14 }
-                        spacing: 10
-
-                        Qs.QsPageHeader {
-                            Layout.fillWidth: true
-                            title: "EasyEffects"; icon: "\uf028"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onBackClicked: root.subPage = ""
-                        }
-
-                        Flickable {
-                            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                            contentWidth: width
-                            contentHeight: eeCol.implicitHeight
-                            boundsMovement: Flickable.StopAtBounds
-
-                            Qs.QsEasyEffects {
-                                id: eeCol
-                                width: parent.width
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── ABA: Performance ──────────────────────────────────────────────
-            Item {
-                anchors.fill: parent
-                visible: root.activeTab === "performance"
-
-                // ── Tela principal (compacta) ───────────────────────────────────
-                Item {
-                    anchors.fill: parent
-                    visible: root.subPage === ""
-
-                    ColumnLayout {
-                        anchors { fill: parent; margins: 14 }
-                        spacing: 12
-
-                        Qs.QsSystemStats {
-                            Layout.fillWidth: true
-                            active: root.activeTab === "performance" && root.subPage === ""
-                            colorAccent: root.colorAccent; colorText: root.colorText
-                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-                        Qs.QsNightMode {
-                            Layout.fillWidth: true; panelOpen: root.panelOpen && root.activeTab === "performance"
-                            colorAccent: root.colorAccent; colorText: root.colorText
-                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
-                        }
-                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-                        Qs.QsBrightnessSlider {
-                            Layout.fillWidth: true
-                            colorAccent: root.colorAccent; colorText: root.colorText
-                            colorTextDim: root.colorTextDim; colorProgressBg: root.colorProgressBg
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: root.colorDivider; opacity: 0.4 }
-
-                        Qs.QsNavRow {
-                            Layout.fillWidth: true
-                            icon: "\uf2db"; label: "Perfil de energia"
-                            sub:     powerProfileState.currentLabel
-                            loading: powerProfileState.loading
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onClicked: root.subPage = "power"
-                        }
-                        Qs.QsNavRow {
-                            Layout.fillWidth: true
-                            icon: "\uf185"; label: "Shader"
-                            sub:     root.shaderSummary
-                            loading: root.shaderSummary === "Carregando…"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onClicked: root.subPage = "shader"
-
-                            Component.onCompleted: root._refreshShaderSummary()
-                        }
-
-                        Item { Layout.fillHeight: true }
-                    }
-                }
-
-                // ── Sub-tela: Perfil de energia ─────────────────────────────────
-                Item {
-                    anchors.fill: parent
-                    visible: root.subPage === "power"
-
-                    ColumnLayout {
-                        anchors { fill: parent; margins: 14 }
-                        spacing: 10
-
-                        Qs.QsPageHeader {
-                            Layout.fillWidth: true
-                            title: "Perfil de energia"; icon: "\uf2db"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onBackClicked: { root.subPage = ""; powerProfileState.refresh() }
-                        }
-
-                        Qs.QsPowerProfile {
-                            id: powerProfileState
-                            Layout.fillWidth: true; Layout.fillHeight: true
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                        }
-                    }
-                }
-
-                // ── Sub-tela: Shader ─────────────────────────────────────────────
-                Item {
-                    anchors.fill: parent
-                    visible: root.subPage === "shader"
-
-                    ColumnLayout {
-                        anchors { fill: parent; margins: 14 }
-                        spacing: 10
-
-                        Qs.QsPageHeader {
-                            Layout.fillWidth: true
-                            title: "Shader"; icon: "\uf185"
-                            colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            onBackClicked: { root.subPage = ""; root._refreshShaderSummary() }
-                        }
-
-                        Flickable {
-                            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                            contentWidth: width
-                            contentHeight: shCol.implicitHeight
-                            boundsMovement: Flickable.StopAtBounds
-
-                            Qs.QsShaderStatus {
-                                id: shCol
-                                width: parent.width
-                                colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

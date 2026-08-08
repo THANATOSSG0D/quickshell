@@ -1,1 +1,7 @@
 FEAT-FIX.md
+state/TodoWidget.json
+state/HabitsWidget.json
+state/notifications-state.json
+state/dmenu.json
+modules/default/screenlock/ state/TodoWidget.json
+modules/default/screenlock/ state/HabitsWidget.json

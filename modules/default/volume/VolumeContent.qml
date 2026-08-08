@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Widgets
 import QtQuick
@@ -32,74 +31,24 @@ Item {
   property string activeTab: "devices"
 
   // ── EasyEffects — estado ────────────────────────────────────────────────
-  property bool   eeRunning:        false
-  property bool   eeBypassed:       false
-  property string eeActiveOutput:   ""
-  property string eeActiveInput:    ""
-  property var    eeOutputProfiles: []
-  property var    eeInputProfiles:  []
+  // O polling ("easyeffects -s"/"-p") agora mora no singleton
+  // EasyEffectsService (compartilhado com o VolumeTooltip da barra) — aqui
+  // só espelhamos as propriedades e delegamos as ações, pra não duplicar
+  // processos nem mexer nos ~20 usos de root.ee* mais abaixo no arquivo.
+  readonly property bool   eeRunning:        EasyEffectsService.running
+  readonly property bool   eeBypassed:       EasyEffectsService.bypassed
+  readonly property string eeActiveOutput:   EasyEffectsService.activeOutput
+  readonly property string eeActiveInput:    EasyEffectsService.activeInput
+  readonly property var    eeOutputProfiles: EasyEffectsService.outputProfiles
+  readonly property var    eeInputProfiles:  EasyEffectsService.inputProfiles
 
-  Process {
-    id: eeStatusProc
-    property string _buf: ""
-    stdout: SplitParser { onRead: (l) => eeStatusProc._buf += l + "\n" }
-    onRunningChanged: {
-      if (running) return
-      var out = eeStatusProc._buf.trim(); eeStatusProc._buf = ""
-      root.eeRunning = out !== "" && !out.includes("not running")
-      var lines = out.split("\n")
-      for (var i = 0; i < lines.length; i++) {
-        var l = lines[i].trim()
-        if (l.startsWith("output:")) root.eeActiveOutput = l.replace("output:", "").trim()
-        if (l.startsWith("input:"))  root.eeActiveInput  = l.replace("input:",  "").trim()
-      }
-    }
-  }
+  function eeRefresh()                  { EasyEffectsService.refresh() }
+  function eeApplyPreset(type, name)    { EasyEffectsService.applyPreset(type, name) }
+  function eeToggleBypass()             { EasyEffectsService.toggleBypass() }
 
-  Process {
-    id: eeListProc
-    property string _buf: ""
-    stdout: SplitParser { onRead: (l) => eeListProc._buf += l + "\n" }
-    onRunningChanged: {
-      if (running) return
-      var raw = eeListProc._buf.trim(); eeListProc._buf = ""
-      var lines = raw.split("\n")
-      var outputs = []; var inputs = []; var inInput = false
-      for (var i = 0; i < lines.length; i++) {
-        var l = lines[i]
-        if (l.includes("saída") || l.toLowerCase().includes("output")) { inInput = false; continue }
-        if (l.includes("entrada") || l.toLowerCase().includes("input")) { inInput = true;  continue }
-        var m = l.match(/^\s*\d+\s+(.+)$/)
-        if (m) {
-          var name = m[1].trim()
-          if (inInput) inputs.push(name)
-          else         outputs.push(name)
-        }
-      }
-      root.eeOutputProfiles = outputs
-      root.eeInputProfiles  = inputs
-    }
-  }
-
-  Process { id: eeApplyProc }
-  Process { id: eeBypassProc }
-
-  function eeRefresh() {
-    if (!eeStatusProc.running) { eeStatusProc.command = ["easyeffects", "-s"]; eeStatusProc.running = true }
-    if (!eeListProc.running)   { eeListProc.command   = ["easyeffects", "-p"]; eeListProc.running   = true }
-  }
-
-  function eeApplyPreset(type, name) {
-    eeApplyProc.command = ["easyeffects", "-l", name]; eeApplyProc.running = true
-    if (type === "output") root.eeActiveOutput = name
-    else                   root.eeActiveInput  = name
-  }
-
-  function eeToggleBypass() {
-    eeBypassProc.command = ["easyeffects", "--bypass-toggle"]; eeBypassProc.running = true
-    root.eeBypassed = !root.eeBypassed
-  }
-
+  // Refresh extra ao abrir o painel — o singleton já faz polling periódico
+  // sozinho (5s), isso só garante dado fresco no instante em que o usuário
+  // abre o painel.
   Component.onCompleted: eeRefresh()
 
   // ── Pipewire — nós ─────────────────────────────────────────────────────
@@ -428,6 +377,23 @@ Item {
         VolumeSlider { Layout.fillWidth: true; node: root.sink
           accentColor: root.colorAccent; bgColor: root.colorProgressBg; mutedColor: root.colorMuted }
 
+        // EasyEffects — preset de saída
+        PresetDropdown {
+          id: outputPresetDropdown
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          visible:      root.eeRunning && root.eeOutputProfiles.length > 0
+          label:        "PRESET SAÍDA · EASYEFFECTS"
+          model:        root.eeOutputProfiles
+          activeValue:  root.eeActiveOutput
+          accentColor:  root.colorAccent
+          textColor:    root.colorText
+          textDimColor: root.colorTextDim
+          bgColor:      root.colorPanelBg
+          onSelected:   (name) => root.eeApplyPreset("output", name)
+          onExpandedChanged: if (expanded) inputPresetDropdown.expanded = false
+        }
+
         Repeater {
           model: root.sinkDevices
           delegate: DeviceRow {
@@ -436,36 +402,6 @@ Item {
             node: modelData; isDefault: root.sink === modelData
             textColor: root.colorText; dimColor: root.colorTextDim; accentColor: root.colorAccent
             onSetDefault: Pipewire.preferredDefaultAudioSink = modelData
-          }
-        }
-
-        // EasyEffects — preset de saída
-        ColumnLayout {
-          Layout.fillWidth: true
-          Layout.topMargin: 2
-          spacing: 4
-          visible: root.eeRunning && root.eeOutputProfiles.length > 0
-
-          Text {
-            text: "PRESET SAÍDA · EASYEFFECTS"
-            color: root.colorTextDim
-            font.pixelSize: 8; font.weight: Font.Medium
-          }
-          Flow {
-            Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-              model: root.eeOutputProfiles
-              delegate: PresetChip {
-                required property string modelData
-                label:        modelData
-                active:       modelData === root.eeActiveOutput
-                accentColor:  root.colorAccent
-                textColor:    root.colorText
-                textDimColor: root.colorTextDim
-                onClicked:    root.eeApplyPreset("output", modelData)
-              }
-            }
           }
         }
       }
@@ -525,6 +461,23 @@ Item {
         VolumeSlider { Layout.fillWidth: true; node: root.source
           accentColor: root.colorAccent; bgColor: root.colorProgressBg; mutedColor: root.colorMuted }
 
+        // EasyEffects — preset de entrada
+        PresetDropdown {
+          id: inputPresetDropdown
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          visible:      root.eeRunning && root.eeInputProfiles.length > 0
+          label:        "PRESET ENTRADA · EASYEFFECTS"
+          model:        root.eeInputProfiles
+          activeValue:  root.eeActiveInput
+          accentColor:  root.colorAccent
+          textColor:    root.colorText
+          textDimColor: root.colorTextDim
+          bgColor:      root.colorPanelBg
+          onSelected:   (name) => root.eeApplyPreset("input", name)
+          onExpandedChanged: if (expanded) outputPresetDropdown.expanded = false
+        }
+
         Repeater {
           model: root.sourceDevices
           delegate: DeviceRow {
@@ -533,36 +486,6 @@ Item {
             node: modelData; isDefault: root.source === modelData
             textColor: root.colorText; dimColor: root.colorTextDim; accentColor: root.colorAccent
             onSetDefault: Pipewire.preferredDefaultAudioSource = modelData
-          }
-        }
-
-        // EasyEffects — preset de entrada
-        ColumnLayout {
-          Layout.fillWidth: true
-          Layout.topMargin: 2
-          spacing: 4
-          visible: root.eeRunning && root.eeInputProfiles.length > 0
-
-          Text {
-            text: "PRESET ENTRADA · EASYEFFECTS"
-            color: root.colorTextDim
-            font.pixelSize: 8; font.weight: Font.Medium
-          }
-          Flow {
-            Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-              model: root.eeInputProfiles
-              delegate: PresetChip {
-                required property string modelData
-                label:        modelData
-                active:       modelData === root.eeActiveInput
-                accentColor:  root.colorAccent
-                textColor:    root.colorText
-                textDimColor: root.colorTextDim
-                onClicked:    root.eeApplyPreset("input", modelData)
-              }
-            }
           }
         }
       }
@@ -817,44 +740,152 @@ Item {
     }
   }
 
-  component PresetChip: Rectangle {
-    id: chip
+  // Dropdown compacto pra escolha de preset do EasyEffects (saída/entrada).
+  //
+  // Primeira versão usava um QtQuick.Controls Popup flutuante — mas o
+  // painel roda numa superfície layer-shell do Wayland com tamanho FIXO
+  // (é por isso que o conteúdo já estava embrulhado num Flickable, ver
+  // comentário lá em cima). Um Popup normal assume que dá pra desenhar
+  // fora dos limites da janela, como em qualquer app de desktop comum —
+  // aqui não dá: o compositor corta tudo que passa da borda da surface,
+  // então a lista ficava cortada e, por ser overlay, não empurrava nada
+  // (não "ocupava espaço").
+  //
+  // Solução: lista INLINE, que mora no fluxo normal do layout, DEPOIS do
+  // botão — abre pra baixo, empurrando o que vem a seguir (fica logo
+  // abaixo do slider de volume, perto de onde o usuário já está olhando).
+  // Ganha altura animada quando expandida. Como está dentro do mesmo
+  // Flickable do painel, o scroll existente cuida do resto se a lista +
+  // o conteúdo abaixo passarem da altura da janela.
+  component PresetDropdown: ColumnLayout {
+    id: dropdown
     property string label:        ""
-    property bool   active:       false
+    property var    model:        []
+    property string activeValue:  ""
     property color  accentColor:  "white"
     property color  textColor:    "white"
     property color  textDimColor: Qt.rgba(1, 1, 1, 0.6)
-    signal clicked()
+    property color  bgColor:      "#1f1f1f"
+    property bool   expanded:     false
+    signal selected(string name)
 
-    implicitHeight: 22
-    implicitWidth:  chipLabel.implicitWidth + 16
-    radius: height / 2
-    color: chip.active
-      ? Qt.rgba(chip.accentColor.r, chip.accentColor.g, chip.accentColor.b, 0.18)
-      : (chipMA.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04))
-    border.color: chip.active
-      ? Qt.rgba(chip.accentColor.r, chip.accentColor.g, chip.accentColor.b, 0.5)
-      : Qt.rgba(1, 1, 1, 0.08)
-    border.width: 1
-    Behavior on color { ColorAnimation { duration: 120 } }
-    scale: chipMA.pressed ? 0.94 : 1.0
-    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+    spacing: 4
 
     Text {
-      id: chipLabel
-      anchors.centerIn: parent
-      text:  chip.label
-      color: chip.active ? chip.accentColor : chip.textDimColor
-      font.pixelSize: 10
-      font.weight: chip.active ? Font.DemiBold : Font.Normal
-      elide: Text.ElideRight
+      text:  dropdown.label
+      color: dropdown.textDimColor
+      font.pixelSize: 8; font.weight: Font.Medium
     }
-    MouseArea {
-      id: chipMA
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: chip.clicked()
+
+    Rectangle {
+      id: ddButton
+      Layout.fillWidth: true
+      implicitHeight: 26
+      radius: 7
+      color: ddMA.containsMouse || dropdown.expanded
+        ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+      border.color: dropdown.expanded
+        ? Qt.rgba(dropdown.accentColor.r, dropdown.accentColor.g, dropdown.accentColor.b, 0.5)
+        : Qt.rgba(1, 1, 1, 0.1)
+      border.width: 1
+      Behavior on color { ColorAnimation { duration: 100 } }
+
+      RowLayout {
+        anchors.fill:        parent
+        anchors.leftMargin:  8
+        anchors.rightMargin: 8
+        spacing: 6
+
+        Text {
+          Layout.fillWidth: true
+          text:  dropdown.activeValue || "Selecionar preset…"
+          color: dropdown.activeValue ? dropdown.textColor : dropdown.textDimColor
+          font.pixelSize: 10; font.weight: Font.Medium
+          elide: Text.ElideRight
+        }
+        Text {
+          // Seta pra baixo: indica que a lista abre abaixo do botão.
+          // Gira 180° quando expandida (aponta pra cima = "fechar").
+          text:  "\uf078"
+          color: dropdown.textDimColor
+          font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font"
+          rotation: dropdown.expanded ? 180 : 0
+          Behavior on rotation { NumberAnimation { duration: 140; easing.type: Easing.OutQuad } }
+        }
+      }
+      MouseArea {
+        id: ddMA
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: dropdown.expanded = !dropdown.expanded
+      }
+    }
+
+    // Lista expansível — SEMPRE presente no layout, só sem altura quando
+    // fechada, pra não precisar de nenhum overlay.
+    Rectangle {
+      id: ddList
+      Layout.fillWidth: true
+      // Até 7 itens visíveis sem rolar; acima disso, scroll interno —
+      // evita que presets da comunidade (facilmente 15-20+ itens)
+      // estourem a altura do painel de qualquer forma.
+      readonly property int fullHeight: Math.min(7, Math.max(1, dropdown.model.length)) * 26 + 8
+      implicitHeight: dropdown.expanded ? fullHeight : 0
+      clip:           true
+      radius:         8
+      color:          dropdown.bgColor
+      border.color:   Qt.rgba(1, 1, 1, 0.1)
+      border.width:   dropdown.expanded ? 1 : 0
+      opacity:        dropdown.expanded ? 1 : 0
+      Behavior on implicitHeight { NumberAnimation { duration: 140; easing.type: Easing.OutQuad } }
+      Behavior on opacity        { NumberAnimation { duration: 100 } }
+
+      ListView {
+        anchors.fill:    parent
+        anchors.margins: 4
+        clip:            true
+        model:           dropdown.model
+        interactive:     dropdown.model.length > 7
+        boundsBehavior:  Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+        delegate: Rectangle {
+          id: ddItem
+          required property string modelData
+          readonly property bool active: modelData === dropdown.activeValue
+
+          width:  ListView.view.width
+          height: 26
+          radius: 6
+          color: ddItem.active
+            ? Qt.rgba(dropdown.accentColor.r, dropdown.accentColor.g, dropdown.accentColor.b, 0.18)
+            : (ddItemMA.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+          Behavior on color { ColorAnimation { duration: 100 } }
+
+          Text {
+            anchors.fill:        parent
+            anchors.leftMargin:  8
+            anchors.rightMargin: 8
+            verticalAlignment:   Text.AlignVCenter
+            text:  ddItem.modelData
+            color: ddItem.active ? dropdown.accentColor : dropdown.textColor
+            font.pixelSize: 10
+            font.weight: ddItem.active ? Font.DemiBold : Font.Normal
+            elide: Text.ElideRight
+          }
+          MouseArea {
+            id: ddItemMA
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              dropdown.selected(ddItem.modelData)
+              dropdown.expanded = false
+            }
+          }
+        }
+      }
     }
   }
 

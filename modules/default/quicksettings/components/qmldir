@@ -1,5 +1,7 @@
 module QuickSettings.components
-
+QsIconToggle 1.0 QsIconToggle.qml
+QsCircularGauge 1.0 QsCircularGauge.qml
+QsSystemGaugesRow 1.0 QsSystemGaugesRow.qml
 QsSystemStats   1.0 QsSystemStats.qml
 QsPowerProfile  1.0 QsPowerProfile.qml
 QsShaderStatus  1.0 QsShaderStatus.qml

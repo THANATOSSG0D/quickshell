@@ -105,6 +105,18 @@ Singleton {
     return (_muted || _volume <= 0) ? "\uf131" : "\uf130"
   }
 
+  // ── EasyEffects — status/preset do lado relevante (saída p/ sink,
+  // entrada p/ source), lido direto do singleton compartilhado.
+  readonly property bool   _eeRunning:  EasyEffectsService.running
+  readonly property bool   _eeBypassed: EasyEffectsService.bypassed
+  readonly property string _eePreset:   _isSink ? EasyEffectsService.activeOutput : EasyEffectsService.activeInput
+  readonly property string _eeText: {
+    if (!_eeRunning)  return "EasyEffects não detectado"
+    if (_eeBypassed)  return "EasyEffects · bypass"
+    if (_eePreset)    return "EasyEffects · " + _eePreset
+    return "EasyEffects ativo"
+  }
+
   // Resolve o item de ancoragem conforme TooltipSettings.align — ver
   // comentário completo em BarTooltip.qml.
   function _resolveAnchor() {
@@ -247,6 +259,29 @@ Singleton {
             font.pixelSize: 9
             font.family:    "JetBrainsMono Nerd Font"
             anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+
+        // ── Status EasyEffects (só aparece se estiver rodando) ──────────
+        Row {
+          spacing: 5
+          width:   content.contentRowWidth
+          visible: root._eeRunning
+
+          Rectangle {
+            width:  6; height: 6; radius: 3
+            anchors.verticalCenter: parent.verticalCenter
+            color:  root._eeBypassed ? root.mutedColor : "#a6e3a1"
+            Behavior on color { ColorAnimation { duration: 150 } }
+          }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text:           root._eeText
+            color:          root.fgDimColor
+            font.pixelSize: 9
+            font.family:    "JetBrainsMono Nerd Font"
+            elide:          Text.ElideRight
+            width:          content.contentRowWidth - 11
           }
         }
       }

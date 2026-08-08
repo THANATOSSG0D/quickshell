@@ -11,6 +11,12 @@ import QtQuick.Layouts
 // `thermal-profile waybar` retorna JSON {"text","class","tooltip"} — usamos
 // o campo "class" para saber o perfil ativo. Trocar de perfil roda
 // `thermal-profile <nome>` (requer sudo, conforme o script original).
+//
+// O perfil "auto" é diferente dos outros: em vez de thermal-profile (fixo),
+// liga o serviço auto-cpufreq.service, que ajusta o governor/EPP sozinho
+// conforme a carga. Trocar PRA auto = start no serviço; trocar DE auto pra
+// qualquer perfil fixo = stop no serviço antes de aplicar o thermal-profile
+// (pra eles não brigarem pelo mesmo cpupower/EPP ao mesmo tempo).
 Item {
     id: root
 
@@ -18,16 +24,17 @@ Item {
     property color colorText:    "#e2e2e2"
     property color colorTextDim: "#c6c6c6"
 
-    property string activeProfile: ""   // performance | gaming | balanced | balanced_cool | cool
+    property string activeProfile: ""   // auto | performance | gaming | balanced | balanced_cool | cool
     property bool   loading:       false
     property bool   hasError:      false
 
     readonly property var profiles: [
-        { id: "performance",   icon: "\uf06d", label: "Performance",    tdp: "45/65W" },
-        { id: "gaming",        icon: "\uf11b", label: "Gaming",         tdp: "42/60W" },
-        { id: "balanced",      icon: "\uf24e", label: "Balanced",       tdp: "28/45W" },
-        { id: "balanced_cool", icon: "\uf2c9", label: "Balanced Cool",  tdp: "20/30W" },
-        { id: "cool",          icon: "\uf2c7", label: "Cool",           tdp: "15/25W" }
+        { id: "auto",           icon: "\uf021", label: "Automático",     tdp: "auto-cpufreq" },
+        { id: "performance",    icon: "\uf06d", label: "Performance",    tdp: "45/65W" },
+        { id: "gaming",         icon: "\uf11b", label: "Gaming",         tdp: "42/60W" },
+        { id: "balanced",       icon: "\uf24e", label: "Balanced",       tdp: "28/45W" },
+        { id: "balanced_cool",  icon: "\uf2c9", label: "Balanced Cool",  tdp: "20/30W" },
+        { id: "cool",           icon: "\uf2c7", label: "Cool",           tdp: "15/25W" }
     ]
 
     // Fonte única de verdade pro nome do perfil atual — quem precisa mostrar
@@ -47,7 +54,8 @@ Item {
     function refresh() {
         if (statusProc.running) return
         root.loading = true; root.hasError = false
-        statusProc.command = ["bash", "-c", "thermal-profile waybar 2>/dev/null"]
+        statusProc.command = ["bash", "-c",
+            "systemctl is-active auto-cpufreq 2>/dev/null; echo '---'; thermal-profile waybar 2>/dev/null"]
         statusProc.running = true
     }
 
@@ -61,14 +69,25 @@ Item {
         var previousProfile = root.activeProfile
         applyProc._pendingId = id
         applyProc._previousProfile = previousProfile
-        // thermal-profile precisa rodar como root: check_permissions() no
-        // próprio script só passa se EUID==0 OU se já existir uma sessão
-        // sudo interativa em cache — nenhuma das duas é verdade a partir
-        // do Quickshell, então chamamos sudo direto (NOPASSWD já cobre o
-        // binário inteiro, então os sudo internos do script — tee,
-        // cpupower, powerprofilesctl — rodam livres por já estar como root).
-        applyProc.command = ["bash", "-c",
-            "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"]
+
+        var cmd
+        if (id === "auto") {
+            cmd = "sudo -n systemctl start auto-cpufreq 2>&1; echo EXIT:$?"
+        } else if (previousProfile === "auto") {
+            // sai do auto-cpufreq antes de aplicar um perfil fixo, senão os
+            // dois ficam escrevendo no cpupower/EPP ao mesmo tempo
+            cmd = "sudo -n systemctl stop auto-cpufreq 2>&1; " +
+                  "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"
+        } else {
+            // thermal-profile precisa rodar como root: check_permissions() no
+            // próprio script só passa se EUID==0 OU se já existir uma sessão
+            // sudo interativa em cache — nenhuma das duas é verdade a partir
+            // do Quickshell, então chamamos sudo direto (NOPASSWD já cobre o
+            // binário inteiro, então os sudo internos do script — tee,
+            // cpupower, powerprofilesctl — rodam livres por já estar como root).
+            cmd = "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"
+        }
+        applyProc.command = ["bash", "-c", cmd]
         applyProc.running = true
         root.activeProfile = id   // otimista — corrigido em onExited se falhar
         refreshDelay.restart()
@@ -77,11 +96,21 @@ Item {
     Process {
         id: statusProc
         property string _buf: ""
-        stdout: SplitParser { onRead: (l) => statusProc._buf += l }
+        stdout: SplitParser { onRead: (l) => statusProc._buf += l + "\n" }
         onRunningChanged: {
             if (running) return
-            var out = statusProc._buf.trim(); statusProc._buf = ""
+            var parts = statusProc._buf.split("---")
+            statusProc._buf = ""
             root.loading = false
+
+            var autoActive = parts.length > 0 && parts[0].trim() === "active"
+            if (autoActive) {
+                root.activeProfile = "auto"
+                root.hasError = false
+                return
+            }
+
+            var out = (parts[1] || "").trim()
             if (out === "") { root.hasError = true; return }
             try {
                 var data = JSON.parse(out)

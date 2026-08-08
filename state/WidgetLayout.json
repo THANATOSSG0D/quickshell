@@ -3,7 +3,7 @@
     "enabled": {
         "bluetooth": false,
         "favorites": true,
-        "weather": false
+        "weather": true
     },
     "groupEnabled": false,
     "groups": [

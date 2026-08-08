@@ -2,51 +2,5 @@
   "doNotDisturb": false,
   "dndAllowCritical": true,
   "toastPosition": "bottom-right",
-  "history": [
-    {
-      "id": 2,
-      "appName": "Vivaldi",
-      "appIcon": "file:///tmp/.com.vivaldi.Vivaldi.scoped_dir.QjaGY0/logo.png",
-      "image": "image://icon//tmp/.com.vivaldi.Vivaldi.scoped_dir.QjaGY0/icon.png",
-      "summary": "Download Completo",
-      "body": "Vivaldi\n\nfiles.zip",
-      "urgency": 1,
-      "timestamp": 1785352372634,
-      "timeout": 5000,
-      "read": false,
-      "actions": [],
-      "pausedSince": 0,
-      "pausedMs": 0
-    },
-    {
-      "id": 1,
-      "appName": "",
-      "appIcon": "dev.vencord.Vesktop",
-      "image": "",
-      "summary": "Vencord has been updated!",
-      "body": "Click here to restart",
-      "urgency": 1,
-      "timestamp": 1785352104496,
-      "timeout": 5000,
-      "read": false,
-      "actions": [],
-      "pausedSince": 0,
-      "pausedMs": 0
-    },
-    {
-      "id": 3,
-      "appName": "kitty",
-      "appIcon": "/usr/lib/kitty/logo/kitty.png",
-      "image": "",
-      "summary": "Done in 15m 32s",
-      "body": "~/.config/ml4w/scripts/ paru",
-      "urgency": 1,
-      "timestamp": 1785312397838,
-      "timeout": 5000,
-      "read": false,
-      "actions": [],
-      "pausedSince": 0,
-      "pausedMs": 0
-    }
-  ]
+  "history": []
 }

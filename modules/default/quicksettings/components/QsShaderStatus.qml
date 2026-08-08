@@ -7,6 +7,10 @@ import QtQuick.Layouts
 // de ~/.cache/hyprnight/shader-mode) e permite trocar entre os shaders
 // disponíveis (hyprshade ls) ou voltar para automático/desligado.
 //
+// Gamma e temperatura de cor NÃO ficam aqui — isso é responsabilidade do
+// QsNightMode (hyprsunset/systemd), pra não ter dois caminhos diferentes
+// escrevendo o mesmo hyprctl hyprsunset gamma ao mesmo tempo.
+//
 // Toda a lógica de troca de modo (parar timers concorrentes, salvar estado,
 // lembrar o último modo ativo) vive em ~/.config/hypr/scripts/hyprshade-selector
 // — este componente só LÊ o estado e CHAMA o script, nunca escreve direto no
@@ -25,9 +29,6 @@ Item {
     property var    available:      []
     property bool   loading:        false
 
-    property int  gamma:        100   // 0-100, lido via hyprctl hyprsunset gamma
-    property bool gammaDragging: false
-
     readonly property string modeLabel: {
         if (root.mode === "auto") return "Automático (ciclo dia/noite)"
         if (root.mode === "off")  return "Desligado"
@@ -41,8 +42,7 @@ Item {
         statusProc.command = ["bash", "-c",
             "hyprshade current 2>/dev/null; echo '---'; " +
             "cat ~/.cache/hyprnight/shader-mode 2>/dev/null; echo '---'; " +
-            "hyprshade ls 2>/dev/null; echo '---'; " +
-            "hyprctl hyprsunset gamma 2>/dev/null"]
+            "hyprshade ls 2>/dev/null"]
         statusProc.running = true
     }
 
@@ -64,12 +64,6 @@ Item {
         refreshDelay.restart()
     }
 
-    function setGamma(value) {
-        root.gamma = Math.round(value)
-        gammaApplyProc.command = ["bash", "-c", "hyprctl hyprsunset gamma " + root.gamma + " 2>/dev/null"]
-        gammaApplyProc.running = true
-    }
-
     Process {
         id: statusProc
         property string _buf: ""
@@ -78,20 +72,17 @@ Item {
             if (running) return
             var parts = statusProc._buf.split("---"); statusProc._buf = ""
             root.loading = false
-            if (parts.length < 4) return
+            if (parts.length < 3) return
             root.currentShader = parts[0].trim()
             root.mode          = parts[1].trim()
             var list = parts[2].trim().split("\n")
                 .map(function(s) { return s.trim() })
                 .filter(function(s) { return s !== "" })
             root.available = list
-            var g = parseInt(parts[3].trim())
-            if (!root.gammaDragging && !isNaN(g)) root.gamma = g
         }
     }
 
     Process { id: applyProc }
-    Process { id: gammaApplyProc }
     Timer { id: refreshDelay; interval: 500; onTriggered: root.refresh() }
 
     Component.onCompleted: refresh()
@@ -183,68 +174,6 @@ Item {
                                 else                                  root.setManual(modelData.id)
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.08) }
-
-        // ── Slider de gamma (hyprctl hyprsunset gamma) ───────────────────────
-        ColumnLayout {
-            Layout.fillWidth: true; spacing: 5
-
-            RowLayout {
-                Layout.fillWidth: true; spacing: 8
-                Rectangle {
-                    implicitWidth: 22; implicitHeight: 22; radius: 11
-                    color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
-                    Text { anchors.centerIn: parent; text: "\uf042"; color: root.colorAccent
-                        font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font" }
-                }
-                Text { text: "Gamma"; color: root.colorText; font.pixelSize: 11; Layout.fillWidth: true }
-                Text { text: root.gamma + "%"; color: root.colorAccent; font.pixelSize: 11; font.weight: Font.Light }
-            }
-
-            Item {
-                Layout.fillWidth: true; implicitHeight: 18
-
-                Rectangle {
-                    id: gammaTrack
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width; height: 4; radius: 2
-                    color: Qt.rgba(1, 1, 1, 0.12)
-                }
-                Rectangle {
-                    anchors.verticalCenter: gammaTrack.verticalCenter
-                    width: Math.max(gammaThumb.width / 2, (root.gamma / 100) * gammaTrack.width)
-                    height: gammaTrack.height; radius: gammaTrack.radius
-                    color: root.colorAccent
-                    Behavior on width { NumberAnimation { duration: gammaMA.pressed ? 0 : 200 } }
-                }
-                Rectangle {
-                    id: gammaThumb
-                    anchors.verticalCenter: gammaTrack.verticalCenter
-                    x: (root.gamma / 100) * (gammaTrack.width - width)
-                    width: 12; height: 12; radius: 6
-                    color: "white"
-                    border.color: Qt.rgba(1, 1, 1, 0.3); border.width: 1
-                    scale: gammaMA.pressed ? 1.2 : 1.0
-                    Behavior on x     { NumberAnimation { duration: gammaMA.pressed ? 0 : 200 } }
-                    Behavior on scale { NumberAnimation { duration: 80 } }
-                }
-
-                MouseArea {
-                    id: gammaMA
-                    anchors { fill: gammaTrack; margins: -10 }
-                    preventStealing: true
-                    cursorShape: Qt.SizeHorCursor
-                    onPressed:  (m) => { root.gammaDragging = true; _drag(m.x) }
-                    onPositionChanged: (m) => { if (pressed) _drag(m.x) }
-                    onReleased: (m) => { _drag(m.x); root.setGamma(root.gamma); root.gammaDragging = false }
-                    function _drag(mx) {
-                        var r = Math.max(0, Math.min(1, mx / gammaTrack.width))
-                        root.gamma = Math.round(r * 100)
                     }
                 }
             }

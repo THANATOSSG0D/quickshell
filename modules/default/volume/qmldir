@@ -5,4 +5,5 @@ VolumePanel 1.0 VolumePanel.qml
 VolumePopup 1.0 VolumePopup.qml
 
 singleton VolumeTooltip 1.0 VolumeTooltip.qml
+singleton EasyEffectsService EasyEffectsService.qml
 
