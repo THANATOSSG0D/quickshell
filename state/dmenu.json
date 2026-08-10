@@ -19,15 +19,15 @@
         "dmenuPasswordMask": true,
         "dmenuPopupXAlign": "center",
         "dmenuPopupXOffset": 0,
-        "dmenuPopupYAnchor": "bar",
-        "dmenuPopupYOffset": 0,
+        "dmenuPopupYAnchor": "top",
+        "dmenuPopupYOffset": 40,
         "dmenuShowIcons": false,
         "dmenuSortMode": "usage",
         "dmenuToggle": true,
         "usageCount": {
             "/home/antonio/.config/ml4w/scripts/webapp-launch http://10.0.0.150:8008": 1,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://chatgpt.com": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 16,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 17,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://homelab.home": 1,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 16,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv": 13,
@@ -47,7 +47,8 @@
             "helvum": 1,
             "hyprpwcenter": 1,
             "inkscape": 3,
-            "pipewire-config": 2
+            "pipewire-config": 2,
+            "solaar": 1
         }
     }
 }

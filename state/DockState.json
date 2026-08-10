@@ -78,8 +78,9 @@
                 "scrollEnabled": true,
                 "scrollInvert": false,
                 "showAddButton": true,
+                "showNumber": true,
                 "spacing": 4,
-                "style": "focus"
+                "style": "icons"
             }
         }
     }

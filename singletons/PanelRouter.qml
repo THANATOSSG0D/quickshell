@@ -122,14 +122,38 @@ QtObject {
 
   // Versão de resolveInstance() sem callerRef — pra UI (dropdown da aba
   // Painéis) conseguir mostrar/usar o que "Automático" resolveria AGORA,
-  // sem precisar simular quem seria o "chamador". Usa a primeira instância
-  // registrada (tipicamente "bar") como referência de desempate.
+  // sem precisar simular quem seria o "chamador". Usa _defaultCaller quando
+  // disponível (ver setDefaultCaller) — senão cai na primeira instância
+  // registrada ("bar", tipicamente) como último recurso.
+  //
+  // _defaultCaller existe porque, pra rotas com searchModuleName próprio
+  // (ex: "dmenu" buscando "workspaces"), o desempate de "auto" depende de
+  // QUEM chamou (ver resolveInstance acima, regra 2). Sem isso, se
+  // "workspaces" existir em mais de uma instância ao mesmo tempo, esta
+  // função podia resolver pra uma instância diferente da que o caller real
+  // (ex: DmenuIpc.barRoot) resolve em runtime — fazendo a config UI editar
+  // o PopupConfig da instância errada (o slider "grava" mas não parece
+  // fazer efeito nenhum, porque quem lê é a outra instância).
   function resolveInstanceId(moduleName, searchModuleName) {
     var insts = root.allInstances()
     if (insts.length === 0) return "bar"
-    var resolved = root.resolveInstance(moduleName, insts[0], searchModuleName)
+    var caller = root._defaultCaller || insts[0]
+    var resolved = root.resolveInstance(moduleName, caller, searchModuleName)
     return (resolved && resolved.instanceId) ? resolved.instanceId
-                                              : (insts[0].instanceId || "bar")
+                                              : (caller.instanceId || "bar")
+  }
+
+  // ── _defaultCaller ────────────────────────────────────────────────────────
+  // Referência usada por resolveInstanceId() como desempate de "auto" quando
+  // não há um callerRef real disponível (ver comentário acima). Chamadores
+  // com um "dono" fixo e único (ex: DmenuIpc, que sempre resolve usando o
+  // mesmo root.barRoot) devem se registrar aqui uma vez, pra manter a UI e o
+  // runtime consistentes. Não precisa ser chamado por módulos "normais"
+  // (volume, clock, etc.) que não usam searchModuleName — a ambiguidade só
+  // existe quando módulo-de-busca ≠ módulo-da-rota.
+  property var _defaultCaller: null
+  function setDefaultCaller(ref) {
+    root._defaultCaller = ref
   }
 
   // ── Overrides persistidos ─────────────────────────────────────────────────

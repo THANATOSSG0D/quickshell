@@ -116,12 +116,12 @@ Item {
                     onClicked: root.service && root.service.clearAll()
                 }
 
-                // ── Fechar painel ──────────────────────────────────────────
-                HeaderBtn {
-                    icon:      "\uf00d"
-                    colorIcon: root.colorTextDim
-                    onClicked: root.closeRequested()
-                }
+                // // ── Fechar painel ──────────────────────────────────────────
+                // HeaderBtn {
+                //     icon:      "\uf00d"
+                //     colorIcon: root.colorTextDim
+                //     onClicked: root.closeRequested()
+                // }
             }
 
             // Divider

@@ -15,6 +15,10 @@
         "QuickSettingsPopup": {
             "popupH": 620,
             "popupW": 460
+        },
+        "VolumePopupTabbed": {
+            "attachOffset": -1,
+            "bgRadius": 11
         }
     }
 }

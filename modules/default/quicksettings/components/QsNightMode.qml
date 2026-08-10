@@ -202,6 +202,18 @@ Item {
         }
     }
 
+    // Liga/desliga o modo automático (ciclo dia/noite) — extraído do que já
+    // era feito inline no onClicked do AutoPill, só que exposto como função
+    // pública pra poder ser chamado de fora (ex.: clique direito no tile do
+    // Dashboard, sem precisar abrir o painel).
+    function toggleAuto() {
+        if (root.tempAutoActive) {
+            if (!procTempDisableAuto.running) procTempDisableAuto.running = true
+        } else {
+            if (!procTempEnableAuto.running) procTempEnableAuto.running = true
+        }
+    }
+
     function toggleTemp() {
         if (root.tempDaemonOn) {
             procTempToggle.command = ["bash", "-c",
@@ -348,9 +360,7 @@ Item {
             AutoPill {
                 active: root.tempAutoActive
                 accentColor: "#ff7043"
-                onClicked: root.tempAutoActive
-                    ? (procTempDisableAuto.running ? null : (procTempDisableAuto.running = true))
-                    : (procTempEnableAuto.running  ? null : (procTempEnableAuto.running  = true))
+                onClicked: root.toggleAuto()
             }
 
             // POWER — liga/desliga o daemon (gamma + temperatura juntos)

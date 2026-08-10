@@ -14,9 +14,12 @@ import QtQuick.Layouts
 //
 // O perfil "auto" é diferente dos outros: em vez de thermal-profile (fixo),
 // liga o serviço auto-cpufreq.service, que ajusta o governor/EPP sozinho
-// conforme a carga. Trocar PRA auto = start no serviço; trocar DE auto pra
-// qualquer perfil fixo = stop no serviço antes de aplicar o thermal-profile
-// (pra eles não brigarem pelo mesmo cpupower/EPP ao mesmo tempo).
+// conforme a carga. Como power-profiles-daemon.service e cpupower.service
+// também mexem em governor/EPP, os três brigando ao mesmo tempo dá estado
+// inconsistente — então:
+//   entrar em "auto"    = stop power-profiles-daemon + cpupower, start auto-cpufreq
+//   sair de "auto" pra um perfil fixo = stop auto-cpufreq, start power-profiles-
+//   daemon + cpupower, só depois aplica o thermal-profile
 Item {
     id: root
 
@@ -55,7 +58,7 @@ Item {
         if (statusProc.running) return
         root.loading = true; root.hasError = false
         statusProc.command = ["bash", "-c",
-            "systemctl is-active auto-cpufreq 2>/dev/null; echo '---'; thermal-profile waybar 2>/dev/null"]
+            "systemctl is-active auto-cpufreq.service 2>/dev/null; echo '---'; thermal-profile waybar 2>/dev/null"]
         statusProc.running = true
     }
 
@@ -72,11 +75,17 @@ Item {
 
         var cmd
         if (id === "auto") {
-            cmd = "sudo -n systemctl start auto-cpufreq 2>&1; echo EXIT:$?"
+            // entra no auto-cpufreq: precisa parar power-profiles-daemon e
+            // cpupower antes, senão os três ficam brigando pelo mesmo
+            // governor/EPP ao mesmo tempo
+            cmd = "sudo -n systemctl stop power-profiles-daemon.service cpupower.service 2>&1; " +
+                  "sudo -n systemctl start auto-cpufreq.service 2>&1; echo EXIT:$?"
         } else if (previousProfile === "auto") {
-            // sai do auto-cpufreq antes de aplicar um perfil fixo, senão os
-            // dois ficam escrevendo no cpupower/EPP ao mesmo tempo
-            cmd = "sudo -n systemctl stop auto-cpufreq 2>&1; " +
+            // sai do auto-cpufreq: para ele primeiro, reativa power-profiles-
+            // daemon e cpupower (que o thermal-profile espera que estejam
+            // rodando), só depois aplica o perfil fixo
+            cmd = "sudo -n systemctl stop auto-cpufreq.service 2>&1; " +
+                  "sudo -n systemctl start power-profiles-daemon.service cpupower.service 2>&1; " +
                   "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"
         } else {
             // thermal-profile precisa rodar como root: check_permissions() no

@@ -124,6 +124,7 @@
                     "right": [
                     ]
                 },
+                "notchExpandForPopups": true,
                 "notchPopupPadding": 56,
                 "notchRadius": 20,
                 "notchTaper": 24,

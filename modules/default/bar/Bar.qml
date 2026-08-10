@@ -430,10 +430,10 @@ Scope {
       // Atraso entre a Pill começar a esticar e o popup realmente abrir
       // (activePanel muda → panelOpen=true → reveal começa). Só entra em
       // ação quando estamos abrindo A PARTIR de nenhum painel aberto — trocar
-      // entre painéis já abertos (Pill já no tamanho certo) continua instantâneo,
-      // e fechar também é sempre instantâneo. O valor bate com a duração do
-      // Behavior on implicitWidth da Pill (ver Pill.qml, 400ms) — depois desse
-      // tempo a Pill já terminou (ou está bem perto de terminar) de esticar.
+      // entre painéis já abertos (Pill já no tamanho certo) continua instantâneo.
+      // O valor bate com a duração do Behavior on implicitWidth da Pill
+      // (ver Pill.qml, 400ms) — depois desse tempo a Pill já terminou (ou
+      // está bem perto de terminar) de esticar.
       readonly property int _pillGrowDelay: 260
 
       Timer {
@@ -441,6 +441,35 @@ Scope {
         interval: bar._pillGrowDelay
         repeat: false
         onTriggered: bar.activePanel = bar.pillTargetPanel
+      }
+
+      // activePopupCloseDuration: duração real da animação de fechamento do
+      // popup atualmente visado por pillTargetPanel — lê animDuration direto
+      // da instância do popup (cada uma pode ter o próprio valor via
+      // PopupConfig), em vez de um número chutado. Usada por _pillShrinkDelay
+      // logo abaixo pra saber quanto esperar antes de encolher a Pill/Notch/Dock.
+      readonly property int activePopupCloseDuration: {
+        if (pillTargetPanel === barRoot.panelSink)   return volSinkPopup.animDuration
+        if (pillTargetPanel === barRoot.panelSource) return volSourcePopup.animDuration
+        if (pillTargetPanel === barRoot.panelVolume) return volTabbedPopup.animDuration
+        if (pillTargetPanel === barRoot.panelPlayer) return mediaPopup.animDuration
+        if (pillTargetPanel === barRoot.panelClock)  return clockPopup.animDuration
+        if (pillTargetPanel === barRoot.panelQs)     return qsPopup.animDuration
+        if (pillTargetPanel === barRoot.panelEditor) return editorPopup.animDuration
+        if (pillTargetPanel === barRoot.panelNotif)  return notifPopup.animDuration
+        return 220
+      }
+
+      // Atraso simétrico ao _pillGrowDelay, mas pro fechamento: a Pill/Notch/
+      // Dock só volta ao tamanho natural DEPOIS que o popup termina de
+      // desaparecer (activePopupCloseDuration), em vez de encolher junto —
+      // sem isso, em temas com Behavior de largura mais curto que o
+      // animDuration do popup (ex: Dock, 180ms vs 220ms padrão), a barra
+      // encolhia antes do popup sumir de vista.
+      Timer {
+        id: _pillShrinkDelay
+        repeat: false
+        onTriggered: bar.pillTargetPanel = barRoot.panelNone
       }
 
       function openPanel(panelId) {
@@ -458,26 +487,36 @@ Scope {
         var wasClosed = (pillTargetPanel === barRoot.panelNone)
         var newPanel  = (pillTargetPanel === panelId) ? barRoot.panelNone : panelId
 
-        pillTargetPanel = newPanel   // Pill reage já, no mesmo frame do clique
-
         if (newPanel === barRoot.panelNone) {
-          // Fechando — instantâneo, sem esperar nada.
+          // Fechando — o popup começa a fechar já (activePanel muda no mesmo
+          // frame), mas a Pill/Notch/Dock só encolhe depois que a animação
+          // de fechamento do popup termina (ver _pillShrinkDelay). Precisa
+          // ler activePopupCloseDuration ANTES de mexer em activePanel —
+          // depois disso pillTargetPanel ainda aponta pro painel que estava
+          // aberto, então o lookup pega a duração certa.
           _panelOpenDelay.stop()
+          _pillShrinkDelay.interval = bar.activePopupCloseDuration
           activePanel = barRoot.panelNone
-        } else if (wasClosed) {
-          // Abrindo do zero — espera a Pill esticar antes de revelar o popup.
-          _panelOpenDelay.restart()
+          _pillShrinkDelay.restart()
         } else {
-          // Trocando entre painéis já abertos — Pill já está no tamanho
-          // (ou bem perto), não precisa atrasar a troca do popup.
-          _panelOpenDelay.stop()
-          activePanel = newPanel
+          pillTargetPanel = newPanel   // Pill reage já, no mesmo frame do clique
+          _pillShrinkDelay.stop()      // cancela encolhimento pendente, se houver
+          if (wasClosed) {
+            // Abrindo do zero — espera a Pill esticar antes de revelar o popup.
+            _panelOpenDelay.restart()
+          } else {
+            // Trocando entre painéis já abertos — Pill já está no tamanho
+            // (ou bem perto), não precisa atrasar a troca do popup.
+            _panelOpenDelay.stop()
+            activePanel = newPanel
+          }
         }
       }
       function closeAllPanels() {
         _panelOpenDelay.stop()
-        pillTargetPanel = barRoot.panelNone
-        activePanel     = barRoot.panelNone
+        _pillShrinkDelay.interval = bar.activePopupCloseDuration
+        activePanel = barRoot.panelNone
+        _pillShrinkDelay.restart()
       }
 
       readonly property bool sinkPanelOpen:   activePanel === barRoot.panelSink
@@ -765,6 +804,7 @@ Scope {
       Binding { target: loader.item; property: "lobePadH";      value: barState.config.lobePadH;      when: loader.item !== null && "lobePadH"      in (loader.item || {}) }
       Binding { target: loader.item; property: "notchTaper";    value: barState.config.notchTaper;    when: loader.item !== null && "notchTaper"    in (loader.item || {}) }
       Binding { target: loader.item; property: "popupPillPadding"; value: barState.config.popupPillPadding; when: loader.item !== null && "popupPillPadding" in (loader.item || {}) }
+      Binding { target: loader.item; property: "pillExpandForPopups"; value: barState.config.pillExpandForPopups; when: loader.item !== null && "pillExpandForPopups" in (loader.item || {}) }
       Binding { target: loader.item; property: "notchPopupPadding"; value: barState.config.notchPopupPadding; when: loader.item !== null && "notchPopupPadding" in (loader.item || {}) }
       Binding { target: loader.item; property: "notchExpandForPopups"; value: barState.config.notchExpandForPopups; when: loader.item !== null && "notchExpandForPopups" in (loader.item || {}) }
 
@@ -803,6 +843,7 @@ Scope {
         _set("lobePadH",      barState.config.lobePadH)
         _set("notchTaper",    barState.config.notchTaper)
         _set("popupPillPadding", barState.config.popupPillPadding)
+        _set("pillExpandForPopups", barState.config.pillExpandForPopups)
         _set("notchPopupPadding", barState.config.notchPopupPadding)
         _set("notchExpandForPopups", barState.config.notchExpandForPopups)
 

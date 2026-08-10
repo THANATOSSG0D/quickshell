@@ -4,8 +4,10 @@ import QtQuick.Layouts
 // ── QsIconToggle ──────────────────────────────────────────────────────────
 // Botão circular com ícone + label embaixo, pro grid do dashboard compacto
 // (WiFi / Bluetooth / Ethernet / Avião / DND / Idle / Shader / Perfil /
-// Temp-Gamma). Sem sub-navegação própria — o clique só emite `clicked()`;
-// quem usa decide se isso liga/desliga na hora ou abre um menu/subpágina.
+// Temp-Gamma). Clique esquerdo = `clicked()` (abre menu/subpágina, ou liga/
+// desliga direto pros toggles simples). Clique direito = `rightClicked()`,
+// ação rápida de "ligar/desligar o padrão" sem precisar abrir nada — quem
+// usa decide o que isso significa em cada tile.
 //
 // `sub` é opcional: uma segunda linha bem pequena embaixo do label, pra
 // mostrar informação de estado (rede conectada, perfil ativo, shader ativo,
@@ -24,6 +26,7 @@ Item {
     property color colorTextDim: "#c6c6c6"
 
     signal clicked()
+    signal rightClicked()
 
     implicitWidth:  64
     implicitHeight: root.sub !== "" ? 78 : 64
@@ -60,7 +63,11 @@ Item {
                 anchors.fill: parent
                 enabled: root.enabled
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.clicked()
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton) root.rightClicked()
+                    else root.clicked()
+                }
             }
         }
 

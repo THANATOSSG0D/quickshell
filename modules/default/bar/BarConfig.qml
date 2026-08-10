@@ -106,6 +106,7 @@ Item {
   property int  pillWidth:      400
   property int  pillMinSpacing: 20
   property int  popupPillPadding: 32
+  property bool pillExpandForPopups: true
   // Notch
   property int  notchRadius:    18
   property int  concaveRadius:  10
@@ -132,6 +133,7 @@ Item {
     root.pillWidth      = get("bar", "pillWidth")
     root.pillMinSpacing = get("bar", "pillMinSpacing")
     root.popupPillPadding = get("bar", "popupPillPadding")
+    root.pillExpandForPopups = get("bar", "pillExpandForPopups")
     // SEM fallback "|| default" aqui: 0 é um valor válido (raio/inclinação
     // zerados) e agora o schema (BarSchema) já cobre o default quando não
     // há override nem valor no tema — usar "||" fazia 0 virar sempre o
@@ -420,6 +422,7 @@ Item {
     if (opts.pillWidth      !== undefined) set("bar", "pillWidth",      opts.pillWidth)
     if (opts.pillMinSpacing !== undefined) set("bar", "pillMinSpacing", opts.pillMinSpacing)
     if (opts.popupPillPadding !== undefined) set("bar", "popupPillPadding", opts.popupPillPadding)
+    if (opts.pillExpandForPopups !== undefined) set("bar", "pillExpandForPopups", opts.pillExpandForPopups)
     if (opts.notchRadius    !== undefined) set("bar", "notchRadius",    opts.notchRadius)
     if (opts.concaveRadius  !== undefined) set("bar", "concaveRadius",  opts.concaveRadius)
     if (opts.lobePadH       !== undefined) set("bar", "lobePadH",       opts.lobePadH)

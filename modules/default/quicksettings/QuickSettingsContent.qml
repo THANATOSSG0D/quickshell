@@ -482,6 +482,15 @@ Item {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Engrenagem — abre o painel de config do próprio shell (Quickshell)
+    // ═══════════════════════════════════════════════════════════════════════
+    Process { id: shellConfigProc }
+    function _openShellConfig() {
+        shellConfigProc.command = ["qs", "ipc", "call", "config", "toggle"]
+        shellConfigProc.running = true
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Caffeine
     // ═══════════════════════════════════════════════════════════════════════
     property bool dndEnabled:     false
@@ -740,6 +749,29 @@ Item {
                     }
                 }
             }
+
+            // ── Config — abre o painel de config do shell (qs ipc call
+            // config toggle). Mesmo estilo dos botões de DND/Avião ao lado ──
+            Rectangle {
+                implicitWidth: 24; implicitHeight: 24; radius: 12
+                color: Qt.rgba(1, 1, 1, 0.07)
+                scale: gearMA.pressed ? 0.9 : 1.0
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "\uf013"   // nf-fa-gear
+                    color: root.colorTextDim
+                    font.pixelSize: 11; font.family: "JetBrainsMono Nerd Font"
+                }
+
+                MouseArea {
+                    id: gearMA
+                    anchors.fill: parent; anchors.margins: -3
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root._openShellConfig()
+                }
+            }
         }
 
         // ── Conteúdo (só existe uma "aba" agora — Dashboard) ─────────────────
@@ -767,7 +799,9 @@ Item {
                         // Bluetooth/Ethernet ABREM a lista de redes/dispositivos
                         // (o toggle on/off de verdade mora dentro de cada subpágina,
                         // igual já era no QsToggleTile original); Shader, Perfil de
-                        // energia e Temperatura/Gamma abrem o menu único logo abaixo ──
+                        // energia e Temperatura/Gamma abrem o menu único logo abaixo.
+                        // Config (engrenagem) mora no cabeçalho, junto do avião/DND/
+                        // bateria — não é mais tile daqui ───────────────────────────
                         GridLayout {
                             Layout.fillWidth: true
                             columns: 3; rowSpacing: 8; columnSpacing: 4
@@ -777,20 +811,23 @@ Item {
                                 icon: "\uf1eb"; label: "Wi-Fi"; active: root.wifiEnabled
                                 sub: root.wifiEnabled ? root.wifiBadge : ""
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root.subPage = "wifi"
+                                onClicked:      root.subPage = "wifi"
+                                onRightClicked: root._toggleWifi()
                             }
                             Qs.QsIconToggle {
                                 Layout.fillWidth: true
                                 icon: "\uf294"; label: "Bluetooth"; active: root.btEnabled
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root.subPage = "bluetooth"
+                                onClicked:      root.subPage = "bluetooth"
+                                onRightClicked: root._toggleBluetooth()
                             }
                             Qs.QsIconToggle {
                                 Layout.fillWidth: true
                                 icon: "\uf6ff"; label: "Ethernet"; active: root.ethConnected
                                 sub: root.ethConnected ? root.ethDevice : ""
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
-                                onClicked: root.subPage = "ethernet"
+                                onClicked:      root.subPage = "ethernet"
+                                onRightClicked: root._toggleEth()
                             }
                             Qs.QsIconToggle {
                                 Layout.fillWidth: true
@@ -821,6 +858,9 @@ Item {
                                 sub: shaderState.currentShader !== "" ? shaderState.currentShader : "Nenhum"
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                                 onClicked: root.dashOpenCard = (root.dashOpenCard === "shader") ? "" : "shader"
+                                // clique direito = liga/desliga o automático direto,
+                                // sem abrir o menu (off ↔ auto)
+                                onRightClicked: shaderState.mode === "auto" ? shaderState.setOff() : shaderState.setAuto()
                             }
                             Qs.QsIconToggle {
                                 Layout.fillWidth: true
@@ -830,6 +870,10 @@ Item {
                                 sub: powerProfileState.currentLabel
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                                 onClicked: root.dashOpenCard = (root.dashOpenCard === "power") ? "" : "power"
+                                // clique direito = alterna entre Automático e o perfil
+                                // padrão "Balanced", sem abrir o menu
+                                onRightClicked: powerProfileState.setProfile(
+                                    powerProfileState.activeProfile === "auto" ? "balanced" : "auto")
                             }
                             Qs.QsIconToggle {
                                 Layout.fillWidth: true
@@ -840,6 +884,9 @@ Item {
                                     : (nightMode.tempAutoActive ? "Auto" : (nightMode.tempSlider + "K·" + nightMode.gammaSlider + "%"))
                                 colorAccent: root.colorAccent; colorText: root.colorText; colorTextDim: root.colorTextDim
                                 onClicked: root.dashOpenCard = (root.dashOpenCard === "temp") ? "" : "temp"
+                                // clique direito = liga/desliga o automático direto,
+                                // sem abrir o menu
+                                onRightClicked: nightMode.toggleAuto()
                             }
                         }
 

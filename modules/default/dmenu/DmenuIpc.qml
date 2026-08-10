@@ -29,6 +29,16 @@ Item {
 
   property var  barRoot:   null
 
+  // Registra este barRoot como referência de desempate do PanelRouter pra
+  // rotas "auto" com searchModuleName (ver PanelRouter._defaultCaller) —
+  // sem isso, a UI de config (PanelTab "Dmenu" → dropdown "Abre em:" e o
+  // offset de conexão) podia editar o PopupConfig de uma instância diferente
+  // da que _showTop() realmente resolve, quando "workspaces" existisse em
+  // mais de uma barra ao mesmo tempo.
+  onBarRootChanged: {
+    if (root.barRoot) PanelRouter.setDefaultCaller(root.barRoot)
+  }
+
   // ── DmenuConfig — configuração persistente deste módulo ──────────────────
   // Instanciado aqui e exposto como configRef para o ConfigWindow.
   // Shell.qml passa configRef para o ConfigWindow.dmenuConfig.

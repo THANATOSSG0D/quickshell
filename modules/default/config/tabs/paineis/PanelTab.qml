@@ -260,6 +260,10 @@ Item {
     id: _header
     visible: root._showHeader
     height: visible ? 24 : 0
+    // z acima do MouseArea de "clicar fora" (z:999, reparentado pra root
+    // logo abaixo) — sem isso o overlay fica por cima do dropdown e captura
+    // os cliques nas opções antes de chegarem no _optMa.
+    z: 1000
     anchors { top: parent.top; left: parent.left; right: parent.right }
 
     Item {

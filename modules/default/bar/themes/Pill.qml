@@ -38,12 +38,19 @@ Item {
   // do Bar.qml injetar o valor de barState.config.popupPillPadding.
   property int popupPillPadding: 32
 
+  // Liga/desliga o esticamento da pill pra acompanhar popups mais largos.
+  // Desligado: a pill fica sempre no tamanho natural do conteúdo (_naturalW),
+  // e os popups abrem "por cima", sem a barra reagir — mesmo conceito e
+  // mesmo nome (sem prefixo de tema) do notchExpandForPopups do Notch.qml.
+  // Configurável via BarTabBar (seção DIMENSÕES DA BARRA).
+  property bool pillExpandForPopups: true
+
   // _naturalW: largura mínima da pill quando nenhum popup está aberto.
   // _targetWidth: cresce para activePopupW + padding quando popup aberto,
   //               volta para _naturalW quando fecha.
   readonly property int _naturalW: Math.max(minPillWidth, _measuredContentWidth)
   readonly property int _targetWidth: {
-    if (anyPanelOpen && activePopupW > 0) {
+    if (pillExpandForPopups && anyPanelOpen && activePopupW > 0) {
       var expanded = activePopupW + popupPillPadding
       if (expanded > _naturalW) return expanded
     }

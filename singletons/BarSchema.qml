@@ -50,6 +50,7 @@ QtObject {
         { key:"pillWidth",      type:"int",  default:400, min:100, max:1400, step:10, unit:"px", label:"Largura pílula",   section:"DIMENSÕES" },
         { key:"pillMinSpacing", type:"int",  default:20,  min:0,   max:100,  step:5,  unit:"px", label:"Espaçamento mín.", section:"DIMENSÕES" },
         { key:"popupPillPadding", type:"int", default:32, min:0,  max:100,  step:4,  unit:"px", label:"Padding do popup", section:"DIMENSÕES" },
+        { key:"pillExpandForPopups", type:"bool", default:true, label:"Esticar pro popup", section:"DIMENSÕES" },
         // Notch — antes viviam só como fallback hardcoded (`|| 18` etc.) espalhado
         // pelo código; registrados aqui para que get()/defaultValue() os resolvam
         // corretamente e o valor 0 deixe de ser tratado como "não setado".

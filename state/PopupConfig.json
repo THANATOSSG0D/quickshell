@@ -18,9 +18,9 @@
             "popupW": 400
         },
         "DmenuPopup": {
-            "animationStyle": "slide",
+            "animationStyle": "reveal",
             "colorPanelBg": "background",
-            "cornerMode": "bar",
+            "cornerMode": "all",
             "popupH": 460,
             "popupW": 460
         },

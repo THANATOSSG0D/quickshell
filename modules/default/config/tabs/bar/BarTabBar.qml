@@ -91,9 +91,18 @@ C.CfgScroll {
     label: "Padding do popup"; value: root.gd("popupPillPadding", 32)
     from: 0; to: 100; step: 4; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["popupPillPadding"]
+    enabled: root.gd("pillExpandForPopups", true) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ popupPillPadding: v })
+  }
+  C.CfgToggle {
+    label:        "Esticar pro popup"
+    checked:      root.gd("pillExpandForPopups", true) === true
+    visible:      !root.contract.bar || !!root.contract.bar["pillExpandForPopups"]
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ pillExpandForPopups: !(root.gd("pillExpandForPopups", true) === true) })
   }
 
   // ── Notch — campos exclusivos, visíveis só quando o contrato do tema os declara
