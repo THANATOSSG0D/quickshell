@@ -5,3 +5,4 @@ singleton BarSchema   1.0 singletons/BarSchema.qml
 PopupConfig 1.0 singletons/PopupConfig.qml
 singleton TooltipSettings 1.0 singletons/TooltipSettings.qml
 singleton PanelRouter 1.0 singletons/PanelRouter.qml
+singleton StateDir 1.0 singletons/StateDir.qml

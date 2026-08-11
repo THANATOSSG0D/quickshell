@@ -43,6 +43,13 @@ log "Iniciando..."
 qs -c "$LOCK_DIR"
 log "Desbloqueado"
 
+# Recarrega o shell principal — soft reload (rápido, reaproveita janelas)
+if qs ipc call screenLock reload 2>/dev/null; then
+  log "Shell principal recarregado (soft)"
+else
+  log "AVISO: falha ao recarregar o shell principal (instância rodando?)"
+fi
+
 # ── Pós-unlock ────────────────────────────────────────────────────────────────
 # Reativa o timer de wallpaper se estava ativo
 if [[ $_wp_timer_was_active -eq 1 ]]; then

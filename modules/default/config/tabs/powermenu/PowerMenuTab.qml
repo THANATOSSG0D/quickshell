@@ -270,8 +270,60 @@ Item {
   Component {
     id: _compLayout
     C.CfgScroll {
-      C.CfgSection { title: "LAYOUT DOS BOTÕES"; colorTextDim: root.colorTextDim }
+      // ── Estilo geral ────────────────────────────────────────────────────
+      C.CfgSection { title: "ESTILO DO MENU"; colorTextDim: root.colorTextDim }
       Text {
+        width: parent.width
+        text: "\"Cards\" é o visual clássico em grade. \"Lista\" empilha linhas compactas — bom pra janela ancorada num canto. \"Compacto\" vira círculos só com o ícone."
+        color: root.colorTextDim; opacity: 0.6
+        font { family: "Fira Sans"; pixelSize: 11 }
+        wrapMode: Text.WordWrap
+      }
+      Row {
+        spacing: 8
+        C.CfgChip {
+          label: "Cards"
+          active: root.g("menuStyle", "cards") === "cards"
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          onChipClicked: root.s("menuStyle", "cards")
+        }
+        C.CfgChip {
+          label: "Lista"
+          active: root.g("menuStyle", "cards") === "list"
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          onChipClicked: root.s("menuStyle", "list")
+        }
+        C.CfgChip {
+          label: "Compacto"
+          active: root.g("menuStyle", "cards") === "compact"
+          colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+          onChipClicked: root.s("menuStyle", "compact")
+        }
+      }
+
+      C.CfgDiv { colorDivider: root.colorDivider }
+      C.CfgSection { title: "EXIBIÇÃO"; colorTextDim: root.colorTextDim }
+      C.CfgToggle {
+        label: "Mostrar labels (texto abaixo do ícone)"
+        checked: root.g("showLabels", true)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onToggled: root.s("showLabels", !root.g("showLabels", true))
+      }
+      C.CfgToggle {
+        label: "Mostrar badge de atalho de teclado"
+        checked: root.g("showKeybindBadge", true)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onToggled: root.s("showKeybindBadge", !root.g("showKeybindBadge", true))
+      }
+
+      // ── Grupo "cards"/"compact" — grade ───────────────────────────────
+      C.CfgDiv { colorDivider: root.colorDivider; visible: root.g("menuStyle", "cards") !== "list" }
+      C.CfgSection {
+        title: "LAYOUT DA GRADE"; colorTextDim: root.colorTextDim
+        visible: root.g("menuStyle", "cards") !== "list"
+      }
+      Text {
+        visible: root.g("menuStyle", "cards") !== "list"
         width: parent.width
         text: "\"Linha única\" ignora o número de colunas — sempre coloca todas as entradas lado a lado."
         color: root.colorTextDim; opacity: 0.6
@@ -279,6 +331,7 @@ Item {
         wrapMode: Text.WordWrap
       }
       Row {
+        visible: root.g("menuStyle", "cards") !== "list"
         spacing: 8
         C.CfgChip {
           label: "Linha única"
@@ -300,6 +353,7 @@ Item {
         }
       }
       C.CfgSlider {
+        visible: root.g("menuStyle", "cards") !== "list"
         label: "Colunas na grade"; from: 1; to: 6; step: 1; unit: ""
         value: root.g("gridColumns", 3)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -307,9 +361,14 @@ Item {
         onMoved: (v) => root.s("gridColumns", v)
       }
 
-      C.CfgDiv { colorDivider: root.colorDivider }
-      C.CfgSection { title: "TAMANHO DOS CARDS"; colorTextDim: root.colorTextDim }
+      // ── Tamanho — estilo "cards" ───────────────────────────────────────
+      C.CfgDiv { colorDivider: root.colorDivider; visible: root.g("menuStyle", "cards") === "cards" }
+      C.CfgSection {
+        title: "TAMANHO DOS CARDS"; colorTextDim: root.colorTextDim
+        visible: root.g("menuStyle", "cards") === "cards"
+      }
       C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "cards"
         label: "Largura"; from: 100; to: 260; step: 2; unit: " px"
         value: root.g("cardWidth", 160)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -317,6 +376,7 @@ Item {
         onMoved: (v) => root.s("cardWidth", v)
       }
       C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "cards"
         label: "Altura"; from: 120; to: 280; step: 2; unit: " px"
         value: root.g("cardHeight", 180)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -324,6 +384,7 @@ Item {
         onMoved: (v) => root.s("cardHeight", v)
       }
       C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "cards"
         label: "Espaçamento entre cards"; from: 4; to: 60; step: 2; unit: " px"
         value: root.g("cardSpacing", 20)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
@@ -331,12 +392,78 @@ Item {
         onMoved: (v) => root.s("cardSpacing", v)
       }
       C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "cards"
         label: "Raio de borda"; from: 0; to: 40; step: 1; unit: " px"
         value: root.g("cardRadius", 20)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("cardRadius", v)
       }
+
+      // ── Tamanho — estilo "compact" ──────────────────────────────────────
+      C.CfgDiv { colorDivider: root.colorDivider; visible: root.g("menuStyle", "cards") === "compact" }
+      C.CfgSection {
+        title: "TAMANHO DOS CÍRCULOS"; colorTextDim: root.colorTextDim
+        visible: root.g("menuStyle", "cards") === "compact"
+      }
+      C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "compact"
+        label: "Diâmetro"; from: 40; to: 120; step: 2; unit: " px"
+        value: root.g("compactDiameter", 64)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("compactDiameter", v)
+      }
+      C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "compact"
+        label: "Espaçamento"; from: 4; to: 48; step: 2; unit: " px"
+        value: root.g("compactSpacing", 18)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("compactSpacing", v)
+      }
+
+      // ── Tamanho — estilo "list" ──────────────────────────────────────────
+      C.CfgDiv { colorDivider: root.colorDivider; visible: root.g("menuStyle", "cards") === "list" }
+      C.CfgSection {
+        title: "LAYOUT DA LISTA"; colorTextDim: root.colorTextDim
+        visible: root.g("menuStyle", "cards") === "list"
+      }
+      C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "list"
+        label: "Largura"; from: 220; to: 520; step: 10; unit: " px"
+        value: root.g("listWidth", 340)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("listWidth", v)
+      }
+      C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "list"
+        label: "Altura de cada linha"; from: 36; to: 84; step: 2; unit: " px"
+        value: root.g("listItemHeight", 52)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("listItemHeight", v)
+      }
+      C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "list"
+        label: "Espaçamento entre linhas"; from: 0; to: 24; step: 1; unit: " px"
+        value: root.g("listSpacing", 8)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("listSpacing", v)
+      }
+      C.CfgSlider {
+        visible: root.g("menuStyle", "cards") === "list"
+        label: "Raio de borda"; from: 0; to: 32; step: 1; unit: " px"
+        value: root.g("listRadius", 14)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("listRadius", v)
+      }
+
+      C.CfgDiv { colorDivider: root.colorDivider }
+      C.CfgSection { title: "ÍCONE"; colorTextDim: root.colorTextDim }
       C.CfgSlider {
         label: "Tamanho do ícone"; from: 20; to: 64; step: 2; unit: " px"
         value: root.g("iconSize", 42)
@@ -371,30 +498,106 @@ Item {
       C.CfgDiv { colorDivider: root.colorDivider }
       C.CfgSection { title: "GERAL"; colorTextDim: root.colorTextDim }
       C.CfgToggle {
-        label: "Tela cheia (desliga = janela flutuante centralizada)"
+        label: "Tela cheia (desliga = popup flutuante real, do tamanho do conteúdo)"
         checked: root.g("fullscreen", true)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         onToggled: root.s("fullscreen", !root.g("fullscreen", true))
       }
+      C.CfgToggle {
+        label: "Fechar ao clicar fora / perder o foco"
+        checked: root.g("closeOnClickOutside", true)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onToggled: root.s("closeOnClickOutside", !root.g("closeOnClickOutside", true))
+      }
+
+      // ── Modo janela: posição, margens, aparência do popup — só relevantes
+      // com fullscreen desligado. A janela agora é uma superfície real do
+      // tamanho do conteúdo, ancorada num ponto da tela (não mais um card
+      // desenhado sobre um dim cobrindo a tela toda). ─────────────────────
+      C.CfgDiv { colorDivider: root.colorDivider; visible: !root.g("fullscreen", true) }
+      C.CfgSection {
+        title: "POSIÇÃO DO POPUP (MODO JANELA)"; colorTextDim: root.colorTextDim
+        visible: !root.g("fullscreen", true)
+      }
+      GridLayout {
+        visible: !root.g("fullscreen", true)
+        columns: 3
+        columnSpacing: 8
+        rowSpacing: 8
+
+        Repeater {
+          model: [
+            { key: "top-left",     label: "↖" }, { key: "top",     label: "↑" }, { key: "top-right",    label: "↗" },
+            { key: "left",         label: "←" }, { key: "center",  label: "•" }, { key: "right",        label: "→" },
+            { key: "bottom-left",  label: "↙" }, { key: "bottom",  label: "↓" }, { key: "bottom-right", label: "↘" },
+          ]
+          delegate: Rectangle {
+            required property var modelData
+            Layout.preferredWidth: 44; Layout.preferredHeight: 40
+            radius: 8
+            readonly property bool _active: root.g("windowPosition", "center") === modelData.key
+            color: _active
+              ? Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.18)
+              : "transparent"
+            border.color: _active ? root.colorAccent : root.colorDivider
+            border.width: 1
+            Text {
+              anchors.centerIn: parent
+              text: modelData.label
+              color: _active ? root.colorAccent : root.colorTextDim
+              font.pixelSize: 16
+            }
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: root.s("windowPosition", modelData.key)
+            }
+          }
+        }
+      }
       C.CfgSlider {
-        label: "Espaço interno do card (modo janela)"; from: 16; to: 80; step: 2; unit: " px"
+        visible: !root.g("fullscreen", true) && root.g("windowPosition", "center") !== "center"
+        label: "Margem da borda (horizontal)"; from: 0; to: 200; step: 4; unit: " px"
+        value: root.g("windowMarginX", 56)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("windowMarginX", v)
+      }
+      C.CfgSlider {
+        visible: !root.g("fullscreen", true) && root.g("windowPosition", "center") !== "center"
+        label: "Margem da borda (vertical)"; from: 0; to: 200; step: 4; unit: " px"
+        value: root.g("windowMarginY", 56)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("windowMarginY", v)
+      }
+
+      C.CfgDiv { colorDivider: root.colorDivider; visible: !root.g("fullscreen", true) }
+      C.CfgSection {
+        title: "APARÊNCIA DO POPUP (MODO JANELA)"; colorTextDim: root.colorTextDim
+        visible: !root.g("fullscreen", true)
+      }
+      C.CfgSlider {
+        visible: !root.g("fullscreen", true)
+        label: "Espaço interno do card"; from: 16; to: 80; step: 2; unit: " px"
         value: root.g("windowedPadding", 40)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("windowedPadding", v)
       }
       C.CfgSlider {
-        label: "Raio de borda do card (modo janela)"; from: 0; to: 48; step: 2; unit: " px"
+        visible: !root.g("fullscreen", true)
+        label: "Raio de borda do card"; from: 0; to: 48; step: 2; unit: " px"
         value: root.g("windowedRadius", 24)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("windowedRadius", v)
       }
       C.CfgToggle {
-        label: "Fechar ao clicar fora dos cards"
-        checked: root.g("closeOnClickOutside", true)
+        visible: !root.g("fullscreen", true)
+        label: "Sombra atrás do card"
+        checked: root.g("windowShadow", true)
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-        onToggled: root.s("closeOnClickOutside", !root.g("closeOnClickOutside", true))
+        onToggled: root.s("windowShadow", !root.g("windowShadow", true))
       }
 
       C.CfgDiv { colorDivider: root.colorDivider }

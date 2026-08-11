@@ -37,6 +37,10 @@ Scope {
   property var popupConfig: PopupConfig {
     id: popupConfigInst
     path: barRoot.popupConfigJsonPath
+    // Isola a config de aparência/posição dos popups POR TEMA — troca de
+    // tema na barra (ou na dock) troca junto as cores/tamanhos dos painéis.
+    // Ver PopupConfig.qml (cascata: themes[tema] → legado → defaults).
+    theme: barState.currentTheme
   }
 
   // Referência pública — popups leem via barRef.popupConfigRef (ver
@@ -808,6 +812,17 @@ Scope {
       Binding { target: loader.item; property: "notchPopupPadding"; value: barState.config.notchPopupPadding; when: loader.item !== null && "notchPopupPadding" in (loader.item || {}) }
       Binding { target: loader.item; property: "notchExpandForPopups"; value: barState.config.notchExpandForPopups; when: loader.item !== null && "notchExpandForPopups" in (loader.item || {}) }
 
+      // ── Bindings reativos de arredondamento ─────────────────────────────
+      // Uma por tema — só a que existir de fato em loader.item (checagem
+      // "in") é aplicada; as outras três simplesmente não casam com nenhuma
+      // prop do item carregado e ficam inertes. Mesmo padrão/racional do
+      // Notch acima: SEM fallback "|| default", 0 é valor válido (cantos
+      // 100% quadrados).
+      Binding { target: loader.item; property: "barRadius";    value: barState.config.barRadius;    when: loader.item !== null && "barRadius"    in (loader.item || {}) }
+      Binding { target: loader.item; property: "chipRadius";   value: barState.config.chipRadius;   when: loader.item !== null && "chipRadius"   in (loader.item || {}) }
+      Binding { target: loader.item; property: "islandRadius"; value: barState.config.islandRadius; when: loader.item !== null && "islandRadius" in (loader.item || {}) }
+      Binding { target: loader.item; property: "handleRadius"; value: barState.config.handleRadius; when: loader.item !== null && "handleRadius" in (loader.item || {}) }
+
       // Props que NUNCA devem ser multiplicadas por moduleScale, mesmo que o
       // nome bata com o padrão abaixo (ex.: "concaveRadius"/"notchRadius"
       // terminam em "Radius"). Estas já têm Binding{} própria (linhas acima)
@@ -815,7 +830,10 @@ Scope {
       // vivo — se _set() as escalasse, ficariam escaladas só no load inicial
       // (via _applyConfig) e SEM escala nas mudanças ao vivo do slider,
       // um comportamento inconsistente. Ficam de fora por completo.
-      readonly property var _unscaledProps: ["notchRadius", "concaveRadius", "lobePadH", "notchTaper"]
+      readonly property var _unscaledProps: [
+        "notchRadius", "concaveRadius", "lobePadH", "notchTaper",
+        "barRadius", "chipRadius", "islandRadius", "handleRadius"
+      ]
 
       // Reconhece props "de tamanho" dos módulos (ícones, fontes, dots,
       // artwork, paddings/spacing internos) para aplicar o multiplicador
@@ -846,6 +864,13 @@ Scope {
         _set("pillExpandForPopups", barState.config.pillExpandForPopups)
         _set("notchPopupPadding", barState.config.notchPopupPadding)
         _set("notchExpandForPopups", barState.config.notchExpandForPopups)
+
+        // Arredondamento — idem: cada _set() só escreve se a prop existir
+        // de fato em loader.item, então é seguro chamar as 4 sempre.
+        _set("barRadius",    barState.config.barRadius)
+        _set("chipRadius",   barState.config.chipRadius)
+        _set("islandRadius", barState.config.islandRadius)
+        _set("handleRadius", barState.config.handleRadius)
 
         // workspaces
         _set("cfgWsStyle",          barState.config.wsStyle)

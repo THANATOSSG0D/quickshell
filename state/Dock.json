@@ -5,7 +5,7 @@
         "cornersMode": "edge",
         "cornersOverFullscreen": false,
         "cornersRadius": 24,
-        "enabled": true,
+        "enabled": false,
         "floating": false,
         "pinned": false,
         "silence": false,

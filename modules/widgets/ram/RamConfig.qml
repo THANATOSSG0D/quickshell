@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.singletons
 
 Item {
   id: config
@@ -67,24 +68,18 @@ Item {
   onShowHistoryChanged:   adapter.showHistory   = showHistory
   onShowSwapChanged:      adapter.showSwap      = showSwap
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: {
-      file.reload()
-      // garante que o JSON existe no disco mesmo se o usuário nunca
-      // mexer em nenhum slider/toggle desse widget — sem isso,
-      // writeAdapter() só dispara quando alguma propriedade muda, e o
-      // arquivo nunca chega a ser criado (fica warnando pra sempre)
-      initTimer.start()
-    }
-  }
-
   Timer {
     id: initTimer
     interval: 300
     onTriggered: file.writeAdapter()
   }
 
-  Component.onCompleted: mkdirProc.running = true
+  // garante que o JSON existe no disco mesmo se o usuário nunca
+  // mexer em nenhum slider/toggle desse widget — sem isso,
+  // writeAdapter() só dispara quando alguma propriedade muda, e o
+  // arquivo nunca chega a ser criado (fica warnando pra sempre)
+  Component.onCompleted: StateDir.whenReady(() => {
+    file.reload()
+    initTimer.start()
+  })
 }

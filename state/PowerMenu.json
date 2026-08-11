@@ -47,7 +47,16 @@
         }
     ],
     "settings": {
-        "buttonLayoutMode": "grid",
-        "fullscreen": false
+        "buttonLayoutMode": "row",
+        "cardHeight": 280,
+        "cardRadius": 30,
+        "cardSpacing": 30,
+        "cardWidth": 170,
+        "fullscreen": false,
+        "iconSize": 50,
+        "menuStyle": "cards",
+        "overlayOpacity": 0.68,
+        "windowPosition": "top",
+        "windowShadow": false
     }
 }

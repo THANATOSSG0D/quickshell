@@ -1,6 +1,6 @@
 {
     "bar": {
-        "alwaysVisible": true,
+        "alwaysVisible": false,
         "cornersEnabled": true,
         "cornersMode": "edge",
         "cornersOverFullscreen": true,
@@ -9,11 +9,11 @@
         "floating": false,
         "pinned": false,
         "silence": false,
-        "theme": "Notch",
-        "tooltipAlign": "bar",
+        "theme": "Bento",
+        "tooltipAlign": "section",
         "tooltipEnabled": true,
         "tooltipMaxWidth": 320,
-        "tooltipMinWidth": 320,
+        "tooltipMinWidth": 200,
         "tooltipOffset": 6
     },
     "themes": {

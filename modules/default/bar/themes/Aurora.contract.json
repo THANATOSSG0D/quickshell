@@ -2,7 +2,8 @@
     "bar": {
         "barSize": true,
         "barMargin": true,
-        "pillMinSpacing": true
+        "pillMinSpacing": true,
+        "barRadius": true
     },
     "palette": {
         "barBg": true,

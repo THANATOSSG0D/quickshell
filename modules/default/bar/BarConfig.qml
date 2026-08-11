@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
+import qs.singletons
 
 // BarConfig — API central de leitura e escrita de configurações do bar.
 //
@@ -114,6 +115,12 @@ Item {
   property int  notchTaper:     20
   property int  notchPopupPadding: 32
   property bool notchExpandForPopups: true
+  // Arredondamento — uma prop por tema (só a do tema ativo é relevante;
+  // as demais ficam simplesmente sem uso, mesmo padrão do notch acima).
+  property int  barRadius:     16
+  property int  chipRadius:    40
+  property int  islandRadius:  12
+  property int  handleRadius:  40
 
   property var modulesLeft:   []
   property var modulesCenter: []
@@ -144,6 +151,11 @@ Item {
     root.notchTaper     = get("bar", "notchTaper")
     root.notchPopupPadding = get("bar", "notchPopupPadding")
     root.notchExpandForPopups = get("bar", "notchExpandForPopups")
+
+    root.barRadius     = get("bar", "barRadius")
+    root.chipRadius    = get("bar", "chipRadius")
+    root.islandRadius  = get("bar", "islandRadius")
+    root.handleRadius  = get("bar", "handleRadius")
 
     root.modulesLeft   = getModules("left")
     root.modulesCenter = getModules("center")
@@ -429,6 +441,10 @@ Item {
     if (opts.notchTaper     !== undefined) set("bar", "notchTaper",     opts.notchTaper)
     if (opts.notchPopupPadding !== undefined) set("bar", "notchPopupPadding", opts.notchPopupPadding)
     if (opts.notchExpandForPopups !== undefined) set("bar", "notchExpandForPopups", opts.notchExpandForPopups)
+    if (opts.barRadius      !== undefined) set("bar", "barRadius",      opts.barRadius)
+    if (opts.chipRadius     !== undefined) set("bar", "chipRadius",     opts.chipRadius)
+    if (opts.islandRadius   !== undefined) set("bar", "islandRadius",   opts.islandRadius)
+    if (opts.handleRadius   !== undefined) set("bar", "handleRadius",   opts.handleRadius)
 
     // ── Listas de módulos do layout — por tema, via setModules() ───────
     if (opts.modulesLeft    !== undefined) setModules("left",   opts.modulesLeft)
@@ -772,14 +788,8 @@ Item {
   }
 
   // ── Startup ────────────────────────────────────────────────────────────
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: { root._ready = true; startupTimer.start() }
-  }
-
-  // Fallback: se themes já vier populado antes do Process terminar, ou se
-  // por algum motivo onThemesChanged não disparar (valores idênticos),
+  // Fallback: se themes já vier populado antes do StateDir ficar pronto, ou
+  // se por algum motivo onThemesChanged não disparar (valores idênticos),
   // garante que configLoaded seja liberado mesmo assim.
   Timer {
     id: startupTimer
@@ -795,5 +805,8 @@ Item {
     }
   }
 
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: StateDir.whenReady(() => {
+    root._ready = true
+    startupTimer.start()
+  })
 }

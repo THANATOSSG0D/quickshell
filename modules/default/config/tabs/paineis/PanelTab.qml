@@ -256,6 +256,51 @@ Item {
     _headerDrop.expanded = false
   }
 
+  // ── Badge "Tema: X" ──────────────────────────────────────────────────────
+  // As preferências de painel (PopupConfig) agora são isoladas por tema —
+  // este badge deixa claro qual tema está sendo editado agora (o da
+  // instância efetiva: bar ou dock), já que trocar de tema na barra troca
+  // junto os valores mostrados/gravados abaixo. Visível sempre que há uma
+  // PopupConfig ativa (root._pc), independente de haver roteamento ou não.
+  readonly property bool _showThemeBadge: root._pc !== null
+  readonly property string _themeBadgeText: root._pc ? root._pc.theme : ""
+
+  Item {
+    id: _headerRow
+    height: (root._showThemeBadge || root._showHeader) ? 24 : 0
+    anchors { top: parent.top; left: parent.left; right: parent.right }
+  }
+
+  Item {
+    id: _themeBadge
+    visible: root._showThemeBadge
+    height: visible ? 24 : 0
+    anchors { top: parent.top; left: parent.left }
+
+    Rectangle {
+      anchors.verticalCenter: parent.verticalCenter
+      radius: 6; height: 22
+      width: _themeBadgeRow.implicitWidth + 16
+      color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.10)
+      border.color: Qt.rgba(root.colorAccent.r, root.colorAccent.g, root.colorAccent.b, 0.25)
+      border.width: 1
+
+      Row {
+        id: _themeBadgeRow
+        anchors.centerIn: parent; spacing: 5
+        Text {
+          text: "Tema:"; color: root.colorTextDim; font.pixelSize: 9
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          text: root._themeBadgeText
+          color: root.colorAccent; font.pixelSize: 9; font.weight: Font.Medium
+          anchors.verticalCenter: parent.verticalCenter
+        }
+      }
+    }
+  }
+
   Item {
     id: _header
     visible: root._showHeader
@@ -365,7 +410,7 @@ Item {
 
   // ── Loader principal ──────────────────────────────────────────────────
   Loader {
-    anchors { top: _header.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
+    anchors { top: _headerRow.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
     property int _sub: root.activeSubtab
     on_SubChanged: { active = false; active = true }
     active: true

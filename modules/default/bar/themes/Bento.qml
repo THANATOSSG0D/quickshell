@@ -591,6 +591,15 @@ Item {
       property string modelData:   ""
       property string monitorName: ""
       readonly property bool isDivider: modelData === "separator" || modelData === "spacer"
+      // FIX-ROUNDING: mesmo princípio do container clip:true da ilha
+      // central do Dock.qml ("evita transbordo visual se o conteúdo for
+      // maior que o espaço") — aqui height:root.barSize é fixo mas o
+      // conteúdo do módulo (ícones, texto) não é clampado a esse valor.
+      // Com barSize pequeno (<32px) o conteúdo interno estoura por cima
+      // da pílula arredondada, dando a impressão de canto quadrado/não
+      // arredondado. clip:true garante que nada renderize fora do
+      // retângulo (já arredondado pelo radius) deste Item.
+      clip: true
       // _findRef (função compartilhada, ver Dock.qml) espera que
       // "loaderItem.item" exponha mediaPlayer/volumeWidget/etc diretamente —
       // como aqui o Loader do Repeater carrega chipWrap (não o moduleItemComp
@@ -673,6 +682,10 @@ Item {
       property string modelData:   ""
       property string monitorName: ""
       readonly property bool isDivider: modelData === "separator" || modelData === "spacer"
+      // FIX-ROUNDING: ver comentário equivalente em chipCompH acima —
+      // mesmo problema espelhado pro eixo vertical (aqui é width:root.barSize
+      // que fica pequeno e o conteúdo não é clampado a ele).
+      clip: true
       // _findRef (função compartilhada, ver Dock.qml) espera que
       // "loaderItem.item" exponha mediaPlayer/volumeWidget/etc diretamente —
       // como aqui o Loader do Repeater carrega chipWrap (não o moduleItemComp

@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.singletons
 
 // ── WidgetVisibilityConfig ──────────────────────────────────────────────
 // Liga/desliga widgets individualmente — funciona tanto pra widgets
@@ -61,11 +62,5 @@ Item {
       adapter.disabled = disabled
   }
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: file.reload()
-  }
-
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: StateDir.whenReady(() => file.reload())
 }

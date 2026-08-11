@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import Quickshell.Io
 import "."
 
@@ -30,15 +31,89 @@ PanelWindow {
   visible: _alive
   color:   "transparent"
 
+  // ── Geometria ─────────────────────────────────────────────────────────────
+  // Modo tela cheia (fullscreen=true, padrão): a superfície cobre a tela
+  // toda, como sempre foi — dim de fundo cobrindo tudo, card desenhado
+  // centralizado por cima (PowerMenuPanel cuida disso).
+  //
+  // Modo janela (fullscreen=false): a superfície layer-shell passa a ter o
+  // tamanho REAL do conteúdo (PowerMenuPanel.contentWidth/contentHeight,
+  // que o próprio card calcula a partir dos itens) e é ancorada num ponto
+  // configurável da tela (windowPosition) — igual ao padrão já usado pelo
+  // ConfigWindow.qml (anchors nos 4 lados + margins calculadas pra
+  // posicionar uma superfície de tamanho fixo dentro da tela).
+  readonly property bool   _fullscreenMode: root.config ? root.config.get("fullscreen", true) : true
+  readonly property string _windowPosition: root.config ? root.config.get("windowPosition", "center") : "center"
+  readonly property int    _marginX:        root.config ? root.config.get("windowMarginX", 56) : 56
+  readonly property int    _marginY:        root.config ? root.config.get("windowMarginY", 56) : 56
+
+  readonly property int _contentW: panel ? panel.contentWidth  : 0
+  readonly property int _contentH: panel ? panel.contentHeight : 0
+
+  readonly property int _winW: root._fullscreenMode ? (root.screen ? root.screen.width  : 0) : Math.max(1, root._contentW)
+  readonly property int _winH: root._fullscreenMode ? (root.screen ? root.screen.height : 0) : Math.max(1, root._contentH)
+
+  // mapa windowPosition → eixo "start" (perto da borda 0) / "end" (perto da
+  // borda oposta) / "center", pros dois eixos independentemente
+  readonly property var _posAxis: ({
+    "center":       { h: "center", v: "center" },
+    "top":          { h: "center", v: "start"  },
+    "bottom":       { h: "center", v: "end"    },
+    "left":         { h: "start",  v: "center" },
+    "right":        { h: "end",    v: "center" },
+    "top-left":     { h: "start",  v: "start"  },
+    "top-right":    { h: "end",    v: "start"  },
+    "bottom-left":  { h: "start",  v: "end"    },
+    "bottom-right": { h: "end",    v: "end"    },
+  })
+  readonly property var _axis: root._posAxis[root._windowPosition] || root._posAxis["center"]
+
+  // Calcula (margemInicial, margemFinal) de um eixo pra posicionar uma caixa
+  // de `size` dentro de `screenSize`, ancorada em "start"/"end"/"center".
+  function _axisMargins(size, screenSize, mode, gap) {
+    if (mode === "start") return [gap, Math.max(0, screenSize - size - gap)]
+    if (mode === "end")   return [Math.max(0, screenSize - size - gap), gap]
+    var c = Math.max(0, Math.floor((screenSize - size) / 2))
+    return [c, c]
+  }
+
+  readonly property var _hMargins: root.screen
+    ? root._axisMargins(root._winW, root.screen.width,  root._fullscreenMode ? "center" : root._axis.h, root._marginX)
+    : [0, 0]
+  readonly property var _vMargins: root.screen
+    ? root._axisMargins(root._winH, root.screen.height, root._fullscreenMode ? "center" : root._axis.v, root._marginY)
+    : [0, 0]
+
+  implicitWidth:  root._winW
+  implicitHeight: root._winH
+
   anchors.top:    true
   anchors.bottom: true
   anchors.left:   true
   anchors.right:  true
 
+  margins.left:   root._fullscreenMode ? 0 : root._hMargins[0]
+  margins.right:  root._fullscreenMode ? 0 : root._hMargins[1]
+  margins.top:    root._fullscreenMode ? 0 : root._vMargins[0]
+  margins.bottom: root._fullscreenMode ? 0 : root._vMargins[1]
+
   WlrLayershell.layer:         WlrLayershell.Overlay
   WlrLayershell.exclusionMode: ExclusionMode.Ignore
   WlrLayershell.exclusiveZone: 0
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+
+  // ── Fechar ao perder o foco — só faz sentido no modo janela: no modo
+  // tela cheia já existe o MouseArea no dim de fundo (PowerMenuPanel) pra
+  // fechar ao clicar fora, e a superfície cobre a tela toda mesmo (não tem
+  // "fora" de verdade pro Hyprland detectar). No modo janela a superfície
+  // agora é do tamanho do card, então clicar fora dela é clicar em outra
+  // janela/desktop — é isso que o HyprlandFocusGrab detecta. ───────────────
+  HyprlandFocusGrab {
+    windows: [root]
+    active:  root._open && !root._fullscreenMode &&
+      (root.config ? root.config.get("closeOnClickOutside", true) : true)
+    onCleared: { if (root._open) root._open = false }
+  }
 
   // ── Animação de entrada/saída (mesmo padrão do ConfigWindow) ─────────────
   property real _anim:    0.0
@@ -173,6 +248,7 @@ PanelWindow {
     }
 
     PowerMenuPanel {
+      id: panel
       anchors.fill: parent
       entries:      root._entries
       focused:      root._focused

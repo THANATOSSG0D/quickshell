@@ -2,10 +2,10 @@
     "globals": {
         "animDuration": 500,
         "animationStyle": "reveal",
-        "attachOffset": 0,
+        "attachOffset": 5,
         "bgRadius": 10,
         "colorPanelBg": "background",
-        "cornerMode": "bar",
+        "cornerMode": "all",
         "popupXAlign": "center",
         "popupYAnchor": "bar",
         "shadowEnabled": false
@@ -38,6 +38,43 @@
             "animationStyle": "slide",
             "colorPanelBg": "background",
             "popupW": 400
+        }
+    },
+    "themes": {
+        "Bento": {
+            "globals": {
+                "popupXAlign": "center",
+                "popupXOffset": 6
+            },
+            "overrides": {
+                "ClockPopup": {
+                    "popupXAlign": "right"
+                },
+                "MediaPlayerPopup": {
+                    "popupXAlign": "left"
+                },
+                "NotificationsPopup": {
+                    "popupXAlign": "right"
+                },
+                "QuickSettingsPopup": {
+                    "popupXAlign": "left"
+                },
+                "VolumePopupTabbed": {
+                    "attachOffset": 5,
+                    "colorPanelBg": "background",
+                    "cornerMode": "all",
+                    "popupXAlign": "right",
+                    "popupXOffset": 6
+                }
+            }
+        },
+        "Notch": {
+            "globals": {
+                "attachOffset": 0,
+                "cornerMode": "bar"
+            },
+            "overrides": {
+            }
         }
     }
 }

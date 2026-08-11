@@ -19,10 +19,36 @@ QtObject {
     readonly property string scriptPath: Quickshell.env("HOME") +
                                          "/.config/quickshell/scripts/screenlock"
 
-    // IPC: qs ipc call screenLock lock
     // Lança o shell script (que por sua vez roda qs -c)
     function lock() {
         Quickshell.execDetached(["bash", "-c",
             "nohup " + root.scriptPath + " >/dev/null 2>&1 &"])
+    }
+
+    // ── IPC ───────────────────────────────────────────────────────────────
+    // qs ipc call screenLock lock        → bloqueia a sessão
+    // qs ipc call screenLock reload      → reload RÁPIDO (soft, reaproveita
+    //                                       janelas) — usado automaticamente
+    //                                       pelo script `screenlock` no unlock
+    // qs ipc call screenLock reloadHard  → reload completo (recria janelas,
+    //                                       mais lento) — só se o soft não
+    //                                       for suficiente pra corrigir o bug
+    //
+    // QtObject não tem "default property", então o IpcHandler precisa ser
+    // atribuído a uma property explícita em vez de aninhado implicitamente.
+    property QtObject ipcHandler: IpcHandler {
+        target: "screenLock"
+
+        function lock(): void {
+            root.lock()
+        }
+
+        function reload(): void {
+            Quickshell.reload(false)
+        }
+
+        function reloadHard(): void {
+            Quickshell.reload(true)
+        }
     }
 }

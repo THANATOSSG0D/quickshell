@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.singletons
 
 // ── HabitsConfig ─────────────────────────────────────────────────────────
 // Config do widget de Habit Tracking, pensado pro dia a dia: hábitos podem
@@ -361,15 +362,6 @@ Item {
       adapter.habits = habits
   }
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: {
-      file.reload()
-      initTimer.start()
-    }
-  }
-
   Timer {
     id: initTimer
     interval: 300
@@ -384,5 +376,8 @@ Item {
     onTriggered: config._pruneOld()
   }
 
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: StateDir.whenReady(() => {
+    file.reload()
+    initTimer.start()
+  })
 }

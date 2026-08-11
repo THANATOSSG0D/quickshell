@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
+import qs.singletons
 
 // ── ClockContent ───────────────────────────────────────────────────────────
 // Fonte de verdade do timer/pomodoro.
@@ -144,12 +145,7 @@ Item {
     }
   }
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: stateFile.reload()
-  }
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: StateDir.whenReady(() => stateFile.reload())
 
   function _loadState() {
     var s = stateAdapter

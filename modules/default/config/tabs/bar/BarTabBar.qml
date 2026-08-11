@@ -160,6 +160,48 @@ C.CfgScroll {
     onToggled: root.changed({ notchExpandForPopups: !(root.gd("notchExpandForPopups", true) === true) })
   }
 
+  // ── Arredondamento — cada tema só declara SUA prop no contract.json,
+  // então no máximo um destes 4 sliders aparece de cada vez.
+  readonly property bool _hasRoundness:
+    (!root.contract.bar || !!root.contract.bar["barRadius"])    ||
+    (!root.contract.bar || !!root.contract.bar["chipRadius"])   ||
+    (!root.contract.bar || !!root.contract.bar["islandRadius"]) ||
+    (!root.contract.bar || !!root.contract.bar["handleRadius"])
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root._hasRoundness }
+  C.CfgSection { title: "ARREDONDAMENTO"; colorTextDim: root.colorTextDim; visible: root._hasRoundness }
+  C.CfgSlider {
+    label: "Arredondamento"; value: root.gd("barRadius", 16)
+    from: 0; to: 40; step: 1; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["barRadius"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ barRadius: v })
+  }
+  C.CfgSlider {
+    label: "Arredondamento"; value: root.gd("chipRadius", 40)
+    from: 0; to: 60; step: 1; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["chipRadius"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ chipRadius: v })
+  }
+  C.CfgSlider {
+    label: "Arredondamento"; value: root.gd("islandRadius", 12)
+    from: 0; to: 40; step: 1; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["islandRadius"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ islandRadius: v })
+  }
+  C.CfgSlider {
+    label: "Arredondamento"; value: root.gd("handleRadius", 40)
+    from: 0; to: 60; step: 1; unit: "px"
+    visible: !root.contract.bar || !!root.contract.bar["handleRadius"]
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ handleRadius: v })
+  }
+
   C.CfgDiv { colorDivider: root.colorDivider }
 
   // ════════════════════════════════════════════════════════════════════

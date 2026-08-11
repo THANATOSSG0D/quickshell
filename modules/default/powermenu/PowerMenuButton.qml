@@ -11,6 +11,10 @@ Item {
   // confirmar (ações destrutivas com entry.confirm === true)
   property bool pending:   false
 
+  // "card" (padrão — retângulo com ícone+label+keybind) · "compact"
+  // (círculo só com o ícone, usado pelo menuStyle "compact")
+  property string variant: "card"
+
   // PowerMenuConfig — opcional. Sem config, cai nos defaults hardcoded
   // de sempre (Colors.* direto), então o componente nunca quebra mesmo
   // se for usado fora do fluxo normal do PowerMenu.qml.
@@ -43,19 +47,37 @@ Item {
   // Card fica "quente" (vermelho) quando é destrutivo e está em foco/pending
   readonly property bool _hot: pending || (isFocused && entry.danger === true)
 
-  width:  _g("cardWidth",  160)
-  height: _g("cardHeight", 180)
+  readonly property bool _compact: root.variant === "compact"
+
+  // Tamanho-alvo do botão. Guardado numa property própria (não direto em
+  // `width`/`height`) e replicado em Layout.preferredWidth/Height — quando
+  // este item vive dentro de um GridLayout/RowLayout/ColumnLayout (como no
+  // PowerMenuPanel), o Layout SEMPRE sobrescreve `width`/`height` fixados
+  // direto na property; ele só respeita o tamanho pedido via as properties
+  // anexadas Layout.preferredWidth/Layout.preferredHeight. Sem isso, os
+  // sliders de "Largura"/"Altura" do card na aba de config não tinham
+  // nenhum efeito visual — o layout sempre esmagava o valor de volta.
+  readonly property int _targetW: root._compact ? root._g("compactDiameter", 64) : root._g("cardWidth",  160)
+  readonly property int _targetH: root._compact ? root._g("compactDiameter", 64) : root._g("cardHeight", 180)
+
+  width:  root._targetW
+  height: root._targetH
+  Layout.preferredWidth:  root._targetW
+  Layout.preferredHeight: root._targetH
 
   // ── Scale no hover/foco ───────────────────────────────────────────────────
   scale: isFocused ? root._focusScale : 1.0
   Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+  // Raio efetivo — vira metade da dimensão (círculo perfeito) no compact
+  readonly property int _radius: root._compact ? Math.round(root._targetW / 2) : root._g("cardRadius", 20)
 
   // ── Glow externo ─────────────────────────────────────────────────────────
   Rectangle {
     anchors.centerIn: parent
     width:   parent.width  + 18
     height:  parent.height + 18
-    radius:  root._g("cardRadius", 20) + 6
+    radius:  root._compact ? width / 2 : root._radius + 6
     color:   "transparent"
     border.color: root._hot ? root._cDanger : root._cAccent
     border.width: 1
@@ -68,7 +90,7 @@ Item {
   Rectangle {
     id: card
     anchors.fill: parent
-    radius:       root._g("cardRadius", 20)
+    radius:       root._radius
 
     color: root._hot
       ? Qt.rgba(root._cDanger.r, root._cDanger.g, root._cDanger.b, isFocused ? 0.24 : 0.10)
@@ -82,8 +104,10 @@ Item {
     Behavior on color        { ColorAnimation { duration: root._animMs } }
     Behavior on border.color { ColorAnimation { duration: root._animMs } }
 
-    // Linha de acento no topo do card
+    // Linha de acento no topo do card — só no estilo "card" (num círculo
+    // não tem "topo reto" pra grudar uma linha decorativa)
     Rectangle {
+      visible: !root._compact
       anchors.top:              parent.top
       anchors.horizontalCenter: parent.horizontalCenter
       width:   isFocused ? 56 : 0
@@ -95,8 +119,14 @@ Item {
     }
   }
 
-  // ── Conteúdo ──────────────────────────────────────────────────────────────
+  // Config de exibição — a badge de atalho pode ser desligada globalmente;
+  // labels não fazem sentido no variant "compact" (círculo pequeno demais).
+  readonly property bool _showLabels:   !root._compact && root._g("showLabels", true)
+  readonly property bool _showKeybind:  root._g("showKeybindBadge", true)
+
+  // ── Conteúdo — estilo "card" (ícone + label + keybind, empilhados) ────────
   ColumnLayout {
+    visible: !root._compact
     anchors {
       fill:         parent
       topMargin:    26
@@ -124,6 +154,7 @@ Item {
 
     // Divisor
     Rectangle {
+      visible: root._showLabels
       Layout.alignment: Qt.AlignHCenter
       width:   isFocused ? 30 : 14
       height:  1
@@ -135,6 +166,7 @@ Item {
 
     // Label — vira "CONFIRMAR?" durante o pending
     Text {
+      visible: root._showLabels || root.pending
       Layout.alignment: Qt.AlignHCenter
       Layout.fillWidth: true
       text:  root.pending ? "CONFIRMAR?" : (entry.label ?? "").toUpperCase()
@@ -147,7 +179,7 @@ Item {
     // Keybind badge — durante pending, dica pra repetir a tecla/Enter
     Rectangle {
       Layout.alignment: Qt.AlignHCenter
-      visible: root.pending || (entry.keybind ?? "") !== ""
+      visible: root.pending || (root._showKeybind && (entry.keybind ?? "") !== "")
       width:   kbLabel.implicitWidth + 14
       height:  kbLabel.implicitHeight + 6
       radius:  5
@@ -168,6 +200,50 @@ Item {
         color: root._hot ? root._cDanger : (isFocused ? root._cAccent : Colors.outline)
         font { family: "JetBrainsMono Nerd Font"; pixelSize: 10; bold: true }
         Behavior on color { ColorAnimation { duration: root._animMs } }
+      }
+    }
+  }
+
+  // ── Conteúdo — estilo "compact" (só o ícone centralizado no círculo,
+  // com um badge de atalho pequeno colado no canto inferior direito) ────────
+  Item {
+    visible: root._compact
+    anchors.fill: parent
+
+    Text {
+      anchors.centerIn: parent
+      text:  root.pending ? "\uf12a" : (entry.text ?? "?")
+      color: root._hot ? root._cDanger : (isFocused ? root._cAccent : root._cIcon)
+      font { family: "JetBrainsMono Nerd Font"; pixelSize: Math.round(root._iconSize * 0.72) }
+      Behavior on color { ColorAnimation { duration: root._animMs } }
+
+      SequentialAnimation on opacity {
+        running: root.pending && root._compact
+        loops: Animation.Infinite
+        NumberAnimation { to: 0.4; duration: 420; easing.type: Easing.InOutQuad }
+        NumberAnimation { to: 1.0; duration: 420; easing.type: Easing.InOutQuad }
+      }
+    }
+
+    Rectangle {
+      visible: root._showKeybind && (entry.keybind ?? "") !== ""
+      anchors.right:  parent.right
+      anchors.bottom: parent.bottom
+      anchors.rightMargin:  -2
+      anchors.bottomMargin: -2
+      width:  compactKb.implicitWidth + 10
+      height: compactKb.implicitHeight + 4
+      radius: height / 2
+      color:  root._cKeybindBg
+      border.color: root._cBorder
+      border.width: 1
+
+      Text {
+        id: compactKb
+        anchors.centerIn: parent
+        text:  (entry.keybind ?? "").toUpperCase()
+        color: Colors.outline
+        font { family: "JetBrainsMono Nerd Font"; pixelSize: 8; bold: true }
       }
     }
   }

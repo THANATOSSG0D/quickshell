@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.singletons
 
 // ── MediaPlayerConfig ────────────────────────────────────────────────────
 // Config do widget de player único: mostra o player MPRIS ativo (ou o
@@ -107,20 +108,18 @@ Item {
   onLaunchCommandChanged:     adapter.launchCommand     = launchCommand
   onAppLabelChanged:          adapter.appLabel          = appLabel
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: {
-      file.reload()
-      initTimer.start()
-    }
-  }
-
   Timer {
     id: initTimer
     interval: 300
     onTriggered: file.writeAdapter()
   }
 
-  Component.onCompleted: mkdirProc.running = true
+  // garante que o JSON existe no disco mesmo se o usuário nunca
+  // mexer em nenhum slider/toggle desse widget — sem isso,
+  // writeAdapter() só dispara quando alguma propriedade muda, e o
+  // arquivo nunca chega a ser criado (fica warnando pra sempre)
+  Component.onCompleted: StateDir.whenReady(() => {
+    file.reload()
+    initTimer.start()
+  })
 }

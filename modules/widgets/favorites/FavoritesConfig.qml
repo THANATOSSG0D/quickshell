@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.singletons
 
 // ── FavoritesConfig ─────────────────────────────────────────────────────
 // Config do widget de apps favoritos: lista curada de atalhos, cada item
@@ -130,20 +131,14 @@ Item {
       adapter.apps = apps
   }
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: {
-      file.reload()
-      initTimer.start()
-    }
-  }
-
   Timer {
     id: initTimer
     interval: 300
     onTriggered: file.writeAdapter()
   }
 
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: StateDir.whenReady(() => {
+    file.reload()
+    initTimer.start()
+  })
 }

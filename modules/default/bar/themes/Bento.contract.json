@@ -1,7 +1,8 @@
 {
     "bar": {
         "barSize": true,
-        "barMargin": true
+        "barMargin": true,
+        "chipRadius": true
     },
     "palette": {
         "barBg": true,

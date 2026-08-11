@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
+import qs.singletons
 
 // ── PanelRouter ─────────────────────────────────────────────────────────────
 // Decide em qual instância (bar/dock/...) um popup deve abrir quando
@@ -203,15 +204,10 @@ QtObject {
   }
 
   // Garante que o arquivo exista na primeira execução
-  property var _mkdir: Process {
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: {
-      if (!_adapter.overrides || Object.keys(_adapter.overrides).length === 0) {
-        _adapter.overrides = {}
-        _file.writeAdapter()
-      }
+  Component.onCompleted: StateDir.whenReady(() => {
+    if (!_adapter.overrides || Object.keys(_adapter.overrides).length === 0) {
+      _adapter.overrides = {}
+      _file.writeAdapter()
     }
-  }
-
-  Component.onCompleted: _mkdir.running = true
+  })
 }

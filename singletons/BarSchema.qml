@@ -60,6 +60,16 @@ QtObject {
         { key:"notchTaper",     type:"int",  default:20,  min:0,   max:60,   step:2,  unit:"px", label:"Inclinação trapézio", section:"NOTCH" },
         { key:"notchPopupPadding", type:"int", default:32, min:0,  max:100,  step:4,  unit:"px", label:"Padding do popup", section:"NOTCH" },
         { key:"notchExpandForPopups", type:"bool", default:true, label:"Esticar pro popup", section:"NOTCH" },
+        // Arredondamento — cada tema expõe sua própria prop de raio (nomes já
+        // usados internamente nos QML dos temas: Aurora.barRadius,
+        // Bento.chipRadius, Dock.islandRadius, Slider.handleRadius). O
+        // Rectangle do QtQuick já clampa sozinho o radius a metade da menor
+        // dimensão do elemento — então qualquer valor aqui, por maior que
+        // seja, nunca "estoura" a forma; o slider só limita a faixa útil.
+        { key:"barRadius",     type:"int", default:16, min:0, max:40, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
+        { key:"chipRadius",    type:"int", default:40, min:0, max:60, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
+        { key:"islandRadius",  type:"int", default:12, min:0, max:40, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
+        { key:"handleRadius",  type:"int", default:40, min:0, max:60, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
       ]
     },
 

@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.singletons
 
 Item {
   id: config
@@ -79,11 +80,5 @@ Item {
   onColorTempChanged:         adapter.colorTemp         = colorTemp
   onColorDescChanged:         adapter.colorDesc         = colorDesc
 
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-    onExited: file.reload()
-  }
-
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: StateDir.whenReady(() => file.reload())
 }

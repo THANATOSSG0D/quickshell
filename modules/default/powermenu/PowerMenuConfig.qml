@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
+import qs.singletons
 
 // PowerMenuConfig — API central de leitura/escrita das configs do Power Menu.
 //
@@ -73,20 +74,47 @@ Item {
     title: "SESSÃO",
 
     // janela
-    fullscreen:      true,  // true = cobre a tela toda (padrão) · false = card flutuante centralizado
+    fullscreen:      true,  // true = cobre a tela toda (padrão) · false = popup flutuante real
     windowedPadding: 40,    // espaço interno do card quando fullscreen=false
     windowedRadius:  24,    // raio de borda do card quando fullscreen=false
+    windowShadow:    true,  // sombra por trás do popup quando fullscreen=false
 
-    // layout dos botões
+    // posicionamento do popup — só usado quando fullscreen=false. A janela
+    // vira uma superfície layer-shell do tamanho do CONTEÚDO (não mais a
+    // tela toda com um card desenhado por cima), ancorada num ponto real
+    // da tela.
+    windowPosition: "center", // "center" · "top" · "bottom" · "left" · "right" ·
+                               // "top-left" · "top-right" · "bottom-left" · "bottom-right"
+    windowMarginX:  56,        // distância da borda horizontal quando windowPosition != center no eixo X
+    windowMarginY:  56,        // distância da borda vertical   quando windowPosition != center no eixo Y
+
+    // estilo geral do menu
+    menuStyle: "cards", // "cards" (grade de cards, padrão) · "list" (linhas compactas) · "compact" (círculos só ícone)
+
+    // layout dos botões (usado no estilo "cards")
     buttonLayoutMode: "row", // "row" (uma linha só) · "grid" (grade com N colunas) · "column" (empilhado)
     gridColumns:      3,     // usado só quando buttonLayoutMode === "grid"
 
-    // layout dos cards
+    // layout dos cards (estilo "cards")
     cardWidth:   160,
     cardHeight:  180,
     cardSpacing: 20,
     cardRadius:  20,
     iconSize:    42,
+
+    // estilo "list"
+    listWidth:      340,
+    listItemHeight: 52,
+    listSpacing:    8,
+    listRadius:     14,
+
+    // estilo "compact" (círculos)
+    compactDiameter: 64,
+    compactSpacing:  18,
+
+    // exibição — aplicável entre estilos
+    showLabels:       true, // "compact" costuma desligar
+    showKeybindBadge: true,
 
     // animação
     hoverAnimMs: 160,
@@ -238,9 +266,6 @@ Item {
   }
 
   // ── Startup: garante que a pasta state/ existe antes de qualquer write ──
-  Process {
-    id: mkdirProc
-    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
-  }
-  Component.onCompleted: mkdirProc.running = true
+  // (agora garantido globalmente pelo singleton StateDir — ver singletons/StateDir.qml)
+  Component.onCompleted: StateDir.ready
 }

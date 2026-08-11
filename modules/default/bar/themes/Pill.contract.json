@@ -4,7 +4,8 @@
         "barMargin": true,
         "pillWidth": true,
         "pillMinSpacing": true,
-        "popupPillPadding": true
+        "popupPillPadding": true,
+        "pillExpandForPopups": true
     },
     "palette": {
         "barBg": true,
