@@ -31,11 +31,12 @@
         {
             "created": "2026-07-11T18:22:03.543Z",
             "done": false,
-            "due": "2026-08-11",
+            "due": "2026-09-11",
             "id": "1783794123543-236",
-            "lastCompleted": "2026-07-11T18:38:58.808Z",
+            "lastCompleted": "2026-08-11T20:05:25.578Z",
             "priority": "media",
             "recurrence": "monthly",
+            "status": "",
             "tags": [
                 "system"
             ],
@@ -44,9 +45,9 @@
         {
             "created": "2026-07-23T03:30:35.283Z",
             "done": false,
-            "due": "2026-08-11",
+            "due": "2026-08-12",
             "id": "1784777435283-842",
-            "lastCompleted": "2026-08-10T16:57:10.643Z",
+            "lastCompleted": "2026-08-11T20:05:26.748Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",
@@ -60,7 +61,7 @@
             "done": false,
             "due": "2026-08-11",
             "id": "1784777459305-901",
-            "lastCompleted": "2026-08-11T01:27:59.558Z",
+            "lastCompleted": "2026-08-11T20:05:24.890Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",

@@ -2,36 +2,5 @@
   "doNotDisturb": false,
   "dndAllowCritical": true,
   "toastPosition": "bottom-right",
-  "history": [
-    {
-      "id": 2,
-      "appName": "notify-send",
-      "appIcon": "",
-      "image": "image://icon/screenshot",
-      "summary": "Screenshot",
-      "body": "Copiado para clipboard",
-      "urgency": 1,
-      "timestamp": 1786434158287,
-      "timeout": 5000,
-      "read": false,
-      "actions": [],
-      "pausedSince": 0,
-      "pausedMs": 0
-    },
-    {
-      "id": 1,
-      "appName": "Vivaldi",
-      "appIcon": "file:///tmp/.com.vivaldi.Vivaldi.scoped_dir.EMOQGt/logo.png",
-      "image": "image://icon//tmp/.com.vivaldi.Vivaldi.scoped_dir.EMOQGt/icon.png",
-      "summary": "Download Completo",
-      "body": "Vivaldi\n\nBento.qml",
-      "urgency": 1,
-      "timestamp": 1786434117712,
-      "timeout": 5000,
-      "read": false,
-      "actions": [],
-      "pausedSince": 0,
-      "pausedMs": 0
-    }
-  ]
+  "history": []
 }
