@@ -632,7 +632,7 @@ Item {
         }
         Text {
           visible: !!(root.tooltipTask && !root.tooltipTask.done && root.tooltipTask.status && root.statusLabels[root.tooltipTask.status] !== undefined)
-          text: root.tooltipTask ? root.statusLabels[root.tooltipTask.status] : ""
+          text: root.tooltipTask ? (root.statusLabels[root.tooltipTask.status] || "") : ""
           color: root.tooltipTask ? (root.statusColor[root.tooltipTask.status] || Qt.rgba(1, 1, 1, 0.6)) : Qt.rgba(1, 1, 1, 0.6)
           font.pixelSize: config.fontSize - 5
         }

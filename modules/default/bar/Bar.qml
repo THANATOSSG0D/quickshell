@@ -846,6 +846,14 @@ Scope {
 
       function _set(prop, value) {
         if (!loader.item || !(prop in loader.item)) return
+        // Guard: durante _recalcBar() no BarConfig, onModuleScaleChanged
+        // (abaixo) dispara de forma REENTRANTE assim que moduleScale é
+        // setado, e pode chamar _applyConfig() antes de alguma outra prop
+        // do mesmo recalc ter sido atribuída ainda (ex: primeiríssimo boot).
+        // Nesse instante value chega undefined — ignora e deixa a PRÓXIMA
+        // chamada de _applyConfig (já com tudo assentado) escrever o valor
+        // certo, em vez de propagar undefined pro item do tema.
+        if (value === undefined) return
         var v = value
         if (typeof v === "number" && bar._isScalable(prop)) {
           v = Math.round(v * barState.config.moduleScale)

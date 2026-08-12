@@ -18,9 +18,9 @@
             "bar": {
                 "autoHide": false,
                 "barMargin": 3,
-                "barSize": 24,
+                "barSize": 20,
                 "chipRadius": 60,
-                "moduleScale": 0.7500000000000002,
+                "moduleScale": 0.7500000000000001,
                 "modules": {
                     "middle": [
                         "workspaces"
@@ -57,7 +57,9 @@
         },
         "Default": {
             "bar": {
+                "autoHide": false,
                 "barMargin": 0,
+                "moduleScale": 0.9000000000000001,
                 "position": 1
             },
             "mediaplayer": {
@@ -81,7 +83,7 @@
                 "barMargin": 3,
                 "barSize": 24,
                 "islandRadius": 12,
-                "moduleScale": 0.8499999999999999,
+                "moduleScale": 0.7000000000000001,
                 "pillMinSpacing": 5,
                 "position": 1
             },

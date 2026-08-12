@@ -130,7 +130,6 @@ Item {
     root.position       = get("bar", "position")
     root.barSize        = get("bar", "barSize")
     root.barMargin      = get("bar", "barMargin")
-    root.moduleScale    = get("bar", "moduleScale")
     root.pillWidth      = get("bar", "pillWidth")
     root.pillMinSpacing = get("bar", "pillMinSpacing")
     root.popupPillPadding = get("bar", "popupPillPadding")
@@ -152,6 +151,16 @@ Item {
     root.modulesTop    = getModules("top")
     root.modulesMiddle = getModules("middle")
     root.modulesBottom = getModules("bottom")
+
+    // moduleScale por ÚLTIMO: o Bar.qml tem um Connections.onModuleScaleChanged
+    // que chama _applyConfig() de forma REENTRANTE assim que este sinal
+    // dispara (sinais de property change no QML são síncronos/imediatos).
+    // Se moduleScale fosse setado antes das props acima, _applyConfig()
+    // leria notchRadius/concaveRadius/etc. ainda com o valor do ciclo
+    // ANTERIOR (ou undefined na primeiríssima vez) — só ao deixá-lo por
+    // último garantimos que, quando o Connections reentrante disparar,
+    // todo o resto de _recalcBar() já rodou e está com valores frescos.
+    root.moduleScale    = get("bar", "moduleScale")
   }
   onThemeChanged: _recalcBar()
 

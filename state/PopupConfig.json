@@ -74,6 +74,9 @@
                 "cornerMode": "bar"
             },
             "overrides": {
+                "DmenuPopup": {
+                    "cornerMode": "all"
+                }
             }
         }
     }

@@ -20,7 +20,7 @@
         "dmenuPopupXAlign": "center",
         "dmenuPopupXOffset": 0,
         "dmenuPopupYAnchor": "top",
-        "dmenuPopupYOffset": 40,
+        "dmenuPopupYOffset": 32,
         "dmenuShowIcons": false,
         "dmenuSortMode": "usage",
         "dmenuToggle": true,
