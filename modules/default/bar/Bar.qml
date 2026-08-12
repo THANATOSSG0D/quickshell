@@ -107,7 +107,18 @@ Scope {
 
   // Registra esta instância (bar/dock/...) no PanelRouter assim que ela
   // termina de montar — não precisa de fiação manual no shell.qml.
+  //
+  // (Guard contra tela placeholder "FALLBACK" removido daqui: barRoot é
+  // uma instância ÚNICA por shell — bar/dock — não uma por tela; quem é
+  // por tela é o PanelWindow interno, mais abaixo. Um monitor
+  // aparecendo/sumindo não recria barRoot, então esse registro só roda
+  // uma vez de verdade, no boot do shell.)
   Component.onCompleted: PanelRouter.registerInstance(barRoot.instanceId, barRoot)
+
+  // Desregistra ao morrer — defensivo, cobre qualquer cenário futuro em
+  // que barRoot venha a ser destruído/recriado, pra não deixar lixo em
+  // _instances/_order do PanelRouter.
+  Component.onDestruction: PanelRouter.unregisterInstance(barRoot.instanceId, barRoot)
 
   // ── _openRouted: abre um painel na instância "certa" (a que tem o módulo
   // no layout ativo), ou onde o override manual da config UI mandar, ou —
@@ -240,6 +251,25 @@ Scope {
     function enable()  { barState.panelEnabled = true  }
     function disable() { barState.panelEnabled = false }
     function toggleEnabled() { barState.panelEnabled = !barState.panelEnabled }
+
+    // Reload "leve" — destrói e recria só as PanelWindow desta instância
+    // (bar OU dock), sem afetar a outra e sem derrubar o processo qs
+    // inteiro. Útil pra pegar mudanças de config sem o pkill -9/qs -d
+    // manual. Uso: qs ipc call bar reload | qs ipc call bar_dock reload
+    function reload() {
+      barState.panelEnabled = false
+      _reloadTimer.start()
+    }
+  }
+
+  // Pequeno delay entre disable/enable para garantir que o
+  // Repeater/Variants termine de destruir as PanelWindow antigas antes
+  // de recriá-las (ver função reload() no IpcHandler "bar"/"bar_dock" acima).
+  Timer {
+    id: _reloadTimer
+    interval: 50
+    repeat: false
+    onTriggered: barState.panelEnabled = true
   }
 
   // ── Janela de configuração de wallpaper ──────────────────────────────────

@@ -85,6 +85,7 @@
         "clockBgEnabled": true,
         "clockOffsetY": 300,
         "clockPosition": 2,
+        "dpmsTimeoutMs": 30000,
         "scrimOpacity": 0.3,
         "widgetsPosition": 3
     }

@@ -3,7 +3,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
-import qs.singletons
 
 // ── PanelRouter ─────────────────────────────────────────────────────────────
 // Decide em qual instância (bar/dock/...) um popup deve abrir quando
@@ -60,6 +59,26 @@ QtObject {
     if (root._order.indexOf(instanceId) === -1) {
       var o = root._order.slice()
       o.push(instanceId)
+      root._order = o
+    }
+  }
+
+  // Desregistra instanceId — só remove se `ref` ainda for a referência
+  // guardada (evita remover por engano uma instância NOVA que já tenha
+  // reregistrado sob o mesmo instanceId entre o momento em que esta
+  // instância começou a ser destruída e o Component.onDestruction rodar).
+  function unregisterInstance(instanceId, ref) {
+    if (!instanceId) return
+    if (root._instances[instanceId] !== ref) return
+
+    var map = root._instances
+    delete map[instanceId]
+    root._instances = map
+
+    var idx = root._order.indexOf(instanceId)
+    if (idx !== -1) {
+      var o = root._order.slice()
+      o.splice(idx, 1)
       root._order = o
     }
   }
@@ -204,19 +223,15 @@ QtObject {
   }
 
   // Garante que o arquivo exista na primeira execução
-  function _initIfEmpty() {
-    if (!_adapter.overrides || Object.keys(_adapter.overrides).length === 0) {
-      _adapter.overrides = {}
-      _file.writeAdapter()
+  property var _mkdir: Process {
+    command: ["mkdir", "-p", Quickshell.shellDir + "/state"]
+    onExited: {
+      if (!_adapter.overrides || Object.keys(_adapter.overrides).length === 0) {
+        _adapter.overrides = {}
+        _file.writeAdapter()
+      }
     }
   }
 
-  property var _stateDirConn: Connections {
-    target: StateDir
-    function onReadyChanged() {
-      if (StateDir.ready) root._initIfEmpty()
-    }
-  }
-
-  Component.onCompleted: if (StateDir.ready) root._initIfEmpty()
+  Component.onCompleted: _mkdir.running = true
 }

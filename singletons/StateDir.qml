@@ -45,6 +45,25 @@ QtObject {
         onExited: root.ready = true
     }
 
+    // Rede de segurança: se o Process do mkdir falhar ao SPAWNAR (não só
+    // terminar com erro — falhar de verdade, ex: EMFILE momentâneo durante
+    // um reload sob estresse de recursos), não dá pra garantir que
+    // onExited vai disparar, e sem isso `ready` ficaria travado em false
+    // PRA SEMPRE — travando todo consumidor (Habits, Favorites, Todo,
+    // monitoramento, WidgetLayoutConfig/WidgetHost, etc.) permanentemente
+    // vazio, sem nenhum jeito de se autocorrigir.
+    //
+    // Na prática, a pasta state/ quase sempre JÁ EXISTE (só precisa ser
+    // criada de verdade uma vez, no primeiro boot). Gatear tudo
+    // indefinidamente atrás de um `mkdir -p` que é redundante 99% das
+    // vezes é frágil demais — 2s é tempo de sobra pro caso normal
+    // (onExited já disparou há muito) e um teto aceitável pro caso raro.
+    property var _readyTimeout: Timer {
+        interval: 2000
+        running: true
+        onTriggered: if (!root.ready) root.ready = true
+    }
+
     Component.onCompleted: mkdirProc.running = true
 
     // NOTA: não existe mais whenReady(callback) aqui. Uma closure JS

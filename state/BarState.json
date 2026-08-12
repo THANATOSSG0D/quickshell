@@ -22,14 +22,16 @@
                 "chipRadius": 60,
                 "moduleScale": 0.7500000000000001,
                 "modules": {
+                    "left": [
+                        "mediaplayer",
+                        "quicksettings"
+                    ],
                     "middle": [
                         "workspaces"
                     ],
                     "right": [
                         "clock",
-                        "separator",
                         "volume",
-                        "separator",
                         "notifications"
                     ]
                 },
@@ -49,8 +51,9 @@
                     "bgBorderWidthActive": 0,
                     "bgOpacityActive": 0,
                     "bgRadiusActive": 0,
-                    "fontSize": 10
+                    "fontSize": 8
                 },
+                "scrollEnabled": true,
                 "showAddButton": true,
                 "style": "number"
             }
@@ -82,7 +85,7 @@
                 "autoHide": false,
                 "barMargin": 3,
                 "barSize": 24,
-                "islandRadius": 12,
+                "islandRadius": 19,
                 "moduleScale": 0.7000000000000001,
                 "pillMinSpacing": 5,
                 "position": 1

@@ -54,7 +54,7 @@
         "cardWidth": 170,
         "fullscreen": false,
         "iconSize": 50,
-        "menuStyle": "cards",
+        "menuStyle": "compact",
         "overlayOpacity": 0.68,
         "windowPosition": "top",
         "windowShadow": false

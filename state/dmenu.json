@@ -44,12 +44,13 @@
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=spotify --file-forwarding com.spotify.Client @@u  @@": 1,
             "/usr/bin/linuxtoys": 1,
             "ardour9": 1,
+            "auto-cpufreq-gtk": 1,
             "foot": 1,
             "helvum": 1,
             "hyprpwcenter": 1,
             "inkscape": 3,
             "pipewire-config": 2,
-            "solaar": 1
+            "solaar": 2
         }
     }
 }

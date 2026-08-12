@@ -580,6 +580,8 @@ Item {
 
       GridView {
         id: wallpaperGrid
+        cacheBuffer: 400   // reduz quantos delegates fora da tela ficam "vivos"
+        reuseItems: true   // Qt6: recicla delegates em vez de recriar
         anchors { fill: parent; margins: 10 }
         visible: !root.loading; clip: true
         cellWidth:  Math.floor((width - 4) / 3)
@@ -611,7 +613,7 @@ Item {
               source: thumbPath !== "" ? ("file://" + thumbPath) : ""
               asynchronous: true; cache: true; smooth: true
 
-              Rectangle { anchors.fill: parent; visible: thumbImg.status !== Image.Ready; color: Qt.rgba(1,1,1,0.04); radius: parent.radius }
+              Rectangle { anchors.fill: parent; visible: thumbImg.status !== Image.Ready; color: Qt.rgba(1,1,1,0.04); radius: 8 }
 
               Rectangle {
                 visible: isCurrent
@@ -834,6 +836,8 @@ Item {
 
           GridView {
             id: wallEfxGrid
+            cacheBuffer: 400   // reduz quantos delegates fora da tela ficam "vivos"
+            reuseItems: true   // Qt6: recicla delegates em vez de recriar
             anchors.fill: parent; clip: true
             cellWidth:  Math.max(1, Math.floor((width - 2) / 3))
             cellHeight: Math.round(cellWidth * 9 / 16) + 20
