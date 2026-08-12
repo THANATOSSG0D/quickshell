@@ -206,7 +206,7 @@ QtObject {
   }
 
   // Garante que o arquivo exista na primeira execução
-  Component.onCompleted: StateDir.whenReady(() => {
+  function _initIfEmpty() {
     // Se arquivo vazio (primeira execução mesmo, sem legado nenhum),
     // escreve estrutura inicial. NÃO mexe em globals/overrides/themes
     // se já existir QUALQUER coisa salva — isso é o que preserva 100%
@@ -220,5 +220,14 @@ QtObject {
       _adapter.themes    = {}
       _file.writeAdapter()
     }
-  })
+  }
+
+  property var _stateDirConn: Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) root._initIfEmpty()
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) root._initIfEmpty()
 }

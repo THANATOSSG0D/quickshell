@@ -38,6 +38,8 @@ if systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null; then
   log "wallpaper-schedule.timer pausado"
 fi
 
+~/.config/hypr/scripts/monitor-toggle.sh --quiet laptop off || true
+
 # ── Lock (bloqueante) ─────────────────────────────────────────────────────────
 log "Iniciando..."
 qs -c "$LOCK_DIR"

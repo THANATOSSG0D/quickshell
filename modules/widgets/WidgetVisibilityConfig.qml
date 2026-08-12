@@ -62,5 +62,12 @@ Item {
       adapter.disabled = disabled
   }
 
-  Component.onCompleted: StateDir.whenReady(() => file.reload())
+  Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) file.reload()
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) file.reload()
 }

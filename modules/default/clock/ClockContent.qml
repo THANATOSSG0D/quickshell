@@ -18,6 +18,11 @@ import qs.singletons
 Item {
   id: root
 
+  // true quando renderizado dentro da WidgetHost (modo combinado) — usada
+  // pra eventuais ajustes visuais quando o clock aparece agrupado com
+  // outros widgets em vez de sozinho num PanelWindow próprio.
+  property bool grouped: false
+
   property color colorPanelBg:    "#1f1f1f"
   property color colorText:       "#e2e2e2"
   property color colorTextDim:    "#c6c6c6"
@@ -145,7 +150,14 @@ Item {
     }
   }
 
-  Component.onCompleted: StateDir.whenReady(() => stateFile.reload())
+  Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) stateFile.reload()
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) stateFile.reload()
 
   function _loadState() {
     var s = stateAdapter

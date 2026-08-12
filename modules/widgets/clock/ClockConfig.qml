@@ -11,7 +11,7 @@ Item {
   property int position: 4
   // Margem entre o widget e a borda da tela, em px
   property int edgeMargin: 48
-
+  property bool grouped: false
   // ── Hora ──────────────────────────────────────────────────────────────
   property int    fontSizeTime: 72
   property bool   use24h:       true
@@ -79,5 +79,12 @@ Item {
   onShowLineChanged:     adapter.showLine     = showLine
   onColorLineChanged:    adapter.colorLine    = colorLine
 
-  Component.onCompleted: StateDir.whenReady(() => file.reload())
+  Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) file.reload()
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) file.reload()
 }

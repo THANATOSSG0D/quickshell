@@ -376,8 +376,18 @@ Item {
     onTriggered: config._pruneOld()
   }
 
-  Component.onCompleted: StateDir.whenReady(() => {
+  Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) {
+        file.reload()
+        initTimer.start()
+      }
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) {
     file.reload()
     initTimer.start()
-  })
+  }
 }

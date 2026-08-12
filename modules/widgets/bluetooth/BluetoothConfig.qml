@@ -78,8 +78,18 @@ Item {
   // mexer em nenhum slider/toggle desse widget — sem isso,
   // writeAdapter() só dispara quando alguma propriedade muda, e o
   // arquivo nunca chega a ser criado (fica warnando pra sempre)
-  Component.onCompleted: StateDir.whenReady(() => {
+  Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) {
+        file.reload()
+        initTimer.start()
+      }
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) {
     file.reload()
     initTimer.start()
-  })
+  }
 }

@@ -10,17 +10,19 @@
 // A maioria dos Config.qml usa o onExited do próprio mkdir pra fazer
 // file.reload() / writeAdapter() logo depois que a pasta é garantida —
 // então não basta só criar a pasta uma vez, o resto do shell precisa de
-// um jeito de "esperar" por esse momento. É pra isso que serve
-// whenReady(): entrega o callback na hora certa, seja ela já ter
-// passado ou ainda estar por vir.
+// um jeito de "esperar" por esse momento.
 //
-// Uso:
+// Uso (cada consumidor usa Connections, NÃO uma closure guardada aqui —
+// ver nota mais abaixo sobre por quê):
 //   import qs.singletons
 //   ...
-//   Component.onCompleted: StateDir.whenReady(() => {
-//     file.reload()
-//     initTimer.start()
-//   })
+//   Connections {
+//     target: StateDir
+//     function onReadyChanged() {
+//       if (StateDir.ready) file.reload()
+//     }
+//   }
+//   Component.onCompleted: if (StateDir.ready) file.reload()
 
 pragma Singleton
 
@@ -45,22 +47,22 @@ QtObject {
 
     Component.onCompleted: mkdirProc.running = true
 
-    // Chama `callback` imediatamente se a pasta já existe, ou assim que
-    // o mkdir terminar, o que vier primeiro. Cobre os dois casos:
-    //   - Config.qml instanciado ANTES do mkdir terminar → aguarda
-    //   - Config.qml instanciado DEPOIS (ex: painel aberto sob demanda,
-    //     como popups) → dispara na hora, sem re-executar mkdir
-    function whenReady(callback) {
-        if (root.ready) {
-            callback()
-            return
-        }
-
-        function handler() {
-            if (!root.ready) return
-            root.readyChanged.disconnect(handler)
-            callback()
-        }
-        root.readyChanged.connect(handler)
-    }
+    // NOTA: não existe mais whenReady(callback) aqui. Uma closure JS
+    // guardada por este singleton e disparada depois, em cima de um
+    // objeto que já foi destruído (settle de startup recriando widgets,
+    // hot reload, etc.), falha no nível do engine QML antes de chegar a
+    // qualquer try/catch — não dá pra proteger isso de dentro do
+    // singleton. O jeito robusto é cada consumidor usar Connections
+    // (um objeto filho, que morre junto com o pai) em vez de uma função
+    // guardada externamente. Padrão:
+    //
+    //   import qs.singletons
+    //   ...
+    //   Connections {
+    //     target: StateDir
+    //     function onReadyChanged() {
+    //       if (StateDir.ready) file.reload()
+    //     }
+    //   }
+    //   Component.onCompleted: if (StateDir.ready) file.reload()
 }

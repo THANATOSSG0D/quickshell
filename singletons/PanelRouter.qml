@@ -204,10 +204,19 @@ QtObject {
   }
 
   // Garante que o arquivo exista na primeira execução
-  Component.onCompleted: StateDir.whenReady(() => {
+  function _initIfEmpty() {
     if (!_adapter.overrides || Object.keys(_adapter.overrides).length === 0) {
       _adapter.overrides = {}
       _file.writeAdapter()
     }
-  })
+  }
+
+  property var _stateDirConn: Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) root._initIfEmpty()
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) root._initIfEmpty()
 }

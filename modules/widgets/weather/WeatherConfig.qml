@@ -80,5 +80,12 @@ Item {
   onColorTempChanged:         adapter.colorTemp         = colorTemp
   onColorDescChanged:         adapter.colorDesc         = colorDesc
 
-  Component.onCompleted: StateDir.whenReady(() => file.reload())
+  Connections {
+    target: StateDir
+    function onReadyChanged() {
+      if (StateDir.ready) file.reload()
+    }
+  }
+
+  Component.onCompleted: if (StateDir.ready) file.reload()
 }
