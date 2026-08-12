@@ -853,6 +853,21 @@ Scope {
       Binding { target: loader.item; property: "islandRadius"; value: barState.config.islandRadius; when: loader.item !== null && "islandRadius" in (loader.item || {}) }
       Binding { target: loader.item; property: "handleRadius"; value: barState.config.handleRadius; when: loader.item !== null && "handleRadius" in (loader.item || {}) }
 
+      // ── FIX-BARSIZE: barSize (e só barSize — barMargin não é lido por
+      // nenhum tema internamente, só afeta a PanelWindow via themeBarMargin,
+      // então esse aqui está OK) até então só alimentava
+      // barRoot.themeBarSize (tamanho da PanelWindow) — nunca era escrito de
+      // volta em loader.item.barSize. Cada tema declara sua PRÓPRIA prop
+      // "barSize" (Bento/Dock/etc.) com um default hardcoded (ex.: 32 no
+      // Bento) que, sem este Binding, nunca via o valor real configurado
+      // pelo usuário — os chips/ilhas eram desenhados com o tamanho errado
+      // (maior que a PanelWindow), causando corte/overflow que parecia
+      // "canto não arredondado". Mesmo padrão dos Bindings de arredondamento
+      // acima: SEM fallback "|| default", valor já vem resolvido pela
+      // cascata do BarConfig, e "barSize" já está em _unscaledProps (não
+      // deve ser multiplicado por moduleScale).
+      Binding { target: loader.item; property: "barSize"; value: barState.config.barSize; when: loader.item !== null && "barSize" in (loader.item || {}) }
+
       // Props que NUNCA devem ser multiplicadas por moduleScale, mesmo que o
       // nome bata com o padrão abaixo (ex.: "concaveRadius"/"notchRadius"
       // terminam em "Radius"). Estas já têm Binding{} própria (linhas acima)
@@ -862,7 +877,8 @@ Scope {
       // um comportamento inconsistente. Ficam de fora por completo.
       readonly property var _unscaledProps: [
         "notchRadius", "concaveRadius", "lobePadH", "notchTaper",
-        "barRadius", "chipRadius", "islandRadius", "handleRadius"
+        "barRadius", "chipRadius", "islandRadius", "handleRadius",
+        "barSize"
       ]
 
       // Reconhece props "de tamanho" dos módulos (ícones, fontes, dots,
@@ -909,6 +925,11 @@ Scope {
         _set("chipRadius",   barState.config.chipRadius)
         _set("islandRadius", barState.config.islandRadius)
         _set("handleRadius", barState.config.handleRadius)
+
+        // FIX-BARSIZE: ver comentário completo no Binding{} equivalente,
+        // logo acima na declaração do loader. Sem isso, o tema ficava preso
+        // no barSize hardcoded do próprio QML (ex.: 32 no Bento).
+        _set("barSize", barState.config.barSize)
 
         // workspaces
         _set("cfgWsStyle",          barState.config.wsStyle)

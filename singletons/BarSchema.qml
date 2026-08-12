@@ -67,7 +67,12 @@ QtObject {
         // dimensão do elemento — então qualquer valor aqui, por maior que
         // seja, nunca "estoura" a forma; o slider só limita a faixa útil.
         { key:"barRadius",     type:"int", default:16, min:0, max:40, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
-        { key:"chipRadius",    type:"int", default:14, min:0, max:60, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
+        // chipRadius: default/max propositalmente altos (bem acima de barSize/2
+        // pra qualquer barSize realista) — o Rectangle clampa sozinho, então
+        // isso reproduz o comportamento antigo hardcoded (999 = sempre pílula
+        // cheia) por padrão, mas ainda deixa o usuário abaixar o slider se
+        // quiser um chip menos arredondado.
+        { key:"chipRadius",    type:"int", default:100, min:0, max:100, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
         { key:"islandRadius",  type:"int", default:12, min:0, max:40, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
         { key:"handleRadius",  type:"int", default:40, min:0, max:60, step:1, unit:"px", label:"Arredondamento", section:"ARREDONDAMENTO" },
       ]

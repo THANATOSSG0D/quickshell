@@ -118,7 +118,7 @@ Item {
   // Arredondamento — uma prop por tema (só a do tema ativo é relevante;
   // as demais ficam simplesmente sem uso, mesmo padrão do notch acima).
   property int  barRadius:     16
-  property int  chipRadius:    40
+  property int  chipRadius:    100
   property int  islandRadius:  12
   property int  handleRadius:  40
 

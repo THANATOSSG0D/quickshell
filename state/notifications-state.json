@@ -2,5 +2,21 @@
   "doNotDisturb": false,
   "dndAllowCritical": true,
   "toastPosition": "bottom-right",
-  "history": []
+  "history": [
+    {
+      "id": 1,
+      "appName": "notify-send",
+      "appIcon": "",
+      "image": "image://icon/screenshot",
+      "summary": "Screenshot",
+      "body": "Copiado para clipboard",
+      "urgency": 1,
+      "timestamp": 1786561124035,
+      "timeout": 5000,
+      "read": false,
+      "actions": [],
+      "pausedSince": 0,
+      "pausedMs": 0
+    }
+  ]
 }

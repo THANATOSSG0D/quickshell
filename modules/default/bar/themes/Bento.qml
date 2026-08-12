@@ -630,21 +630,32 @@ Item {
       Behavior on width  { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
+      // FIX-PILL: o Rectangle do QtQuick, na prática, NÃO clampa sozinho
+      // um radius muito maior que a altura/largura pra um arco perfeito —
+      // com chipRadius >> height ele fica um meio-termo estranho (canto
+      // arredondado pequeno + sobra de borda reta), em vez de virar cápsula.
+      // Por isso clampamos manualmente aqui: nunca passa de height/2, que é
+      // o valor exato que fecha a pílula sem artefato. Isso também permite
+      // deixar o slider (root.chipRadius) sempre "no talo" pro usuário sem
+      // se preocupar em calcular a metade do barSize na mão.
+      readonly property real _pillRadius: Math.min(root.chipRadius, height / 2)
+
       Rectangle { // sombra sutil
         visible: !chipWrap.isDivider
         width:  parent.width
         height: parent.height
         y:      root.chipShadowOffset
-        radius: root.chipRadius
+        radius: chipWrap._pillRadius
         color:  "#000000"
         opacity: root.chipShadowOpacity
       }
       Rectangle { // pílula
         visible: !chipWrap.isDivider
         anchors.fill: parent
-        radius: root.chipRadius
+        radius: chipWrap._pillRadius
         color:  root.colBarBgPill
       }
+
 
       Loader {
         id: inner
@@ -711,19 +722,23 @@ Item {
       Behavior on width  { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
+      // FIX-PILL: mesmo motivo do chipCompH — ver comentário lá. Aqui o eixo
+      // fixo é a LARGURA (width: root.barSize), então clampamos em width/2.
+      readonly property real _pillRadius: Math.min(root.chipRadius, width / 2)
+
       Rectangle {
         visible: !chipWrap.isDivider
         width:  parent.width
         height: parent.height
         y:      root.chipShadowOffset
-        radius: root.chipRadius
+        radius: chipWrap._pillRadius
         color:  "#000000"
         opacity: root.chipShadowOpacity
       }
       Rectangle {
         visible: !chipWrap.isDivider
         anchors.fill: parent
-        radius: root.chipRadius
+        radius: chipWrap._pillRadius
         color:  root.colBarBgPill
       }
 

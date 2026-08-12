@@ -178,8 +178,13 @@ C.CfgScroll {
     onMoved: (v) => root.changed({ barRadius: v })
   }
   C.CfgSlider {
-    label: "Arredondamento"; value: root.gd("chipRadius", 40)
-    from: 0; to: 60; step: 1; unit: "px"
+    // from/to propositalmente altos (bem acima de barSize/2 pra qualquer
+    // barSize realista) — o Rectangle do Bento clampa o radius sozinho pra
+    // metade da menor dimensão, então isso reproduz o comportamento antigo
+    // hardcoded (999 = sempre pílula cheia) quando o slider está no máximo,
+    // mas ainda deixa abaixar pra um chip menos arredondado se quiser.
+    label: "Arredondamento"; value: root.gd("chipRadius", 100)
+    from: 0; to: 100; step: 1; unit: "px"
     visible: !root.contract.bar || !!root.contract.bar["chipRadius"]
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg

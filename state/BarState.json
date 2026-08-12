@@ -17,10 +17,10 @@
         "Bento": {
             "bar": {
                 "autoHide": false,
-                "barMargin": 3,
-                "barSize": 20,
-                "chipRadius": 60,
-                "moduleScale": 0.7500000000000001,
+                "barMargin": 2,
+                "barSize": 22,
+                "chipRadius": 24,
+                "moduleScale": 0.7500000000000002,
                 "modules": {
                     "left": [
                         "mediaplayer",
@@ -38,6 +38,7 @@
                 "position": 1
             },
             "mediaplayer": {
+                "textMode": "artistAndTitle",
                 "textStatic": true
             },
             "workspaces": {
@@ -49,7 +50,10 @@
                 },
                 "number": {
                     "bgBorderWidthActive": 0,
+                    "bgOpacity": 0,
                     "bgOpacityActive": 0,
+                    "bgPaddingV": 0,
+                    "bgPaddingVActive": 0,
                     "bgRadiusActive": 0,
                     "fontSize": 8
                 },
