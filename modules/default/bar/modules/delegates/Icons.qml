@@ -49,6 +49,14 @@ Item {
   readonly property bool _wsActive: root.modelData ? root.modelData.active : false
   readonly property bool _wsUrgent: root.modelData ? root.modelData.urgent : false
 
+  // Indicador de janela ativa — dimensões eram hardcoded (4x3/3x4), então
+  // não acompanhavam iconSize nem o moduleScale global (o "+" de
+  // Workspaces.qml tinha o mesmo bug, já corrigido). Mantém a MESMA
+  // proporção do hardcode original (4px/3px pra iconSize=18) mas escala
+  // junto com o tamanho do ícone.
+  readonly property real _indicatorMajor: Math.max(2, Math.round(root.iconSize * (4 / 18)))
+  readonly property real _indicatorMinor: Math.max(2, Math.round(root.iconSize * (3 / 18)))
+
   implicitWidth:  isHorizontal ? layout.implicitWidth  : iconSize + 4
   implicitHeight: isHorizontal ? iconSize + 4          : layout.implicitHeight
   width:  implicitWidth
@@ -316,15 +324,17 @@ Item {
         }
 
         // ── Indicador de janela ativa ────────────────────────────────────
-        // Usa monoColorActive quando monocromo, senão branco — corrige hardcode original
+        // Usa monoColorActive quando monocromo, senão branco (contraste
+        // consistente sobre ícones coloridos variados). Tamanho agora
+        // proporcional a iconSize — ver _indicatorMajor/_indicatorMinor acima.
         Rectangle {
           anchors.bottom:           root.isHorizontal ? parent.bottom : undefined
           anchors.right:            root.isHorizontal ? undefined     : parent.right
           anchors.horizontalCenter: root.isHorizontal ? parent.horizontalCenter : undefined
           anchors.verticalCenter:   root.isHorizontal ? undefined     : parent.verticalCenter
-          width:   root.isHorizontal ? 4 : 3
-          height:  root.isHorizontal ? 3 : 4
-          radius:  2
+          width:   root.isHorizontal ? root._indicatorMajor : root._indicatorMinor
+          height:  root.isHorizontal ? root._indicatorMinor : root._indicatorMajor
+          radius:  Math.min(width, height) / 2
           visible: modelData.activated
           color:   root.monochrome ? root.monoColorActive : "white"
           opacity: modelData.activated ? 0.85 : 0.0

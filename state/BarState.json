@@ -41,20 +41,43 @@
                 "textMode": "artistAndTitle",
                 "textStatic": true
             },
+            "palette": {
+                "barBg": "shadow",
+                "text": "on_surface"
+            },
             "workspaces": {
+                "addButtonBgColor": "surface_bright",
+                "addButtonBgEnabled": false,
+                "addButtonBgOpacity": 0.55,
+                "addButtonBorderEnabled": true,
+                "addButtonColor": "on_background",
+                "addButtonPaddingH": 2,
+                "addButtonPaddingV": 2,
+                "addButtonSize": 13,
+                "bgGroupEnabled": false,
                 "dots": {
                     "dotSize": 8
                 },
                 "hybrid": {
                     "fontSize": 10
                 },
+                "indicatorAnimDuration": 600,
+                "indicatorAnimStyle": "smooth",
                 "number": {
+                    "bgActiveEnabled": false,
                     "bgBorderWidthActive": 0,
+                    "bgBorderWidthInactive": 0,
+                    "bgColor": "surface_variant",
+                    "bgColorActive": "inverse_on_surface",
+                    "bgInactiveEnabled": false,
                     "bgOpacity": 0,
                     "bgOpacityActive": 0,
+                    "bgPaddingHInactive": 2,
                     "bgPaddingV": 0,
                     "bgPaddingVActive": 0,
                     "bgRadiusActive": 0,
+                    "bgRadiusInactive": 99,
+                    "dotActiveColor": "on_surface",
                     "fontSize": 8
                 },
                 "scrollEnabled": true,

@@ -113,6 +113,31 @@ Item {
   property bool   cfgWsScrollEnabled:        false
   property string cfgWsScrollAction:         "workspace"
   property bool   cfgWsScrollInvert:         false
+  // ── Configs workspaces — fundo grupo/ativo/inativo, animação, botão + ──
+  property bool   cfgWsBgGroupEnabled:        false
+  property bool   cfgWsBgActiveEnabled:       true
+  property bool   cfgWsBgInactiveEnabled:     false
+  property color  cfgWsBgColorInactive:       "transparent"
+  property real   cfgWsBgOpacityInactive:     0.4
+  property color  cfgWsBgBorderColorInactive: "transparent"
+  property real   cfgWsBgBorderWidthInactive: 0
+  property real   cfgWsBgPaddingHInactive:    6
+  property real   cfgWsBgPaddingVInactive:    2
+  property real   cfgWsBgRadiusInactive:      99
+  property string cfgWsIndicatorAnimStyle:    "smooth"
+  property int    cfgWsIndicatorAnimDuration: 140
+  property bool   cfgWsAddButtonBorderEnabled: true
+  property bool   cfgWsAddButtonBgEnabled:     false
+  property real   cfgWsAddButtonBgOpacity:     1.0
+  property color  cfgWsAddButtonColor:         Qt.rgba(1,1,1,0.6)
+  property color  cfgWsAddButtonBgColor:       Qt.rgba(1,1,1,0.08)
+  // Fonte do glifo "+" (não mais o diâmetro do botão) e padding
+  // ajustável H/V até a borda do círculo — mesmo espírito do numberBg
+  // em Ícones, mas calculado a partir do número (não das métricas do
+  // Text), pra manter o glifo sempre centralizado como nos números.
+  property int    cfgWsAddButtonSize:          13
+  property int    cfgWsAddButtonPaddingH:      5
+  property int    cfgWsAddButtonPaddingV:      5
 
   // ── Configs MediaPlayer ────────────────────────────────────────────────
   property bool   cfgMpShowText:        true
@@ -171,13 +196,14 @@ Item {
   property real  cfgClkFontScale:    1.0
 
   // ── Paleta ─────────────────────────────────────────────────────────────
+  // Só barBg/textDim/accent são de fato pintadas neste tema — barBgPill/
+  // text/accentBg/accentText eram recebidas do Bar.qml (via _set()) mas
+  // nunca consumidas em lugar nenhum, então o contract.json não expõe mais
+  // seletor de cor pra elas (evita cor "fantasma" que o usuário edita e
+  // não vê efeito nenhum na barra).
   property color colBarBg:          "#0d0d0d"
-  property color colBarBgPill:      "#161616"
-  property color colText:           "#e8e8e8"
   property color colTextDim:        "#9a9a9a"
   property color colAccent:         "#ffb4a9"
-  property color colAccentBg:       "#7d2b22"
-  property color colAccentText:     "#5f150f"
   property color colWsDot:          "#666666"
   property color colWsDotActive:    "#e8e8e8"
   property color colWsDotOccupied:  "#aaaaaa"
@@ -467,6 +493,26 @@ Item {
             scrollEnabled:        root.cfgWsScrollEnabled
             scrollAction:         root.cfgWsScrollAction
             scrollInvert:         root.cfgWsScrollInvert
+            bgGroupEnabled:      root.cfgWsBgGroupEnabled
+            bgActiveEnabled:     root.cfgWsBgActiveEnabled
+            bgInactiveEnabled:     root.cfgWsBgInactiveEnabled
+            bgColorInactive:       root.cfgWsBgColorInactive
+            bgOpacityInactive:     root.cfgWsBgOpacityInactive
+            bgBorderColorInactive: root.cfgWsBgBorderColorInactive
+            bgBorderWidthInactive: root.cfgWsBgBorderWidthInactive
+            bgPaddingHInactive:    root.cfgWsBgPaddingHInactive
+            bgPaddingVInactive:    root.cfgWsBgPaddingVInactive
+            bgRadiusInactive:      root.cfgWsBgRadiusInactive
+            indicatorAnimStyle:    root.cfgWsIndicatorAnimStyle
+            indicatorAnimDuration: root.cfgWsIndicatorAnimDuration
+            addButtonBorderEnabled: root.cfgWsAddButtonBorderEnabled
+            addButtonBgEnabled:     root.cfgWsAddButtonBgEnabled
+            addButtonBgOpacity:     root.cfgWsAddButtonBgOpacity
+            addButtonColor:         root.cfgWsAddButtonColor
+            addButtonBgColor:       root.cfgWsAddButtonBgColor
+            addButtonSize:          root.cfgWsAddButtonSize
+            addButtonPaddingH:      root.cfgWsAddButtonPaddingH
+            addButtonPaddingV:      root.cfgWsAddButtonPaddingV
             bgColor: root.colWsBg; bgColorActive: root.colWsBgActive
             bgBorderColor: Qt.rgba(root.colWsBorder.r, root.colWsBorder.g, root.colWsBorder.b, 0.12)
             bgBorderWidth: root.cfgWsBgBorderWidth

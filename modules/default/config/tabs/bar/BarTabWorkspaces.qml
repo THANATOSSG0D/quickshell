@@ -137,6 +137,75 @@ C.CfgScroll {
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "workspaces", key: "showAddButton", value: !(root.g("showAddButton", false) === true) })
   }
+  C.CfgToggle {
+    label:   "Borda no botão +"
+    checked: root.g("addButtonBorderEnabled", true) === true
+    visible: root.g("showAddButton", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "workspaces", key: "addButtonBorderEnabled", value: !(root.g("addButtonBorderEnabled", true) === true) })
+  }
+  C.CfgToggle {
+    label:   "Fundo persistente no botão + (não só no hover)"
+    checked: root.g("addButtonBgEnabled", false) === true
+    visible: root.g("showAddButton", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "workspaces", key: "addButtonBgEnabled", value: !(root.g("addButtonBgEnabled", false) === true) })
+  }
+  C.CfgSlider {
+    label: "Opacidade do fundo do botão +"; value: root.g("addButtonBgOpacity", 1.0)
+    from: 0.0; to: 1.0; step: 0.05; unit: ""
+    visible: root.g("showAddButton", false) === true && root.g("addButtonBgEnabled", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "workspaces", key: "addButtonBgOpacity", value: v })
+  }
+  C.CfgSlider {
+    // Termina em "Size" -> acompanha a "Escala dos módulos" global (moduleScale)
+    // igual ao tamanho dos ícones/dots, então o + nunca fica desproporcional
+    // ao resto da barra quando o usuário mexe no slider de escala.
+    // Agora controla só a FONTE do glifo — o diâmetro do botão nasce dela
+    // + o padding abaixo (mesmo padrão do "fundo do número" em Ícones).
+    label: "Tamanho da fonte do +"; value: root.g("addButtonSize", 13)
+    from: 9; to: 20; step: 1; unit: "px"
+    visible: root.g("showAddButton", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "workspaces", key: "addButtonSize", value: v })
+  }
+  C.CfgSlider {
+    label: "Padding horizontal do botão +"; value: root.g("addButtonPaddingH", 5)
+    from: 0; to: 16; step: 1; unit: "px"
+    visible: root.g("showAddButton", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "workspaces", key: "addButtonPaddingH", value: v })
+  }
+  C.CfgSlider {
+    label: "Padding vertical do botão +"; value: root.g("addButtonPaddingV", 5)
+    from: 0; to: 16; step: 1; unit: "px"
+    visible: root.g("showAddButton", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ moduleId: "workspaces", key: "addButtonPaddingV", value: v })
+  }
+  C.CfgPalette {
+    label: "Cor do botão + (borda/ícone)"; value: root.g("addButtonColor", "on_surface_variant")
+    visible: root.g("showAddButton", false) === true
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "workspaces", key: "addButtonColor", value: v })
+  }
+  C.CfgPalette {
+    label: "Cor do fundo do botão +"; value: root.g("addButtonBgColor", "surface_variant")
+    visible: root.g("showAddButton", false) === true && root.g("addButtonBgEnabled", false) === true
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changed({ moduleId: "workspaces", key: "addButtonBgColor", value: v })
+  }
 
   // ── Scroll no módulo (todos os estilos) ──────────────────────────────
   C.CfgDiv { colorDivider: root.colorDivider }
@@ -173,6 +242,38 @@ C.CfgScroll {
     colorAccent:  root.colorAccent
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "workspaces", key: "scrollInvert", value: !(root.g("scrollInvert", false) === true) })
+  }
+
+  // ── Animação do indicador — Dots/Número/Hybrid ───────────────────────
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.usesDotColors }
+  C.CfgSection { title: "ANIMAÇÃO DO INDICADOR"; colorTextDim: root.colorTextDim; visible: root.usesDotColors }
+  Row {
+    visible: root.usesDotColors
+    spacing: 6
+    Repeater {
+      model: [
+        { id: "none",   label: "Nenhuma" },
+        { id: "smooth", label: "Suave"   },
+        { id: "pop",    label: "Pop"     },
+        { id: "pulse",  label: "Pulso"   },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:  modelData.label
+        active: root.gs("indicatorAnimStyle", "smooth") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changedStyled("indicatorAnimStyle", modelData.id)
+      }
+    }
+  }
+  C.CfgSlider {
+    label: "Duração da animação"; value: root.gs("indicatorAnimDuration", 140)
+    from: 0; to: 600; step: 10; unit: "ms"
+    visible: root.usesDotColors
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("indicatorAnimDuration", v)
   }
 
   // ── Revelação — só existe no estilo Focus ────────────────────────────
@@ -313,6 +414,17 @@ C.CfgScroll {
   C.CfgDiv { colorDivider: root.colorDivider }
   C.CfgSection { title: "FUNDO DA PÍLULA (TODOS OS ESTILOS)"; colorTextDim: root.colorTextDim }
 
+  // Fundo do GRUPO inteiro (contêiner ao redor de TODOS os workspaces + o
+  // botão +) — é o mesmo Rectangle pra qualquer estilo selecionado, não é
+  // isolado por estilo (por isso usa g()/changed(), não gs()/changedStyled()).
+  C.CfgToggle {
+    label:   "Fundo do grupo (contêiner ao redor de tudo)"
+    checked: root.g("bgGroupEnabled", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "workspaces", key: "bgGroupEnabled", value: !(root.g("bgGroupEnabled", false) === true) })
+  }
+
   C.CfgSlider {
     label: "Opacidade (inativo)"; value: root.gs("bgOpacity", 0.0)
     from: 0.0; to: 1.0; step: 0.05; unit: ""
@@ -342,9 +454,17 @@ C.CfgScroll {
     onMoved: (v) => root.changedStyled("bgBorderWidth", v)
   }
 
+  C.CfgToggle {
+    label:   "Fundo individual — workspace ativa"
+    checked: root.gs("bgActiveEnabled", true) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changedStyled("bgActiveEnabled", !(root.gs("bgActiveEnabled", true) === true))
+  }
   C.CfgSlider {
     label: "Opacidade (ativo)"; value: root.gs("bgOpacityActive", 0.18)
     from: 0.0; to: 1.0; step: 0.05; unit: ""
+    visible: root.gs("bgActiveEnabled", true) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changedStyled("bgOpacityActive", v)
@@ -352,6 +472,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Padding H (ativo)"; value: root.gs("bgPaddingHActive", 8)
     from: 0; to: 20; step: 1; unit: "px"
+    visible: root.gs("bgActiveEnabled", true) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changedStyled("bgPaddingHActive", v)
@@ -359,6 +480,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Padding V (ativo)"; value: root.gs("bgPaddingVActive", 4)
     from: 0; to: 14; step: 1; unit: "px"
+    visible: root.gs("bgActiveEnabled", true) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changedStyled("bgPaddingVActive", v)
@@ -366,6 +488,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Raio (ativo) — 0=quadrado, alto=pílula"; value: root.gs("bgRadiusActive", 6)
     from: 0; to: 20; step: 1; unit: "px"
+    visible: root.gs("bgActiveEnabled", true) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changedStyled("bgRadiusActive", v)
@@ -373,9 +496,78 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Borda (ativo)"; value: root.gs("bgBorderWidthActive", 0)
     from: 0; to: 4; step: 1; unit: "px"
+    visible: root.gs("bgActiveEnabled", true) === true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changedStyled("bgBorderWidthActive", v)
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+
+  // ── Fundo individual — workspace INATIVA (vazia ou ocupada, sem foco) ──
+  C.CfgSection { title: "FUNDO INDIVIDUAL — WORKSPACE INATIVA"; colorTextDim: root.colorTextDim }
+  C.CfgToggle {
+    label:   "Fundo individual — workspaces inativas"
+    checked: root.gs("bgInactiveEnabled", false) === true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changedStyled("bgInactiveEnabled", !(root.gs("bgInactiveEnabled", false) === true))
+  }
+  C.CfgSlider {
+    label: "Opacidade"; value: root.gs("bgOpacityInactive", 0.4)
+    from: 0.0; to: 1.0; step: 0.05; unit: ""
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("bgOpacityInactive", v)
+  }
+  C.CfgSlider {
+    label: "Padding H"; value: root.gs("bgPaddingHInactive", 6)
+    from: 0; to: 20; step: 1; unit: "px"
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("bgPaddingHInactive", v)
+  }
+  C.CfgSlider {
+    label: "Padding V"; value: root.gs("bgPaddingVInactive", 2)
+    from: 0; to: 14; step: 1; unit: "px"
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("bgPaddingVInactive", v)
+  }
+  C.CfgSlider {
+    label: "Raio — 0=quadrado, alto=pílula"; value: root.gs("bgRadiusInactive", 99)
+    from: 0; to: 99; step: 1; unit: "px"
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("bgRadiusInactive", v)
+  }
+  C.CfgSlider {
+    label: "Borda"; value: root.gs("bgBorderWidthInactive", 0)
+    from: 0; to: 4; step: 1; unit: "px"
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changedStyled("bgBorderWidthInactive", v)
+  }
+  C.CfgPalette {
+    label: "Fundo — workspace inativa"; value: root.gs("bgColorInactive", "surface_variant")
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("bgColorInactive", v)
+  }
+  C.CfgPalette {
+    label: "Borda — workspace inativa"; value: root.gs("bgBorderColorInactive", "on_surface")
+    visible: root.gs("bgInactiveEnabled", false) === true
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("bgBorderColorInactive", v)
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }
@@ -418,11 +610,11 @@ C.CfgScroll {
   // O círculo indicador de cada workspace tem 4 estados possíveis, cada
   // um com sua cor. Não existe no estilo Ícones (que mostra ícones de
   // app no lugar do ponto).
-  C.CfgDiv { colorDivider: root.colorDivider; visible: root.usesDotColors }
-  C.CfgSection { title: "CORES — PONTOS"; colorTextDim: root.colorTextDim; visible: root.usesDotColors }
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.isDots }
+  C.CfgSection { title: "CORES — DOTS"; colorTextDim: root.colorTextDim; visible: root.isDots }
   C.CfgPalette {
     label: "Ponto — workspace vazia (sem janelas)"; value: root.gs("dotColor", "on_surface_variant")
-    visible: root.usesDotColors
+    visible: root.isDots
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -430,7 +622,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ponto — workspace ativa (selecionada)"; value: root.gs("dotActiveColor", "primary")
-    visible: root.usesDotColors
+    visible: root.isDots
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -438,7 +630,7 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ponto — workspace ocupada (com janelas, não selecionada)"; value: root.gs("dotOccupiedColor", "secondary")
-    visible: root.usesDotColors
+    visible: root.isDots
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
@@ -446,7 +638,85 @@ C.CfgScroll {
   }
   C.CfgPalette {
     label: "Ponto — workspace urgente (notificação pedindo atenção)"; value: root.gs("dotUrgentColor", "error")
-    visible: root.usesDotColors
+    visible: root.isDots
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotUrgentColor", v)
+  }
+
+  // ── Cores — estilo Número (badge circular só com o número, sem dot) ────
+  // Mesmas 4 chaves de armazenamento do bloco "Dots" acima (dotColor etc),
+  // mas isoladas por estilo (gs()/changedStyled() já gravam em
+  // workspaces.number.* — não colide com workspaces.dots.*). Só o RÓTULO
+  // muda aqui pra descrever o que a cor realmente faz nesse delegate.
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.currentStyle === "number" }
+  C.CfgSection { title: "CORES — NÚMERO (BADGE)"; colorTextDim: root.colorTextDim; visible: root.currentStyle === "number" }
+  C.CfgPalette {
+    label: "Número — cor do texto/borda (sem foco)"; value: root.gs("dotColor", "on_surface_variant")
+    visible: root.currentStyle === "number"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotColor", v)
+  }
+  C.CfgPalette {
+    label: "Número — fundo do badge (workspace ativa)"; value: root.gs("dotActiveColor", "primary")
+    visible: root.currentStyle === "number"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotActiveColor", v)
+  }
+  C.CfgPalette {
+    label: "Número — cor do texto/borda (ocupada, não selecionada)"; value: root.gs("dotOccupiedColor", "secondary")
+    visible: root.currentStyle === "number"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotOccupiedColor", v)
+  }
+  C.CfgPalette {
+    label: "Número — cor do texto/borda (urgente)"; value: root.gs("dotUrgentColor", "error")
+    visible: root.currentStyle === "number"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotUrgentColor", v)
+  }
+
+  // ── Cores — estilo Hybrid (dot pequeno + nome, expande ao ativar) ──────
+  // Mesmo esquema de armazenamento (workspaces.hybrid.*), rótulos próprios
+  // porque a cor "ativa" aqui pinta o FUNDO da pílula inteira, não um ponto.
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root.currentStyle === "hybrid" }
+  C.CfgSection { title: "CORES — HYBRID"; colorTextDim: root.colorTextDim; visible: root.currentStyle === "hybrid" }
+  C.CfgPalette {
+    label: "Hybrid — cor do dot/texto (sem foco)"; value: root.gs("dotColor", "on_surface_variant")
+    visible: root.currentStyle === "hybrid"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotColor", v)
+  }
+  C.CfgPalette {
+    label: "Hybrid — fundo da pílula (workspace ativa)"; value: root.gs("dotActiveColor", "primary")
+    visible: root.currentStyle === "hybrid"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotActiveColor", v)
+  }
+  C.CfgPalette {
+    label: "Hybrid — cor do dot/texto (ocupada, não selecionada)"; value: root.gs("dotOccupiedColor", "secondary")
+    visible: root.currentStyle === "hybrid"
+    colors: root.colors; overlay: root.overlay
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider
+    onEdited: (v) => root.changedStyled("dotOccupiedColor", v)
+  }
+  C.CfgPalette {
+    label: "Hybrid — cor do dot/texto (urgente)"; value: root.gs("dotUrgentColor", "error")
+    visible: root.currentStyle === "hybrid"
     colors: root.colors; overlay: root.overlay
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorSidebar: root.colorSidebar; colorDivider: root.colorDivider

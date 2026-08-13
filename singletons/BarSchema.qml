@@ -248,6 +248,28 @@ QtObject {
         { key:"showAddButton",  type:"bool",  default:true, label:"Mostrar botão +", section:"GERAL" },
         { key:"showTooltip",    type:"bool",  default:true, label:"Mostrar tooltip ao passar o mouse", section:"GERAL" },
         { key:"spacing",        type:"int",   default:2, min:0, max:24, step:1, unit:"px", label:"Espaçamento entre ws", section:"GERAL" },
+
+        // ── Botão "+" ─────────────────────────────────────────────────
+        { key:"addButtonBorderEnabled", type:"bool",    default:true,  label:"Borda do botão +",  section:"BOTÃO +" },
+        { key:"addButtonBgEnabled",     type:"bool",    default:false, label:"Fundo persistente do botão +", section:"BOTÃO +" },
+        { key:"addButtonBgOpacity",     type:"real",    default:1.0,   min:0, max:1, step:0.05, unit:"%", label:"Opacidade do fundo", section:"BOTÃO +" },
+        { key:"addButtonColor",         type:"palette", default:"on_surface_variant", label:"Cor (borda/ícone)", section:"BOTÃO +" },
+        { key:"addButtonBgColor",       type:"palette", default:"surface_variant",    label:"Cor do fundo",      section:"BOTÃO +" },
+        // addButtonSize deixou de ser o diâmetro do botão — agora é só o
+        // tamanho da FONTE do glifo "+". O diâmetro nasce do glifo +
+        // addButtonPaddingH/V (mesmo padrão do numberBg em Icons.qml).
+        { key:"addButtonSize",          type:"int",     default:13,    min:9,  max:20, step:1, unit:"px", label:"Tamanho da fonte do +", section:"BOTÃO +" },
+        { key:"addButtonPaddingH",      type:"int",     default:5,     min:0,  max:16, step:1, unit:"px", label:"Padding horizontal", section:"BOTÃO +" },
+        { key:"addButtonPaddingV",      type:"int",     default:5,     min:0,  max:16, step:1, unit:"px", label:"Padding vertical",   section:"BOTÃO +" },
+
+        // ── Animação do indicador (dots/número/hybrid) ──────────────────
+        { key:"indicatorAnimStyle",    type:"enum", default:"smooth", label:"Estilo da animação", section:"ANIMAÇÃO DO INDICADOR", visibleWhen:"_hasDots",
+          options:[{id:"none",label:"Nenhuma"},{id:"smooth",label:"Suave"},{id:"pop",label:"Pop (overshoot)"},{id:"pulse",label:"Pulso"}] },
+        { key:"indicatorAnimDuration", type:"int",  default:140, min:0, max:600, step:10, unit:"ms", label:"Duração", section:"ANIMAÇÃO DO INDICADOR", visibleWhen:"_hasDots" },
+
+        // ── Fundo do GRUPO (todos os estilos) ────────────────────────────
+        { key:"bgGroupEnabled", type:"bool", default:false, label:"Fundo do grupo habilitado", section:"FUNDO DO GRUPO" },
+
         { key:"scrollEnabled", type:"bool", default:false, label:"Scroll troca workspace/janela", section:"SCROLL" },
         { key:"scrollAction",  type:"enum", default:"workspace", label:"O que o scroll muda", section:"SCROLL",
           options:[{id:"workspace",label:"Workspace"},{id:"window",label:"Janela"}] },
@@ -262,19 +284,39 @@ QtObject {
         { key:"bgPaddingH",          type:"int",     default:8,    min:0, max:32, step:2,   unit:"px", label:"Padding H",             section:"FUNDO" },
         { key:"bgPaddingV",          type:"int",     default:2,    min:0, max:20, step:1,   unit:"px", label:"Padding V",             section:"FUNDO" },
         { key:"bgBorderWidth",       type:"real",    default:0,    min:0, max:4,  step:1,   unit:"px", label:"Borda (inativo)",       section:"FUNDO" },
+        { key:"bgActiveEnabled",     type:"bool",    default:true, label:"Fundo individual (ativa) habilitado", section:"ATIVA" },
         { key:"bgOpacityActive",     type:"real",    default:0.85, min:0, max:1, step:0.05, unit:"%", label:"Opacidade ativo",        section:"ATIVA" },
         { key:"bgPaddingHActive",    type:"int",     default:6,    min:0, max:32, step:2,   unit:"px", label:"Padding H ativo",       section:"ATIVA" },
         { key:"bgPaddingVActive",    type:"int",     default:2,    min:0, max:20, step:1,   unit:"px", label:"Padding V ativo",       section:"ATIVA" },
         { key:"bgRadiusActive",      type:"real",    default:99,   min:0, max:99, step:1,   unit:"px", label:"Raio ativo",            section:"ATIVA" },
         { key:"bgBorderWidthActive", type:"real",    default:0,    min:0, max:4,  step:1,   unit:"px", label:"Borda ativo",           section:"ATIVA" },
+        { key:"bgInactiveEnabled",     type:"bool", default:false, label:"Fundo individual (inativa) habilitado", section:"INATIVA" },
+        { key:"bgOpacityInactive",     type:"real", default:0.4,  min:0, max:1, step:0.05, unit:"%", label:"Opacidade inativo",    section:"INATIVA" },
+        { key:"bgPaddingHInactive",    type:"int",  default:6,    min:0, max:32, step:2,   unit:"px", label:"Padding H inativo",   section:"INATIVA" },
+        { key:"bgPaddingVInactive",    type:"int",  default:2,    min:0, max:20, step:1,   unit:"px", label:"Padding V inativo",   section:"INATIVA" },
+        { key:"bgRadiusInactive",      type:"real", default:99,   min:0, max:99, step:1,   unit:"px", label:"Raio inativo",        section:"INATIVA" },
+        { key:"bgBorderWidthInactive", type:"real", default:0,    min:0, max:4,  step:1,   unit:"px", label:"Borda inativo",       section:"INATIVA" },
         { key:"bgColor",             type:"palette", default:"surface_variant",      label:"Fundo",        section:"CORES — FUNDO" },
         { key:"bgColorActive",       type:"palette", default:"primary_container",    label:"Fundo ativo",  section:"CORES — FUNDO" },
+        { key:"bgColorInactive",     type:"palette", default:"surface_variant",      label:"Fundo inativo",section:"CORES — FUNDO" },
         { key:"bgBorderColor",       type:"palette", default:"on_surface",           label:"Borda",        section:"CORES — FUNDO" },
         { key:"bgBorderColorActive", type:"palette", default:"primary",              label:"Borda ativa",  section:"CORES — FUNDO" },
-        { key:"dotColor",            type:"palette", default:"on_surface_variant",   label:"Ponto vazio",  section:"CORES — PONTOS", visibleWhen:"_hasDots" },
-        { key:"dotActiveColor",      type:"palette", default:"on_surface",           label:"Ponto ativo",  section:"CORES — PONTOS", visibleWhen:"_hasDots" },
-        { key:"dotOccupiedColor",    type:"palette", default:"on_surface",           label:"Ponto ocupado",section:"CORES — PONTOS", visibleWhen:"_hasDots" },
-        { key:"dotUrgentColor",      type:"palette", default:"error",                label:"Ponto urgente",section:"CORES — PONTOS", visibleWhen:"_hasDots" },
+        { key:"bgBorderColorInactive", type:"palette", default:"on_surface",         label:"Borda inativa",section:"CORES — FUNDO" },
+        { key:"dotColor",            type:"palette", default:"on_surface_variant",   label:"Ponto — sem foco",  section:"CORES — DOTS", visibleWhen:"_isDots" },
+        { key:"dotActiveColor",      type:"palette", default:"on_surface",           label:"Ponto — ativa",    section:"CORES — DOTS", visibleWhen:"_isDots" },
+        { key:"dotOccupiedColor",    type:"palette", default:"on_surface",           label:"Ponto — ocupada",  section:"CORES — DOTS", visibleWhen:"_isDots" },
+        { key:"dotUrgentColor",      type:"palette", default:"error",                label:"Ponto — urgente",  section:"CORES — DOTS", visibleWhen:"_isDots" },
+        // Estilo Número (badge sem dot) — mesmas 4 chaves (isoladas por
+        // estilo no storage), rótulos descrevendo o que cada uma faz aqui.
+        { key:"dotColor",            type:"palette", default:"on_surface_variant",   label:"Número — texto/borda (sem foco)", section:"CORES — NÚMERO (BADGE)", visibleWhen:"_isNumber" },
+        { key:"dotActiveColor",      type:"palette", default:"on_surface",           label:"Número — fundo do badge (ativa)", section:"CORES — NÚMERO (BADGE)", visibleWhen:"_isNumber" },
+        { key:"dotOccupiedColor",    type:"palette", default:"on_surface",           label:"Número — texto/borda (ocupada)",  section:"CORES — NÚMERO (BADGE)", visibleWhen:"_isNumber" },
+        { key:"dotUrgentColor",      type:"palette", default:"error",                label:"Número — texto/borda (urgente)",  section:"CORES — NÚMERO (BADGE)", visibleWhen:"_isNumber" },
+        // Estilo Hybrid (dot pequeno + nome, expande ao ativar).
+        { key:"dotColor",            type:"palette", default:"on_surface_variant",   label:"Hybrid — dot/texto (sem foco)",   section:"CORES — HYBRID", visibleWhen:"_isHybrid" },
+        { key:"dotActiveColor",      type:"palette", default:"on_surface",           label:"Hybrid — fundo da pílula (ativa)",section:"CORES — HYBRID", visibleWhen:"_isHybrid" },
+        { key:"dotOccupiedColor",    type:"palette", default:"on_surface",           label:"Hybrid — dot/texto (ocupada)",    section:"CORES — HYBRID", visibleWhen:"_isHybrid" },
+        { key:"dotUrgentColor",      type:"palette", default:"error",                label:"Hybrid — dot/texto (urgente)",    section:"CORES — HYBRID", visibleWhen:"_isHybrid" },
         { key:"iconMonoColor",       type:"palette", default:"on_surface",           label:"Ícone",        section:"CORES — ÍCONES",  visibleWhen:"_hasIcons" },
         { key:"iconMonoColorActive", type:"palette", default:"primary",              label:"Ícone ativo",  section:"CORES — ÍCONES",  visibleWhen:"_hasIcons" },
         { key:"revealMode",           type:"enum", default:"hover", label:"Modo de revelação", section:"FOCO — REVELAÇÃO",

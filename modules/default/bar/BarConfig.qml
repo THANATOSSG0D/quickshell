@@ -591,6 +591,10 @@ Item {
     paletteWsNumberColorActive   = resolve(pkWsNumberColorActive)
     paletteWsNumberBgColor       = resolve(pkWsNumberBgColor)
     paletteWsNumberBgColorActive = resolve(pkWsNumberBgColorActive)
+    paletteWsBgColorInactive       = resolve(pkWsBgColorInactive)
+    paletteWsBgBorderColorInactive = resolve(pkWsBgBorderColorInactive)
+    paletteWsAddButtonColor        = resolve(pkWsAddButtonColor)
+    paletteWsAddButtonBgColor      = resolve(pkWsAddButtonBgColor)
   }
 
   property color paletteBarBg:          "#1a1a1a"
@@ -650,6 +654,10 @@ Item {
   property color paletteWsNumberColorActive:   "#1a1a1a"
   property color paletteWsNumberBgColor:       "#2a2a2a"
   property color paletteWsNumberBgColorActive: "#ffb4a9"
+  property color paletteWsBgColorInactive:       "#2a2a2a"
+  property color paletteWsBgBorderColorInactive: "#e2e2e2"
+  property color paletteWsAddButtonColor:        "#9e9e9e"
+  property color paletteWsAddButtonBgColor:      "#2a2a2a"
 
   // workspaces — lidos do estilo atual
   property string wsStyle: get("workspaces","style") || "icons"
@@ -677,6 +685,24 @@ Item {
   readonly property real   wsBgPaddingHActive:      wsGet("bgPaddingHActive")
   readonly property real   wsBgPaddingVActive:      wsGet("bgPaddingVActive")
   readonly property real   wsBgRadiusActive:        wsGet("bgRadiusActive")
+  readonly property bool   wsBgActiveEnabled:       wsGet("bgActiveEnabled") !== false
+
+  // fundo individual — workspace INATIVA (vazia/ocupada, sem foco)
+  readonly property bool   wsBgInactiveEnabled:     wsGet("bgInactiveEnabled") === true
+  readonly property real   wsBgOpacityInactive:     wsGet("bgOpacityInactive")
+  readonly property string pkWsBgColorInactive:       wsGet("bgColorInactive")
+  readonly property string pkWsBgBorderColorInactive: wsGet("bgBorderColorInactive")
+  readonly property real   wsBgBorderWidthInactive: wsGet("bgBorderWidthInactive")
+  readonly property real   wsBgPaddingHInactive:    wsGet("bgPaddingHInactive")
+  readonly property real   wsBgPaddingVInactive:    wsGet("bgPaddingVInactive")
+  readonly property real   wsBgRadiusInactive:      wsGet("bgRadiusInactive")
+
+  // fundo do GRUPO — toggle explícito
+  readonly property bool   wsBgGroupEnabled: get("workspaces","bgGroupEnabled") === true
+
+  // animação do indicador (dots/número/hybrid)
+  readonly property string wsIndicatorAnimStyle:    wsGet("indicatorAnimStyle") || "smooth"
+  readonly property int    wsIndicatorAnimDuration: wsGet("indicatorAnimDuration") || 140
 
   // Props de ws comuns
   readonly property string wsIconsSort:      get("workspaces","iconsSort")     || "position"
@@ -694,6 +720,14 @@ Item {
   readonly property string pkWsNumberBgColor:       get("workspaces","numberBgColor")       || "surface_variant"
   readonly property string pkWsNumberBgColorActive: get("workspaces","numberBgColorActive") || "primary"
   readonly property bool   wsShowAddButton:  get("workspaces","showAddButton")  !== false
+  readonly property bool   wsAddButtonBorderEnabled: get("workspaces","addButtonBorderEnabled") !== false
+  readonly property bool   wsAddButtonBgEnabled:     get("workspaces","addButtonBgEnabled")      === true
+  readonly property real   wsAddButtonBgOpacity:     get("workspaces","addButtonBgOpacity")      || 1.0
+  readonly property string pkWsAddButtonColor:       get("workspaces","addButtonColor")   || "on_surface_variant"
+  readonly property string pkWsAddButtonBgColor:     get("workspaces","addButtonBgColor") || "surface_variant"
+  readonly property int    wsAddButtonSize:          get("workspaces","addButtonSize")    || 13
+  readonly property int    wsAddButtonPaddingH:      get("workspaces","addButtonPaddingH") || 5
+  readonly property int    wsAddButtonPaddingV:      get("workspaces","addButtonPaddingV") || 5
   readonly property bool   wsShowTooltip:    get("workspaces","showTooltip")    !== false
   readonly property int    wsSpacing:        get("workspaces","spacing")        || 2
   readonly property string wsRevealMode:           wsGet("revealMode") || "hover"

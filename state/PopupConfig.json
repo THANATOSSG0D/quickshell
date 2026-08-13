@@ -43,6 +43,7 @@
     "themes": {
         "Bento": {
             "globals": {
+                "animationStyle": "slide",
                 "popupXAlign": "center",
                 "popupXOffset": 6
             },

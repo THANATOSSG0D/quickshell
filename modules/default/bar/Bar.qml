@@ -977,6 +977,35 @@ Scope {
         _set("cfgWsBgPaddingVActive",    barState.config.wsBgPaddingVActive)
         _set("cfgWsBgRadiusActive",      barState.config.wsBgRadiusActive)
         _set("colWsBgActive",            barState.config.paletteWsBgColorActive)
+
+        // ── Workspaces — fundo do grupo / ativo(toggle) / inativo (novo) ────
+        _set("cfgWsBgGroupEnabled",  barState.config.wsBgGroupEnabled)
+        _set("cfgWsBgActiveEnabled", barState.config.wsBgActiveEnabled)
+        _set("cfgWsBgInactiveEnabled",     barState.config.wsBgInactiveEnabled)
+        _set("cfgWsBgColorInactive",       barState.config.paletteWsBgColorInactive)
+        _set("cfgWsBgOpacityInactive",     barState.config.wsBgOpacityInactive)
+        _set("cfgWsBgBorderColorInactive", barState.config.paletteWsBgBorderColorInactive)
+        _set("cfgWsBgBorderWidthInactive", barState.config.wsBgBorderWidthInactive)
+        _set("cfgWsBgPaddingHInactive",    barState.config.wsBgPaddingHInactive)
+        _set("cfgWsBgPaddingVInactive",    barState.config.wsBgPaddingVInactive)
+        _set("cfgWsBgRadiusInactive",      barState.config.wsBgRadiusInactive)
+
+        // ── Workspaces — animação do indicador (dots/número/hybrid) ────────
+        _set("cfgWsIndicatorAnimStyle",    barState.config.wsIndicatorAnimStyle)
+        _set("cfgWsIndicatorAnimDuration", barState.config.wsIndicatorAnimDuration)
+
+        // ── Workspaces — botão "+" ───────────────────────────────────────
+        _set("cfgWsAddButtonBorderEnabled", barState.config.wsAddButtonBorderEnabled)
+        _set("cfgWsAddButtonBgEnabled",     barState.config.wsAddButtonBgEnabled)
+        _set("cfgWsAddButtonBgOpacity",     barState.config.wsAddButtonBgOpacity)
+        // termina em "Size" -> passa por _isScalable() e é multiplicado pelo
+        // moduleScale global automaticamente, igual wsIconSize/wsDotSize.
+        _set("cfgWsAddButtonSize",          barState.config.wsAddButtonSize)
+        _set("cfgWsAddButtonPaddingH",      barState.config.wsAddButtonPaddingH)
+        _set("cfgWsAddButtonPaddingV",      barState.config.wsAddButtonPaddingV)
+        _set("cfgWsAddButtonColor",         barState.config.paletteWsAddButtonColor)
+        _set("cfgWsAddButtonBgColor",       barState.config.paletteWsAddButtonBgColor)
+
         // mediaPlayer
         _set("cfgMpShowText",       barState.config.mpShowText)
         _set("cfgMpTextStatic",      barState.config.mpTextStatic)
@@ -1167,6 +1196,33 @@ Scope {
         function onWsBgPaddingHActiveChanged()           { bar._set("cfgWsBgPaddingHActive",    barState.config.wsBgPaddingHActive)           }
         function onWsBgPaddingVActiveChanged()           { bar._set("cfgWsBgPaddingVActive",    barState.config.wsBgPaddingVActive)           }
         function onWsBgRadiusActiveChanged()             { bar._set("cfgWsBgRadiusActive",      barState.config.wsBgRadiusActive)             }
+
+        // fundo do grupo / ativo (toggle) / inativo (novo)
+        function onWsBgGroupEnabledChanged()  { bar._set("cfgWsBgGroupEnabled",  barState.config.wsBgGroupEnabled)  }
+        function onWsBgActiveEnabledChanged() { bar._set("cfgWsBgActiveEnabled", barState.config.wsBgActiveEnabled) }
+        function onWsBgInactiveEnabledChanged()          { bar._set("cfgWsBgInactiveEnabled",     barState.config.wsBgInactiveEnabled)     }
+        function onPaletteWsBgColorInactiveChanged()     { bar._set("cfgWsBgColorInactive",       barState.config.paletteWsBgColorInactive) }
+        function onWsBgOpacityInactiveChanged()          { bar._set("cfgWsBgOpacityInactive",     barState.config.wsBgOpacityInactive)     }
+        function onPaletteWsBgBorderColorInactiveChanged() { bar._set("cfgWsBgBorderColorInactive", barState.config.paletteWsBgBorderColorInactive) }
+        function onWsBgBorderWidthInactiveChanged()      { bar._set("cfgWsBgBorderWidthInactive", barState.config.wsBgBorderWidthInactive) }
+        function onWsBgPaddingHInactiveChanged()         { bar._set("cfgWsBgPaddingHInactive",    barState.config.wsBgPaddingHInactive)    }
+        function onWsBgPaddingVInactiveChanged()         { bar._set("cfgWsBgPaddingVInactive",    barState.config.wsBgPaddingVInactive)    }
+        function onWsBgRadiusInactiveChanged()           { bar._set("cfgWsBgRadiusInactive",      barState.config.wsBgRadiusInactive)      }
+
+        // animação do indicador
+        function onWsIndicatorAnimStyleChanged()    { bar._set("cfgWsIndicatorAnimStyle",    barState.config.wsIndicatorAnimStyle)    }
+        function onWsIndicatorAnimDurationChanged() { bar._set("cfgWsIndicatorAnimDuration", barState.config.wsIndicatorAnimDuration) }
+
+        // botão "+"
+        function onWsAddButtonBorderEnabledChanged()  { bar._set("cfgWsAddButtonBorderEnabled", barState.config.wsAddButtonBorderEnabled) }
+        function onWsAddButtonBgEnabledChanged()      { bar._set("cfgWsAddButtonBgEnabled",     barState.config.wsAddButtonBgEnabled)     }
+        function onWsAddButtonBgOpacityChanged()      { bar._set("cfgWsAddButtonBgOpacity",     barState.config.wsAddButtonBgOpacity)     }
+        function onWsAddButtonSizeChanged()           { bar._set("cfgWsAddButtonSize",          barState.config.wsAddButtonSize)          }
+        function onWsAddButtonPaddingHChanged()       { bar._set("cfgWsAddButtonPaddingH",      barState.config.wsAddButtonPaddingH)      }
+        function onWsAddButtonPaddingVChanged()       { bar._set("cfgWsAddButtonPaddingV",      barState.config.wsAddButtonPaddingV)      }
+        function onPaletteWsAddButtonColorChanged()   { bar._set("cfgWsAddButtonColor",         barState.config.paletteWsAddButtonColor)  }
+        function onPaletteWsAddButtonBgColorChanged() { bar._set("cfgWsAddButtonBgColor",       barState.config.paletteWsAddButtonBgColor) }
+
         // mediaPlayer
         function onMpShowTextChanged()               { bar._set("cfgMpShowText",       barState.config.mpShowText)            }
         function onMpTextModeChanged()               { bar._set("cfgMpTextMode",        barState.config.mpTextMode)            }

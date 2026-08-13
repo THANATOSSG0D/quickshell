@@ -38,7 +38,7 @@ if systemctl --user is-active --quiet wallpaper-schedule.timer 2>/dev/null; then
   log "wallpaper-schedule.timer pausado"
 fi
 
-~/.config/hypr/scripts/monitor-toggle.sh --quiet laptop off || true
+# ~/.config/hypr/scripts/monitor-toggle.sh --quiet laptop off || true
 
 # ── Lock (bloqueante) ─────────────────────────────────────────────────────────
 log "Iniciando..."
@@ -46,11 +46,11 @@ qs -c "$LOCK_DIR"
 log "Desbloqueado"
 
 # Recarrega o shell principal — soft reload (rápido, reaproveita janelas)
-if qs ipc call screenLock reload 2>/dev/null; then
-  log "Shell principal recarregado (soft)"
-else
-  log "AVISO: falha ao recarregar o shell principal (instância rodando?)"
-fi
+# if qs ipc call screenLock reload 2>/dev/null; then
+#   log "Shell principal recarregado (soft)"
+# else
+#   log "AVISO: falha ao recarregar o shell principal (instância rodando?)"
+# fi
 
 # ── Pós-unlock ────────────────────────────────────────────────────────────────
 # Reativa o timer de wallpaper se estava ativo

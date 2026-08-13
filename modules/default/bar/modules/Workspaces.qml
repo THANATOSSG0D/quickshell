@@ -54,7 +54,9 @@ Item {
   // espaçamento entre workspaces no GridLayout
   property int wsSpacing: 2
 
-  // fundo global (container de todos os workspaces)
+  // fundo global (container de todos os workspaces) — toggle explícito
+  // além da opacidade, pra ligar/desligar sem perder os valores configurados
+  property bool  bgGroupEnabled: false
   property color bgColor:       "transparent"
   property real  bgOpacity:     0.0
   property color bgBorderColor: "transparent"
@@ -63,7 +65,9 @@ Item {
   property real  bgPaddingV:    4
 
   // fundo individual da workspace ATIVA
-  // bgColorActive.a == 0 (transparent) → sem fundo individual
+  // toggle explícito — quando desligado, ignora bgColorActive mesmo que
+  // tenha alfa > 0 (facilita testar/alternar sem perder as cores configuradas)
+  property bool  bgActiveEnabled:     true
   property color bgColorActive:       "transparent"
   property real  bgOpacityActive:     0.8
   property color bgBorderColorActive: "transparent"
@@ -72,13 +76,48 @@ Item {
   property real  bgPaddingVActive:    2
   property real  bgRadiusActive:      99   // 99=pill, 4=rounded rect, 0=square
 
+  // fundo individual das workspaces INATIVAS (vazias ou ocupadas, não
+  // selecionadas) — espelha as props "Active" acima. Desligado por padrão.
+  property bool  bgInactiveEnabled:     false
+  property color bgColorInactive:       "transparent"
+  property real  bgOpacityInactive:     0.4
+  property color bgBorderColorInactive: "transparent"
+  property real  bgBorderWidthInactive: 0
+  property real  bgPaddingHInactive:    6
+  property real  bgPaddingVInactive:    2
+  property real  bgRadiusInactive:      99
+
   // cores dos dots/números
   property color dotColor:         "white"
   property color dotActiveColor:   "white"
   property color dotOccupiedColor: Qt.rgba(1, 1, 1, 0.6)
   property color dotUrgentColor:   "#f38ba8"
 
-  property bool showAddButton: true
+  // ── Animação do indicador ativo (dots/número/hybrid) ─────────────────
+  // "none" | "smooth" | "pop" | "pulse" — ver Dot.qml pra detalhe de cada
+  // curva. Não afeta os estilos "icons"/"focus"/"current".
+  property string indicatorAnimStyle:    "smooth"
+  property int    indicatorAnimDuration: 140
+
+  // ── Botão "+" (criar nova workspace) ─────────────────────────────────
+  property bool  showAddButton:        true
+  property bool  addButtonBorderEnabled: true
+  property bool  addButtonBgEnabled:     false
+  property color addButtonColor:         dotColor        // base p/ borda, texto e hover
+  property color addButtonBgColor:       Qt.rgba(1, 1, 1, 0.08)
+  property real  addButtonBgOpacity:     1.0
+  // Tamanho da FONTE do glifo "+" (não mais o diâmetro do botão — ver
+  // addButtonPaddingH/V abaixo). Termina em "Size" de propósito: é o que
+  // faz o Bar.qml (bar._isScalable()) reconhecer e multiplicar
+  // automaticamente pelo moduleScale global, igual iconSize/dotSize/fontSize.
+  property int   addButtonSize:        13
+  // Padding do glifo até a borda do círculo — mesmo padrão de
+  // numberBgPaddingH/V (Icons.qml): o botão se AUTO-DIMENSIONA a partir do
+  // tamanho da fonte + padding, em vez de um diâmetro fixo. Terminam em
+  // "PaddingH"/"PaddingV" de propósito, então também escalam com
+  // moduleScale (mesma convenção do resto do módulo).
+  property int   addButtonPaddingH:    5
+  property int   addButtonPaddingV:    5
 
   readonly property bool isHorizontal: orientation === "horizontal"
 
@@ -142,8 +181,13 @@ Item {
 
       readonly property bool isActive: modelData.active
 
-      readonly property real pH: isActive ? root.bgPaddingHActive : 0
-      readonly property real pV: isActive ? root.bgPaddingVActive : 0
+      readonly property bool _showActiveBg:
+        wrapper.isActive && root.bgActiveEnabled && root.bgColorActive.a > 0.001
+      readonly property bool _showInactiveBg:
+        !wrapper.isActive && root.bgInactiveEnabled && root.bgColorInactive.a > 0.001
+
+      readonly property real pH: _showActiveBg ? root.bgPaddingHActive : _showInactiveBg ? root.bgPaddingHInactive : 0
+      readonly property real pV: _showActiveBg ? root.bgPaddingVActive : _showInactiveBg ? root.bgPaddingVInactive : 0
 
       implicitWidth: {
         var dw = delegateLoader.item ? delegateLoader.item.implicitWidth  : 0
@@ -154,10 +198,10 @@ Item {
         return isHorizontal ? dh : dh + pV * 2
       }
 
-      // Fundo da workspace ativa
+      // Fundo da workspace ATIVA
       Rectangle {
         anchors.fill: parent
-        visible:      wrapper.isActive && root.bgColorActive.a > 0.001
+        visible:      wrapper._showActiveBg
         radius:       root.bgRadiusActive
         color:        Qt.rgba(
                         root.bgColorActive.r,
@@ -166,6 +210,22 @@ Item {
                         root.bgOpacityActive)
         border.color: root.bgBorderColorActive
         border.width: root.bgBorderWidthActive
+
+        Behavior on color { ColorAnimation { duration: 150 } }
+      }
+
+      // Fundo das workspaces INATIVAS (vazias ou ocupadas, sem foco)
+      Rectangle {
+        anchors.fill: parent
+        visible:      wrapper._showInactiveBg
+        radius:       root.bgRadiusInactive
+        color:        Qt.rgba(
+                        root.bgColorInactive.r,
+                        root.bgColorInactive.g,
+                        root.bgColorInactive.b,
+                        root.bgOpacityInactive)
+        border.color: root.bgBorderColorInactive
+        border.width: root.bgBorderWidthInactive
 
         Behavior on color { ColorAnimation { duration: 150 } }
       }
@@ -195,10 +255,29 @@ Item {
         // (Focus NÃO declara essas props — reaproveita numberColor/
         // numberColorActive/urgentColor próprios; por isso fica de fora
         // daqui, senão o binding tenta escrever em propriedade inexistente)
-        Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
-        Binding { target: delegateLoader.item; property: "dotActiveColor";   value: root.dotActiveColor;   when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
-        Binding { target: delegateLoader.item; property: "dotOccupiedColor"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
-        Binding { target: delegateLoader.item; property: "dotUrgentColor";   value: root.dotUrgentColor;   when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
+        // ── Cores — cada delegate tem seu próprio "contrato" de nomes ────
+        // (ver comentário no topo de Dot.qml / Number.qml / Hybrid.qml).
+        // Todas as três recebem os MESMOS 4 valores de origem (root.dotColor
+        // etc — já isolados por estilo lá na config/tema), só o nome da
+        // propriedade de DESTINO muda pra bater com o que cada delegate espera.
+        Binding { target: delegateLoader.item; property: "dotColor";         value: root.dotColor;         when: delegateLoader.item !== null && root.style === "dots" }
+        Binding { target: delegateLoader.item; property: "dotActiveColor";   value: root.dotActiveColor;   when: delegateLoader.item !== null && root.style === "dots" }
+        Binding { target: delegateLoader.item; property: "dotOccupiedColor"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && root.style === "dots" }
+        Binding { target: delegateLoader.item; property: "dotUrgentColor";   value: root.dotUrgentColor;   when: delegateLoader.item !== null && root.style === "dots" }
+
+        Binding { target: delegateLoader.item; property: "numTint";         value: root.dotColor;         when: delegateLoader.item !== null && root.style === "number" }
+        Binding { target: delegateLoader.item; property: "numFillActive";   value: root.dotActiveColor;   when: delegateLoader.item !== null && root.style === "number" }
+        Binding { target: delegateLoader.item; property: "numTintOccupied"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && root.style === "number" }
+        Binding { target: delegateLoader.item; property: "numUrgent";       value: root.dotUrgentColor;   when: delegateLoader.item !== null && root.style === "number" }
+
+        Binding { target: delegateLoader.item; property: "hybridTint";         value: root.dotColor;         when: delegateLoader.item !== null && root.style === "hybrid" }
+        Binding { target: delegateLoader.item; property: "hybridFillActive";   value: root.dotActiveColor;   when: delegateLoader.item !== null && root.style === "hybrid" }
+        Binding { target: delegateLoader.item; property: "hybridTintOccupied"; value: root.dotOccupiedColor; when: delegateLoader.item !== null && root.style === "hybrid" }
+        Binding { target: delegateLoader.item; property: "hybridUrgent";       value: root.dotUrgentColor;   when: delegateLoader.item !== null && root.style === "hybrid" }
+
+        // ── animação do indicador (Dot / Number / Hybrid) ────────────────
+        Binding { target: delegateLoader.item; property: "animStyle";    value: root.indicatorAnimStyle;    when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
+        Binding { target: delegateLoader.item; property: "animDuration"; value: root.indicatorAnimDuration; when: delegateLoader.item !== null && (root.style === "dots" || root.style === "number" || root.style === "hybrid") }
 
         // ── orientação (Dot) ─────────────────────────────────────────────
         Binding { target: delegateLoader.item; property: "isHorizontal"; value: root.isHorizontal; when: delegateLoader.item !== null && (root.style === "dots" || root.style === "hybrid") }
@@ -286,9 +365,11 @@ Item {
     width:  layout.implicitWidth  + (root.isHorizontal ? root.bgPaddingH : root.bgPaddingV) * 2
     height: layout.implicitHeight + (root.isHorizontal ? root.bgPaddingV : root.bgPaddingH) * 2
     radius: Math.min(width, height) / 2
-    color:  Qt.rgba(root.bgColor.r, root.bgColor.g, root.bgColor.b, root.bgOpacity)
-    border.color: root.bgBorderColor
-    border.width: root.bgBorderWidth
+    color:  root.bgGroupEnabled
+      ? Qt.rgba(root.bgColor.r, root.bgColor.g, root.bgColor.b, root.bgOpacity)
+      : "transparent"
+    border.color: root.bgGroupEnabled ? root.bgBorderColor : "transparent"
+    border.width: root.bgGroupEnabled ? root.bgBorderWidth : 0
 
     Behavior on color        { ColorAnimation { duration: 150 } }
     Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -308,29 +389,60 @@ Item {
       }
 
       // ── Botão "+" ───────────────────────────────────────────────────
+      // Borda e fundo agora são independentes e configuráveis.
+      // Diâmetro deixou de ser fixo: agora nasce do TAMANHO DA FONTE do
+      // glifo "+" + padding ajustável, mesmo espírito do numberBg em
+      // Icons.qml. Importante: usa root.addButtonSize (número) na conta,
+      // NÃO addBtnLabel.implicitWidth/implicitHeight — o implicitHeight de
+      // um Text inclui o ascent/descent inteiro da fonte (espaço extra
+      // assimétrico acima/abaixo do glifo visível), o que fazia o "+"
+      // parecer descentralizado no círculo. Com a conta numérica, a caixa
+      // fica sempre simétrica ao redor do glifo — igual ao Number.qml
+      // (_minSize: fontSize * 2.2), então o anchors.centerIn abaixo
+      // centraliza de verdade, como nos delegates de número.
       Rectangle {
+        id: addBtn
         visible:      root.showAddButton
-        implicitWidth:  isAddHovered ? 26 : 22
-        implicitHeight: isAddHovered ? 26 : 22
-        radius:         width / 2
-        color:          isAddHovered
-          ? Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, 0.12)
-          : "transparent"
-        border.color: Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, isAddHovered ? 0.55 : 0.30)
-        border.width: 1
 
         property bool isAddHovered: false
+
+        readonly property real _baseDiameter: Math.max(
+          root.addButtonSize + root.addButtonPaddingH * 2,
+          root.addButtonSize + root.addButtonPaddingV * 2)
+
+        implicitWidth:  isAddHovered ? _baseDiameter + 4 : _baseDiameter
+        implicitHeight: isAddHovered ? _baseDiameter + 4 : _baseDiameter
+        radius:         width / 2
+
+        readonly property color _bgBase: Qt.rgba(
+          root.addButtonBgColor.r, root.addButtonBgColor.g, root.addButtonBgColor.b,
+          root.addButtonBgColor.a * root.addButtonBgOpacity)
+        readonly property color _bgHover: Qt.rgba(
+          root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, 0.12)
+
+        color: root.addButtonBgEnabled
+          ? (isAddHovered ? _bgHover : _bgBase)
+          : (isAddHovered ? _bgHover : "transparent")
+
+        border.color: root.addButtonBorderEnabled
+          ? Qt.rgba(root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, isAddHovered ? 0.55 : 0.30)
+          : "transparent"
+        border.width: root.addButtonBorderEnabled ? 1 : 0
 
         Behavior on implicitWidth  { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
         Behavior on implicitHeight { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
         Behavior on color          { ColorAnimation  { duration: 120 } }
         Behavior on border.color   { ColorAnimation  { duration: 120 } }
+        Behavior on border.width   { NumberAnimation { duration: 120 } }
 
         Text {
+          id: addBtnLabel
           anchors.centerIn: parent
           text:           "+"
-          font.pixelSize: 13
-          color:          Qt.rgba(root.dotColor.r, root.dotColor.g, root.dotColor.b, parent.isAddHovered ? 0.80 : 0.40)
+          font.pixelSize: root.addButtonSize
+          // Sem negrito — mais opacidade em vez de mais peso pra destacar
+          // o glifo (0.55/0.95 em vez do 0.40/0.80 original).
+          color:          Qt.rgba(root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, parent.isAddHovered ? 0.95 : 0.55)
           Behavior on color { ColorAnimation { duration: 120 } }
         }
 
