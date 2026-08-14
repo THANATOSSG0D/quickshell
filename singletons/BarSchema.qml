@@ -25,7 +25,7 @@ QtObject {
 
   // ── Módulos disponíveis para layout do bar ─────────────────────────────
   readonly property var moduleIds: [
-    "mediaplayer", "workspaces", "clock", "volume",
+    "mediaplayer", "workspaces", "clock", "tasks", "volume",
     "quicksettings", "notifications", "separator"
   ]
 
@@ -142,6 +142,18 @@ QtObject {
         { key:"textColor",      type:"palette", default:"on_surface",        label:"Texto",  section:"CORES" },
         { key:"dimColor",       type:"palette", default:"on_surface_variant",label:"Dim",    section:"CORES" },
         { key:"accentColor",    type:"palette", default:"primary",           label:"Acento", section:"CORES" },
+      ]
+    },
+
+    // ══════════════════════════════════════════════
+    // TASKS (Tarefas + Hábitos)
+    // ══════════════════════════════════════════════
+    {
+      id: "tasks", label: "Tarefas", perTheme: true, perStyle: false,
+      props: [
+        { key:"textColor",   type:"palette", default:"on_surface",        label:"Texto",  section:"CORES" },
+        { key:"dimColor",    type:"palette", default:"on_surface_variant",label:"Dim",    section:"CORES" },
+        { key:"accentColor", type:"palette", default:"primary",           label:"Acento (atrasadas)", section:"CORES" },
       ]
     },
 

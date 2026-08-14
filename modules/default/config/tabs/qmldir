@@ -10,6 +10,7 @@ BarTabQuickSettings bar/BarTabQuickSettings.qml
 BarTabNotifications bar/BarTabNotifications.qml
 BarTabPaleta        bar/BarTabPaleta.qml
 BarTabModulos        bar/BarTabModulos.qml
+BarTabTasks 1.0 bar/BarTabTasks.qml
 TabWallpaper  wallpaper/TabWallpaper.qml
 DmenuTabConfig  dmenu/DmenuTabConfig.qml
 PanelTab 1.0 paineis/PanelTab.qml

@@ -562,6 +562,12 @@ Item {
     paletteClkTextColor  = paletteClkText
     paletteClkDimColor   = paletteClkDim
     paletteClkAccentColor= paletteClkAccent
+    paletteTasksText        = resolve(get("tasks","textColor"))
+    paletteTasksDim         = resolve(get("tasks","dimColor"))
+    paletteTasksAccent      = resolve(get("tasks","accentColor"))
+    paletteTasksTextColor   = paletteTasksText
+    paletteTasksDimColor    = paletteTasksDim
+    paletteTasksAccentColor = paletteTasksAccent
     paletteVolText       = resolve(get("volume","textColor"))
     paletteVolDim        = resolve(get("volume","dimColor"))
     paletteVolAccent     = resolve(get("volume","accentColor"))
@@ -622,6 +628,13 @@ Item {
   property color paletteClkTextColor:    "#e2e2e2"
   property color paletteClkDimColor:     "#9e9e9e"
   property color paletteClkAccentColor:  "#ffb4a9"
+
+  property color paletteTasksText:         "#e2e2e2"
+  property color paletteTasksDim:          "#9e9e9e"
+  property color paletteTasksAccent:       "#ffb4a9"
+  property color paletteTasksTextColor:    "#e2e2e2"
+  property color paletteTasksDimColor:     "#9e9e9e"
+  property color paletteTasksAccentColor:  "#ffb4a9"
 
   property color paletteVolText:     "#e2e2e2"
   property color paletteVolDim:      "#9e9e9e"

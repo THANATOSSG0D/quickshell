@@ -60,6 +60,9 @@
                 "QuickSettingsPopup": {
                     "popupXAlign": "left"
                 },
+                "TasksPopup": {
+                    "popupXAlign": "right"
+                },
                 "VolumePopupTabbed": {
                     "attachOffset": 5,
                     "colorPanelBg": "background",

@@ -16,8 +16,7 @@ import '../../components' as C
 //   5 — Notificações    NotificationsPopup
 //   6 — Dmenu           DmenuPopup  (cores via PopupConfig)
 //   7 — Editor          BarEditorPopup
-//   8 — Dmenu Config    configurações do módulo dmenu (lançador, painel,
-//                        posição, comportamento, cores — em seções retráteis)
+//   8 — Tarefas         TasksPopup (Todo + Hábitos)
 
 Item {
   id: root
@@ -78,6 +77,7 @@ Item {
     "notifications",  // 5 Notificações
     "dmenu",          // 6 Dmenu — chave própria, não compartilha mais com "workspaces"
     null,             // 7 Editor — nunca roteado, sempre local
+    "tasks",          // 8 Tarefas
   ]
   readonly property string _routeModule: _routeModuleNames[activeSubtab] || ""
 
@@ -89,6 +89,7 @@ Item {
     null, null, null, null, null, null,
     "workspaces",     // 6 Dmenu
     null,
+    null,             // 8 Tarefas — busca a si mesmo
   ]
   readonly property string _routeSearchModule: _routeSearchModuleNames[activeSubtab] || ""
 
@@ -116,6 +117,7 @@ Item {
     "NotificationsPopup",
     "DmenuPopup",
     "BarEditorPopup",
+    "TasksPopup",     // 8 Tarefas
   ]
   readonly property string _name: _popupNames[activeSubtab] || ""
 
@@ -223,6 +225,13 @@ Item {
         { key: "colorTextDim",    label: "Valores atuais / placeholders",                def: "on_surface_variant"     },
         { key: "colorAccent",     label: "Chip / opção selecionada",                     def: "primary"                },
         { key: "colorDivider",    label: "Separadores entre seções",                     def: "outline_variant"        },
+      ],
+      "TasksPopup": [
+        { key: "colorPanelBg",    label: "Fundo do painel",                              def: "surface_container"      },
+        { key: "colorText",       label: "Texto da tarefa / hábito",                     def: "on_surface"             },
+        { key: "colorTextDim",    label: "Data / labels secundários",                    def: "on_surface_variant"     },
+        { key: "colorAccent",     label: "Aba ativa / tarefa atrasada / progresso",      def: "primary"                },
+        { key: "colorDivider",    label: "Separador entre abas e itens",                 def: "outline_variant"        },
       ],
     }
     return defs[_name] || defs[""]

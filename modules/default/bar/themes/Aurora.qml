@@ -4,6 +4,7 @@ import "../modules" as Modules
 import "../../volume" as Vol
 import "../../mediaPlayer/" as Media
 import "../../clock" as ClockModule
+import "../../tasks" as TasksModule
 import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
@@ -48,6 +49,7 @@ Item {
   signal sinkPanelRequested()
   signal sourcePanelRequested()
   signal clockPanelRequested()
+  signal tasksPanelRequested()
   signal quickSettingsPanelRequested()
   signal notificationsPanelRequested()
   signal mediaPlayerClicked()
@@ -58,6 +60,7 @@ Item {
   property var sinkWidget:    null
   property var sourceWidget:  null
   property var clock:         null
+  property var tasks:         null
   property var notifWidget:   null
 
   property var notifService: null
@@ -188,6 +191,12 @@ Item {
   property int   cfgClkDismissDelay: 8000
   property real  cfgClkFontScale:    1.0
 
+  // ── Configs Tasks ────────────────────────────────────────────────────
+  property color cfgTasksTextColor: Qt.rgba(1,1,1,1.0)
+  property color cfgTasksDimColor:  Qt.rgba(1,1,1,0.5)
+  property color cfgTasksAccent:    Qt.rgba(1,1,1,1.0)
+  property real  cfgTasksFontScale: 1.0
+
   // ── Paleta ─────────────────────────────────────────────────────────────
   // Só barBgPill/accent são de fato pintados neste tema — barBg/text/
   // textDim/accentBg/accentText eram recebidas do Bar.qml (via _set()) mas
@@ -246,6 +255,7 @@ Item {
       readonly property var sinkWidget:   skLoader.active  && skLoader.item  ? skLoader.item  : null
       readonly property var sourceWidget: srLoader.active  && srLoader.item  ? srLoader.item  : null
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
+      readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
 
       // Dimensões: lê do loader ativo ou usa tamanhos fixos para sep/spacer
@@ -270,6 +280,7 @@ Item {
         if (modId === "sink")           return skLoader
         if (modId === "source")         return srLoader
         if (modId === "clock")          return ckLoader
+        if (modId === "tasks")          return tkLoader
         if (modId === "quicksettings")  return qsLoader
         if (modId === "workspaces")     return wsLoader
         if (modId === "notifications")  return nfLoader
@@ -418,6 +429,24 @@ Item {
             dismissDelay:     root.cfgClkDismissDelay
             fontScale:        root.cfgClkFontScale
             onPanelRequested: root.clockPanelRequested()
+          }
+        }
+        onItemChanged: if (item) root._updateRefs()
+      }
+
+      Loader {
+        id: tkLoader
+        active:           modId === "tasks"
+        anchors.centerIn: parent
+        sourceComponent: Component {
+          TasksModule.Tasks {
+            isHorizontal:     modItem.isH
+            barPosition:      root.barPosition
+            textColor:        root.cfgTasksTextColor
+            dimColor:         root.cfgTasksDimColor
+            accentColor:      root.cfgTasksAccent
+            fontScale:        root.cfgTasksFontScale
+            onPanelRequested: root.tasksPanelRequested()
           }
         }
         onItemChanged: if (item) root._updateRefs()
@@ -576,6 +605,7 @@ Item {
     root.sinkWidget   = lay.sinkWidget   || null
     root.sourceWidget = lay.sourceWidget || null
     root.clock        = lay.clock        || null
+    root.tasks         = lay.tasks         || null
     root.notifWidget  = lay.notifWidget  || null
     root.refsUpdated()
   }
@@ -636,6 +666,9 @@ Item {
       property var clock:        root._findRef(leftRep,   "clock")
                                || root._findRef(centerRep, "clock")
                                || root._findRef(rightRep,  "clock")
+      property var tasks:        root._findRef(leftRep,   "tasks")
+                               || root._findRef(centerRep, "tasks")
+                               || root._findRef(rightRep,  "tasks")
       property var notifWidget:  root._findRef(leftRep,   "notifWidget")
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
@@ -764,6 +797,9 @@ Item {
       property var clock:        root._findRef(topRep,    "clock")
                                || root._findRef(middleRep, "clock")
                                || root._findRef(bottomRep, "clock")
+      property var tasks:        root._findRef(topRep,    "tasks")
+                               || root._findRef(middleRep, "tasks")
+                               || root._findRef(bottomRep, "tasks")
       property var notifWidget:  root._findRef(topRep,    "notifWidget")
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")

@@ -45,15 +45,15 @@
         {
             "created": "2026-07-23T03:30:35.283Z",
             "done": false,
-            "due": "2026-08-14",
+            "due": "2026-08-15",
             "id": "1784777435283-842",
-            "lastCompleted": "2026-08-13T19:02:02.245Z",
+            "lastCompleted": "2026-08-14T17:18:31.344Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",
             "tags": [
             ],
-            "text": "Tomar o multivitaminico",
+            "text": "Tomar o multivitaminico (1), omega3(2), magnesio(1) e d3(1)",
             "time": "13:50"
         },
         {
@@ -67,8 +67,22 @@
             "status": "",
             "tags": [
             ],
-            "text": "Tomar a vitamina para cabelo",
+            "text": "Tomar a vitamina para cabelo(1) e magnesio(1)",
             "time": "22:00"
+        },
+        {
+            "created": "2026-08-14T16:38:45.513Z",
+            "done": false,
+            "due": "2026-08-14",
+            "id": "1786725525513-378",
+            "lastCompleted": "",
+            "priority": "media",
+            "recurrence": "daily",
+            "status": "",
+            "tags": [
+            ],
+            "text": "Tomar magnesio antes de dormir(1)",
+            "time": "03:00"
         }
     ]
 }

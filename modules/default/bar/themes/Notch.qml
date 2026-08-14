@@ -5,6 +5,7 @@ import "../modules" as Modules
 import "../../volume" as Vol
 import "../../mediaPlayer/" as Media
 import "../../clock" as ClockModule
+import "../../tasks" as TasksModule
 import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
 
@@ -56,6 +57,7 @@ Item {
   signal sinkPanelRequested()
   signal sourcePanelRequested()
   signal clockPanelRequested()
+  signal tasksPanelRequested()
   signal quickSettingsPanelRequested()
   signal notificationsPanelRequested()
   signal mediaPlayerClicked()
@@ -66,6 +68,7 @@ Item {
   property var sinkWidget:    null
   property var sourceWidget:  null
   property var clock:         null
+  property var tasks:         null
   property var notifWidget:   null
   property var notifService:  null
 
@@ -195,6 +198,12 @@ Item {
   property int   cfgClkDismissDelay: 6000
   property real  cfgClkFontScale:    1.0
 
+  // ── Configs Tasks ────────────────────────────────────────────────────
+  property color cfgTasksTextColor: Qt.rgba(1,1,1,0.9)
+  property color cfgTasksDimColor:  Qt.rgba(1,1,1,0.45)
+  property color cfgTasksAccent:    Qt.rgba(1,1,1,1.0)
+  property real  cfgTasksFontScale: 1.0
+
   // ── Paleta ─────────────────────────────────────────────────────────────
   // Só barBg/textDim/accent são de fato pintadas neste tema — barBgPill/
   // text/accentBg/accentText eram recebidas do Bar.qml (via _set()) mas
@@ -278,6 +287,7 @@ Item {
     root.sinkWidget   = _findRef(leftRep,   "sinkWidget")   || _findRef(centerRep, "sinkWidget")   || _findRef(rightRep,  "sinkWidget")
     root.sourceWidget = _findRef(leftRep,   "sourceWidget") || _findRef(centerRep, "sourceWidget") || _findRef(rightRep,  "sourceWidget")
     root.clock        = _findRef(leftRep,   "clock")        || _findRef(centerRep, "clock")        || _findRef(rightRep,  "clock")
+    root.tasks        = _findRef(leftRep,   "tasks")        || _findRef(centerRep, "tasks")        || _findRef(rightRep,  "tasks")
     root.notifWidget  = _findRef(leftRep,   "notifWidget")  || _findRef(centerRep, "notifWidget")  || _findRef(rightRep,  "notifWidget")
     root.refsUpdated()
   }
@@ -302,6 +312,7 @@ Item {
       readonly property var sinkWidget:   skLoader.active  && skLoader.item  ? skLoader.item  : null
       readonly property var sourceWidget: srLoader.active  && srLoader.item  ? srLoader.item  : null
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
+      readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
 
       implicitWidth: {
@@ -325,6 +336,7 @@ Item {
         if (modId === "sink")           return skLoader
         if (modId === "source")         return srLoader
         if (modId === "clock")          return ckLoader
+        if (modId === "tasks")          return tkLoader
         if (modId === "quicksettings")  return qsLoader
         if (modId === "workspaces")     return wsLoader
         if (modId === "notifications")  return nfLoader
@@ -432,6 +444,22 @@ Item {
             accentColor: root.cfgClkAccent; dismissDelay: root.cfgClkDismissDelay
             fontScale: root.cfgClkFontScale
             onPanelRequested: root.clockPanelRequested()
+          }
+        }
+        onItemChanged: if (item) root._updateRefs()
+      }
+
+      Loader {
+        id: tkLoader
+        active: modId === "tasks"
+        anchors.centerIn: parent
+        sourceComponent: Component {
+          TasksModule.Tasks {
+            isHorizontal: true; barPosition: root.barPosition
+            textColor: root.cfgTasksTextColor; dimColor: root.cfgTasksDimColor
+            accentColor: root.cfgTasksAccent
+            fontScale: root.cfgTasksFontScale
+            onPanelRequested: root.tasksPanelRequested()
           }
         }
         onItemChanged: if (item) root._updateRefs()

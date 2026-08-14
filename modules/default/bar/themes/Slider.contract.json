@@ -13,6 +13,7 @@
         "workspaces",
         "mediaplayer",
         "clock",
+        "tasks",
         "volume",
         "quicksettings",
         "notifications"

@@ -10,6 +10,7 @@
     "modules": [
         "workspaces",
         "clock",
+        "tasks",
         "notifications"
     ]
 }

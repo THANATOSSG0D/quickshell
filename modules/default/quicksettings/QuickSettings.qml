@@ -108,6 +108,18 @@ Item {
         if (!tipBtProc.running)     tipBtProc.running     = true
         if (!tipExtraProc.running)  tipExtraProc.running  = true
         if (!tipWeatherProc.running && root.tipWeatherStale) tipWeatherProc.running = true
+        // Rede de segurança: se por algum motivo (nmcli travado, prompt de
+        // polkit, disco lento, etc.) tipStatusProc nunca terminar, o
+        // tooltip não deve ficar preso em "Carregando…" pra sempre — melhor
+        // mostrar dado default/zerado do que travar. tipDataReady=true já
+        // faz o tooltip renderizar as StatusRow com o que tiver disponível.
+        tipStallTimer.restart()
+    }
+
+    Timer {
+        id: tipStallTimer
+        interval: 4000; repeat: false
+        onTriggered: { if (!root.tipDataReady) root.tipDataReady = true }
     }
 
     // ── Power Profile / Shader / Temperatura — combinados num único Process

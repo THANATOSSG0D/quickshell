@@ -7,6 +7,7 @@ import qs
 import '../mediaPlayer' as MediaPanel
 import '../volume'      as VolumeModule
 import '../clock'       as ClockModule
+import '../tasks'       as TasksModule
 import '../quicksettings' as QsModule
 import '../notifications' as NotifModule
 import '../wallpaper' as WallModule
@@ -76,6 +77,7 @@ Scope {
 
   property var barMediaPlayerRef: null
   property var barClockRef:       null
+  property var barTasksRef:       null
 
   // Referência ao OsdService injetada pelo shell.qml
   property var osdService: null
@@ -139,6 +141,10 @@ Scope {
   // Referência ao ClockContent (dentro do clockPopup) — exposta para que
   // shell.qml possa injetar em osd.clockContent e conectar timerElapsed.
   property var clockContentRef: null
+
+  // Referência ao TasksContent (dentro do tasksPopup) — mesmo esquema do
+  // clockContentRef, mas sem OSD/timer (o módulo tasks não tem isso).
+  property var tasksContentRef: null
 
   // ── Conexão primária: timerElapsed → osdService ────────────────────────
   property var _barCcConnected: null
@@ -220,6 +226,7 @@ Scope {
     function toggleVolumeFull() { barRoot._openRouted("volume",        barRoot.panelVolume) }
     function togglePlayer()     { barRoot._openRouted("mediaplayer",   barRoot.panelPlayer) }
     function toggleClock()      { barRoot._openRouted("clock",         barRoot.panelClock)  }
+    function toggleTasks()      { barRoot._openRouted("tasks",         barRoot.panelTasks)  }
     function toggleQs()         { barRoot._openRouted("quicksettings", barRoot.panelQs)     }
     function toggleNotif()      { barRoot._openRouted("notifications", barRoot.panelNotif)  }
     // O editor NÃO é roteado — ele edita a config da instância que o abriu
@@ -307,6 +314,7 @@ Scope {
   readonly property int panelEditor: 6
   readonly property int panelNotif:  7
   readonly property int panelVolume: 8
+  readonly property int panelTasks:  9
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
   readonly property int popupHVolume: 380
@@ -330,6 +338,9 @@ Scope {
   readonly property int popupWNotif:
       popupConfigRef ? popupConfigRef.get("NotificationsPopup", "popupW", 360) : 360
   readonly property int popupHNotif:  560
+  readonly property int popupWTasks:
+      popupConfigRef ? popupConfigRef.get("TasksPopup", "popupW", 300) : 300
+  readonly property int popupHTasks:  560
   readonly property int popupHDmenu:  460
 
   // ── Configuração do dmenu (valores fixos) ────────────────────────────────
@@ -488,6 +499,7 @@ Scope {
         if (pillTargetPanel === barRoot.panelVolume) return volTabbedPopup.animDuration
         if (pillTargetPanel === barRoot.panelPlayer) return mediaPopup.animDuration
         if (pillTargetPanel === barRoot.panelClock)  return clockPopup.animDuration
+        if (pillTargetPanel === barRoot.panelTasks)  return tasksPopup.animDuration
         if (pillTargetPanel === barRoot.panelQs)     return qsPopup.animDuration
         if (pillTargetPanel === barRoot.panelEditor) return editorPopup.animDuration
         if (pillTargetPanel === barRoot.panelNotif)  return notifPopup.animDuration
@@ -557,6 +569,7 @@ Scope {
       readonly property bool sourcePanelOpen: activePanel === barRoot.panelSource
       readonly property bool playerPanelOpen: activePanel === barRoot.panelPlayer
       readonly property bool clockPanelOpen:  activePanel === barRoot.panelClock
+      readonly property bool tasksPanelOpen:  activePanel === barRoot.panelTasks
       readonly property bool qsPanelOpen:     activePanel === barRoot.panelQs
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
       readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
@@ -763,6 +776,15 @@ Scope {
               item.clock.clockContent = clockPopup.clockContentRef
             if (!barRoot.clockContentRef)
               barRoot.clockContentRef = clockPopup.clockContentRef
+          }
+
+          // Tasks
+          if (item.tasks) {
+            barRoot.barTasksRef = item.tasks
+            if ("tasksContent" in item.tasks)
+              item.tasks.tasksContent = tasksPopup.tasksContentRef
+            if (!barRoot.tasksContentRef)
+              barRoot.tasksContentRef = tasksPopup.tasksContentRef
           }
 
           // osdService
@@ -1059,6 +1081,10 @@ Scope {
         _set("cfgClkAccent",       barState.config.paletteClkAccentColor)
         _set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)
         _set("cfgClkFontScale",    barState.config.moduleScale)
+        _set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)
+        _set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)
+        _set("cfgTasksAccent",     barState.config.paletteTasksAccentColor)
+        _set("cfgTasksFontScale",  barState.config.moduleScale)
         // paleta
         _set("colBarBg",          barState.config.paletteBarBg)
         _set("colBarBgPill",      barState.config.paletteBarBgPill)
@@ -1251,6 +1277,9 @@ Scope {
         function onPaletteClkDimColorChanged()     { bar._set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }
         function onPaletteClkAccentColorChanged()  { bar._set("cfgClkAccent",       barState.config.paletteClkAccentColor) }
         function onClkDismissDelayMsChanged()      { bar._set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)     }
+        function onPaletteTasksTextColorChanged()  { bar._set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)   }
+        function onPaletteTasksDimColorChanged()   { bar._set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)    }
+        function onPaletteTasksAccentColorChanged(){ bar._set("cfgTasksAccent",     barState.config.paletteTasksAccentColor) }
         // onModules*Changed — removidos. Os Binding declarativos
         // no Loader são reativos via barState.modules* e atualizam
         // automaticamente sem handlers explícitos.
@@ -1308,6 +1337,13 @@ Scope {
           // o IPC passa a chamar funções em um objeto morto silenciosamente.
           barRoot.clockContentRef = clockPopup.clockContentRef
         }
+        function onBarTasksRefChanged() {
+          var tk = barRoot.barTasksRef
+          if (tk && "tasksContent" in tk)
+            tk.tasksContent = tasksPopup.tasksContentRef
+          // Mesmo raciocínio do clock acima: sem guard, sempre reaponta.
+          barRoot.tasksContentRef = tasksPopup.tasksContentRef
+        }
       }
 
       // ── Sinais do tema → abertura de painéis ───────────────────────────
@@ -1329,6 +1365,9 @@ Scope {
         }
         function onClockPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelClock);  panelCooldown.restart() }
+        }
+        function onTasksPanelRequested() {
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelTasks);  panelCooldown.restart() }
         }
         function onQuickSettingsPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelQs);     panelCooldown.restart() }
@@ -1368,6 +1407,13 @@ Scope {
               loader.item.clock.clockContent = clockPopup.clockContentRef
             if (!barRoot.clockContentRef)
               barRoot.clockContentRef = clockPopup.clockContentRef
+          }
+          if (loader.item.tasks) {
+            barRoot.barTasksRef = loader.item.tasks
+            if ("tasksContent" in loader.item.tasks)
+              loader.item.tasks.tasksContent = tasksPopup.tasksContentRef
+            if (!barRoot.tasksContentRef)
+              barRoot.tasksContentRef = tasksPopup.tasksContentRef
           }
           // osdService
           if (barRoot.osdService !== null) {
@@ -2123,6 +2169,25 @@ Scope {
         colorAccent:     bar.popupColorAccent
         colorProgressBg: bar.popupColorProgress
         colorDivider:    bar.popupColorDivider
+
+        onCloseRequested: bar.closeAllPanels()
+      }
+
+      // ── Tasks (Tarefas + Hábitos) ───────────────────────────────────────
+      TasksModule.TasksPopup {
+        id: tasksPopup
+        barRef: bar
+
+        popupW: barRoot.popupWTasks
+        popupH: barRoot.popupHTasks
+
+        panelOpen: bar.tasksPanelOpen
+
+        colorPanelBg: bar.popupColorBg
+        colorText:    bar.popupColorText
+        colorTextDim: bar.popupColorTextDim
+        colorAccent:  bar.popupColorAccent
+        colorDivider: bar.popupColorDivider
 
         onCloseRequested: bar.closeAllPanels()
       }

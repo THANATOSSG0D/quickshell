@@ -61,8 +61,16 @@ cmd_status() {
     echo "WIFI_DEV=${wdev}"
 
     if [ "$radio_on" = "on" ] && [ -n "$wdev" ]; then
+        # IMPORTANTE: --rescan no aqui. "status" só precisa do SSID já
+        # conectado (se houver) — não da lista completa de redes. Sem
+        # --rescan no, o nmcli usa a política padrão "auto" e dispara um
+        # scan de WiFi ATIVO sempre que o cache estiver "velho" (ex.: logo
+        # após o boot, ou >30s desde o último scan), o que pode levar vários
+        # segundos e travar tanto o tooltip quanto o painel. --rescan no usa
+        # só o cache já existente do NetworkManager, praticamente instantâneo.
         local ssid
-        ssid=$(cmd_wifi_list | awk -F'|' '$1=="*" {print $2; exit}')
+        ssid=$(nmcli --escape no -t -f IN-USE,SSID device wifi list --rescan no 2>/dev/null \
+            | awk -F: '$1=="*" {sub(/^\*:/, ""); print; exit}')
         echo "WIFI_SSID=${ssid}"
     else
         echo "WIFI_SSID="
@@ -89,7 +97,12 @@ cmd_status() {
 }
 
 cmd_wifi_list() {
-    nmcli --escape no -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list 2>/dev/null \
+    # --rescan no: essa função é usada tanto pelo tooltip/status quanto pelo
+    # botão "list" do painel. A varredura ativa fica só em cmd_wifi_scan,
+    # que é chamada explicitamente quando o usuário pede pra atualizar a
+    # lista. Sem isso, o nmcli decide sozinho quando rescanear (política
+    # "auto"), o que pode travar essa função por vários segundos.
+    nmcli --escape no -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list --rescan no 2>/dev/null \
         | awk -F: '
             {
                 inuse = $1

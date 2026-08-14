@@ -74,6 +74,7 @@ C.CfgScroll {
     var m = {
       workspaces:    { icon: "\uf0c8", label: "Workspaces"   },
       clock:         { icon: "\uf017", label: "Relógio"      },
+      tasks:         { icon: "\uf0ae", label: "Tarefas"      },
       volume:        { icon: "\ufa7d", label: "Volume"       },
       mediaplayer:   { icon: "\uf001", label: "Mídia"        },
       quicksettings: { icon: "\uf013", label: "Config"       },
@@ -270,6 +271,7 @@ C.CfgScroll {
       model: [
         { id: "workspaces",    icon: "\uf0c8", label: "Workspaces"   },
         { id: "clock",         icon: "\uf017", label: "Relógio"      },
+        { id: "tasks",         icon: "\uf0ae", label: "Tarefas"      },
         { id: "volume",        icon: "\ufa7d", label: "Volume"       },
         { id: "sink",          icon: "\uf028", label: "Saída"        },
         { id: "source",        icon: "\uf130", label: "Entrada"      },

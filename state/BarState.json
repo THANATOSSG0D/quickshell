@@ -6,6 +6,11 @@
                 "barRadius": 40,
                 "barSize": 30,
                 "moduleScale": 0.8500000000000003,
+                "modules": {
+                    "center": [
+                        "workspaces"
+                    ]
+                },
                 "position": 1
             },
             "mediaplayer": {
@@ -22,6 +27,9 @@
                 "chipRadius": 24,
                 "moduleScale": 0.7500000000000002,
                 "modules": {
+                    "center": [
+                        "workspaces"
+                    ],
                     "left": [
                         "mediaplayer",
                         "quicksettings"
@@ -32,6 +40,7 @@
                     "right": [
                         "clock",
                         "volume",
+                        "tasks",
                         "notifications"
                     ]
                 },

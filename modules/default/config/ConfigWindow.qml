@@ -172,13 +172,13 @@ PanelWindow {
   // Definição dos módulos e suas subabas
   readonly property var _allModules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
-      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações"] },
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Tarefas", "Volume", "Config Rápida", "Notificações"] },
     { id: "dock",       icon: "\uf2d1", label: "Dock",
-      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Volume", "Config Rápida", "Notificações"] },
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Tarefas", "Volume", "Config Rápida", "Notificações"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
-      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor"] },
+      subtabs: ["Global", "Volume", "Config Rápida", "Mídia", "Relógio", "Notificações", "Dmenu", "Editor", "Tarefas"] },
     { id: "widgets",    icon: "\uf521", label: "Widgets",
       subtabs: ["Relógio", "Lista de tarefas", "Calendário", "Clima", "CPU", "RAM", "GPU", "Rede", "Disco", "Sistema", "Processos", "Bluetooth", "Hábitos", "Media Player", "Apps Favoritos", "Combinar"] },
     { id: "powermenu",  icon: "\uf011", label: "Power Menu",
@@ -221,9 +221,10 @@ PanelWindow {
     "workspaces",      // 3 Workspaces
     "mediaplayer",     // 4 Mídia
     "clock",           // 5 Relógio
-    "volume",          // 6 Volume
-    "quicksettings",   // 7 Config Rápida
-    "notifications",   // 8 Notificações
+    "tasks",           // 6 Tarefas
+    "volume",          // 7 Volume
+    "quicksettings",   // 8 Config Rápida
+    "notifications",   // 9 Notificações
   ]
 
   // Delega ao contrato do tema ativo
@@ -566,10 +567,10 @@ PanelWindow {
                         barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   ["mediaplayer","separator","quicksettings"],
                         modulesCenter: ["workspaces"],
-                        modulesRight:  ["clock","separator","volume","separator","notifications"],
+                        modulesRight:  ["clock","tasks","separator","volume","separator","notifications"],
                         modulesTop:    ["mediaplayer","separator","quicksettings"],
                         modulesMiddle: ["workspaces"],
-                        modulesBottom: ["clock","separator","volume","separator","notifications"],
+                        modulesBottom: ["clock","tasks","separator","volume","separator","notifications"],
                       })
                     }
                   }
@@ -580,7 +581,7 @@ PanelWindow {
 
             // Botão Limpar (só para painéis, subtabs 0–7)
             Rectangle {
-              visible: win._activeId === "paineis" && win.subtab(win.activeModule) <= 7
+              visible: win._activeId === "paineis" && win.subtab(win.activeModule) <= 8
               height: 28; width: clrLbl.implicitWidth + 18; radius: 6
               color: clrHov.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
               border.color: Qt.rgba(1,1,1,0.1); border.width: 1
@@ -762,11 +763,31 @@ PanelWindow {
             }
           }
 
-          // Subtab 5: Volume
+          // Subtab 5: Tarefas
+          Loader {
+            id: loaderTasks
+            anchors.fill: parent
+            active: win._isBarSection && win.subtab(win.activeModule) === 6
+            sourceComponent: Component {
+              Tabs.BarTabTasks {
+                id: tabTasks
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderTasks.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 6: Volume
           Loader {
             id: loaderVolume
             anchors.fill: parent
-            active: win._isBarSection && win.subtab(win.activeModule) === 6
+            active: win._isBarSection && win.subtab(win.activeModule) === 7
             sourceComponent: Component {
               Tabs.BarTabVolume {
                 id: tabVolume
@@ -782,11 +803,11 @@ PanelWindow {
             }
           }
 
-          // Subtab 6: Config Rápida
+          // Subtab 7: Config Rápida
           Loader {
             id: loaderQuickSettings
             anchors.fill: parent
-            active: win._isBarSection && win.subtab(win.activeModule) === 7
+            active: win._isBarSection && win.subtab(win.activeModule) === 8
             sourceComponent: Component {
               Tabs.BarTabQuickSettings {
                 id: tabQuickSettings
@@ -802,11 +823,11 @@ PanelWindow {
             }
           }
 
-          // Subtab 7: Notificações
+          // Subtab 8: Notificações
           Loader {
             id: loaderNotifications
             anchors.fill: parent
-            active: win._isBarSection && win.subtab(win.activeModule) === 8
+            active: win._isBarSection && win.subtab(win.activeModule) === 9
             sourceComponent: Component {
               Tabs.BarTabNotifications {
                 id: tabNotifications

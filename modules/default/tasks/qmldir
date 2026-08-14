@@ -1,0 +1,6 @@
+module tasks
+
+Tasks 1.0 Tasks.qml
+TasksContent 1.0 TasksContent.qml
+TasksPopup 1.0 TasksPopup.qml
+singleton TasksTooltip 1.0 TasksTooltip.qml
