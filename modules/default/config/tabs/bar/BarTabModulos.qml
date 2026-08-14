@@ -8,6 +8,11 @@ C.CfgScroll {
 
   // config não é passado pelo ConfigWindow — declarado como opcional para compatibilidade futura
   property var  config:   null
+  // Contrato do tema ativo (mesmo objeto passado pra BarTabBar). Filtra a
+  // POOL abaixo pra só oferecer módulos que o tema realmente suporta.
+  // Default {} = fail-open: sem contract.modules, mostra a pool inteira
+  // (preserva o comportamento antigo).
+  property var  contract: ({})
   required property bool  isH
   required property var   slotLeft
   required property var   slotCenter
@@ -38,6 +43,19 @@ C.CfgScroll {
     { slot: "middle", label: "CENTRO" },
     { slot: "bottom", label: "BAIXO"  },
   ]
+
+  // Um módulo só aparece na pool se o contrato do tema ativo o declarar em
+  // "modules". separator/spacer são utilitários de layout, não módulos de
+  // verdade — nenhum contract.json os lista, então ficam sempre liberados.
+  // sink/source são variações do módulo "volume" (mesmo backend, ícone
+  // separado) — liberados junto com "volume".
+  function moduleAvailable(id) {
+    if (id === "separator" || id === "spacer") return true
+    if (!root.contract || !root.contract.modules) return true   // fail-open
+    var mods = root.contract.modules
+    if (id === "sink" || id === "source") return mods.indexOf("volume") !== -1
+    return mods.indexOf(id) !== -1
+  }
 
   function slotModel(slot) {
     if (root.isH) {
@@ -260,7 +278,7 @@ C.CfgScroll {
         { id: "notifications", icon: "\uf0f3", label: "Notificações" },
         { id: "separator",     icon: "\uf07e", label: "Separador"    },
         { id: "spacer",        icon: "\uf047", label: "Espaço"       },
-      ]
+      ].filter((m) => root.moduleAvailable(m.id))
       delegate: Item {
         id: pool
         required property var modelData

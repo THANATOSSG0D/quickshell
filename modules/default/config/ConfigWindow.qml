@@ -128,6 +128,13 @@ PanelWindow {
 
   FileView {
     id: contractFile
+    // CONFIRMADO com `find` no disco real: os arquivos usam PONTO
+    // ("Tema.contract.json"), não underscore. Eu tinha trocado pra
+    // underscore no turno anterior baseado nos nomes que apareciam no
+    // upload do chat — palpite errado, isso é que causou a regressão
+    // (Arredondamento aparecendo 4x, campos de temas diferentes juntos):
+    // _contract caía em {} (fail-open) e tudo ficava visível de novo.
+    // Revertido pro nome correto.
     path: win.config
           ? (Quickshell.shellDir + "/modules/default/bar/themes/"
              + (win.config["theme"] || "") + ".contract.json")
@@ -666,6 +673,7 @@ PanelWindow {
               Tabs.BarTabModulos {
                 id: tabModulos
                 isH: win.config ? (win.config["position"] === 1 || win.config["position"] === 3) : true
+                contract:   win._contract
                 slotLeft:   win.config ? (win.config["modulesLeft"]   || []) : []
                 slotCenter: win.config ? (win.config["modulesCenter"] || []) : []
                 slotRight:  win.config ? (win.config["modulesRight"]  || []) : []

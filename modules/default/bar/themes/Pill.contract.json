@@ -8,13 +8,8 @@
         "pillExpandForPopups": true
     },
     "palette": {
-        "barBg": true,
         "barBgPill": true,
-        "text": true,
-        "textDim": true,
-        "accent": true,
-        "accentBg": true,
-        "accentText": true
+        "accent": true
     },
     "modules": [
         "workspaces",

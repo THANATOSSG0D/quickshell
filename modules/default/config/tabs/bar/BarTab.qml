@@ -22,6 +22,14 @@ Item {
   // ── Subaba ativa ──────────────────────────────────────────────────────
   required property int activeSubtab
 
+  // ── Contrato do tema ativo ───────────────────────────────────────────
+  // JSON de <Tema>_contract.json já parseado (com "bar"/"palette"/"modules").
+  // Repassado pra BarTabBar (filtra campos de dimensão/paleta) e
+  // BarTabModulos (filtra quais módulos aparecem na pool pra adicionar).
+  // Default {} = fail-open: sem contrato, tudo aparece (comportamento
+  // antigo preservado enquanto o ConfigWindow não estiver passando isso).
+  property var contract: ({})
+
   // ── Geral ─────────────────────────────────────────────────────────────
   required property string localTheme
   required property int    localPosition
@@ -279,6 +287,7 @@ Item {
     anchors.fill: parent; active: root.activeSubtab === 1
     sourceComponent: Bar.BarTabModulos {
       config:      root._cfg
+      contract:    root.contract
       isH:         root.localPosition === 1 || root.localPosition === 3
       slotLeft:    root.slotLeft;   slotCenter: root.slotCenter; slotRight: root.slotRight
       slotTop:     root.slotTop;    slotMiddle: root.slotMiddle; slotBottom: root.slotBottom
@@ -369,17 +378,22 @@ Item {
   }
 
   // ── Subtab 6 — Paleta ─────────────────────────────────────────────────
+  // Era "Bar.BarTabPaleta" — componente que não existe (o real, com toda a
+  // lógica de visibilidade por contrato, é BarTabBar.qml) — e nunca
+  // recebia `contract`, então o filtro de paleta nunca rodava de verdade.
   Loader {
     anchors.fill: parent; active: root.activeSubtab === 6
-    sourceComponent: Bar.BarTabPaleta {
-      config:       root._cfg
-      colors:       root.colors
-      overlay:      root.overlay
-      colorAccent:  root.colorAccent
-      colorTextDim: root.colorTextDim
-      colorText:    root.colorText
-      colorSidebar: root.colorSidebar
-      colorDivider: root.colorDivider
+    sourceComponent: Bar.BarTabBar {
+      config:          root._cfg
+      contract:        root.contract
+      colors:          root.colors
+      overlay:         root.overlay
+      colorAccent:     root.colorAccent
+      colorTextDim:    root.colorTextDim
+      colorText:       root.colorText
+      colorProgressBg: root.colorProgressBg
+      colorSidebar:    root.colorSidebar
+      colorDivider:    root.colorDivider
       onChanged: (opts) => root._emit(opts)
     }
   }
