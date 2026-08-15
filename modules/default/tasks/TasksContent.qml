@@ -76,10 +76,22 @@ Item {
     var bo = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 1
     return ao - bo
   }
+  // horário decide primeiro (quem tem "time" vem antes de quem não tem);
+  // dentro do mesmo horário (ou sem horário nos dois lados), prioridade
+  // desempata. É isto que faz a lista respeitar a ordem das horas.
+  function compareTimeThenPriority(a, b) {
+    var at = a.time || "", bt = b.time || ""
+    if (at !== bt) {
+      if (!at) return 1
+      if (!bt) return -1
+      return at < bt ? -1 : 1
+    }
+    return root.comparePriority(a, b)
+  }
   function compareDueThenPriority(a, b) {
     var ad = a.due || "9999-99-99", bd = b.due || "9999-99-99"
     if (ad !== bd) return ad < bd ? -1 : 1
-    return root.comparePriority(a, b)
+    return root.compareTimeThenPriority(a, b)
   }
 
   function taskSections() {
@@ -87,9 +99,9 @@ Item {
     if (todoConfig.hideFarTasks) base = base.filter(function(t) { return !root.isFarTask(t) })
     var pending = base.filter(function(t) { return !t.done })
 
-    var pinned   = pending.filter(root.isPinned).sort(root.comparePriority)
-    var overdue  = pending.filter(function(t) { return !root.isPinned(t) && root.isOverdueTask(t) }).sort(root.comparePriority)
-    var today    = pending.filter(function(t) { return !root.isPinned(t) && root.isDueToday(t) }).sort(root.comparePriority)
+    var pinned   = pending.filter(root.isPinned).sort(root.compareTimeThenPriority)
+    var overdue  = pending.filter(function(t) { return !root.isPinned(t) && root.isOverdueTask(t) }).sort(root.compareTimeThenPriority)
+    var today    = pending.filter(function(t) { return !root.isPinned(t) && root.isDueToday(t) }).sort(root.compareTimeThenPriority)
     var upcoming = pending.filter(function(t) { return !root.isPinned(t) && root.isUpcoming(t) }).sort(root.compareDueThenPriority)
     var other    = pending.filter(function(t) {
       return !root.isPinned(t) && !root.isOverdueTask(t) && !root.isDueToday(t) && !root.isUpcoming(t)

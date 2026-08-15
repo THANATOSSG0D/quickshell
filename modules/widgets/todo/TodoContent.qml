@@ -105,12 +105,25 @@ Item {
     const bo = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 1
     return ao - bo
   }
+  // horário decide primeiro (quem tem "time" vem antes de quem não tem);
+  // dentro do mesmo horário (ou sem horário nos dois lados), prioridade
+  // desempata. É isto que faz a lista respeitar a ordem das horas.
+  function compareTimeThenPriority(a, b) {
+    const at = a.time || "", bt = b.time || ""
+    if (at !== bt) {
+      if (!at) return 1
+      if (!bt) return -1
+      return at < bt ? -1 : 1
+    }
+    return root.comparePriority(a, b)
+  }
   // ordena por prazo (mais cedo primeiro; sem prazo vai pro fim) e usa
-  // prioridade como critério de desempate dentro do mesmo dia
+  // horário (e depois prioridade) como critério de desempate dentro do
+  // mesmo dia
   function compareDueThenPriority(a, b) {
     const ad = a.due || "9999-99-99", bd = b.due || "9999-99-99"
     if (ad !== bd) return ad < bd ? -1 : 1
-    return root.comparePriority(a, b)
+    return root.compareTimeThenPriority(a, b)
   }
 
   // ── Seções da lista ──────────────────────────────────────────────────
@@ -127,7 +140,7 @@ Item {
         return t.due === root.filterDate || root.isPinned(t)
       }).sort(function(a, b) {
         if (a.done !== b.done) return a.done ? 1 : -1
-        return root.comparePriority(a, b)
+        return root.compareTimeThenPriority(a, b)
       })
       return list.length ? [{ key: "filtered", label: "", tasks: list }] : []
     }
@@ -136,9 +149,9 @@ Item {
     if (config.hideFarTasks) base = base.filter(function(t) { return !root.isFarTask(t) })
     const pending = base.filter(function(t) { return !t.done })
 
-    const pinned   = pending.filter(root.isPinned).sort(root.comparePriority)
-    const overdue  = pending.filter(function(t) { return !root.isPinned(t) && root.isOverdueTask(t) }).sort(root.comparePriority)
-    const today    = pending.filter(function(t) { return !root.isPinned(t) && root.isDueToday(t) }).sort(root.comparePriority)
+    const pinned   = pending.filter(root.isPinned).sort(root.compareTimeThenPriority)
+    const overdue  = pending.filter(function(t) { return !root.isPinned(t) && root.isOverdueTask(t) }).sort(root.compareTimeThenPriority)
+    const today    = pending.filter(function(t) { return !root.isPinned(t) && root.isDueToday(t) }).sort(root.compareTimeThenPriority)
     const upcoming = pending.filter(function(t) { return !root.isPinned(t) && root.isUpcoming(t) }).sort(root.compareDueThenPriority)
     const other    = pending.filter(function(t) {
       return !root.isPinned(t) && !root.isOverdueTask(t) && !root.isDueToday(t) && !root.isUpcoming(t)

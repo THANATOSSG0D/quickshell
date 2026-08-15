@@ -61,7 +61,15 @@ Singleton {
     })
     list.sort(function(a, b) {
       var ad = a.due || "", bd = b.due || ""
-      return ad < bd ? -1 : (ad > bd ? 1 : 0)
+      if (ad !== bd) return ad < bd ? -1 : 1
+      // mesmo dia (ou ambas atrasadas sem due comparável) → horário decide
+      var at = a.time || "", bt = b.time || ""
+      if (at !== bt) {
+        if (!at) return 1
+        if (!bt) return -1
+        return at < bt ? -1 : 1
+      }
+      return 0
     })
     return list
   }

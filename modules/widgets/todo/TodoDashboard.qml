@@ -97,9 +97,22 @@ PanelWindow {
   }
 
   // ── Agrupamento pro Kanban ──────────────────────────────────────────
+  // data decide primeiro; dentro do mesmo dia, horário desempata (quem
+  // tem horário vem antes de quem não tem)
+  function _compareDueThenTime(a, b) {
+    const ad = a.due || "", bd = b.due || ""
+    if (ad !== bd) return ad < bd ? -1 : 1
+    const at = a.time || "", bt = b.time || ""
+    if (at !== bt) {
+      if (!at) return 1
+      if (!bt) return -1
+      return at < bt ? -1 : 1
+    }
+    return 0
+  }
   function overdueList() {
     return config.tasks.filter(function(t) { return win.isOverdueTask(t) })
-      .sort(function(a, b) { return (a.due || "") < (b.due || "") ? -1 : 1 })
+      .sort(win._compareDueThenTime)
   }
   function todayList() {
     return config.tasks.filter(function(t) { return !t.done && t.due === win.todayStr() })
@@ -108,7 +121,7 @@ PanelWindow {
   function soonList() {
     return config.tasks.filter(function(t) {
       return !t.done && !!t.due && t.due > win.todayStr() && win.daysUntil(t.due) <= config.dueSoonDays
-    }).sort(function(a, b) { return (a.due || "") < (b.due || "") ? -1 : 1 })
+    }).sort(win._compareDueThenTime)
   }
   function noDateList() {
     return config.tasks.filter(function(t) { return !t.done && !t.due })
