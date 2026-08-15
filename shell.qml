@@ -222,4 +222,15 @@ Scope {
     function open()   { configOpen = true        }
     function close()  { configOpen = false       }
   }
+
+  // ── IPC de cores ─────────────────────────────────────────────────────────
+  // Chamado por wallpaper.sh logo após `wp matugen apply` terminar de
+  // reescrever state/colors.json. Recarrega só o JsonAdapter do Colors —
+  // reavalia os bindings (Colors.background, Colors.primary, ...) em toda
+  // a shell sem precisar de restart do processo qs.
+  // Uso: qs ipc call colors reload
+  IpcHandler {
+    target: "colors"
+    function reload() { Colors.reload() }
+  }
 }

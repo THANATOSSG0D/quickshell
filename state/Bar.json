@@ -1,10 +1,12 @@
 {
     "bar": {
         "alwaysVisible": false,
+        "cornersConcaveRadius": 14,
         "cornersEnabled": true,
         "cornersMode": "edge",
         "cornersOverFullscreen": true,
-        "cornersRadius": 16,
+        "cornersRadius": 14,
+        "cornersStyle": "cut",
         "enabled": true,
         "floating": false,
         "pinned": false,

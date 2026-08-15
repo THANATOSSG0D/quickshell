@@ -45,9 +45,9 @@
         {
             "created": "2026-07-23T03:30:35.283Z",
             "done": false,
-            "due": "2026-08-15",
+            "due": "2026-08-16",
             "id": "1784777435283-842",
-            "lastCompleted": "2026-08-14T17:18:31.344Z",
+            "lastCompleted": "2026-08-15T17:27:47.269Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",
@@ -69,20 +69,6 @@
             ],
             "text": "Tomar a vitamina para cabelo(1) e magnesio(1)",
             "time": "22:00"
-        },
-        {
-            "created": "2026-08-14T16:38:45.513Z",
-            "done": false,
-            "due": "2026-08-16",
-            "id": "1786725525513-378",
-            "lastCompleted": "2026-08-15T06:02:14.720Z",
-            "priority": "media",
-            "recurrence": "daily",
-            "status": "",
-            "tags": [
-            ],
-            "text": "Tomar magnesio antes de dormir(1)",
-            "time": "03:00"
         }
     ]
 }

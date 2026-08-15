@@ -559,6 +559,26 @@ Item {
           }
         }
       }
+      // Cantos retos (cornerMode "bar"/"screen") viram uma mordida côncava
+      // que funde nas duas bordas em vez de um corte de 90° — mesmo espírito
+      // do bojo do lobo do Notch. Sem efeito em cornerMode "all" nem em
+      // cantos que já estão arredondados.
+      C.CfgToggle {
+        label: "Cantos retos → côncavos"
+        checked: root.g("cornerConcave", false)
+        enabled: root.g("cornerMode", "all") !== "all"
+        colorAccent: root.colorAccent
+        colorTextDim: root.colorTextDim
+        onToggled: root.s("cornerConcave", !root.g("cornerConcave", false))
+      }
+      C.CfgSlider {
+        label: "Bojo côncavo"; value: root.g("concaveRadius", 14)
+        from: 0; to: 40; step: 2; unit: "px"
+        enabled: root.g("cornerMode", "all") !== "all" && root.g("cornerConcave", false)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("concaveRadius", v)
+      }
 
       }
 
@@ -801,6 +821,26 @@ Item {
           }
         }
       }
+      // Cantos retos (cornerMode "bar"/"screen") viram uma mordida côncava
+      // que funde nas duas bordas em vez de um corte de 90° — mesmo espírito
+      // do bojo do lobo do Notch. Sem efeito em cornerMode "all" nem em
+      // cantos que já estão arredondados.
+      C.CfgToggle {
+        label: "Cantos retos → côncavos"
+        checked: root.g("cornerConcave", false)
+        enabled: root.g("cornerMode", "all") !== "all"
+        colorAccent: root.colorAccent
+        colorTextDim: root.colorTextDim
+        onToggled: root.s("cornerConcave", !root.g("cornerConcave", false))
+      }
+      C.CfgSlider {
+        label: "Bojo côncavo"; value: root.g("concaveRadius", 14)
+        from: 0; to: 40; step: 2; unit: "px"
+        enabled: root.g("cornerMode", "all") !== "all" && root.g("cornerConcave", false)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("concaveRadius", v)
+      }
 
       }
 
@@ -943,6 +983,26 @@ Item {
             onChipClicked: root.s("cornerMode", modelData.id)
           }
         }
+      }
+      // Cantos retos (cornerMode "bar"/"screen") viram uma mordida côncava
+      // que funde nas duas bordas em vez de um corte de 90° — mesmo espírito
+      // do bojo do lobo do Notch. Sem efeito em cornerMode "all" nem em
+      // cantos que já estão arredondados.
+      C.CfgToggle {
+        label: "Cantos retos → côncavos"
+        checked: root.g("cornerConcave", false)
+        enabled: root.g("cornerMode", "all") !== "all"
+        colorAccent: root.colorAccent
+        colorTextDim: root.colorTextDim
+        onToggled: root.s("cornerConcave", !root.g("cornerConcave", false))
+      }
+      C.CfgSlider {
+        label: "Bojo côncavo"; value: root.g("concaveRadius", 14)
+        from: 0; to: 40; step: 2; unit: "px"
+        enabled: root.g("cornerMode", "all") !== "all" && root.g("cornerConcave", false)
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        colorText: root.colorText; colorProgressBg: root.colorProgressBg
+        onMoved: (v) => root.s("concaveRadius", v)
       }
 
         }

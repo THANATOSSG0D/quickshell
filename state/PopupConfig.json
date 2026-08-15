@@ -44,6 +44,7 @@
         "Bento": {
             "globals": {
                 "animationStyle": "slide",
+                "cornerMode": "all",
                 "popupXAlign": "center",
                 "popupXOffset": 6
             },
@@ -61,7 +62,12 @@
                     "popupXAlign": "left"
                 },
                 "TasksPopup": {
-                    "popupXAlign": "right"
+                    "cornerMode": "bar",
+                    "popupXAlign": "right",
+                    "popupXOffset": 6
+                },
+                "VolumePopup": {
+                    "popupXAlign": "center"
                 },
                 "VolumePopupTabbed": {
                     "attachOffset": 5,

@@ -538,6 +538,25 @@ Item {
   // Atualiza todas as cores resolvidas quando _dep muda
   on_DepChanged: _resolveAll()
 
+  // Atualiza quando o matugen troca a paleta (Colors.version, ver Colors.qml)
+  // — independente de _dep, que só rastreia tema/overrides do Bar.json/
+  // BarState.json. Sem isto, paletteXxx (usadas pela barra/painéis) ficam
+  // presas no valor resolvido da última troca de TEMA, mesmo que Colors.*
+  // já tenha mudado — é por isso que widgets (que leem Colors.x direto via
+  // binding) trocavam de cor mas a barra e os popups não.
+  //
+  // Qt.callLater aqui é de propósito: garante que _resolveAll() só roda
+  // DEPOIS que o event loop atual termina — ou seja, depois que TODOS os
+  // bindings "property color X: adapter.md3.X" do Colors.qml já
+  // recalcularam de verdade. Sem isso havia uma race condition: o sinal
+  // que incrementa Colors.version podia disparar um tick antes desses
+  // bindings terminarem de reavaliar, e _resolveAll() lia Colors[key]
+  // ainda com o valor ANTIGO (corrigido também na origem, em Colors.qml).
+  Connections {
+    target: Colors
+    function onVersionChanged() { Qt.callLater(root._resolveAll) }
+  }
+
   function _resolveAll() {
     paletteBarBg         = resolve(get("palette","barBg"))
     paletteBarBgPill     = resolve(get("palette","barBgPill"))

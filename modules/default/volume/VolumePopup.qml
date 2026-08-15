@@ -8,6 +8,7 @@ import "../bar" as Bar
 
 Bar.BarPopup {
   id: popup
+  objectName: "VolumePopupTabbed"
 
   property bool showOnlySink:   false
   property bool showOnlySource: false

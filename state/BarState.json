@@ -50,6 +50,11 @@
                 "textMode": "artistAndTitle",
                 "textStatic": true
             },
+            "notifications": {
+                "accentColor": "source_color",
+                "dimColor": "on_surface_variant",
+                "toastTimeoutCrit": 10000
+            },
             "palette": {
                 "barBg": "shadow",
                 "text": "on_surface"

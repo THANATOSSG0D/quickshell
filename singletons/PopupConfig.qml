@@ -79,6 +79,8 @@ QtObject {
     animDuration:   220,
     bgRadius:       12,
     cornerMode:     "all",
+    cornerConcave:  false,
+    concaveRadius:  14,
     borderWidth:    0,
     borderColor:    "auto",
     shadowEnabled:  false,

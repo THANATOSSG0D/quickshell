@@ -3,6 +3,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Shapes
 import qs
 
 // ── BarPopup ───────────────────────────────────────────────────────────────────
@@ -77,23 +78,52 @@ PanelWindow {
   // "screen" — o(s) canto(s) que tocam a borda do monitor ficam retos
   property string cornerMode: "all"
 
+  // Quando true, os cantos que ficariam retos (r=0, "tocando" algo em
+  // cornerMode "bar") viram uma mordida côncava que funde nas duas bordas
+  // em vez de um corte reto de 90° — mesmo espírito visual do bojo do lobo
+  // do tema Notch. Não tem efeito em cantos que já estão arredondados
+  // (esses continuam com bgRadius normalmente) nem em cornerMode "all".
+  property bool cornerConcave:  false
+  property int  concaveRadius:  14
+
   // Raios por canto calculados de acordo com cornerMode + posição da barra
   readonly property int _rTL: _cornerR(true,  false)  // top-left
   readonly property int _rTR: _cornerR(true,  true)   // top-right
   readonly property int _rBL: _cornerR(false, false)  // bottom-left
   readonly property int _rBR: _cornerR(false, true)   // bottom-right
 
-  // _cornerR(isTop, isRight): retorna 0 se o canto toca o elemento de referência,
-  // bgRadius caso contrário.
+  // Cada canto vira côncavo só se estiver de fato reto (r===0, "tocando"
+  // algo) E cornerConcave estiver ligado — um canto arredondado nunca vira
+  // côncavo, só reto→côncavo.
+  readonly property bool _ccTL: cornerConcave && _rTL === 0
+  readonly property bool _ccTR: cornerConcave && _rTR === 0
+  readonly property bool _ccBL: cornerConcave && _rBL === 0
+  readonly property bool _ccBR: cornerConcave && _rBR === 0
+  readonly property bool _anyConcave: _ccTL || _ccTR || _ccBL || _ccBR
+
+  // _cornerR(isTop, isRight): retorna 0 se o canto toca o elemento de referência
+  // E o gap correspondente é realmente zero (senão há uma folga visível ali,
+  // então o canto continua arredondado), bgRadius caso contrário.
   function _cornerR(isTop, isRight) {
     if (cornerMode === "all") return bgRadius
     var r = bgRadius
     if (cornerMode === "bar") {
-      // Zera o(s) canto(s) que tocam a barra
-      if (_barTop    && isTop   ) r = 0
-      if (_barBottom && !isTop  ) r = 0
-      if (_barLeft   && !isRight) r = 0
-      if (_barRight  && isRight ) r = 0
+      // Eixo primário — lado que encosta na barra. Só reto se attachOffset
+      // for 0 (com folga > 0 o popup não está de fato colado ali).
+      var _barGapZero = attachOffset === 0
+      if (_barTop    && isTop    && _barGapZero) r = 0
+      if (_barBottom && !isTop   && _barGapZero) r = 0
+      if (_barLeft   && !isRight && _barGapZero) r = 0
+      if (_barRight  && isRight  && _barGapZero) r = 0
+
+      // Eixo lateral — só existe pra barra horizontal (o popup pode ficar
+      // alinhado numa lateral da tela via popupXAlign, independente de
+      // tocar a barra ou não). Só reto se popupXOffset também for 0.
+      if (!_isVertical) {
+        var _sideGapZero = popupXOffset === 0
+        if (popupXAlign === "left"  && !isRight && _sideGapZero) r = 0
+        if (popupXAlign === "right" &&  isRight && _sideGapZero) r = 0
+      }
     } else if (cornerMode === "screen") {
       // Zera o(s) canto(s) que tocam a borda do monitor (como na screenshot)
       // Modo "bar" na borda esquerda: popup fica encostado na barra à esquerda,
@@ -111,6 +141,73 @@ PanelWindow {
       }
     }
     return r
+  }
+
+  // _buildPanelPath — silhueta do painel com 4 cantos independentes, cada
+  // um arredondado (r>0), reto (r=0) ou côncavo (r=0 + concave=true).
+  // Mesma técnica do Notch.qml (Shape+PathSvg): percorre o retângulo em
+  // sentido horário a partir do topo, um "L até o ponto de entrada" +
+  // comando do canto (arco/nada/mordida) por vez.
+  //
+  // O côncavo é uma curva quadrática entre os dois pontos de tangência
+  // (um em cada borda reta) com o ponto de controle puxado PRA DENTRO do
+  // retângulo (diagonal oposta à ponta física do canto) por `bow` — a
+  // ponta nunca é alcançada, a borda "recua" ali, revelando o que estiver
+  // atrás (a janela do popup é transparente) em vez de terminar num
+  // ângulo reto.
+  function _buildPanelPath(w, h, rTL, rTR, rBR, rBL, ccTL, ccTR, ccBR, ccBL, reach) {
+    var diag = 0.70710678
+
+    // corner(cx, cy, r, concave, dirX, dirY): retorna {enterDx, exitDx, seg}
+    // dirX/dirY = direção (unitária) pra DENTRO do retângulo a partir da
+    // ponta física do canto — é pra lá que o bojo côncavo puxa.
+    function corner(r, concave, dirX, dirY) {
+      if (r > 0)
+        return { d: r, seg: "arc" }
+      if (!concave)
+        return { d: 0, seg: "" }
+      var rr = Math.max(2, Math.min(reach, w / 2 - 1, h / 2 - 1))
+      var bow = rr * 0.65
+      return { d: rr, seg: "quad", bow: bow, dirX: dirX, dirY: dirY }
+    }
+
+    var tl = corner(rTL, ccTL,  diag,  diag)
+    var tr = corner(rTR, ccTR, -diag,  diag)
+    var br = corner(rBR, ccBR, -diag, -diag)
+    var bl = corner(rBL, ccBL,  diag, -diag)
+
+    function seg(c, enterX, enterY, exitX, exitY) {
+      if (c.seg === "arc")
+        return " A " + c.d + "," + c.d + " 0 0 1 " + exitX + "," + exitY
+      if (c.seg === "quad") {
+        var qx = (enterX + exitX) / 2 + c.dirX * c.bow
+        var qy = (enterY + exitY) / 2 + c.dirY * c.bow
+        return " Q " + qx + "," + qy + " " + exitX + "," + exitY
+      }
+      return "" // canto reto: o "L" até o ponto de entrada já chega na ponta exata
+    }
+
+    // Pontos de entrada/saída de cada canto ao longo das bordas retas.
+    var tlExitX = tl.d,     tlExitY = 0
+    var trEnterX = w - tr.d, trEnterY = 0
+    var trExitX = w,        trExitY = tr.d
+    var brEnterX = w,       brEnterY = h - br.d
+    var brExitX = w - br.d, brExitY = h
+    var blEnterX = bl.d,    blEnterY = h
+    var blExitX = 0,        blExitY = h - bl.d
+    var tlEnterX = 0,       tlEnterY = tl.d
+
+    var d = "M " + tlExitX + "," + tlExitY
+    d += " L " + trEnterX + "," + trEnterY
+    d += seg(tr, trEnterX, trEnterY, trExitX, trExitY)
+    d += " L " + brEnterX + "," + brEnterY
+    d += seg(br, brEnterX, brEnterY, brExitX, brExitY)
+    d += " L " + blEnterX + "," + blEnterY
+    d += seg(bl, blEnterX, blEnterY, blExitX, blExitY)
+    d += " L " + tlEnterX + "," + tlEnterY
+    d += seg(tl, tlEnterX, tlEnterY, tlExitX, tlExitY)
+    d += " Z"
+    return d
   }
   signal closeRequested()
 
@@ -693,20 +790,57 @@ PanelWindow {
 
       opacity: popup._bgOpacity
 
-      color: Qt.rgba(
+      // Com algum canto côncavo ativo, quem desenha o preenchimento de
+      // verdade é o Shape "_bgShape" abaixo (silhueta com a mordida) — este
+      // Rectangle vira só um contêiner invisível (clip + transform + fonte
+      // de sombra aproximada), senão os cantos retos dele apareceriam por
+      // baixo da mordida.
+      color: popup._anyConcave ? "transparent" : Qt.rgba(
         popup.colorPanelBg.r,
         popup.colorPanelBg.g,
         popup.colorPanelBg.b,
         popup.bgOpacity
       )
 
-      border.width: popup.borderWidth
+      border.width: popup._anyConcave ? 0 : popup.borderWidth
       border.color: Qt.rgba(
         popup.borderColor.r,
         popup.borderColor.g,
         popup.borderColor.b,
         popup.borderWidth > 0 ? 0.7 : 0
       )
+
+      // ── Silhueta côncava ──────────────────────────────────────────────────
+      // Só existe (e só é visível) quando pelo menos 1 canto está em modo
+      // côncavo. Preenche + traça a borda no lugar do Rectangle acima, com
+      // uma mordida nos cantos retos em vez de um ângulo de 90°.
+      // LIMITAÇÃO CONHECIDA: se o popup tiver header (popupTitle) ou usar
+      // layoutMode "dual", os Rectangles internos desses (_header, sidebar)
+      // ainda desenham cantos retos comuns — se a altura do header/sidebar
+      // for menor que concaveRadius, uma pontinha reta pode aparecer por
+      // cima da mordida nesse canto específico.
+      Shape {
+        id: _bgShape
+        anchors.fill: parent
+        visible: popup._anyConcave
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+          fillColor:   Qt.rgba(popup.colorPanelBg.r, popup.colorPanelBg.g,
+                                popup.colorPanelBg.b, popup.bgOpacity)
+          strokeColor: popup.borderWidth > 0
+                       ? Qt.rgba(popup.borderColor.r, popup.borderColor.g,
+                                 popup.borderColor.b, 0.7)
+                       : "transparent"
+          strokeWidth: popup.borderWidth > 0 ? popup.borderWidth : 0
+          PathSvg {
+            path: popup._buildPanelPath(
+              bg.width, bg.height,
+              popup._rTL, popup._rTR, popup._rBR, popup._rBL,
+              popup._ccTL, popup._ccTR, popup._ccBR, popup._ccBL,
+              popup.concaveRadius)
+          }
+        }
+      }
 
       transform: [
         Translate { x: popup._bgTransX; y: popup._bgTransY },
@@ -853,6 +987,8 @@ PanelWindow {
     applyIfSet("bgOpacity",      function(v){ popup.bgOpacity      = v })
     applyIfSet("bgRadius",       function(v){ popup.bgRadius       = v })
     applyIfSet("cornerMode",     function(v){ popup.cornerMode     = v })
+    applyIfSet("cornerConcave",  function(v){ popup.cornerConcave  = v })
+    applyIfSet("concaveRadius",  function(v){ popup.concaveRadius  = v })
     applyIfSet("layoutMode",     function(v){ popup.layoutMode     = v })
     applyIfSet("sidebarWidth",   function(v){ popup.sidebarWidth   = v })
     applyIfSet("popupW",         function(v){ popup.popupW         = v })
