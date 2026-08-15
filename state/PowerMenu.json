@@ -19,7 +19,7 @@
             "text": ""
         },
         {
-            "action": "hyprctl dispatch exit",
+            "action": "uwsm stop",
             "confirm": true,
             "danger": false,
             "id": "logout",

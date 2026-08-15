@@ -48,6 +48,12 @@ Item {
   // ═══════════════════════════════════════════════════════════════════════
   readonly property var priorityColor: ({ alta: "#e5484d", media: "#f5a524", baixa: "#45a249" })
   readonly property var priorityOrder: ({ alta: 0, media: 1, baixa: 2 })
+  readonly property var priorityLabels: ({ alta: "Alta", media: "Média", baixa: "Baixa" })
+  readonly property var recurrenceLabels: ({ daily: "Diária", weekly: "Semanal", monthly: "Mensal" })
+  readonly property var statusColor: ({ doing: "#5b9bd5", blocked: "#e08a3c" })
+  readonly property var statusLabels: ({ doing: "Em andamento", blocked: "Bloqueada" })
+  function priorityLabel(id)   { return priorityLabels[id] || "Média" }
+  function recurrenceLabel(id) { return recurrenceLabels[id] || "" }
 
   property bool _tick: false
   Timer { interval: 60000; repeat: true; running: true; onTriggered: root._tick = !root._tick }
@@ -130,6 +136,44 @@ Item {
   }
 
   function _tint(a) { return Qt.rgba(1, 1, 1, a) }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // TOOLTIP DE HOVER — mesmo mecanismo do TodoContent.qml: um card único,
+  // reaproveitado e reposicionado pra colar embaixo da linha sob o mouse.
+  // Existe porque o painel é compacto (300px) e elide corta nome de tarefa
+  // longo — o tooltip mostra tudo por extenso, sem cortar nada.
+  // ═══════════════════════════════════════════════════════════════════════
+  property var  tooltipTask:    null
+  property var  tooltipHabit:   null
+  property real tooltipY:       0
+  property bool tooltipVisible: false
+
+  Timer { id: tooltipShowTimer; interval: 380; onTriggered: root.tooltipVisible = true }
+
+  function requestTaskTooltip(task, anchorItem) {
+    root.tooltipHabit = null
+    root.tooltipTask  = task
+    root.tooltipY     = anchorItem.mapToItem(root, 0, anchorItem.height + 4).y
+    if (!root.tooltipVisible) tooltipShowTimer.restart()
+  }
+  function requestHabitTooltip(habit, anchorItem) {
+    root.tooltipTask  = null
+    root.tooltipHabit = habit
+    root.tooltipY     = anchorItem.mapToItem(root, 0, anchorItem.height + 4).y
+    if (!root.tooltipVisible) tooltipShowTimer.restart()
+  }
+  function hideTaskTooltip(task) {
+    if (root.tooltipTask && task && root.tooltipTask.id !== task.id) return
+    tooltipShowTimer.stop()
+    root.tooltipVisible = false
+    root.tooltipTask    = null
+  }
+  function hideHabitTooltip(habit) {
+    if (root.tooltipHabit && habit && root.tooltipHabit.id !== habit.id) return
+    tooltipShowTimer.stop()
+    root.tooltipVisible = false
+    root.tooltipHabit   = null
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // TAMANHO
@@ -261,10 +305,12 @@ Item {
       clip: true
 
       Flickable {
+        id: bodyFlick
         anchors.fill: parent
         contentHeight: contentCol.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        onMovementStarted: { root.hideTaskTooltip(null); root.hideHabitTooltip(null) }
 
         ColumnLayout {
           id: contentCol
@@ -339,7 +385,13 @@ Item {
                     color: taskRowHover.hovered ? root._tint(0.06) : "transparent"
                     Behavior on color { ColorAnimation { duration: 80 } }
 
-                    HoverHandler { id: taskRowHover }
+                    HoverHandler {
+                      id: taskRowHover
+                      onHoveredChanged: {
+                        if (hovered) root.requestTaskTooltip(taskRow.modelData, taskRow)
+                        else root.hideTaskTooltip(taskRow.modelData)
+                      }
+                    }
 
                     RowLayout {
                       anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
@@ -462,7 +514,13 @@ Item {
                 radius: 7
                 color: habitRowHover.hovered ? root._tint(0.06) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                HoverHandler { id: habitRowHover }
+                HoverHandler {
+                  id: habitRowHover
+                  onHoveredChanged: {
+                    if (hovered) root.requestHabitTooltip(habitRowWrap.modelData, habitRowWrap)
+                    else root.hideHabitTooltip(habitRowWrap.modelData)
+                  }
+                }
 
                 Loader {
                   anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
@@ -488,6 +546,150 @@ Item {
             }
           }
         }
+      }
+    }
+  }
+
+  // ── Card do tooltip de hover — único, reaproveitado, reposicionado pra
+  // colar embaixo da linha sob o mouse. Fica FORA do Flickable (irmão do
+  // mainCol) de propósito: assim não é cortado pelo clip do corpo e não
+  // fica espremido no espaço apertado do painel.
+  Rectangle {
+    id: tooltipCard
+    visible: root.tooltipVisible && (root.tooltipTask !== null || root.tooltipHabit !== null)
+    opacity: visible ? 1 : 0
+    z: 1000
+    x: 14
+    y: root.tooltipY
+    width: 244
+    implicitHeight: tooltipCol.implicitHeight + 20
+    radius: 10
+    color: Qt.rgba(0.08, 0.08, 0.09, 0.98)
+    border.color: Qt.rgba(1, 1, 1, 0.14); border.width: 1
+    Behavior on opacity { NumberAnimation { duration: 90 } }
+
+    ColumnLayout {
+      id: tooltipCol
+      anchors { fill: parent; margins: 10 }
+      spacing: 5
+
+      // ── conteúdo quando é uma tarefa ────────────────────────────────────
+      Text {
+        Layout.fillWidth: true
+        visible: !!root.tooltipTask
+        text: root.tooltipTask ? root.tooltipTask.text : ""
+        wrapMode: Text.WordWrap
+        color: root.colorText
+        font { pixelSize: 11; family: "Inter"; weight: Font.DemiBold
+               strikeout: root.tooltipTask ? !!root.tooltipTask.done : false }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+        visible: !!root.tooltipTask
+
+        Rectangle {
+          width: 8; height: 8; radius: 4
+          color: root.tooltipTask ? (root.priorityColor[root.tooltipTask.priority] || "#999999") : "transparent"
+        }
+        Text {
+          text: root.tooltipTask ? ("Prioridade " + root.priorityLabel(root.tooltipTask.priority)) : ""
+          color: root.colorTextDim
+          font.pixelSize: 9
+        }
+        Item { Layout.fillWidth: true }
+        Text {
+          visible: !!(root.tooltipTask && root.tooltipTask.done)
+          text: "concluída"
+          color: "#45a249"
+          font.pixelSize: 9
+        }
+        Text {
+          visible: !!(root.tooltipTask && !root.tooltipTask.done && root.tooltipTask.status && root.statusLabels[root.tooltipTask.status] !== undefined)
+          text: root.tooltipTask ? (root.statusLabels[root.tooltipTask.status] || "") : ""
+          color: root.tooltipTask ? (root.statusColor[root.tooltipTask.status] || root.colorTextDim) : root.colorTextDim
+          font.pixelSize: 9
+        }
+      }
+
+      Text {
+        visible: !!(root.tooltipTask && root.tooltipTask.due)
+        text: root.tooltipTask
+          ? ("Prazo: " + root.tooltipTask.due + (root.tooltipTask.time ? " às " + root.tooltipTask.time : "") + (root.isOverdueTask(root.tooltipTask) ? " · atrasada" : ""))
+          : ""
+        color: (root.tooltipTask && root.isOverdueTask(root.tooltipTask)) ? root.colorAccent : root.colorTextDim
+        font { pixelSize: 9; weight: (root.tooltipTask && root.isOverdueTask(root.tooltipTask)) ? Font.DemiBold : Font.Normal }
+      }
+
+      Text {
+        visible: !!(root.tooltipTask && root.tooltipTask.recurrence && root.tooltipTask.recurrence !== "none")
+        text: root.tooltipTask ? ("Repete: " + root.recurrenceLabel(root.tooltipTask.recurrence)) : ""
+        color: root.colorTextDim
+        font.pixelSize: 9
+      }
+
+      Flow {
+        Layout.fillWidth: true
+        spacing: 4
+        visible: !!(root.tooltipTask && root.tooltipTask.tags && root.tooltipTask.tags.length > 0)
+
+        Repeater {
+          model: (root.tooltipTask && root.tooltipTask.tags) || []
+          delegate: Rectangle {
+            required property string modelData
+            width: ttTagLabel.implicitWidth + 10; height: 15; radius: 7
+            color: root._tint(0.12)
+            Text {
+              id: ttTagLabel
+              anchors.centerIn: parent
+              text: modelData
+              color: root.colorTextDim
+              font.pixelSize: 8
+            }
+          }
+        }
+      }
+
+      Text {
+        visible: !!(root.tooltipTask && root.tooltipTask.created)
+        text: root.tooltipTask ? ("Criada em " + Qt.formatDateTime(new Date(root.tooltipTask.created), "dd/MM/yyyy")) : ""
+        color: root.colorTextDim
+        opacity: 0.7
+        font.pixelSize: 8
+      }
+
+      // ── conteúdo quando é um hábito ─────────────────────────────────────
+      Text {
+        visible: !!root.tooltipHabit
+        Layout.fillWidth: true
+        text: root.tooltipHabit ? root.tooltipHabit.name : ""
+        wrapMode: Text.WordWrap
+        color: root.colorText
+        font { pixelSize: 11; family: "Inter"; weight: Font.DemiBold }
+      }
+      Text {
+        visible: !!root.tooltipHabit
+        text: root.tooltipHabit ? ("Sequência atual: " + habitsConfig.streakFor(root.tooltipHabit) + " dia(s)") : ""
+        color: root.colorTextDim
+        font.pixelSize: 9
+      }
+      Text {
+        visible: !!(root.tooltipHabit && root.tooltipHabit.kind === "count")
+        text: root.tooltipHabit
+          ? ("Hoje: " + habitsConfig.amountOn(root.tooltipHabit, habitsConfig._todayKey())
+             + "/" + root.tooltipHabit.target + (root.tooltipHabit.unit ? " " + root.tooltipHabit.unit : ""))
+          : ""
+        color: root.colorTextDim
+        font.pixelSize: 9
+      }
+      Text {
+        visible: !!(root.tooltipHabit && root.tooltipHabit.kind !== "count")
+        text: root.tooltipHabit
+          ? ("Hoje: " + (habitsConfig.isDoneOn(root.tooltipHabit, habitsConfig._todayKey()) ? "cumprido ✓" : "ainda não cumprido"))
+          : ""
+        color: root.colorTextDim
+        font.pixelSize: 9
       }
     }
   }
