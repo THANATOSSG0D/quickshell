@@ -1,17 +1,15 @@
 {
     "bar": {
         "alwaysVisible": false,
-        "cornersConcaveRadius": 14,
         "cornersEnabled": true,
         "cornersMode": "edge",
         "cornersOverFullscreen": true,
         "cornersRadius": 14,
-        "cornersStyle": "cut",
         "enabled": true,
         "floating": false,
         "pinned": false,
         "silence": false,
-        "theme": "Bento",
+        "theme": "Dock",
         "tooltipAlign": "section",
         "tooltipEnabled": true,
         "tooltipMaxWidth": 320,

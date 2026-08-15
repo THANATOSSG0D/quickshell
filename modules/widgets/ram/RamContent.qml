@@ -93,15 +93,21 @@ Item {
       Layout.alignment: Qt.AlignHCenter
       spacing: 12
 
+      // espaçador "fantasma" — reserva a diferença entre "100%" e a
+      // largura ATUAL do número, ficando ANTES do texto, que por sua vez
+      // nunca tem largura limitada (então nunca pode ser cortado, mesmo
+      // se a métrica errar por causa de QT_FONT_DPI/scale do ambiente)
+      Item {
+        Layout.preferredWidth: Math.max(0,
+          bigNumberMetrics.advanceWidth("100%") + 2 - ramPercentText.implicitWidth)
+        Layout.preferredHeight: 1
+      }
+
       Text {
+        id: ramPercentText
         text: root.ramPercent.toFixed(0) + "%"
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
-        horizontalAlignment: Text.AlignRight
-        // +4px de folga: boundingRect() mede a caixa "apertada" do texto,
-        // um pouco menor que o avanço real do glifo — sem isso "100%"
-        // invade a coluna ao lado
-        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width + 4
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -114,7 +120,7 @@ Item {
         spacing: 0
         // maior conteúdo plausível: "999.9 / 999.9 GB" cobre até discos
         // gigantescos de RAM/swap sem nunca precisar recalcular
-        readonly property real reservedWidth: secondaryMetrics.boundingRect("999.9 / 999.9 GB").width
+        readonly property real reservedWidth: secondaryMetrics.advanceWidth("999.9 / 999.9 GB") + 2
         Layout.preferredWidth: reservedWidth
 
         Text {

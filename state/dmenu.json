@@ -34,7 +34,7 @@
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://web.telegram.org/": 2,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.crunchyroll.com/pt-br/discover": 5,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.protondb.com/": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 15,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://www.youtube.com": 16,
             "/home/antonio/.local/bin/hyprsettings": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=bazaar --file-forwarding io.github.kolunmi.Bazaar @@u  @@": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 1,

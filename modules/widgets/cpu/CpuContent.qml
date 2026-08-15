@@ -176,18 +176,30 @@ Item {
       Layout.alignment: Qt.AlignHCenter
       spacing: 12
 
+      // ── espaçador "fantasma" ──────────────────────────────────────
+      // Em vez de forçar o Text do número a caber numa caixa medida por
+      // FontMetrics (boundingRect/advanceWidth), o que corta o número
+      // sempre que a métrica erra por causa do ambiente (QT_FONT_DPI,
+      // QT_AUTO_SCREEN_SCALE_FACTOR etc. mudam a métrica efetiva da
+      // fonte em runtime e não batem 100% com o que o FontMetrics
+      // calculou) — esse Item vazio reserva a diferença entre o maior
+      // valor possível ("100%") e a largura ATUAL do número, e fica
+      // ANTES do texto. O texto em si NUNCA tem a largura limitada,
+      // então é fisicamente impossível ele ser cortado — na pior
+      // hipótese (a métrica ainda errar), o espaçador só fica com
+      // largura 0 e a linha cresce alguns px, mas o número nunca perde
+      // pedaço.
+      Item {
+        Layout.preferredWidth: Math.max(0,
+          bigNumberMetrics.advanceWidth("100%") + 2 - cpuPercentText.implicitWidth)
+        Layout.preferredHeight: 1
+      }
+
       Text {
+        id: cpuPercentText
         text: root.cpuPercent.toFixed(0) + "%"
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
-        horizontalAlignment: Text.AlignRight
-        // largura reservada pro maior valor possível ("100%") — o texto
-        // nunca empurra o resto do layout quando o número muda de 1 pra
-        // 2 pra 3 dígitos. +4px de folga porque boundingRect() mede a
-        // caixa "apertada" do texto e fica um pouco menor que a largura
-        // real de avanço do glifo — sem a folga o "100%" encosta/invade
-        // a coluna ao lado.
-        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width + 4
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -201,7 +213,7 @@ Item {
         // largura reservada pra coluna de texto secundária inteira, pelo
         // maior conteúdo plausível — assim "performance"/"conservative"
         // (governor) não faz a coluna (e a linha toda) mudar de largura
-        readonly property real reservedWidth: Math.max(60, secondaryMetrics.boundingRect("conservative").width)
+        readonly property real reservedWidth: Math.max(60, secondaryMetrics.advanceWidth("conservative"))
         Layout.preferredWidth: reservedWidth
 
         Text {

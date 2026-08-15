@@ -9,7 +9,8 @@
     "groups": [
         {
             "bgColor": "background",
-            "bgOpacity": 0.8,
+            "bgOpacity": 0.5,
+            "borderOpacity": 0.2,
             "borderWidth": 1,
             "columnMinWidth": 0,
             "columns": 1,
@@ -31,9 +32,9 @@
         },
         {
             "bgColor": "background",
-            "bgOpacity": 0.8,
+            "bgOpacity": 0.5,
             "columnMinWidth": 0,
-            "columnSpacing": 8,
+            "columnSpacing": 4,
             "columns": 2,
             "edgeMargin": 20,
             "enabled": true,
@@ -73,7 +74,7 @@
                 "favorites"
             ],
             "offsetX": 0,
-            "offsetY": 0,
+            "offsetY": 2,
             "position": 5
         }
     ],

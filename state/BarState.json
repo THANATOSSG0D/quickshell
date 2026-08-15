@@ -23,9 +23,10 @@
             "bar": {
                 "autoHide": false,
                 "barMargin": 2,
-                "barSize": 22,
+                "barSize": 24,
+                "bentoExpandForPopups": true,
                 "chipRadius": 24,
-                "moduleScale": 0.7500000000000002,
+                "moduleScale": 0.9000000000000004,
                 "modules": {
                     "center": [
                         "workspaces"

@@ -150,15 +150,21 @@ Item {
       spacing: 12
       visible: root.gpuAvailable
 
+      // espaçador "fantasma" — reserva a diferença entre "100%" e a
+      // largura ATUAL do número, ficando ANTES do texto, que por sua vez
+      // nunca tem largura limitada (então nunca pode ser cortado, mesmo
+      // se a métrica errar por causa de QT_FONT_DPI/scale do ambiente)
+      Item {
+        Layout.preferredWidth: Math.max(0,
+          bigNumberMetrics.advanceWidth("100%") + 2 - gpuPercentText.implicitWidth)
+        Layout.preferredHeight: 1
+      }
+
       Text {
+        id: gpuPercentText
         text: root.gpuUtil.toFixed(0) + "%"
         color: Colors[config.colorValue]
         font { pixelSize: config.fontSizeValue; family: "Inter"; weight: Font.Light }
-        horizontalAlignment: Text.AlignRight
-        // +4px de folga: boundingRect() mede a caixa "apertada" do texto,
-        // um pouco menor que o avanço real do glifo — sem isso "100%"
-        // invade a coluna ao lado
-        Layout.preferredWidth: bigNumberMetrics.boundingRect("100%").width + 4
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true; shadowColor: Qt.rgba(0, 0, 0, 0.8)
@@ -172,9 +178,9 @@ Item {
         // maior conteúdo plausível entre as 3 linhas: VRAM "99.9 / 99.9 GB",
         // "999°C  ·  999W", ou "iGPU 100%" — pega o mais largo dos três
         readonly property real reservedWidth: Math.max(
-          secondaryMetrics.boundingRect("99.9 / 99.9 GB").width,
-          secondaryMetrics.boundingRect("999°C  ·  999W").width,
-          secondaryMetrics.boundingRect("iGPU 100%").width)
+          secondaryMetrics.advanceWidth("99.9 / 99.9 GB"),
+          secondaryMetrics.advanceWidth("999°C  ·  999W"),
+          secondaryMetrics.advanceWidth("iGPU 100%")) + 2
         Layout.preferredWidth: reservedWidth
 
         Text {
