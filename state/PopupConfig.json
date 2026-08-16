@@ -45,12 +45,15 @@
             "globals": {
                 "animationStyle": "slide",
                 "cornerMode": "all",
-                "popupXAlign": "center",
+                "popupXAlign": "group",
                 "popupXOffset": 6
             },
             "overrides": {
                 "ClockPopup": {
                     "popupXAlign": "right"
+                },
+                "DmenuPopup": {
+                    "cornerMode": "screen"
                 },
                 "MediaPlayerPopup": {
                     "popupXAlign": "left"
@@ -62,9 +65,7 @@
                     "popupXAlign": "left"
                 },
                 "TasksPopup": {
-                    "cornerMode": "bar",
-                    "popupXAlign": "right",
-                    "popupXOffset": 6
+                    "popupXAlign": "group"
                 },
                 "VolumePopup": {
                     "popupXAlign": "center"
@@ -75,6 +76,43 @@
                     "cornerMode": "all",
                     "popupXAlign": "right",
                     "popupXOffset": 6
+                }
+            }
+        },
+        "Dock": {
+            "globals": {
+                "popupXAlign": "group"
+            },
+            "overrides": {
+                "ClockPopup": {
+                    "cornerMode": "bar",
+                    "popupXAlign": "right"
+                },
+                "DmenuPopup": {
+                    "cornerConcave": true,
+                    "cornerMode": "screen"
+                },
+                "MediaPlayerPopup": {
+                    "cornerMode": "bar",
+                    "popupXAlign": "left"
+                },
+                "NotificationsPopup": {
+                    "cornerMode": "bar",
+                    "popupXAlign": "right"
+                },
+                "QuickSettingsPopup": {
+                    "cornerMode": "bar",
+                    "popupXAlign": "left"
+                },
+                "TasksPopup": {
+                    "cornerMode": "bar",
+                    "popupXAlign": "group"
+                },
+                "VolumePopupTabbed": {
+                    "cornerConcave": true,
+                    "cornerMode": "bar",
+                    "popupXAlign": "right",
+                    "popupYAnchor": "bar"
                 }
             }
         },

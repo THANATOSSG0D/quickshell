@@ -472,6 +472,183 @@ Scope {
         return barRoot.themePanelWidth
       }
 
+      // ── Esticamento DIRECIONADO da pill ─────────────────────────────────
+      // Por padrão o crescimento da pill é simétrico (as duas bordas se
+      // afastam do centro igualmente — ver activePopupW/pillSideMargin).
+      // Quando o popup que está abrindo pertence a um módulo que vive num
+      // slot lateral (left/right na horizontal, top/bottom na vertical) E
+      // esse popup está configurado como "preso à barra" (popupYAnchor:
+      // "bar") alinhado PRO MESMO LADO do slot do módulo (popupXAlign ou
+      // popupYAlign), o crescimento passa a ser direcionado: só a borda
+      // daquele lado se move, o lado oposto fica travado no tamanho natural,
+      // e o centro (workspaces) continua sempre centrado na pill inteira —
+      // porque centerInnerRow/middleCol usam anchors.centerIn: parent, então
+      // reagem sozinhos a qualquer largura/altura final do Item.
+
+      // Mapeia o painel visado para o id do módulo (usado nas listas
+      // cfgModulesLeft/Center/Right/Top/Middle/Bottom da Pill).
+      function _pillTargetModuleId() {
+        if (pillTargetPanel === barRoot.panelPlayer) return "mediaplayer"
+        if (pillTargetPanel === barRoot.panelClock)  return "clock"
+        if (pillTargetPanel === barRoot.panelQs)     return "quicksettings"
+        if (pillTargetPanel === barRoot.panelNotif)  return "notifications"
+        if (pillTargetPanel === barRoot.panelVolume) return "volume"
+        if (pillTargetPanel === barRoot.panelSink)   return "volume"
+        if (pillTargetPanel === barRoot.panelSource) return "volume"
+        if (pillTargetPanel === barRoot.panelTasks)  return "tasks"
+        return ""
+      }
+
+      // Referência à instância BarPopup do painel visado — usada só pra ler
+      // popupXAlign/popupYAlign/popupYAnchor (config de alinhamento).
+      function _pillTargetPopup() {
+        if (pillTargetPanel === barRoot.panelPlayer) return mediaPopup
+        if (pillTargetPanel === barRoot.panelClock)  return clockPopup
+        if (pillTargetPanel === barRoot.panelQs)     return qsPopup
+        if (pillTargetPanel === barRoot.panelNotif)  return notifPopup
+        if (pillTargetPanel === barRoot.panelVolume) return volTabbedPopup
+        if (pillTargetPanel === barRoot.panelSink)   return volSinkPopup
+        if (pillTargetPanel === barRoot.panelSource) return volSourcePopup
+        if (pillTargetPanel === barRoot.panelTasks)  return tasksPopup
+        return null
+      }
+
+      // Slot onde o módulo do painel visado vive, segundo a config ATUAL
+      // dos módulos da Pill ("" = módulo no slot central/meio, ou tema sem
+      // Pill carregado ainda → sem direção, cai no fallback simétrico).
+      readonly property string pillGrowSlot: {
+        var modId = _pillTargetModuleId()
+        var it = loader.item
+        if (!modId || !it) return ""
+        if (isVertical) {
+          if ((it.cfgModulesTop    || []).indexOf(modId) !== -1) return "top"
+          if ((it.cfgModulesBottom || []).indexOf(modId) !== -1) return "bottom"
+          return ""
+        }
+        if ((it.cfgModulesLeft  || []).indexOf(modId) !== -1) return "left"
+        if ((it.cfgModulesRight || []).indexOf(modId) !== -1) return "right"
+        return ""
+      }
+
+      // true só quando o popup está preso à barra (não flutuante) E
+      // alinhado exatamente pro mesmo lado do slot do módulo que o abriu.
+      // NÃO depende de `pill` — isto é usado tanto pelo truque de margens
+      // assimétricas (só faz sentido com pill:true, ver margins.* abaixo)
+      // quanto por temas como o Dock, onde cada ilha cresce sozinha e a
+      // PanelWindow nunca muda de tamanho.
+      readonly property bool pillGrowDirected: {
+        if (pillGrowSlot === "") return false
+        var p = _pillTargetPopup()
+        if (!p || p.popupYAnchor !== "bar") return false
+        return isVertical ? (p.popupYAlign === pillGrowSlot)
+                           : (p.popupXAlign === pillGrowSlot)
+      }
+
+      // Largura/altura "natural" da pill (sem popup aberto) — a âncora fixa
+      // usada pelo lado que NÃO deve se mover quando pillGrowDirected.
+      readonly property int naturalPillWidth:
+          (pill && loader.item && loader.item._naturalW !== undefined)
+              ? loader.item._naturalW : effectivePillWidth
+
+      readonly property int naturalPillSideMargin: {
+        if (!pill) return 0
+        if (isVertical)
+          return Math.max(0, Math.floor((screen.height - naturalPillWidth) / 2))
+        return Math.max(0, Math.floor((screen.width - naturalPillWidth) / 2))
+      }
+
+      // Quanto a pill cresceu além do tamanho natural — é isso que o lado
+      // ativo "absorve" sozinho quando o crescimento é direcionado.
+      readonly property int _pillExtra: Math.max(0, effectivePillWidth - naturalPillWidth)
+
+      // ── Âncoras de posição pro popupXAlign "group" / "module" ──────────
+      // Só fazem sentido pra barra horizontal (top/bottom) — é onde
+      // popupXAlign é de facto usado (ver guarda _isVertical no BarPopup).
+
+      // Slot (left/right/center OU top/bottom/middle) onde um modId vive,
+      // segundo a config ATUAL dos módulos — igual pillGrowSlot, mas
+      // parametrizado por modId em vez de depender do painel visado no
+      // momento (usado aqui pra popups individuais, não só o ativo).
+      function _slotForModule(modId) {
+        var it = loader.item
+        if (!it || !modId) return ""
+        if (isVertical) {
+          if ((it.cfgModulesTop    || []).indexOf(modId) !== -1) return "top"
+          if ((it.cfgModulesBottom || []).indexOf(modId) !== -1) return "bottom"
+          return "middle"
+        }
+        if ((it.cfgModulesLeft  || []).indexOf(modId) !== -1) return "left"
+        if ((it.cfgModulesRight || []).indexOf(modId) !== -1) return "right"
+        return "center"
+      }
+
+      function _moduleRefFor(modId) {
+        var it = loader.item
+        if (!it) return null
+        // Preferência: o próprio delegate posicionado pela Row/Column
+        // (geometria 100% confiável — width real, x real). Só cai pros
+        // refs antigos (widget interno) se o tema não implementar
+        // moduleItemAt (retrocompatibilidade).
+        if (it.moduleItemAt) {
+          var m = it.moduleItemAt(modId)
+          if (m) return m
+        }
+        if (modId === "mediaplayer")   return it.mediaPlayer
+        if (modId === "clock")         return it.clock
+        if (modId === "tasks")         return it.tasks
+        if (modId === "notifications") return it.notifWidget
+        if (modId === "quicksettings") return it.qsWidget
+        if (modId === "volume")        return it.volumeWidget
+        if (modId === "sink")          return it.sinkWidget
+        if (modId === "source")        return it.sourceWidget
+        return null
+      }
+
+      function _groupRefFor(slot) {
+        var it = loader.item
+        if (!it) return null
+        if (slot === "left")   return it.leftGroupItem
+        if (slot === "right")  return it.rightGroupItem
+        if (slot === "top")    return it.topGroupItem
+        if (slot === "bottom") return it.bottomGroupItem
+        return null
+      }
+
+      // X (espaço de tela) e largura de um Item que vive dentro de
+      // loader.item. `loader` preenche `bar` sem margens próprias, então
+      // mapear pra loader dá coordenadas locais da janela; somando
+      // bar.margins.left (distância real da borda esquerda da TELA até a
+      // borda esquerda da JANELA) chegamos em coordenadas de tela — válido
+      // pra barras horizontais, único caso onde isso é usado.
+      function _screenRectOf(item) {
+        if (!item) return { x: 0, w: 0 }
+        var pt = item.mapToItem(loader, 0, 0)
+        return { x: bar.margins.left + pt.x, w: item.width }
+      }
+
+      // Objeto completo de âncora. widgetModId decide qual widget vira o
+      // alvo do modo "module" (default = modId) — necessário porque
+      // "sink"/"source" não existem como entradas próprias em
+      // cfgModulesLeft/Right (ambos vivem dentro do módulo "volume").
+      //
+      // IMPORTANTE: o lado ("left"/"right") é decidido pela GEOMETRIA REAL
+      // do módulo na tela (centro do módulo vs. centro da barra) — não por
+      // procurar o modId dentro de cfgModulesLeft/cfgModulesRight. As duas
+      // fontes deveriam sempre concordar, mas a geometria é a verdade
+      // definitiva: é o que a pessoa vê. Isso também evita qualquer
+      // divergência de timing entre a config dos módulos e o layout.
+      function _anchorFor(modId, widgetModId) {
+        var m = _screenRectOf(_moduleRefFor(widgetModId || modId))
+        var barCenterX = bar.margins.left + (bar.implicitWidth || screen.width) / 2
+        var moduleCenterX = m.x + m.w / 2
+        var side = (m.w > 0 && moduleCenterX >= barCenterX) ? "right" : "left"
+        var g = _screenRectOf(_groupRefFor(side))
+        return {
+          side: side,
+          gx: g.x, gw: g.w, mx: m.x, mw: m.w
+        }
+      }
+
       // Atraso entre a Pill começar a esticar e o popup realmente abrir
       // (activePanel muda → panelOpen=true → reveal começa). Só entra em
       // ação quando estamos abrindo A PARTIR de nenhum painel aberto — trocar
@@ -648,22 +825,44 @@ Scope {
 
       margins.top: {
         if (position === 1) return barMargin - marginOffset
-        if (isVertical && pill) return pillSideMargin
+        if (isVertical && pill) {
+          // Direcionado: lado oposto ao slot que cresceu fica travado no
+          // valor natural; o lado do slot ativo absorve toda a diferença.
+          if (pillGrowDirected && pillGrowSlot === "bottom") return naturalPillSideMargin
+          if (pillGrowDirected && pillGrowSlot === "top")
+            return Math.max(0, naturalPillSideMargin - _pillExtra)
+          return pillSideMargin   // fallback simétrico (popup central/flutuante)
+        }
         return barMargin
       }
       margins.bottom: {
         if (position === 3) return barMargin - marginOffset
-        if (isVertical && pill) return pillSideMargin
+        if (isVertical && pill) {
+          if (pillGrowDirected && pillGrowSlot === "top") return naturalPillSideMargin
+          if (pillGrowDirected && pillGrowSlot === "bottom")
+            return Math.max(0, naturalPillSideMargin - _pillExtra)
+          return pillSideMargin
+        }
         return barMargin
       }
       margins.left: {
         if (position === 4) return barMargin - marginOffset
-        if (!isVertical && pill) return pillSideMargin
+        if (!isVertical && pill) {
+          if (pillGrowDirected && pillGrowSlot === "right") return naturalPillSideMargin
+          if (pillGrowDirected && pillGrowSlot === "left")
+            return Math.max(0, naturalPillSideMargin - _pillExtra)
+          return pillSideMargin
+        }
         return barMargin
       }
       margins.right: {
         if (position === 2) return barMargin - marginOffset
-        if (!isVertical && pill) return pillSideMargin
+        if (!isVertical && pill) {
+          if (pillGrowDirected && pillGrowSlot === "left") return naturalPillSideMargin
+          if (pillGrowDirected && pillGrowSlot === "right")
+            return Math.max(0, naturalPillSideMargin - _pillExtra)
+          return pillSideMargin
+        }
         return barMargin
       }
 
@@ -751,6 +950,13 @@ Scope {
         // Expande/contrai a pill de acordo com o popup aberto
         Binding { target: loader.item; property: "activePopupW";  value: bar.activePopupW;  when: loader.item !== null; restoreMode: Binding.RestoreNone }
         Binding { target: loader.item; property: "anyPanelOpen";  value: bar.anyPanelOpen;  when: loader.item !== null; restoreMode: Binding.RestoreNone }
+
+        // Direção do esticamento (slot + se está "attached" no mesmo lado
+        // do módulo) — genérico, qualquer tema pode usar. Guardado por
+        // "in (loader.item||{})" pra não quebrar temas que não declaram
+        // essas props (ex: Default/Minimal/Notch sem esse conceito).
+        Binding { target: loader.item; property: "activePopupSlot";     value: bar.pillGrowSlot;     when: loader.item !== null && "activePopupSlot" in (loader.item || {}) }
+        Binding { target: loader.item; property: "activePopupDirected"; value: bar.pillGrowDirected; when: loader.item !== null && "activePopupDirected" in (loader.item || {}) }
 
         onLoaded: {
           // Lê tamanho base do tema
@@ -2077,6 +2283,12 @@ Scope {
         showOnlySink: true
         panelOpen:    bar.sinkPanelOpen
 
+        anchorGroupSide: bar._anchorFor("volume", "sink").side
+        anchorGroupX:    bar._anchorFor("volume", "sink").gx
+        anchorGroupW:    bar._anchorFor("volume", "sink").gw
+        anchorModuleX:   bar._anchorFor("volume", "sink").mx
+        anchorModuleW:   bar._anchorFor("volume", "sink").mw
+
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText
         colorTextDim:    bar.popupColorTextDim
@@ -2098,6 +2310,12 @@ Scope {
 
         showOnlySource: true
         panelOpen:      bar.sourcePanelOpen
+
+        anchorGroupSide: bar._anchorFor("volume", "source").side
+        anchorGroupX:    bar._anchorFor("volume", "source").gx
+        anchorGroupW:    bar._anchorFor("volume", "source").gw
+        anchorModuleX:   bar._anchorFor("volume", "source").mx
+        anchorModuleW:   bar._anchorFor("volume", "source").mw
 
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText
@@ -2121,6 +2339,12 @@ Scope {
         panelOpen:  bar.volumePanelOpen
         openSource: false                // sempre abre na aba Saída; muda clicando nas abas
 
+        anchorGroupSide: bar._anchorFor("volume").side
+        anchorGroupX:    bar._anchorFor("volume").gx
+        anchorGroupW:    bar._anchorFor("volume").gw
+        anchorModuleX:   bar._anchorFor("volume").mx
+        anchorModuleW:   bar._anchorFor("volume").mw
+
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText
         colorTextDim:    bar.popupColorTextDim
@@ -2143,6 +2367,12 @@ Scope {
         panelOpen:      bar.playerPanelOpen && barRoot.themeHasPanel
         barMediaPlayer: barRoot.barMediaPlayerRef
 
+        anchorGroupSide: bar._anchorFor("mediaplayer").side
+        anchorGroupX:    bar._anchorFor("mediaplayer").gx
+        anchorGroupW:    bar._anchorFor("mediaplayer").gw
+        anchorModuleX:   bar._anchorFor("mediaplayer").mx
+        anchorModuleW:   bar._anchorFor("mediaplayer").mw
+
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText
         colorTextDim:    bar.popupColorTextDim
@@ -2162,6 +2392,12 @@ Scope {
         popupH: barRoot.popupHClock
 
         panelOpen: bar.clockPanelOpen
+
+        anchorGroupSide: bar._anchorFor("clock").side
+        anchorGroupX:    bar._anchorFor("clock").gx
+        anchorGroupW:    bar._anchorFor("clock").gw
+        anchorModuleX:   bar._anchorFor("clock").mx
+        anchorModuleW:   bar._anchorFor("clock").mw
 
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText
@@ -2183,6 +2419,12 @@ Scope {
 
         panelOpen: bar.tasksPanelOpen
 
+        anchorGroupSide: bar._anchorFor("tasks").side
+        anchorGroupX:    bar._anchorFor("tasks").gx
+        anchorGroupW:    bar._anchorFor("tasks").gw
+        anchorModuleX:   bar._anchorFor("tasks").mx
+        anchorModuleW:   bar._anchorFor("tasks").mw
+
         colorPanelBg: bar.popupColorBg
         colorText:    bar.popupColorText
         colorTextDim: bar.popupColorTextDim
@@ -2202,6 +2444,12 @@ Scope {
 
         panelOpen: bar.qsPanelOpen
         notifService: barRoot.notifService
+
+        anchorGroupSide: bar._anchorFor("quicksettings").side
+        anchorGroupX:    bar._anchorFor("quicksettings").gx
+        anchorGroupW:    bar._anchorFor("quicksettings").gw
+        anchorModuleX:   bar._anchorFor("quicksettings").mx
+        anchorModuleW:   bar._anchorFor("quicksettings").mw
 
         colorPanelBg:    bar.popupColorBg
         colorText:       bar.popupColorText
@@ -2250,6 +2498,12 @@ Scope {
         popupH:    barRoot.popupHNotif
         service:   barRoot.notifService
         panelOpen: bar.notifPanelOpen
+
+        anchorGroupSide: bar._anchorFor("notifications").side
+        anchorGroupX:    bar._anchorFor("notifications").gx
+        anchorGroupW:    bar._anchorFor("notifications").gw
+        anchorModuleX:   bar._anchorFor("notifications").mx
+        anchorModuleW:   bar._anchorFor("notifications").mw
 
         colorPanelBg:  bar.popupColorBg
         colorText:     bar.popupColorText

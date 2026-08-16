@@ -70,7 +70,12 @@ Item {
   property var clock:         null
   property var tasks:         null
   property var notifWidget:   null
+  property var qsWidget:      null
   property var notifService:  null
+
+  // Refs dos grupos (Rows) — usados por popupXAlign:"group"/"module".
+  property var leftGroupItem:  null
+  property var rightGroupItem: null
 
   readonly property bool isHorizontal: true   // Notch só horizontal
 
@@ -281,6 +286,24 @@ Item {
     return null
   }
 
+  // Acha o próprio delegate (modItem) por modId — geometria confiável
+  // (width/x reais) pra âncora de popup, diferente dos refs de widget
+  // interno acima (que podem só ter implicitWidth).
+  function _findModuleItem(rep, modId) {
+    for (var i = 0; i < rep.count; i++) {
+      var it = rep.itemAt(i)
+      var mod = it ? it.item : null
+      if (mod && mod.modId === modId) return mod
+    }
+    return null
+  }
+
+  function moduleItemAt(modId) {
+    return _findModuleItem(leftRep, modId)
+        || _findModuleItem(centerRep, modId)
+        || _findModuleItem(rightRep, modId)
+  }
+
   function _updateRefs() {
     root.mediaPlayer  = _findRef(leftRep,   "mediaPlayer")  || _findRef(centerRep, "mediaPlayer")  || _findRef(rightRep,  "mediaPlayer")
     root.volumeWidget = _findRef(leftRep,   "volumeWidget") || _findRef(centerRep, "volumeWidget") || _findRef(rightRep,  "volumeWidget")
@@ -289,6 +312,9 @@ Item {
     root.clock        = _findRef(leftRep,   "clock")        || _findRef(centerRep, "clock")        || _findRef(rightRep,  "clock")
     root.tasks        = _findRef(leftRep,   "tasks")        || _findRef(centerRep, "tasks")        || _findRef(rightRep,  "tasks")
     root.notifWidget  = _findRef(leftRep,   "notifWidget")  || _findRef(centerRep, "notifWidget")  || _findRef(rightRep,  "notifWidget")
+    root.qsWidget      = _findRef(leftRep,   "qsWidget")      || _findRef(centerRep, "qsWidget")      || _findRef(rightRep,  "qsWidget")
+    root.leftGroupItem  = leftRow
+    root.rightGroupItem = rightRow
     root.refsUpdated()
   }
 
@@ -314,6 +340,7 @@ Item {
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
       readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
+      readonly property var qsWidget:     qsLoader.active  && qsLoader.item  ? qsLoader.item  : null
 
       implicitWidth: {
         var _k = _wsKick

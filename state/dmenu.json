@@ -20,7 +20,7 @@
         "dmenuPopupXAlign": "center",
         "dmenuPopupXOffset": 0,
         "dmenuPopupYAnchor": "top",
-        "dmenuPopupYOffset": 32,
+        "dmenuPopupYOffset": 0,
         "dmenuShowIcons": false,
         "dmenuSortMode": "usage",
         "dmenuToggle": true,
@@ -50,6 +50,7 @@
             "hyprpwcenter": 1,
             "inkscape": 3,
             "pipewire-config": 2,
+            "qt6ct": 1,
             "solaar": 2
         }
     }

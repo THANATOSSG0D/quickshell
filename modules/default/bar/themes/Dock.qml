@@ -49,15 +49,38 @@ Item {
   property bool   hasMediaPanel: true
   property int    barPosition:   2
 
-  // ── Props de compatibilidade com o contrato do Pill ─────────────────────
-  // Não usadas por este tema (a janela tem tamanho fixo, não precisa medir
-  // conteúdo nem crescer ao abrir popups) — mantidas apenas para que os
-  // Bindings declarativos do Bar.qml (que assumem que todo tema pode tê-las)
-  // não acusem "Invalid property assignment" ao tentar atribuí-las.
-  property int  minPillWidth:   400
-  property int  pillMinSpacing: 20
-  property int  activePopupW:   0
-  property bool anyPanelOpen:   false
+  // ── Esticamento direcionado de ilhas ao abrir popup ──────────────────────
+  // activePopupW / anyPanelOpen: injetados pelo Bar.qml (mesmo mecanismo do
+  // Pill) — largura do popup atualmente visado e se algum está aberto.
+  // activePopupSlot / activePopupDirected: também injetados pelo Bar.qml —
+  // dizem qual slot (left/right/top/bottom) tem o módulo do popup, e se
+  // esse popup está configurado como "preso à barra" (popupYAnchor:"bar")
+  // alinhado pro MESMO lado do slot (popupXAlign/popupYAlign). Só quando
+  // activePopupDirected é true a ilha daquele slot específico estica —
+  // as outras ilhas (e o Dock inteiro) nunca mudam de tamanho, porque
+  // cada ilha aqui já é independente e a PanelWindow do Dock tem tamanho
+  // fixo (ver comentário no topo do arquivo).
+  property int    activePopupW:        0
+  property bool   anyPanelOpen:        false
+  property string activePopupSlot:     ""
+  property bool   activePopupDirected: false
+
+  // popupPillPadding / pillExpandForPopups: mesmos nomes/semântica do Pill
+  // (ver Pill.qml) — configuráveis via BarTabBar, o Bar.qml injeta o valor
+  // salvo automaticamente porque a Binding lá é genérica (checa se a prop
+  // existe no tema carregado).
+  property int  popupPillPadding:    32
+  property bool pillExpandForPopups: true
+
+  // _islandExtra(slot): quanto a ilha daquele slot deve crescer além do
+  // próprio conteúdo — 0 exceto quando é exatamente a ilha "alvo" do
+  // popup atualmente aberto/abrindo, direcionado pro mesmo lado dela.
+  function _islandExtra(slot, naturalSize) {
+    if (!pillExpandForPopups || !anyPanelOpen || !activePopupDirected) return 0
+    if (activePopupSlot !== slot) return 0
+    var wanted = activePopupW + popupPillPadding
+    return Math.max(0, wanted - naturalSize)
+  }
 
   signal sinkPanelRequested()
   signal sourcePanelRequested()
@@ -76,6 +99,13 @@ Item {
   property var clock:         null
   property var tasks:         null
   property var notifWidget:   null
+  property var qsWidget:      null
+
+  // Refs dos grupos (ilhas) por slot — usados por popupXAlign:"group"/"module".
+  property var leftGroupItem:   null
+  property var rightGroupItem:  null
+  property var topGroupItem:    null
+  property var bottomGroupItem: null
 
   // Injetado pelo Bar.qml após o onLoaded
   property var notifService: null
@@ -279,6 +309,7 @@ Item {
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
       readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
+      readonly property var qsWidget:     qsLoader.active  && qsLoader.item  ? qsLoader.item  : null
 
       // Dimensões: lê do loader ativo ou usa tamanhos fixos para sep/spacer
       implicitWidth: {
@@ -618,6 +649,19 @@ Item {
     return null
   }
 
+  // ── Helper: acha o PRÓPRIO delegate (modItem) que corresponde a um modId
+  // ─────────────────────────────────────────────────────────────────────
+  // Igual ao Pill: retorna o wrapper que a Row/Column efetivamente
+  // posiciona, não o widget interno (que pode não ter width real).
+  function _findModuleItem(repeater, modId) {
+    for (var i = 0; i < repeater.count; i++) {
+      var loaderItem = repeater.itemAt(i)
+      var mod = loaderItem ? loaderItem.item : null
+      if (mod && mod.modId === modId) return mod
+    }
+    return null
+  }
+
   // ── Coleta refs do layout actual (left/center/right OU top/middle/bottom)
   function _updateRefs() {
     var lay = layoutLoader.item
@@ -629,7 +673,18 @@ Item {
     root.clock        = lay.clock        || null
     root.tasks         = lay.tasks         || null
     root.notifWidget  = lay.notifWidget  || null
+    root.qsWidget      = lay.qsWidget      || null
+    root.leftGroupItem   = lay.leftGroupItem   || null
+    root.rightGroupItem  = lay.rightGroupItem  || null
+    root.topGroupItem    = lay.topGroupItem    || null
+    root.bottomGroupItem = lay.bottomGroupItem || null
     root.refsUpdated()
+  }
+
+  // Delega pro layout carregado (h ou v) — usado por Bar.qml.
+  function moduleItemAt(modId) {
+    var lay = layoutLoader.item
+    return lay && lay.moduleItemAt ? lay.moduleItemAt(modId) : null
   }
 
   // ── Loader do layout ───────────────────────────────────────────────────
@@ -698,6 +753,21 @@ Item {
       property var notifWidget:  root._findRef(leftRep,   "notifWidget")
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
+      property var qsWidget:     root._findRef(leftRep,   "qsWidget")
+                               || root._findRef(centerRep, "qsWidget")
+                               || root._findRef(rightRep,  "qsWidget")
+
+      // Refs das próprias ilhas — usados por popupXAlign:"group".
+      // Devolve o delegate (modItem) do módulo modId — geometria confiável
+      // pra âncora de popup, independente da ilha em que ele estiver.
+      function moduleItemAt(modId) {
+        return root._findModuleItem(leftRep, modId)
+            || root._findModuleItem(centerRep, modId)
+            || root._findModuleItem(rightRep, modId)
+      }
+
+      property var leftGroupItem:  leftIsland
+      property var rightGroupItem: rightIsland
 
       // ── Ilha esquerda ────────────────────────────────────────────────
       Item {
@@ -707,6 +777,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height:                 parent.height
         width:                  leftRow.width + root.islandPadH * 2
+                                 + root._islandExtra("left", leftRow.width + root.islandPadH * 2)
         visible:                root.cfgModulesLeft.length > 0
         Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -759,6 +830,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height:                 parent.height
         width:                  rightRow.width + root.islandPadH * 2
+                                 + root._islandExtra("right", rightRow.width + root.islandPadH * 2)
         visible:                root.cfgModulesRight.length > 0
         Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -899,6 +971,20 @@ Item {
       property var notifWidget:  root._findRef(topRep,    "notifWidget")
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
+      property var qsWidget:     root._findRef(topRep,    "qsWidget")
+                               || root._findRef(middleRep, "qsWidget")
+                               || root._findRef(bottomRep, "qsWidget")
+
+      // Refs das próprias ilhas — usados por popupXAlign:"group".
+      // Equivalente vertical de moduleItemAt() acima.
+      function moduleItemAt(modId) {
+        return root._findModuleItem(topRep, modId)
+            || root._findModuleItem(middleRep, modId)
+            || root._findModuleItem(bottomRep, modId)
+      }
+
+      property var topGroupItem:    topIsland
+      property var bottomGroupItem: bottomIsland
 
       // ── Ilha superior ────────────────────────────────────────────────
       Item {
@@ -908,6 +994,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width:  parent.width
         height: topCol.height + root.islandPadH * 2
+                + root._islandExtra("top", topCol.height + root.islandPadH * 2)
         visible: root.cfgModulesTop.length > 0
         Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -960,6 +1047,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width:  parent.width
         height: bottomCol.height + root.islandPadH * 2
+                + root._islandExtra("bottom", bottomCol.height + root.islandPadH * 2)
         visible: root.cfgModulesBottom.length > 0
         Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 

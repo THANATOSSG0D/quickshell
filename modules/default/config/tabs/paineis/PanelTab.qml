@@ -463,6 +463,8 @@ Item {
             { id: "left",   label: "Esquerda" },
             { id: "center", label: "Centro"   },
             { id: "right",  label: "Direita"  },
+            { id: "group",  label: "Grupo"    },
+            { id: "module", label: "Módulo"   },
           ]
           delegate: C.CfgChip {
             required property var modelData
@@ -470,6 +472,41 @@ Item {
             active: root.g("popupXAlign", "center") === modelData.id
             colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
             onChipClicked: root.s("popupXAlign", modelData.id)
+          }
+        }
+      }
+      // "Grupo": gruda na borda do grupo de módulos (esquerda/direita) em vez
+      // da borda da tela. "Módulo": centraliza sobre o ícone/widget que abriu
+      // o popup, aproximando o mais possível se não houver espaço. Só têm
+      // efeito em barra HORIZONTAL — em barra vertical a posição X é sempre
+      // "colada" na própria barra.
+      Text {
+        visible: root.g("popupXAlign", "center") === "group" || root.g("popupXAlign", "center") === "module"
+        width: parent.width
+        text: root.g("popupXAlign", "center") === "group"
+          ? "Gruda na borda do grupo de módulos (esquerda ou direita) em vez da borda da tela."
+          : "Centraliza sobre o módulo que abriu o popup; aproxima o máximo possível se não houver espaço."
+        color: root.colorTextDim; font.pixelSize: 9; opacity: 0.65
+        wrapMode: Text.WordWrap; bottomPadding: 4
+      }
+      // Alinhamento ao longo do eixo da barra VERTICAL (equivalente ao
+      // popupXAlign acima, mas pro eixo top/bottom). Sem efeito em barra
+      // horizontal ou nos modos flutuantes (Topo/Base da tela acima).
+      Row {
+        visible: root.g("popupYAnchor", "bar") === "bar"
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "top",    label: "Topo (vertical)"  },
+            { id: "center", label: "Centro (vertical)" },
+            { id: "bottom", label: "Base (vertical)"  },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label:  modelData.label
+            active: root.g("popupYAlign", "center") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("popupYAlign", modelData.id)
           }
         }
       }
@@ -541,6 +578,8 @@ Item {
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("bgRadius", v)
+      }
+
       C.CfgSection { title: "CANTOS"; colorTextDim: root.colorTextDim }
       Row {
         spacing: 6
@@ -578,8 +617,6 @@ Item {
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("concaveRadius", v)
-      }
-
       }
 
       C.CfgDiv { colorDivider: root.colorDivider }
@@ -721,6 +758,8 @@ Item {
             { id: "left",   label: "Esquerda" },
             { id: "center", label: "Centro"   },
             { id: "right",  label: "Direita"  },
+            { id: "group",  label: "Grupo"    },
+            { id: "module", label: "Módulo"   },
           ]
           delegate: C.CfgChip {
             required property var modelData
@@ -728,6 +767,41 @@ Item {
             active: root.g("popupXAlign", "center") === modelData.id
             colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
             onChipClicked: root.s("popupXAlign", modelData.id)
+          }
+        }
+      }
+      // "Grupo": gruda na borda do grupo de módulos (esquerda/direita) em vez
+      // da borda da tela. "Módulo": centraliza sobre o ícone/widget que abriu
+      // o popup, aproximando o mais possível se não houver espaço. Só têm
+      // efeito em barra HORIZONTAL — em barra vertical a posição X é sempre
+      // "colada" na própria barra.
+      Text {
+        visible: root.g("popupXAlign", "center") === "group" || root.g("popupXAlign", "center") === "module"
+        width: parent.width
+        text: root.g("popupXAlign", "center") === "group"
+          ? "Gruda na borda do grupo de módulos (esquerda ou direita) em vez da borda da tela."
+          : "Centraliza sobre o módulo que abriu o popup; aproxima o máximo possível se não houver espaço."
+        color: root.colorTextDim; font.pixelSize: 9; opacity: 0.65
+        wrapMode: Text.WordWrap; bottomPadding: 4
+      }
+      // Alinhamento ao longo do eixo da barra VERTICAL (equivalente ao
+      // popupXAlign acima, mas pro eixo top/bottom). Sem efeito em barra
+      // horizontal ou nos modos flutuantes (Topo/Base da tela acima).
+      Row {
+        visible: root.g("popupYAnchor", "bar") === "bar"
+        spacing: 6
+        Repeater {
+          model: [
+            { id: "top",    label: "Topo (vertical)"  },
+            { id: "center", label: "Centro (vertical)" },
+            { id: "bottom", label: "Base (vertical)"  },
+          ]
+          delegate: C.CfgChip {
+            required property var modelData
+            label:  modelData.label
+            active: root.g("popupYAlign", "center") === modelData.id
+            colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+            onChipClicked: root.s("popupYAlign", modelData.id)
           }
         }
       }
@@ -803,6 +877,8 @@ Item {
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("bgRadius", v)
+      }
+
       C.CfgSection { title: "CANTOS"; colorTextDim: root.colorTextDim }
       Row {
         spacing: 6
@@ -840,8 +916,6 @@ Item {
         colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
         colorText: root.colorText; colorProgressBg: root.colorProgressBg
         onMoved: (v) => root.s("concaveRadius", v)
-      }
-
       }
 
       C.CfgDiv { colorDivider: root.colorDivider }
@@ -966,6 +1040,8 @@ Item {
           colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
           colorText: root.colorText; colorProgressBg: root.colorProgressBg
           onMoved: (v) => root.s("bgRadius", v)
+        }
+
       C.CfgSection { title: "CANTOS"; colorTextDim: root.colorTextDim }
       Row {
         spacing: 6
@@ -1005,7 +1081,6 @@ Item {
         onMoved: (v) => root.s("concaveRadius", v)
       }
 
-        }
         C.CfgSlider {
           label: "Espessura da borda"; from: 0; to: 4; step: 1; unit: " px"
           value: root.g("borderWidth", 0)

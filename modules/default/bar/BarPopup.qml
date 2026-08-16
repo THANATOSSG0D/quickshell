@@ -63,7 +63,38 @@ PanelWindow {
   property int    popupW:       300
   property int    popupH:       400
   property string popupXAlign:  "center"
+
+  // ── Âncoras pra popupXAlign "group" / "module" ──────────────────────────
+  // Preenchidos externamente (pelo Bar.qml) com as coordenadas, em espaço
+  // de tela, do grupo de módulos e do módulo específico que abre este
+  // popup. Só têm efeito com popupXAlign "group" ou "module" — nos outros
+  // modos são ignorados.
+  //
+  // anchorGroupSide: "left" | "right" — de que lado da barra o módulo
+  //   vive. Decide se o popup gruda a borda ESQUERDA do grupo (slot left)
+  //   ou a borda DIREITA do grupo (slot right) — mesma ideia de
+  //   popupXAlign "left"/"right", só que a "borda" de referência passa a
+  //   ser a do grupo em vez da tela inteira.
+  // anchorGroupX / anchorGroupW: posição X (tela) e largura do grupo.
+  // anchorModuleX / anchorModuleW: posição X (tela) e largura do módulo
+  //   específico — usados só no modo "module", pra centralizar o popup
+  //   sobre o ícone/widget que o abriu.
+  property string anchorGroupSide: "left"
+  property real   anchorGroupX:    0
+  property real   anchorGroupW:    0
+  property real   anchorModuleX:   0
+  property real   anchorModuleW:   0
   property string popupYAnchor: "bar"
+
+  // popupYAlign: SÓ tem efeito em barra vertical (left/right) com
+  // popupYAnchor "bar" (não flutuante). Controla onde ao longo do eixo Y
+  // o popup se prende — o equivalente vertical do popupXAlign horizontal.
+  //   "center" (padrão) — centralizado na extensão vertical da barra
+  //             (comportamento original, inalterado).
+  //   "top"    — preso ao topo da área utilizável do monitor. Use quando
+  //             o módulo que abre este popup vive no slot "top" da Pill.
+  //   "bottom" — preso à base. Use para módulos do slot "bottom".
+  property string popupYAlign:  "center"
   property int    popupXOffset: 0
   property int    popupYOffset: 0
   property bool   panelOpen:    false
@@ -523,6 +554,25 @@ PanelWindow {
       return Math.max(0, popupXOffset - pad)
     if (popupXAlign === "right")
       return Math.max(0, sw - popupW - popupXOffset - pad)
+    if (popupXAlign === "group") {
+      // Gruda na borda do GRUPO (não da tela): borda esquerda do grupo se
+      // o módulo vive no slot left, borda direita do grupo se vive no
+      // slot right. popupXOffset desloca a partir dessa borda, igual ao
+      // modo "left"/"right" faz a partir da borda da tela.
+      if (popup.anchorGroupSide === "right")
+        return Math.max(0, (popup.anchorGroupX + popup.anchorGroupW) - popupW - popupXOffset - pad)
+      return Math.max(0, popup.anchorGroupX + popupXOffset - pad)
+    }
+    if (popupXAlign === "module") {
+      // Centraliza sobre o módulo que abriu o popup. Se não houver espaço
+      // (ia ficar fora da tela), usa a posição mais próxima possível —
+      // por isso o clamp em [0, sw-popupW] ANTES de aplicar o padding de
+      // sombra; popupXOffset desloca a partir do centro ideal, também
+      // sujeito ao mesmo clamp.
+      var idealX = popup.anchorModuleX + popup.anchorModuleW / 2 - popupW / 2 + popupXOffset
+      var clamped = Math.max(0, Math.min(sw - popupW, idealX))
+      return Math.max(0, clamped - pad)
+    }
     // center (padrão)
     return Math.max(0, Math.floor((sw - popupW) / 2) + popupXOffset - pad)
   }
@@ -552,6 +602,16 @@ PanelWindow {
       return Math.max(0, bih + mt - pad + popup.attachOffset)
     if (_barBottom && !_barTop)
       return Math.max(0, sh - bih - mb - popup.popupH - pad - popup.attachOffset)
+    // Barra vertical (left/right), presa (não flutuante): popupYAlign decide
+    // onde ao longo do eixo Y o popup nasce — "top"/"bottom" alinham com o
+    // slot do módulo que o abriu; "center" preserva o comportamento original
+    // (centralizado na extensão vertical da barra).
+    if (_isVertical) {
+      if (popup.popupYAlign === "top")
+        return Math.max(0, mt - pad + popup.attachOffset)
+      if (popup.popupYAlign === "bottom")
+        return Math.max(0, sh - mb - popup.popupH - pad - popup.attachOffset)
+    }
     var usable = sh - mt - mb
     return Math.max(0, mt + Math.floor((usable - popup.popupH) / 2) - pad)
   }
@@ -1000,6 +1060,7 @@ PanelWindow {
     // dmenu já permite (cada popup abre "em qualquer lugar").
     applyIfSet("popupYAnchor",   function(v){ popup.popupYAnchor   = v })
     applyIfSet("popupXAlign",    function(v){ popup.popupXAlign    = v })
+    applyIfSet("popupYAlign",    function(v){ popup.popupYAlign    = v })
     applyIfSet("popupXOffset",   function(v){ popup.popupXOffset   = v })
     applyIfSet("popupYOffset",   function(v){ popup.popupYOffset   = v })
   }

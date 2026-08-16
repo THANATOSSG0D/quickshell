@@ -63,6 +63,14 @@ Item {
   property var clock:         null
   property var tasks:         null
   property var notifWidget:   null
+  property var qsWidget:      null
+
+  // Refs dos grupos de módulos (Row/Column por slot) — usados por
+  // popupXAlign:"group"/"module" pra calcular onde os popups devem nascer.
+  property var leftGroupItem:   null
+  property var rightGroupItem:  null
+  property var topGroupItem:    null
+  property var bottomGroupItem: null
 
   property var notifService: null
 
@@ -259,6 +267,7 @@ Item {
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
       readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
+      readonly property var qsWidget:     qsLoader.active  && qsLoader.item  ? qsLoader.item  : null
 
       // Dimensões: lê do loader ativo ou usa tamanhos fixos para sep/spacer
       implicitWidth: {
@@ -598,6 +607,21 @@ Item {
     return null
   }
 
+  // ── Helper: acha o PRÓPRIO delegate (modItem) que corresponde a um modId
+  // ─────────────────────────────────────────────────────────────────────
+  // Diferente de _findRef (que retorna um WIDGET INTERNO, que muitas vezes
+  // só tem implicitWidth, não width real), isto retorna o próprio wrapper
+  // (moduleItemComp) que o Row/Column efetivamente posiciona e dimensiona —
+  // geometria 100% confiável pra alinhamento de popup.
+  function _findModuleItem(repeater, modId) {
+    for (var i = 0; i < repeater.count; i++) {
+      var loaderItem = repeater.itemAt(i)
+      var mod = loaderItem ? loaderItem.item : null
+      if (mod && mod.modId === modId) return mod
+    }
+    return null
+  }
+
   // ── Coleta refs do layout actual (left/center/right OU top/middle/bottom)
   function _updateRefs() {
     var lay = layoutLoader.item
@@ -609,7 +633,19 @@ Item {
     root.clock        = lay.clock        || null
     root.tasks         = lay.tasks         || null
     root.notifWidget  = lay.notifWidget  || null
+    root.qsWidget      = lay.qsWidget      || null
+    root.leftGroupItem   = lay.leftGroupItem   || null
+    root.rightGroupItem  = lay.rightGroupItem  || null
+    root.topGroupItem    = lay.topGroupItem    || null
+    root.bottomGroupItem = lay.bottomGroupItem || null
     root.refsUpdated()
+  }
+
+  // Delega pro layout carregado (h ou v) — usado por Bar.qml pra achar a
+  // geometria confiável de um módulo específico (âncora de popup).
+  function moduleItemAt(modId) {
+    var lay = layoutLoader.item
+    return lay && lay.moduleItemAt ? lay.moduleItemAt(modId) : null
   }
 
   // ── Fundo sólido ────────────────────────────────────────────────────────
@@ -687,6 +723,23 @@ Item {
       property var notifWidget:  root._findRef(leftRep,   "notifWidget")
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
+      property var qsWidget:     root._findRef(leftRep,   "qsWidget")
+                               || root._findRef(centerRep, "qsWidget")
+                               || root._findRef(rightRep,  "qsWidget")
+
+      // Devolve o delegate (modItem) do módulo modId — geometria confiável
+      // pra âncora de popup, independente do slot em que ele estiver.
+      function moduleItemAt(modId) {
+        return root._findModuleItem(leftRep, modId)
+            || root._findModuleItem(centerRep, modId)
+            || root._findModuleItem(rightRep, modId)
+      }
+
+      // Refs dos próprios GRUPOS (Rows) — usados pra alinhar popups à
+      // borda do grupo de módulos (popupXAlign: "group") em vez da borda
+      // da tela.
+      property var leftGroupItem:  leftRow
+      property var rightGroupItem: rightRow
 
       // ── Linha hairline na borda interna (voltada para o desktop) ──────
       Rectangle {
@@ -816,6 +869,21 @@ Item {
       property var notifWidget:  root._findRef(topRep,    "notifWidget")
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
+      property var qsWidget:     root._findRef(topRep,    "qsWidget")
+                               || root._findRef(middleRep, "qsWidget")
+                               || root._findRef(bottomRep, "qsWidget")
+
+      // Equivalente vertical de hRoot.moduleItemAt().
+      function moduleItemAt(modId) {
+        return root._findModuleItem(topRep, modId)
+            || root._findModuleItem(middleRep, modId)
+            || root._findModuleItem(bottomRep, modId)
+      }
+
+      // Refs dos grupos (Columns) — equivalente vertical de leftGroupItem/
+      // rightGroupItem, usado por popupXAlign:"group" em barras verticais.
+      property var topGroupItem:    topCol
+      property var bottomGroupItem: bottomCol
 
       // posição 4 (esquerda) → linha na borda direita; posição 2 (direita) → linha na borda esquerda
       Rectangle {

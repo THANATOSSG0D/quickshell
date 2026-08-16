@@ -48,6 +48,7 @@
                 "position": 1
             },
             "mediaplayer": {
+                "textColorActive": "on_surface_variant",
                 "textMode": "artistAndTitle",
                 "textStatic": true
             },
@@ -129,6 +130,19 @@
                 "barSize": 24,
                 "islandRadius": 19,
                 "moduleScale": 0.7000000000000001,
+                "modules": {
+                    "center": [
+                        "workspaces"
+                    ],
+                    "right": [
+                        "clock",
+                        "separator",
+                        "volume",
+                        "separator",
+                        "tasks",
+                        "notifications"
+                    ]
+                },
                 "pillMinSpacing": 5,
                 "position": 1
             },
@@ -144,6 +158,7 @@
                     "bgPaddingH": 0,
                     "bgPaddingHActive": 6
                 },
+                "scrollEnabled": true,
                 "showAddButton": false
             }
         },

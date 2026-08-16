@@ -96,6 +96,15 @@ Item {
   property var clock:         null
   property var tasks:         null
   property var notifWidget:   null
+  property var qsWidget:      null
+
+  // Refs dos grupos de módulos (Row/Column por slot) — usados por
+  // popupXAlign:"group"/"module" pra calcular onde os popups devem nascer.
+  // Só um par é não-nulo por vez, conforme root.isHorizontal.
+  property var leftGroupItem:   null
+  property var rightGroupItem:  null
+  property var topGroupItem:    null
+  property var bottomGroupItem: null
 
   // Injetado pelo Bar.qml após o onLoaded
   property var notifService: null
@@ -296,7 +305,19 @@ Item {
     root.clock        = lay.clock        || null
     root.tasks         = lay.tasks         || null
     root.notifWidget  = lay.notifWidget  || null
+    root.qsWidget      = lay.qsWidget      || null
+    root.leftGroupItem   = lay.leftGroupItem   || null
+    root.rightGroupItem  = lay.rightGroupItem  || null
+    root.topGroupItem    = lay.topGroupItem    || null
+    root.bottomGroupItem = lay.bottomGroupItem || null
     root.refsUpdated()
+  }
+
+  // Delega pro layout carregado (h ou v) — usado por Bar.qml pra achar a
+  // geometria confiável de um módulo específico (âncora de popup).
+  function moduleItemAt(modId) {
+    var lay = layoutLoader.item
+    return lay && lay.moduleItemAt ? lay.moduleItemAt(modId) : null
   }
 
   // ── Medição da largura/altura real do conteúdo ───────────────────────
@@ -373,6 +394,7 @@ Item {
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
       readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
+      readonly property var qsWidget:     qsLoader.active  && qsLoader.item  ? qsLoader.item  : null
 
       // Dimensões: lê do loader ativo ou usa tamanhos fixos para sep/spacer
       implicitWidth: {
@@ -725,6 +747,22 @@ Item {
     return null
   }
 
+  // ── Helper: acha o PRÓPRIO delegate (modItem) que corresponde a um modId
+  // ─────────────────────────────────────────────────────────────────────
+  // Diferente de _findRef (que retorna um WIDGET INTERNO, ex: o conteúdo
+  // do Tasks, carregado via Loader+anchors.centerIn — que muitas vezes só
+  // tem implicitWidth, não width real), isto retorna o próprio wrapper
+  // (moduleItemComp) que o Row/Column efetivamente posiciona e dimensiona
+  // — geometria 100% confiável pra alinhamento de popup.
+  function _findModuleItem(repeater, modId) {
+    for (var i = 0; i < repeater.count; i++) {
+      var loaderItem = repeater.itemAt(i)
+      var mod = loaderItem ? loaderItem.item : null
+      if (mod && mod.modId === modId) return mod
+    }
+    return null
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // HORIZONTAL — left | center | right
   //
@@ -792,6 +830,24 @@ Item {
       property var notifWidget:  root._findRef(leftRep,   "notifWidget")
                                || root._findRef(centerRep, "notifWidget")
                                || root._findRef(rightRep,  "notifWidget")
+      property var qsWidget:     root._findRef(leftRep,   "qsWidget")
+                               || root._findRef(centerRep, "qsWidget")
+                               || root._findRef(rightRep,  "qsWidget")
+
+      // Refs dos próprios GRUPOS (Rows) — usados pra alinhar popups à
+      // borda do grupo de módulos (popupXAlign: "group") em vez da borda
+      // da tela. leftRow/rightRow são ids diretos deste Component, então
+      // a referência é trivial (sem precisar de _findRef).
+      // Devolve o delegate (modItem) do módulo modId, seja qual for o slot
+      // onde ele estiver — usado por Bar.qml pra âncoras de popup confiáveis.
+      function moduleItemAt(modId) {
+        return root._findModuleItem(leftRep, modId)
+            || root._findModuleItem(centerRep, modId)
+            || root._findModuleItem(rightRep, modId)
+      }
+
+      property var leftGroupItem:  leftRow
+      property var rightGroupItem: rightRow
 
       // ── Slot Esquerda ──────────────────────────────────────────────────
       Row {
@@ -946,6 +1002,21 @@ Item {
       property var notifWidget:  root._findRef(topRep,    "notifWidget")
                                || root._findRef(middleRep, "notifWidget")
                                || root._findRef(bottomRep, "notifWidget")
+      property var qsWidget:     root._findRef(topRep,    "qsWidget")
+                               || root._findRef(middleRep, "qsWidget")
+                               || root._findRef(bottomRep, "qsWidget")
+
+      // Refs dos grupos (Columns) — equivalente vertical de leftGroupItem/
+      // rightGroupItem, usado por popupXAlign:"group" em barras verticais.
+      // Equivalente vertical de hRoot.moduleItemAt().
+      function moduleItemAt(modId) {
+        return root._findModuleItem(topRep, modId)
+            || root._findModuleItem(middleRep, modId)
+            || root._findModuleItem(bottomRep, modId)
+      }
+
+      property var topGroupItem:    topCol
+      property var bottomGroupItem: bottomCol
 
       // ── Altura mínima para os três slots não se sobreporem ──────────────
       // Análogo ao contentWidth do hRoot (layout horizontal).
