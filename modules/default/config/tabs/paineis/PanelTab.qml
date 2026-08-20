@@ -1575,7 +1575,7 @@ Item {
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
                 anchors.verticalCenter: parent.verticalCenter }
               Text { text: "Socket IPC"; color: root.colorText
-                font.pixelSize: 11; font.weight: Font.SemiBold
+                font.pixelSize: 11; font.weight: 800
                 anchors.verticalCenter: parent.verticalCenter }
             }
 
@@ -1604,7 +1604,7 @@ Item {
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
                 anchors.verticalCenter: parent.verticalCenter }
               Text { text: "Comandos IPC"; color: root.colorText
-                font.pixelSize: 11; font.weight: Font.SemiBold
+                font.pixelSize: 11; font.weight: 800
                 anchors.verticalCenter: parent.verticalCenter }
             }
 

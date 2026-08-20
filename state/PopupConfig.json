@@ -44,24 +44,37 @@
         "Bento": {
             "globals": {
                 "animationStyle": "slide",
+                "bgOpacity": 1,
                 "cornerMode": "all",
                 "popupXAlign": "group",
                 "popupXOffset": 6
             },
             "overrides": {
+                "BarEditorPopup": {
+                    "popupW": 320
+                },
                 "ClockPopup": {
+                    "popupW": 320,
                     "popupXAlign": "right"
                 },
                 "DmenuPopup": {
-                    "cornerMode": "screen"
+                    "bgRadius": 9,
+                    "concaveRadius": 40,
+                    "cornerConcave": false,
+                    "cornerMode": "screen",
+                    "popupH": 400,
+                    "popupW": 320
                 },
                 "MediaPlayerPopup": {
+                    "popupW": 320,
                     "popupXAlign": "left"
                 },
                 "NotificationsPopup": {
+                    "popupW": 320,
                     "popupXAlign": "right"
                 },
                 "QuickSettingsPopup": {
+                    "popupW": 320,
                     "popupXAlign": "left"
                 },
                 "TasksPopup": {
@@ -74,6 +87,8 @@
                     "attachOffset": 5,
                     "colorPanelBg": "background",
                     "cornerMode": "all",
+                    "popupH": 400,
+                    "popupW": 320,
                     "popupXAlign": "right",
                     "popupXOffset": 6
                 }
@@ -81,6 +96,7 @@
         },
         "Dock": {
             "globals": {
+                "cornerMode": "bar",
                 "popupXAlign": "group"
             },
             "overrides": {

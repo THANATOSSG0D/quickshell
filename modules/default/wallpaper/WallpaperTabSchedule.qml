@@ -1637,7 +1637,7 @@ Item {
                   fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true; smooth: true
                   source: modelData.thumb !== "" ? ("file://" + modelData.thumb) : ""
 
-                  Rectangle { anchors.fill: parent; visible: wpThumb.status !== Image.Ready; color: Qt.rgba(1,1,1,0.04); radius: parent.radius }
+                  Rectangle { anchors.fill: parent; visible: wpThumb.status !== Image.Ready; color: Qt.rgba(1,1,1,0.04); radius: 7 }
 
                   // Check de atribuído
                   Rectangle {

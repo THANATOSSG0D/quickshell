@@ -141,6 +141,11 @@ Item {
     Process {
         id: tipExtraProc
         command: ["bash", "-c",
+            // NOVO: checa auto-cpufreq.service primeiro, mesmo padrão do
+            // refresh() em QsPowerProfile.qml — sem isso o tooltip nunca
+            // sabia diferenciar "Balanced" fixo de "Automático" via
+            // auto-cpufreq, porque só olhava a saída do thermal-profile.
+            "systemctl is-active auto-cpufreq.service 2>/dev/null; echo '###POWER###'; " +
             "thermal-profile waybar 2>/dev/null; echo '###SHADER###'; " +
             "hyprshade current 2>/dev/null; echo '###MODE###'; " +
             "cat ~/.cache/hyprnight/shader-mode 2>/dev/null; echo '###TEMPLOG###'; " +
@@ -155,7 +160,8 @@ Item {
             if (running) return
             var raw = tipExtraProc._buf; tipExtraProc._buf = ""
 
-            var powerOut  = raw.split("###SHADER###")[0] || ""
+            var autoCpufreqOut = raw.split("###POWER###")[0] || ""
+            var powerOut  = (raw.split("###POWER###")[1] || "").split("###SHADER###")[0]
             var shaderOut = (raw.split("###SHADER###")[1] || "").split("###MODE###")[0]
             var modeOut   = (raw.split("###MODE###")[1] || "").split("###TEMPLOG###")[0]
             var tempLogOut    = (raw.split("###TEMPLOG###")[1]    || "").split("###TEMPAUTO###")[0]
@@ -163,11 +169,21 @@ Item {
             var tempManualOut = (raw.split("###TEMPMANUAL###")[1] || "").split("###GAMMAMANUAL###")[0]
             var gammaManualOut = raw.split("###GAMMAMANUAL###")[1] || ""
 
-            try {
-                var pdata = JSON.parse(powerOut.trim())
-                var pid = (pdata.class || "").replace("-", "_")
-                root.tipPowerProfile = root._powerProfileLabels[pid] || pid || ""
-            } catch (e) { root.tipPowerProfile = "" }
+            // NOVO: auto-cpufreq ativo = fonte de verdade é o systemd, não
+            // o thermal-profile (que nesse caso está com o serviço parado
+            // e só reflete o ÚLTIMO perfil fixo salvo em STATE_FILE, não o
+            // estado real). Mesma lógica de root.activeProfile no
+            // QsPowerProfile.qml.
+            if (autoCpufreqOut.trim() === "active") {
+                root.tipPowerProfile = "Automático (auto-cpufreq)"
+            } else {
+                try {
+                    var pdata = JSON.parse(powerOut.trim())
+                    var pid = (pdata.class || "").replace("-", "_")
+                    var label = root._powerProfileLabels[pid] || pid || ""
+                    root.tipPowerProfile = label !== "" ? ("Fixo · " + label) : ""
+                } catch (e) { root.tipPowerProfile = "" }
+            }
 
             root.tipShaderName = shaderOut.trim()
             root.tipShaderMode = modeOut.trim()

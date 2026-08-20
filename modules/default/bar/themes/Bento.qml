@@ -56,8 +56,6 @@ Item {
   // ver explicação completa no Dock.qml) ─────────────────────────────────
   property int  minPillWidth:   400
   property int  pillMinSpacing: 20
-  property int  activePopupW:   0
-  property bool anyPanelOpen:   false
 
   signal sinkPanelRequested()
   signal sourcePanelRequested()

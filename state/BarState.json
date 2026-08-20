@@ -23,10 +23,10 @@
             "bar": {
                 "autoHide": false,
                 "barMargin": 2,
-                "barSize": 24,
+                "barSize": 22,
                 "bentoExpandForPopups": true,
                 "chipRadius": 24,
-                "moduleScale": 0.9000000000000004,
+                "moduleScale": 0.8000000000000003,
                 "modules": {
                     "center": [
                         "workspaces"
@@ -150,8 +150,9 @@
                 "textColorActive": "primary"
             },
             "palette": {
+                "accent": "surface_container_highest",
                 "barBg": "background",
-                "barBgPill": "on_secondary"
+                "barBgPill": "shadow"
             },
             "workspaces": {
                 "icons": {

@@ -30,6 +30,7 @@ Item {
     property string activeProfile: ""   // auto | performance | gaming | balanced | balanced_cool | cool
     property bool   loading:       false
     property bool   hasError:      false
+    property bool applying: false   // junto das outras properties no topo
 
     readonly property var profiles: [
         { id: "auto",           icon: "\uf021", label: "Automático",     tdp: "auto-cpufreq" },
@@ -64,43 +65,56 @@ Item {
 
     function setProfile(id) {
         if (id === root.activeProfile) return
-        // id já vem em underscore (ex.: "balanced_cool"), convertido de
-        // "-" pra "_" a partir do campo "class" do JSON em statusProc.
-        // O binário thermal-profile espera exatamente essa forma com
-        // underscore no case do main() — o hífen só existe no "class" do
-        // JSON pra fins de estilo (CSS-like), nunca é o que o CLI aceita.
+        if (applyProc.running) return   // ← NOVO: ignora cliques enquanto uma troca já está em voo
+
         var previousProfile = root.activeProfile
         applyProc._pendingId = id
         applyProc._previousProfile = previousProfile
 
         var cmd
         if (id === "auto") {
-            // entra no auto-cpufreq: precisa parar power-profiles-daemon e
-            // cpupower antes, senão os três ficam brigando pelo mesmo
-            // governor/EPP ao mesmo tempo
             cmd = "sudo -n systemctl stop power-profiles-daemon.service cpupower.service 2>&1; " +
                   "sudo -n systemctl start auto-cpufreq.service 2>&1; echo EXIT:$?"
         } else if (previousProfile === "auto") {
-            // sai do auto-cpufreq: para ele primeiro, reativa power-profiles-
-            // daemon e cpupower (que o thermal-profile espera que estejam
-            // rodando), só depois aplica o perfil fixo
             cmd = "sudo -n systemctl stop auto-cpufreq.service 2>&1; " +
                   "sudo -n systemctl start power-profiles-daemon.service cpupower.service 2>&1; " +
                   "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"
         } else {
-            // thermal-profile precisa rodar como root: check_permissions() no
-            // próprio script só passa se EUID==0 OU se já existir uma sessão
-            // sudo interativa em cache — nenhuma das duas é verdade a partir
-            // do Quickshell, então chamamos sudo direto (NOPASSWD já cobre o
-            // binário inteiro, então os sudo internos do script — tee,
-            // cpupower, powerprofilesctl — rodam livres por já estar como root).
             cmd = "sudo -n thermal-profile \"" + id + "\" 2>&1; echo EXIT:$?"
         }
         applyProc.command = ["bash", "-c", cmd]
         applyProc.running = true
         root.activeProfile = id   // otimista — corrigido em onExited se falhar
-        refreshDelay.restart()
+        root.applying = true      // ← NOVO: flag pra UI (ver abaixo)
     }
+
+    Process {
+        id: applyProc
+        property string _pendingId: ""
+        property string _previousProfile: ""
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => applyProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (running) return
+            var out = applyProc._buf; applyProc._buf = ""
+            var m = out.match(/EXIT:(\d+)/)
+            var ok = m && m[1] === "0"
+            root.applying = false
+            if (!ok) {
+                root.activeProfile = applyProc._previousProfile
+                root.hasError = true
+                console.warn("thermal-profile falhou ao trocar para '" + applyProc._pendingId + "':\n" + out)
+            }
+            // NOVO: refresh só depois que o comando REALMENTE terminou,
+            // não mais um timer de 800ms adivinhando o tempo
+            refreshDelay.restart()
+        }
+    }
+
+    // Delay pequeno só pra dar tempo do daemon/systemd assentar o estado
+    // no sysfs/STATE_FILE após o processo já ter retornado — não é mais
+    // o mecanismo principal de sincronização, é só uma margem de segurança
+    Timer { id: refreshDelay; interval: 300; onTriggered: root.refresh() }
 
     Process {
         id: statusProc
@@ -129,26 +143,6 @@ Item {
             }
         }
     }
-
-    Process {
-        id: applyProc
-        property string _pendingId: ""
-        property string _previousProfile: ""
-        property string _buf: ""
-        stdout: SplitParser { onRead: (l) => applyProc._buf += l + "\n" }
-        onRunningChanged: {
-            if (running) return
-            var out = applyProc._buf; applyProc._buf = ""
-            var m = out.match(/EXIT:(\d+)/)
-            var ok = m && m[1] === "0"
-            if (!ok) {
-                root.activeProfile = applyProc._previousProfile
-                root.hasError = true
-                console.warn("thermal-profile falhou ao trocar para '" + applyProc._pendingId + "':\n" + out)
-            }
-        }
-    }
-    Timer { id: refreshDelay; interval: 800; onTriggered: root.refresh() }
 
     Component.onCompleted: refresh()
 
@@ -216,7 +210,8 @@ Item {
                     }
                 }
                 MouseArea { id: pMA; anchors.fill: parent; hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    enabled: !root.applying
+                    cursorShape: root.applying ? Qt.ArrowCursor : Qt.PointingHandCursor
                     onClicked: root.setProfile(modelData.id) }
             }
         }

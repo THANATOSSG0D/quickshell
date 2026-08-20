@@ -49,39 +49,6 @@ Item {
   property bool   hasMediaPanel: true
   property int    barPosition:   2
 
-  // ── Esticamento direcionado de ilhas ao abrir popup ──────────────────────
-  // activePopupW / anyPanelOpen: injetados pelo Bar.qml (mesmo mecanismo do
-  // Pill) — largura do popup atualmente visado e se algum está aberto.
-  // activePopupSlot / activePopupDirected: também injetados pelo Bar.qml —
-  // dizem qual slot (left/right/top/bottom) tem o módulo do popup, e se
-  // esse popup está configurado como "preso à barra" (popupYAnchor:"bar")
-  // alinhado pro MESMO lado do slot (popupXAlign/popupYAlign). Só quando
-  // activePopupDirected é true a ilha daquele slot específico estica —
-  // as outras ilhas (e o Dock inteiro) nunca mudam de tamanho, porque
-  // cada ilha aqui já é independente e a PanelWindow do Dock tem tamanho
-  // fixo (ver comentário no topo do arquivo).
-  property int    activePopupW:        0
-  property bool   anyPanelOpen:        false
-  property string activePopupSlot:     ""
-  property bool   activePopupDirected: false
-
-  // popupPillPadding / pillExpandForPopups: mesmos nomes/semântica do Pill
-  // (ver Pill.qml) — configuráveis via BarTabBar, o Bar.qml injeta o valor
-  // salvo automaticamente porque a Binding lá é genérica (checa se a prop
-  // existe no tema carregado).
-  property int  popupPillPadding:    32
-  property bool pillExpandForPopups: true
-
-  // _islandExtra(slot): quanto a ilha daquele slot deve crescer além do
-  // próprio conteúdo — 0 exceto quando é exatamente a ilha "alvo" do
-  // popup atualmente aberto/abrindo, direcionado pro mesmo lado dela.
-  function _islandExtra(slot, naturalSize) {
-    if (!pillExpandForPopups || !anyPanelOpen || !activePopupDirected) return 0
-    if (activePopupSlot !== slot) return 0
-    var wanted = activePopupW + popupPillPadding
-    return Math.max(0, wanted - naturalSize)
-  }
-
   signal sinkPanelRequested()
   signal sourcePanelRequested()
   signal clockPanelRequested()
@@ -777,7 +744,6 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height:                 parent.height
         width:                  leftRow.width + root.islandPadH * 2
-                                 + root._islandExtra("left", leftRow.width + root.islandPadH * 2)
         visible:                root.cfgModulesLeft.length > 0
         Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -830,7 +796,6 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height:                 parent.height
         width:                  rightRow.width + root.islandPadH * 2
-                                 + root._islandExtra("right", rightRow.width + root.islandPadH * 2)
         visible:                root.cfgModulesRight.length > 0
         Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -994,7 +959,6 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width:  parent.width
         height: topCol.height + root.islandPadH * 2
-                + root._islandExtra("top", topCol.height + root.islandPadH * 2)
         visible: root.cfgModulesTop.length > 0
         Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -1047,7 +1011,6 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width:  parent.width
         height: bottomCol.height + root.islandPadH * 2
-                + root._islandExtra("bottom", bottomCol.height + root.islandPadH * 2)
         visible: root.cfgModulesBottom.length > 0
         Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 

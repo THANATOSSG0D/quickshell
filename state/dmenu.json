@@ -2,7 +2,7 @@
     "cfg": {
         "dmenuBackOnEmpty": true,
         "dmenuColorAccent": "primary",
-        "dmenuColorBg": "surface_container",
+        "dmenuColorBg": "scrim",
         "dmenuColorDivider": "outline_variant",
         "dmenuColorInputBg": "surface_container_low",
         "dmenuColorSelected": "surface_container_high",
@@ -26,8 +26,8 @@
         "dmenuToggle": true,
         "usageCount": {
             "/home/antonio/.config/ml4w/scripts/webapp-launch http://10.0.0.150:8008": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://chatgpt.com": 1,
-            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 17,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://chatgpt.com": 3,
+            "/home/antonio/.config/ml4w/scripts/webapp-launch https://claude.ai": 18,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://homelab.home": 1,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://translatesubtitles.co/": 16,
             "/home/antonio/.config/ml4w/scripts/webapp-launch https://twitch.tv": 13,
@@ -39,6 +39,7 @@
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=bazaar --file-forwarding io.github.kolunmi.Bazaar @@u  @@": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=beeref org.beeref.BeeRef": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=com.github.tchx84.Flatseal com.github.tchx84.Flatseal": 1,
+            "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=gnome-firmware org.gnome.Firmware": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=protonplus com.vysp3r.ProtonPlus": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=re.sonny.Eloquent --file-forwarding re.sonny.Eloquent @@u  @@": 1,
             "/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=spotify --file-forwarding com.spotify.Client @@u  @@": 1,
@@ -51,6 +52,7 @@
             "inkscape": 3,
             "pipewire-config": 2,
             "qt6ct": 1,
+            "scx-manager": 1,
             "solaar": 2
         }
     }

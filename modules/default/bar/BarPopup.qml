@@ -117,126 +117,185 @@ PanelWindow {
   property bool cornerConcave:  false
   property int  concaveRadius:  14
 
-  // Raios por canto calculados de acordo com cornerMode + posição da barra
-  readonly property int _rTL: _cornerR(true,  false)  // top-left
-  readonly property int _rTR: _cornerR(true,  true)   // top-right
-  readonly property int _rBL: _cornerR(false, false)  // bottom-left
-  readonly property int _rBR: _cornerR(false, true)   // bottom-right
-
-  // Cada canto vira côncavo só se estiver de fato reto (r===0, "tocando"
-  // algo) E cornerConcave estiver ligado — um canto arredondado nunca vira
-  // côncavo, só reto→côncavo.
-  readonly property bool _ccTL: cornerConcave && _rTL === 0
-  readonly property bool _ccTR: cornerConcave && _rTR === 0
-  readonly property bool _ccBL: cornerConcave && _rBL === 0
-  readonly property bool _ccBR: cornerConcave && _rBR === 0
-  readonly property bool _anyConcave: _ccTL || _ccTR || _ccBL || _ccBR
-
-  // _cornerR(isTop, isRight): retorna 0 se o canto toca o elemento de referência
-  // E o gap correspondente é realmente zero (senão há uma folga visível ali,
-  // então o canto continua arredondado), bgRadius caso contrário.
-  function _cornerR(isTop, isRight) {
-    if (cornerMode === "all") return bgRadius
-    var r = bgRadius
+  // _edgeTouchTop/_edgeTouchBottom/_edgeTouchLeft/_edgeTouchRight(): cada uma decide, de
+  // forma independente, se AQUELA borda específica está encostada com gap
+  // zero em cornerMode "bar" (na barra) ou "screen" (na borda do monitor).
+  // Antes isso tudo vivia misturado num _cornerR(isTop,isRight) só —
+  // precisou ser separado por borda pra dar pro _buildPanelPath saber QUAL
+  // das duas bordas de um canto côncavo é a flush e qual é a parede.
+  //
+  // PRECISAM vir ANTES das propriedades _tTop/etc. abaixo que as chamam —
+  // o QML não garante que uma property binding declarada antes enxergue
+  // uma function declarada depois no mesmo objeto (dá "is not a function"
+  // na primeira avaliação, exatamente esse bug).
+  function _edgeTouchTop() {
+    if (cornerMode === "all") return false
     if (cornerMode === "bar") {
-      // Eixo primário — lado que encosta na barra. Só reto se attachOffset
-      // for 0 (com folga > 0 o popup não está de fato colado ali).
-      var _barGapZero = attachOffset === 0
-      if (_barTop    && isTop    && _barGapZero) r = 0
-      if (_barBottom && !isTop   && _barGapZero) r = 0
-      if (_barLeft   && !isRight && _barGapZero) r = 0
-      if (_barRight  && isRight  && _barGapZero) r = 0
-
-      // Eixo lateral — só existe pra barra horizontal (o popup pode ficar
-      // alinhado numa lateral da tela via popupXAlign, independente de
-      // tocar a barra ou não). Só reto se popupXOffset também for 0.
-      if (!_isVertical) {
-        var _sideGapZero = popupXOffset === 0
-        if (popupXAlign === "left"  && !isRight && _sideGapZero) r = 0
-        if (popupXAlign === "right" &&  isRight && _sideGapZero) r = 0
-      }
-    } else if (cornerMode === "screen") {
-      // Zera o(s) canto(s) que tocam a borda do monitor (como na screenshot)
-      // Modo "bar" na borda esquerda: popup fica encostado na barra à esquerda,
-      // então o canto esquerdo (top-left e bottom-left) toca a barra/borda.
-      // No modo flutuante (top/bottom), os cantos que tocam a borda do monitor
-      // são os que ficam na direção da âncora.
-      if (!_floating) {
-        if (_barTop    && isTop   ) r = 0
-        if (_barBottom && !isTop  ) r = 0
-        if (_barLeft   && !isRight) r = 0
-        if (_barRight  && isRight ) r = 0
-      } else {
-        if (_floatTop    && isTop   ) r = 0
-        if (_floatBottom && !isTop  ) r = 0
-      }
+      var gapZero = attachOffset === 0
+      if (_floating) return _floatTop && gapZero
+      return _barTop && gapZero
     }
-    return r
+    if (cornerMode === "screen")
+      return _floating ? _floatTop : _barTop
+    return false
+  }
+  function _edgeTouchBottom() {
+    if (cornerMode === "all") return false
+    if (cornerMode === "bar") {
+      var gapZero = attachOffset === 0
+      if (_floating) return _floatBottom && gapZero
+      return _barBottom && gapZero
+    }
+    if (cornerMode === "screen")
+      return _floating ? _floatBottom : _barBottom
+    return false
+  }
+  function _edgeTouchLeft() {
+    if (cornerMode === "all") return false
+    if (cornerMode === "bar") {
+      var gapZero = attachOffset === 0
+      if (!_floating && _barLeft && gapZero) return true
+      if ((_floating || !_isVertical) && popupXAlign === "left" && popupXOffset === 0) return true
+      return false
+    }
+    if (cornerMode === "screen")
+      return !_floating && _barLeft
+    return false
+  }
+  function _edgeTouchRight() {
+    if (cornerMode === "all") return false
+    if (cornerMode === "bar") {
+      var gapZero = attachOffset === 0
+      if (!_floating && _barRight && gapZero) return true
+      if ((_floating || !_isVertical) && popupXAlign === "right" && popupXOffset === 0) return true
+      return false
+    }
+    if (cornerMode === "screen")
+      return !_floating && _barRight
+    return false
   }
 
-  // _buildPanelPath — silhueta do painel com 4 cantos independentes, cada
-  // um arredondado (r>0), reto (r=0) ou côncavo (r=0 + concave=true).
-  // Mesma técnica do Notch.qml (Shape+PathSvg): percorre o retângulo em
-  // sentido horário a partir do topo, um "L até o ponto de entrada" +
-  // comando do canto (arco/nada/mordida) por vez.
-  //
-  // O côncavo é uma curva quadrática entre os dois pontos de tangência
-  // (um em cada borda reta) com o ponto de controle puxado PRA DENTRO do
-  // retângulo (diagonal oposta à ponta física do canto) por `bow` — a
-  // ponta nunca é alcançada, a borda "recua" ali, revelando o que estiver
-  // atrás (a janela do popup é transparente) em vez de terminar num
-  // ângulo reto.
-  function _buildPanelPath(w, h, rTL, rTR, rBR, rBL, ccTL, ccTR, ccBR, ccBL, reach) {
-    var diag = 0.70710678
+  // Cada canto vira côncavo só se EXATAMENTE UMA das duas bordas que o
+  // formam estiver "tocando" (r=0) e cornerConcave estiver ligado. Se as
+  // DUAS bordas tocam (ex.: popup encaixado no canto físico da tela), fica
+  // reto normal — não tem parede pra curvar. Se NENHUMA toca, fica
+  // arredondado normal (bgRadius). É a mesma lógica de "só uma ponta é
+  // fixa" do lobo do tema Notch.
+  readonly property bool _tTop:    _edgeTouchTop()
+  readonly property bool _tBottom: _edgeTouchBottom()
+  readonly property bool _tLeft:   _edgeTouchLeft()
+  readonly property bool _tRight:  _edgeTouchRight()
 
-    // corner(cx, cy, r, concave, dirX, dirY): retorna {enterDx, exitDx, seg}
-    // dirX/dirY = direção (unitária) pra DENTRO do retângulo a partir da
-    // ponta física do canto — é pra lá que o bojo côncavo puxa.
-    function corner(r, concave, dirX, dirY) {
-      if (r > 0)
-        return { d: r, seg: "arc" }
-      if (!concave)
-        return { d: 0, seg: "" }
-      var rr = Math.max(2, Math.min(reach, w / 2 - 1, h / 2 - 1))
-      var bow = rr * 0.65
-      return { d: rr, seg: "quad", bow: bow, dirX: dirX, dirY: dirY }
-    }
+  readonly property int _rTL: (_tTop    || _tLeft)  ? 0 : bgRadius
+  readonly property int _rTR: (_tTop    || _tRight) ? 0 : bgRadius
+  readonly property int _rBL: (_tBottom || _tLeft)  ? 0 : bgRadius
+  readonly property int _rBR: (_tBottom || _tRight) ? 0 : bgRadius
 
-    var tl = corner(rTL, ccTL,  diag,  diag)
-    var tr = corner(rTR, ccTR, -diag,  diag)
-    var br = corner(rBR, ccBR, -diag, -diag)
-    var bl = corner(rBL, ccBL,  diag, -diag)
+  readonly property bool _ccTL: cornerConcave && (_tTop    !== _tLeft)
+  readonly property bool _ccTR: cornerConcave && (_tTop    !== _tRight)
+  readonly property bool _ccBL: cornerConcave && (_tBottom !== _tLeft)
+  readonly property bool _ccBR: cornerConcave && (_tBottom !== _tRight)
+  readonly property bool _anyConcave: _ccTL || _ccTR || _ccBL || _ccBR
 
-    function seg(c, enterX, enterY, exitX, exitY) {
-      if (c.seg === "arc")
-        return " A " + c.d + "," + c.d + " 0 0 1 " + exitX + "," + exitY
-      if (c.seg === "quad") {
-        var qx = (enterX + exitX) / 2 + c.dirX * c.bow
-        var qy = (enterY + exitY) / 2 + c.dirY * c.bow
-        return " Q " + qx + "," + qy + " " + exitX + "," + exitY
+  // TÉCNICA DO CÔNCAVO (igual ao lobo do tema Notch — o "notch" físico do
+  // iPhone): é ASSIMÉTRICA, não um corte igual nas duas bordas do canto.
+  // Só existe quando EXATAMENTE UMA das duas bordas do canto está tocando:
+  //   - a borda que TOCA fica 100% reta até a ponta física exata (zero
+  //     corte nela — é isso que faz "encaixar" sem gap nenhum);
+  //   - a OUTRA borda (a "parede") é que ganha a curva cúbica, começando
+  //     bem na ponta e flertando PRA FORA (afastando do centro do painel)
+  //     antes de voltar a ficar reta — a "orelha" do notch físico do
+  //     iPhone, onde o material contorna por fora em vez de cavar um vão.
+  //     Isso só funciona porque _padTop/_padLeft/etc. reservam espaço
+  //     extra (_concaveBow) exatamente na(s) borda(s) que servem de
+  //     parede — sem esse espaço reservado a curva vazaria da janela.
+  // Se as DUAS bordas tocam (canto físico, sem parede livre pra curvar) ou
+  // NENHUMA toca, não tem o que fazer assimétrico: vira reto ou arco normal.
+  function _buildPanelPath(w, h, reach,
+                            touchTop, touchBottom, touchLeft, touchRight,
+                            bgRTL, bgRTR, bgRBR, bgRBL, concaveOn) {
+    var rr  = Math.max(2, Math.min(reach, w / 2 - 1, h / 2 - 1))
+    // bow: quanto o "ombro" flerta pra fora, proporcional a rr. Reduzido de
+    // 0.3 pra 0.22 — a única forma de encolher o ângulo do cotovelo perto
+    // da ponta é aproximar mais o bow de zero (handleLen já está no máximo
+    // "redondo" possível com kappa); em troca o efeito fica mais sutil.
+    var bow = rr * 0.22
+
+    // corner(...): decide o tipo do canto e devolve os pontos de
+    // entrada/saída sobre as bordas retas + o comando SVG do canto.
+    //
+    // enterWallU/enterNormal descrevem a borda de ENTRADA (a que o path
+    // percorre ANTES de chegar neste canto) como se ELA fosse a parede;
+    // exitWallU/exitNormal descrevem a borda de SAÍDA (a que vem DEPOIS)
+    // do mesmo jeito. wallU = direção (unitária) que se afasta da ponta ao
+    // longo daquela borda; normal = perpendicular apontando PRA FORA do
+    // painel (afastando do centro) — é pra lá que a parede flerta. IMPORTANTE:
+    // normal é perpendicular à PAREDE (não à flush) — é por isso que dá pra
+    // flertar pra fora sem violar o "flush = zero gap": a flush em si nunca
+    // se move, só a parede, na direção perpendicular a ELA MESMA.
+    function corner(touchEnter, touchExit, tipX, tipY, bgR,
+                     enterWallUX, enterWallUY, enterNormalX, enterNormalY,
+                     exitWallUX,  exitWallUY,  exitNormalX,  exitNormalY) {
+      // as duas tocam (canto físico) ou nenhuma toca (canto solto)
+      if (touchEnter === touchExit) {
+        if (!touchEnter) {
+          var ex = tipX + exitWallUX*bgR, ey = tipY + exitWallUY*bgR
+          return { enterX: tipX + enterWallUX*bgR, enterY: tipY + enterWallUY*bgR,
+                    exitX: ex, exitY: ey,
+                    seg: " A " + bgR + "," + bgR + " 0 0 1 " + ex + "," + ey }
+        }
+        return { enterX: tipX, enterY: tipY, exitX: tipX, exitY: tipY, seg: "" }
       }
-      return "" // canto reto: o "L" até o ponto de entrada já chega na ponta exata
+      // toca só de um lado, mas côncavo desligado: corte reto simples
+      if (!concaveOn)
+        return { enterX: tipX, enterY: tipY, exitX: tipX, exitY: tipY, seg: "" }
+
+      // handleLen na proporção kappa (mesma constante de aproximação de
+      // arco circular via cúbica, ~0.5523×rr) — deixa a base da curva mais
+      // arredondada/próxima de um círculo de verdade, suavizando o ângulo
+      // do "cotovelo" perto da ponta.
+      var handleLen = rr * 0.5522847498
+      if (touchExit) {
+        // saída = borda flush (fica na ponta exata); entrada = parede que curva
+        var wx = tipX + enterWallUX*rr, wy = tipY + enterWallUY*rr
+        var c1x = wx - enterWallUX*handleLen, c1y = wy - enterWallUY*handleLen
+        var c2x = tipX + enterWallUX*handleLen + enterNormalX*bow
+        var c2y = tipY + enterWallUY*handleLen + enterNormalY*bow
+        return { enterX: wx, enterY: wy, exitX: tipX, exitY: tipY,
+                  seg: " C " + c1x + "," + c1y + " " + c2x + "," + c2y + " " + tipX + "," + tipY }
+      } else {
+        // entrada = borda flush (fica na ponta exata); saída = parede que curva
+        var wx2 = tipX + exitWallUX*rr, wy2 = tipY + exitWallUY*rr
+        var c1x2 = tipX + exitWallUX*handleLen + exitNormalX*bow
+        var c1y2 = tipY + exitWallUY*handleLen + exitNormalY*bow
+        var c2x2 = wx2 - exitWallUX*handleLen, c2y2 = wy2 - exitWallUY*handleLen
+        return { enterX: tipX, enterY: tipY, exitX: wx2, exitY: wy2,
+                  seg: " C " + c1x2 + "," + c1y2 + " " + c2x2 + "," + c2y2 + " " + wx2 + "," + wy2 }
+      }
     }
 
-    // Pontos de entrada/saída de cada canto ao longo das bordas retas.
-    var tlExitX = tl.d,     tlExitY = 0
-    var trEnterX = w - tr.d, trEnterY = 0
-    var trExitX = w,        trExitY = tr.d
-    var brEnterX = w,       brEnterY = h - br.d
-    var brExitX = w - br.d, brExitY = h
-    var blEnterX = bl.d,    blEnterY = h
-    var blExitX = 0,        blExitY = h - bl.d
-    var tlEnterX = 0,       tlEnterY = tl.d
+    // TL: entra pela borda ESQUERDA (parede possível), sai pela de CIMA.
+    var tl = corner(touchLeft, touchTop, 0, 0, bgRTL,
+                     0, 1, -1,  0,     // entrada = esquerda: parede sobe (0,1), fora é -x
+                     1, 0,  0, -1)     // saída = topo: parede vai (1,0), fora é -y
+    // TR: entra pela borda de CIMA, sai pela DIREITA.
+    var tr = corner(touchTop, touchRight, w, 0, bgRTR,
+                     -1, 0,  0, -1,    // entrada = topo: parede vai (-1,0), fora é -y
+                      0, 1,  1,  0)    // saída = direita: parede desce (0,1), fora é +x
+    // BR: entra pela borda DIREITA, sai pela de BAIXO.
+    var br = corner(touchRight, touchBottom, w, h, bgRBR,
+                     0, -1,  1,  0,    // entrada = direita: parede sobe (0,-1), fora é +x
+                    -1,  0,  0,  1)    // saída = baixo: parede vai (-1,0), fora é +y
+    // BL: entra pela borda de BAIXO, sai pela ESQUERDA.
+    var bl = corner(touchBottom, touchLeft, 0, h, bgRBL,
+                     1,  0,  0,  1,    // entrada = baixo: parede vai (1,0), fora é +y
+                     0, -1, -1,  0)    // saída = esquerda: parede sobe (0,-1), fora é -x
 
-    var d = "M " + tlExitX + "," + tlExitY
-    d += " L " + trEnterX + "," + trEnterY
-    d += seg(tr, trEnterX, trEnterY, trExitX, trExitY)
-    d += " L " + brEnterX + "," + brEnterY
-    d += seg(br, brEnterX, brEnterY, brExitX, brExitY)
-    d += " L " + blEnterX + "," + blEnterY
-    d += seg(bl, blEnterX, blEnterY, blExitX, blExitY)
-    d += " L " + tlEnterX + "," + tlEnterY
-    d += seg(tl, tlEnterX, tlEnterY, tlExitX, tlExitY)
+    var d = "M " + tl.exitX + "," + tl.exitY
+    d += " L " + tr.enterX + "," + tr.enterY + tr.seg
+    d += " L " + br.enterX + "," + br.enterY + br.seg
+    d += " L " + bl.enterX + "," + bl.enterY + bl.seg
+    d += " L " + tl.enterX + "," + tl.enterY + tl.seg
     d += " Z"
     return d
   }
@@ -501,10 +560,24 @@ PanelWindow {
   readonly property bool _touchLeft:   !!barRef && !_floating && _isVertical && _barLeft
   readonly property bool _touchRight:  !!barRef && !_floating && _isVertical && _barRight
 
-  readonly property int _padTop:    _touchTop    ? 0 : popup._shadowPad
-  readonly property int _padBottom: _touchBottom ? 0 : popup._shadowPad
-  readonly property int _padLeft:   _touchLeft   ? 0 : popup._shadowPad
-  readonly property int _padRight:  _touchRight  ? 0 : popup._shadowPad
+  // _concaveBow / _xEdgeIsWall: quanto espaço extra (além da sombra) uma
+  // borda precisa reservar quando ela funciona como "parede" de um canto
+  // côncavo ativo — é nesse espaço que o arco pequeno (côncavo) vai
+  // flertar pra FORA da borda flush, formando o "ombro" do notch. Reserva
+  // o raio pequeno inteiro (rSmall) como limite seguro — a saliência real
+  // do arco (r·(1-cosθ)) é sempre menor que isso, então nunca vaza.
+  readonly property real _concaveBow: cornerConcave
+    ? Math.max(2, Math.min(concaveRadius, popupW / 2 - 1, popupH / 2 - 1))
+    : 0
+  readonly property bool _topEdgeIsWall:    (_ccTL && _tLeft)  || (_ccTR && _tRight)
+  readonly property bool _bottomEdgeIsWall: (_ccBR && _tRight) || (_ccBL && _tLeft)
+  readonly property bool _leftEdgeIsWall:   (_ccTL && _tTop)   || (_ccBL && _tBottom)
+  readonly property bool _rightEdgeIsWall:  (_ccTR && _tTop)   || (_ccBR && _tBottom)
+
+  readonly property int _padTop:    _touchTop    ? 0 : Math.max(popup._shadowPad, _topEdgeIsWall    ? _concaveBow : 0)
+  readonly property int _padBottom: _touchBottom ? 0 : Math.max(popup._shadowPad, _bottomEdgeIsWall ? _concaveBow : 0)
+  readonly property int _padLeft:   _touchLeft   ? 0 : Math.max(popup._shadowPad, _leftEdgeIsWall   ? _concaveBow : 0)
+  readonly property int _padRight:  _touchRight  ? 0 : Math.max(popup._shadowPad, _rightEdgeIsWall  ? _concaveBow : 0)
 
   implicitWidth:  popupW + _padLeft + _padRight
   implicitHeight: popupH + _padTop  + _padBottom
@@ -846,7 +919,12 @@ PanelWindow {
         topRightRadius:    popup._rTR
         bottomLeftRadius:  popup._rBL
         bottomRightRadius: popup._rBR
-        clip:   true
+        // clip só protege o conteúdo dentro do retângulo arredondado normal.
+        // Com algum canto côncavo ativo, o bojo da curva PRECISA vazar um
+        // pouco pra fora do retângulo puro de bg (é isso que faz a "orelha"
+        // do notch aparecer) — se o clip ficasse sempre ligado, ele cortava
+        // esse vazamento antes de chegar na tela e o efeito sumia inteiro.
+        clip:   !popup._anyConcave
 
       opacity: popup._bgOpacity
 
@@ -894,10 +972,10 @@ PanelWindow {
           strokeWidth: popup.borderWidth > 0 ? popup.borderWidth : 0
           PathSvg {
             path: popup._buildPanelPath(
-              bg.width, bg.height,
+              bg.width, bg.height, popup.concaveRadius,
+              popup._tTop, popup._tBottom, popup._tLeft, popup._tRight,
               popup._rTL, popup._rTR, popup._rBR, popup._rBL,
-              popup._ccTL, popup._ccTR, popup._ccBR, popup._ccBL,
-              popup.concaveRadius)
+              popup.cornerConcave)
           }
         }
       }
