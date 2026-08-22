@@ -373,65 +373,106 @@ PanelWindow {
 
   // Aplica cores do PopupConfig reativamente (responde a mudanças no JSON e no matugen)
   readonly property string _cfgName: configName || objectName
+
+  // _pcGet() lê de dentro do PopupConfig via função JS — isso NÃO cria uma
+  // dependência de binding rastreável pelo QML (leitura de objeto JS puro,
+  // não de property). Sem ler _dep explicitamente aqui, os Binding on colorX
+  // abaixo resolviam certo só na primeira avaliação e nunca mais recalculavam
+  // quando o JSON do PopupConfig mudava (mesmo com _applyConfig() rodando
+  // pros outros campos via Connections/on_DepChanged). _pcDep existe só pra
+  // dar ao QML algo real pra rastrear: toda vez que _dep muda, esta property
+  // muda, e qualquer binding que a leia é forçado a recalcular junto.
+  readonly property int _pcDep: popup._pc ? popup._pc._dep : 0
+
   Binding on colorPanelBg {
-    when: { var t = popup._pcGet(popup._cfgName, "colorPanelBg", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorPanelBg", null)
             if (!t) t = popup._pcGet(null, "colorPanelBg", null)
             return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorPanelBg", null)
       if (!t) t = popup._pcGet(null, "colorPanelBg", null)
       return popup._resolveToken(t) || Colors.surface_container
     }
   }
   Binding on colorText {
-    when: { var t = popup._pcGet(popup._cfgName, "colorText", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorText", null)
             if (!t) t = popup._pcGet(null, "colorText", null); return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorText", null)
       if (!t) t = popup._pcGet(null, "colorText", null)
       return popup._resolveToken(t) || Colors.on_surface
     }
   }
   Binding on colorTextDim {
-    when: { var t = popup._pcGet(popup._cfgName, "colorTextDim", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorTextDim", null)
             if (!t) t = popup._pcGet(null, "colorTextDim", null); return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorTextDim", null)
       if (!t) t = popup._pcGet(null, "colorTextDim", null)
       return popup._resolveToken(t) || Colors.on_surface_variant
     }
   }
   Binding on colorAccent {
-    when: { var t = popup._pcGet(popup._cfgName, "colorAccent", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorAccent", null)
             if (!t) t = popup._pcGet(null, "colorAccent", null); return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorAccent", null)
       if (!t) t = popup._pcGet(null, "colorAccent", null)
-      return popup._resolveToken(t) || Colors.primary
+      var resolved = popup._resolveToken(t) || Colors.primary
+      console.log("[BarPopup '" + popup._cfgName + "'] colorAccent _pcDep=" + _d +
+                   " token='" + t + "' resolvedToken=" + popup._resolveToken(t) +
+                   " final=" + resolved + " _pc=" + (popup._pc ? "OK" : "NULL") +
+                   " barRef=" + (popup.barRef ? "OK" : "NULL"))
+      return resolved
+    }
+  }
+  Binding on colorMuted {
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorMuted", null)
+            if (!t) t = popup._pcGet(null, "colorMuted", null); return !!t }
+    value: {
+      var _d = popup._pcDep
+      var t = popup._pcGet(popup._cfgName, "colorMuted", null)
+      if (!t) t = popup._pcGet(null, "colorMuted", null)
+      return popup._resolveToken(t) || Colors.error
     }
   }
   Binding on colorProgressBg {
-    when: { var t = popup._pcGet(popup._cfgName, "colorProgressBg", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorProgressBg", null)
             if (!t) t = popup._pcGet(null, "colorProgressBg", null); return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorProgressBg", null)
       if (!t) t = popup._pcGet(null, "colorProgressBg", null)
       return popup._resolveToken(t) || Colors.surface_container_high
     }
   }
   Binding on colorProgressFg {
-    when: { var t = popup._pcGet(popup._cfgName, "colorProgressFg", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorProgressFg", null)
             if (!t) t = popup._pcGet(null, "colorProgressFg", null); return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorProgressFg", null)
       if (!t) t = popup._pcGet(null, "colorProgressFg", null)
       return popup._resolveToken(t) || Colors.primary
     }
   }
   Binding on colorDivider {
-    when: { var t = popup._pcGet(popup._cfgName, "colorDivider", null)
+    when: { var _d = popup._pcDep
+            var t = popup._pcGet(popup._cfgName, "colorDivider", null)
             if (!t) t = popup._pcGet(null, "colorDivider", null); return !!t }
     value: {
+      var _d = popup._pcDep
       var t = popup._pcGet(popup._cfgName, "colorDivider", null)
       if (!t) t = popup._pcGet(null, "colorDivider", null)
       return popup._resolveToken(t) || Colors.outline_variant
@@ -1143,7 +1184,11 @@ PanelWindow {
     applyIfSet("popupYOffset",   function(v){ popup.popupYOffset   = v })
   }
 
-  Component.onCompleted: popup._applyConfig()
+  Component.onCompleted: {
+    console.log("[BarPopup '" + popup._cfgName + "'] onCompleted — _pc=" +
+                (popup._pc ? "OK" : "NULL") + " barRef=" + (popup.barRef ? "OK" : "NULL"))
+    popup._applyConfig()
+  }
 
   // Reaplica sempre que _pc muda de instância (barRef trocou) OU quando o
   // _dep da PopupConfig ativa muda (save no ConfigWindow). O binding em
@@ -1151,7 +1196,11 @@ PanelWindow {
   // reatribuído em runtime, a Connections migra pra nova instância sozinha.
   Connections {
     target: popup._pc
-    function on_DepChanged() { popup._applyConfig() }
+    function on_DepChanged() {
+      console.log("[BarPopup '" + popup._cfgName + "'] on_DepChanged disparou, _pc._dep=" +
+                   (popup._pc ? popup._pc._dep : "N/A"))
+      popup._applyConfig()
+    }
   }
   onBarRefChanged: popup._applyConfig()
 }

@@ -117,16 +117,24 @@ QtObject {
   //          → _defaults[key] → fallback
   function get(popupName, key, fallback) {
     var _ = root._dep  // reatividade (inclui mudança de tema)
+    var _isColorKey = key && key.indexOf("color") === 0
 
     var tb = _themeBlock(root.theme)
     try {
       var tov = tb.overrides
-      if (tov && tov[popupName] && tov[popupName][key] !== undefined)
+      if (tov && tov[popupName] && tov[popupName][key] !== undefined) {
+        if (_isColorKey) console.log("[PopupConfig] get() HIT theme.overrides theme='" + root.theme +
+          "' popupName='" + popupName + "' key='" + key + "' → '" + tov[popupName][key] + "'")
         return tov[popupName][key]
+      }
     } catch(e) {}
     try {
       var tgl = tb.globals
-      if (tgl && tgl[key] !== undefined) return tgl[key]
+      if (tgl && tgl[key] !== undefined) {
+        if (_isColorKey) console.log("[PopupConfig] get() HIT theme.globals theme='" + root.theme +
+          "' key='" + key + "' → '" + tgl[key] + "'")
+        return tgl[key]
+      }
     } catch(e) {}
 
     // Legado — base compartilhada entre temas ainda não customizados
@@ -142,6 +150,8 @@ QtObject {
 
     var d = _defaults[key]
     if (d !== undefined) return d
+    if (_isColorKey) console.log("[PopupConfig] get() MISS theme='" + root.theme +
+      "' popupName='" + popupName + "' key='" + key + "' → fallback '" + fallback + "'")
     return (fallback !== undefined) ? fallback : undefined
   }
 
@@ -149,6 +159,8 @@ QtObject {
   // Grava sempre dentro de themes[tema atual] — nunca mais toca no legado
   // (que fica congelado como base/fallback compartilhado).
   function set(key, value, popupName) {
+    console.log("[PopupConfig] set() theme='" + root.theme + "' popupName='" +
+                 popupName + "' key='" + key + "' value='" + value + "' path='" + root.path + "'")
     var themes = {}
     try { themes = JSON.parse(JSON.stringify(_adapter.themes)) } catch(e) {}
     if (!themes[root.theme]) themes[root.theme] = { globals: {}, overrides: {} }

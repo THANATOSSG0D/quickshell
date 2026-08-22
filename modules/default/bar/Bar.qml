@@ -1679,6 +1679,45 @@ Scope {
         }
       }
 
+      // ── Watchdog de re-sincronização do hyprMonitor ────────────────────
+      // Após bloquear/desbloquear a tela, o Wayland/Hyprland passa por um
+      // estado transitório sem nenhum output real ("no outputs — creating
+      // placeholder screen", monitor "FALLBACK" no log) antes de re-
+      // estabilizar. Se a Variants reagir a essa flutuação momentânea de
+      // Quickshell.screens e recriar esta PanelWindow bem nesse instante, o
+      // Component.onCompleted logo abaixo pode rodar ANTES de
+      // Hyprland.monitors.values já refletir o monitor real de novo —
+      // hyprMonitor fica preso em null e a Connections acima nunca mais
+      // corrige sozinha, porque ela só reage a MUDANÇA da lista, e se a
+      // lista não mudar de novo depois (já está "estável" do ponto de vista
+      // do Hyprland), não há novo evento. Sintoma: fullscreen peek (e
+      // cursorAtEdge, que também depende de hyprMonitor.x/y) param de
+      // funcionar até reiniciar o shell. Esta é uma rede de segurança:
+      // enquanto hyprMonitor estiver null, tenta re-resolver periodicamente.
+      function _resyncHyprMonitor() {
+        for (var i = 0; i < Hyprland.monitors.values.length; i++) {
+          var m = Hyprland.monitors.values[i]
+          if (m.name === bar.screen.name) {
+            console.log("[FS] hyprMonitor watchdog RECUPEROU monitor " + m.name)
+            bar.hyprMonitor = m
+            // hyprMonitor ficou null por um tempo → toda a cadeia de detecção
+            // de fullscreen (que depende dele) pode estar desatualizada —
+            // força uma verificação completa assim que ele voltar.
+            bar._verifyMode = false
+            bar._monProc.running = true
+            return
+          }
+        }
+      }
+
+      Timer {
+        id: _hyprMonitorWatchdog
+        interval: 2000
+        repeat:   true
+        running:  bar.hyprMonitor === null
+        onTriggered: bar._resyncHyprMonitor()
+      }
+
       property bool hasWindows: {
         if (!hyprMonitor) return false
         var ws = hyprMonitor.activeWorkspace
@@ -2289,14 +2328,6 @@ Scope {
         anchorModuleX:   bar._anchorFor("volume", "sink").mx
         anchorModuleW:   bar._anchorFor("volume", "sink").mw
 
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
-        colorMuted:      bar.popupColorMuted
-
         onCloseRequested: bar.closeAllPanels()
       }
 
@@ -2316,14 +2347,6 @@ Scope {
         anchorGroupW:    bar._anchorFor("volume", "source").gw
         anchorModuleX:   bar._anchorFor("volume", "source").mx
         anchorModuleW:   bar._anchorFor("volume", "source").mw
-
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
-        colorMuted:      bar.popupColorMuted
 
         onCloseRequested: bar.closeAllPanels()
       }
@@ -2345,14 +2368,6 @@ Scope {
         anchorModuleX:   bar._anchorFor("volume").mx
         anchorModuleW:   bar._anchorFor("volume").mw
 
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
-        colorMuted:      bar.popupColorMuted
-
         onCloseRequested: bar.closeAllPanels()
       }
 
@@ -2373,13 +2388,6 @@ Scope {
         anchorModuleX:   bar._anchorFor("mediaplayer").mx
         anchorModuleW:   bar._anchorFor("mediaplayer").mw
 
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorProgressFg: bar.popupColorProgressFg
-
         onCloseRequested: bar.closeAllPanels()
       }
 
@@ -2399,13 +2407,6 @@ Scope {
         anchorModuleX:   bar._anchorFor("clock").mx
         anchorModuleW:   bar._anchorFor("clock").mw
 
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
-
         onCloseRequested: bar.closeAllPanels()
       }
 
@@ -2424,12 +2425,6 @@ Scope {
         anchorGroupW:    bar._anchorFor("tasks").gw
         anchorModuleX:   bar._anchorFor("tasks").mx
         anchorModuleW:   bar._anchorFor("tasks").mw
-
-        colorPanelBg: bar.popupColorBg
-        colorText:    bar.popupColorText
-        colorTextDim: bar.popupColorTextDim
-        colorAccent:  bar.popupColorAccent
-        colorDivider: bar.popupColorDivider
 
         onCloseRequested: bar.closeAllPanels()
       }
@@ -2451,14 +2446,6 @@ Scope {
         anchorModuleX:   bar._anchorFor("quicksettings").mx
         anchorModuleW:   bar._anchorFor("quicksettings").mw
 
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorMuted:      bar.popupColorMuted
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
-
         onCloseRequested: bar.closeAllPanels()
       }
 
@@ -2472,13 +2459,6 @@ Scope {
 
         panelOpen: bar.editorPanelOpen
         config:    barState.config
-
-        colorPanelBg:    bar.popupColorBg
-        colorText:       bar.popupColorText
-        colorTextDim:    bar.popupColorTextDim
-        colorAccent:     bar.popupColorAccent
-        colorProgressBg: bar.popupColorProgress
-        colorDivider:    bar.popupColorDivider
 
         onCloseRequested: bar.closeAllPanels()
 
@@ -2504,13 +2484,6 @@ Scope {
         anchorGroupW:    bar._anchorFor("notifications").gw
         anchorModuleX:   bar._anchorFor("notifications").mx
         anchorModuleW:   bar._anchorFor("notifications").mw
-
-        colorPanelBg:  bar.popupColorBg
-        colorText:     bar.popupColorText
-        colorTextDim:  bar.popupColorTextDim
-        colorAccent:   bar.popupColorAccent
-        colorMuted:    bar.popupColorMuted
-        colorDivider:  bar.popupColorDivider
 
         onCloseRequested: bar.closeAllPanels()
       }

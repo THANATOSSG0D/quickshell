@@ -77,6 +77,19 @@ Item {
   // Injetado pelo Bar.qml após o onLoaded
   property var notifService: null
 
+  // ── Expansão/reação a popup aberto ──────────────────────────────────────
+  // activePopupW: largura do popup atualmente visível (0 quando nenhum está aberto).
+  // anyPanelOpen: true quando qualquer popup da barra está aberto.
+  // Injetadas reativamente pelo Bar.qml via Binding — todos os outros temas
+  // (Pill, Notch, Default, Minimal, Aurora, Bento, Slider) já declaram estas
+  // duas props; a Dock não declarava, o que fazia o Binding em Bar.qml
+  // (loader.item.activePopupW / .anyPanelOpen) falhar silenciosamente com
+  // "Property does not exist on Dock" no log. A Dock não usa isso pra
+  // esticar (tema não-pill, tamanho fixo), mas precisa existir pra o
+  // Binding não quebrar — e fica disponível caso algum popup queira reagir.
+  property int  activePopupW: 0
+  property bool anyPanelOpen: false
+
   readonly property bool isHorizontal: barPosition === 1 || barPosition === 3
 
   // ── Módulos por slot ─────────────────────────────────────────────────────

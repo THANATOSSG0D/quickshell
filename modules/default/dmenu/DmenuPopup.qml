@@ -32,10 +32,9 @@ Bar.BarPopup {
     function onDmenuPanelHeightChanged() { popup.popupH = _cfg.dmenuPanelHeight }
   }
 
-  property color colorText:    "#e2e2e2"
-  property color colorTextDim: "#c6c6c6"
-  property color colorAccent:  "#ffb4a9"
-  property color colorDivider: "#474747"
+  // colorText/colorTextDim/colorAccent/colorDivider herdadas do Bar.BarPopup
+  // — ver nota em VolumePopupTabbed.qml. colorInputBg fica local porque não
+  // existe no conjunto de cores do BarPopup (é específica do Dmenu).
   property color colorInputBg: "#131313"
 
   onPanelOpenChanged: {

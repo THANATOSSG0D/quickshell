@@ -7,6 +7,7 @@
         "cornersRadius": 14,
         "enabled": true,
         "floating": false,
+        "fullscreenPeekEnabled": true,
         "pinned": false,
         "silence": false,
         "theme": "Dock",

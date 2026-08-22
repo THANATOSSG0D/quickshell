@@ -61,6 +61,16 @@ Item {
   // barra já usa) quando uma janela entra em fullscreen. Global (não por
   // tema).
   property bool   floating: false
+  // Modo "peek em fullscreen" — com autoHide/pinned/alwaysVisible todos
+  // desligados (estado padrão), a barra reserva exclusiveZone normalmente
+  // em janelas comuns, mas some/reaparece (peek) quando uma janela entra
+  // em fullscreen — mesmo mecanismo de auto-hide que o autoHide manual usa,
+  // só que disparado por fullscreen em vez de cursor na borda. floating
+  // também respeita este flag (ver docstring de floating acima). Desligar
+  // isto faz a barra ficar sempre visível sobre fullscreen sem precisar
+  // ligar alwaysVisible/pinned (que também mudam zona/layer). Global (não
+  // por tema), mesmo padrão de silenceMode.
+  property bool   fullscreenPeekEnabled: true
   // Liga/desliga o painel INTEIRO (Bar ou Dock). Diferente de autoHide
   // (que só esconde temporariamente por hover) — com panelEnabled=false
   // nenhuma PanelWindow é criada: sem popups, sem zona reservada, nada
@@ -419,6 +429,7 @@ Item {
     if (opts.alwaysVisible !== undefined) root.alwaysVisible = opts.alwaysVisible
     if (opts.pinned        !== undefined) root.pinned        = opts.pinned
     if (opts.floating      !== undefined) root.floating      = opts.floating
+    if (opts.fullscreenPeekEnabled !== undefined) root.fullscreenPeekEnabled = opts.fullscreenPeekEnabled
     if (opts.panelEnabled  !== undefined) root.panelEnabled  = opts.panelEnabled
 
     // ── Tooltips (globais) ───────────────────────────────────────────────
@@ -507,7 +518,8 @@ Item {
     // ── Grava globais no Bar.json — preserva themes ─────────────────────
     barAdapter.bar = {
       theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible,
-      pinned: root.pinned, floating: root.floating, enabled: root.panelEnabled,
+      pinned: root.pinned, floating: root.floating,
+      fullscreenPeekEnabled: root.fullscreenPeekEnabled, enabled: root.panelEnabled,
       tooltipEnabled: root.tooltipEnabled, tooltipMinWidth: root.tooltipMinWidth,
       tooltipMaxWidth: root.tooltipMaxWidth,
       tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset,
@@ -817,6 +829,7 @@ Item {
         if (b.alwaysVisible !== undefined) root.alwaysVisible = b.alwaysVisible
         if (b.pinned        !== undefined) root.pinned        = b.pinned
         if (b.floating      !== undefined) root.floating      = b.floating
+        if (b.fullscreenPeekEnabled !== undefined) root.fullscreenPeekEnabled = b.fullscreenPeekEnabled
         if (b.enabled        !== undefined) root.panelEnabled  = b.enabled
         if (b.tooltipEnabled  !== undefined) root.tooltipEnabled  = b.tooltipEnabled
         if (b.tooltipMinWidth !== undefined) root.tooltipMinWidth = b.tooltipMinWidth

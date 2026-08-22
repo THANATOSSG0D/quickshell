@@ -16,11 +16,7 @@ Bar.BarPopup {
   popupH:      420
   animDuration: 320   // um pouco mais suave que os outros por ser maior
 
-  property color colorText:       "#e2e2e2"
-  property color colorTextDim:    "#c6c6c6"
-  property color colorAccent:     "#ffb4a9"
-  property color colorProgressBg: "#474747"
-  property color colorProgressFg: "#ffb4a9"
+  // Cores herdadas do Bar.BarPopup — ver nota em VolumePopupTabbed.qml
 
   MediaPlayerContent {
     anchors.fill:    parent

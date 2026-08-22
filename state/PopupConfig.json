@@ -96,6 +96,7 @@
         },
         "Dock": {
             "globals": {
+                "colorMuted": "error",
                 "cornerMode": "bar",
                 "popupXAlign": "group"
             },
@@ -117,6 +118,8 @@
                     "popupXAlign": "right"
                 },
                 "QuickSettingsPopup": {
+                    "colorAccent": "inverse_primary",
+                    "colorMuted": "inverse_on_surface",
                     "cornerMode": "bar",
                     "popupXAlign": "left"
                 },
@@ -125,6 +128,7 @@
                     "popupXAlign": "group"
                 },
                 "VolumePopupTabbed": {
+                    "colorMuted": "error",
                     "cornerConcave": true,
                     "cornerMode": "bar",
                     "popupXAlign": "right",

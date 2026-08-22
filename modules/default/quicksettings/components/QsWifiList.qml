@@ -34,25 +34,31 @@ Item {
     property bool   showPassDialog: false
 
     // ── Processos de connect/disconnect ────────────────────────────────────
+    // Agora capturamos stdout E stderr: o network-ctl.sh corrigido devolve
+    // motivo real de falha em stderr (ex.: agente do PolicyKit ausente),
+    // em vez de a UI mostrar sempre "verifique a senha" pra qualquer erro.
     Process {
         id: connectProc
         property string _buf: ""
+        property string _errBuf: ""
         stdout: SplitParser { onRead: (l) => connectProc._buf += l + "\n" }
+        stderr: SplitParser { onRead: (l) => connectProc._errBuf += l + "\n" }
         onRunningChanged: {
             if (!running) {
                 var out  = connectProc._buf
+                var err  = connectProc._errBuf
                 var code = connectProc.exitCode !== undefined ? connectProc.exitCode : -1
-                connectProc._buf = ""
+                connectProc._buf = ""; connectProc._errBuf = ""
                 if (out.indexOf("NEED_PASS") >= 0) {
                     root.feedback = ""
                     root.showPassDialog = true
                     Qt.callLater(function() { passInput.forceActiveFocus() })
-                } else if (code === 0 || out.indexOf("successfully") >= 0) {
+                } else if (code === 0 || out.indexOf("successfully") >= 0 || out.indexOf("OK|") >= 0) {
                     root.feedback = "Conectado!"
                     feedbackTimer.restart()
                     root.requestRefresh()
                 } else {
-                    root.feedback = "Falha — verifique a senha"
+                    root.feedback = root._parseErr(err) || "Falha ao conectar"
                     feedbackTimer.restart()
                 }
             }
@@ -62,16 +68,31 @@ Item {
     Process {
         id: passConnectProc
         property string _buf: ""
+        property string _errBuf: ""
         stdout: SplitParser { onRead: (l) => passConnectProc._buf += l + "\n" }
+        stderr: SplitParser { onRead: (l) => passConnectProc._errBuf += l + "\n" }
         onRunningChanged: {
             if (!running) {
-                passConnectProc._buf = ""
+                var out = passConnectProc._buf
+                var err = passConnectProc._errBuf
                 var code = passConnectProc.exitCode !== undefined ? passConnectProc.exitCode : -1
-                root.feedback = (code === 0) ? "Conectado!" : "Senha incorreta"
+                passConnectProc._buf = ""; passConnectProc._errBuf = ""
+                if (code === 0 && out.indexOf("OK|") >= 0) {
+                    root.feedback = "Conectado!"
+                } else {
+                    root.feedback = root._parseErr(err) || "Senha incorreta"
+                }
                 feedbackTimer.restart()
                 root.requestRefresh()
             }
         }
+    }
+
+    // "ERR|mensagem" (em stderr) → só a mensagem, pra mostrar no feedback.
+    function _parseErr(raw) {
+        var line = raw.trim().split("\n")[0] || ""
+        var i = line.indexOf("ERR|")
+        return i >= 0 ? line.substring(i + 4) : ""
     }
 
     Process {
@@ -159,15 +180,15 @@ Item {
             Layout.fillWidth: true; spacing: 6
 
             Text {
+                Layout.fillWidth: true
                 visible: root.feedback !== "" || root.wifiScanning
                 text:    root.wifiScanning ? root.scanLabel : root.feedback
                 color:   root.feedback === "Conectado!" ? root.colorAccent
                        : root.feedback !== ""           ? root.colorMuted
                        : root.colorTextDim
                 font.pixelSize: 8; font.family: "JetBrainsMono Nerd Font"
+                elide: Text.ElideRight
             }
-
-            Item { Layout.fillWidth: true }
 
             Rectangle {
                 width: 22; height: 22; radius: 11
@@ -319,14 +340,15 @@ Item {
                                 root.pendingSsid = ssid
                                 root.feedback = "Conectando…"
                                 feedbackTimer.restart()
-                                if (netItem.modelData.secured) {
-                                    connectProc.command = [ "bash", "-c",
-                                        "export LANG=C LC_ALL=C; " +
-                                        "nmcli connection up " + JSON.stringify(ssid) +
-                                        " 2>/dev/null || echo NEED_PASS" ]
-                                } else {
-                                    connectProc.command = [ "bash", script, "wifi", "connect", ssid ]
-                                }
+                                // Sempre via network-ctl.sh, seguro ou não —
+                                // é lá que mora a lógica de achar o perfil
+                                // certo por SSID, registrar a última rede
+                                // conectada (pro autoreconnect) e devolver
+                                // o motivo real de uma falha (em vez do
+                                // "nmcli connection up || echo NEED_PASS"
+                                // antigo, que também nunca avisava sobre
+                                // falta de agente do PolicyKit).
+                                connectProc.command = [ "bash", script, "wifi", "connect", ssid ]
                                 connectProc.running = true
                             }
                         }

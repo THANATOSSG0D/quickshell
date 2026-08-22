@@ -550,7 +550,7 @@ PanelWindow {
                     // (Paleta nunca chega aqui: o botão fica oculto nessa aba)
                     if (win.activeTarget === "dock") {
                       win.config.saveAll({
-                        theme: "Dock", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false, floating: false,
+                        theme: "Dock", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false, floating: false, fullscreenPeekEnabled: true,
                         tooltipEnabled: true, tooltipMinWidth: 160, tooltipMaxWidth: 320, tooltipAlign: "module", tooltipOffset: 0,
                         barSize: 30, barMargin: 8, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   [],
@@ -562,7 +562,7 @@ PanelWindow {
                       })
                     } else {
                       win.config.saveAll({
-                        theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false, floating: false,
+                        theme: "Pill", position: 3, autoHide: true, silence: false, alwaysVisible: false, pinned: false, floating: false, fullscreenPeekEnabled: true,
                         tooltipEnabled: true, tooltipMinWidth: 160, tooltipMaxWidth: 320, tooltipAlign: "module", tooltipOffset: 0,
                         barSize: 30, barMargin: 3, pillWidth: 400, pillMinSpacing: 20,
                         modulesLeft:   ["mediaplayer","separator","quicksettings"],

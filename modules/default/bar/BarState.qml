@@ -39,6 +39,7 @@ QtObject {
   property bool   alwaysVisible: false  // barra SEMPRE visível, inclusive sobre fullscreen (layer Overlay)
   property bool   pinned:        false  // barra nunca auto-oculta (cursor nem fullscreen peek), mas fica na layer Top
   property bool   floating:      false  // barra em Overlay, sem exclusiveZone, mas oculta em fullscreen
+  property bool   fullscreenPeekEnabled: true  // com todos os modos acima desligados, autohide automático em fullscreen (peek)
   property bool   panelEnabled:  initialPanelEnabled   // liga/desliga o painel inteiro (ver BarConfig.panelEnabled)
   property string currentTheme: initialTheme
   property int    position:     3
@@ -48,7 +49,8 @@ QtObject {
   property bool _configReady: false
 
   // ── Fullscreen peek ──────────────────────────────────────────────────
-  property bool fullscreenPeekEnabled: true
+  // fullscreenPeekEnabled agora vive acima (sincronizado com BarConfig,
+  // igual autoHide/silenceMode/etc) — deixou de ser um valor local fixo.
   signal fullscreenChanged(bool state)
   // Emitido quando workspace ou foco muda — a janela fullscreen visível
   // pode ter mudado sem emitir evento fullscreen (ex: troca de workspace)
@@ -123,6 +125,10 @@ QtObject {
       state.floating      = barConfig.floating
       state._configReady  = true
     }
+    function onFullscreenPeekEnabledChanged() {
+      state.fullscreenPeekEnabled = barConfig.fullscreenPeekEnabled
+      state._configReady          = true
+    }
     function onPanelEnabledChanged() {
       state.panelEnabled  = barConfig.panelEnabled
       state._configReady  = true
@@ -143,6 +149,7 @@ QtObject {
       state.alwaysVisible = barConfig.alwaysVisible
       state.pinned        = barConfig.pinned
       state.floating      = barConfig.floating
+      state.fullscreenPeekEnabled = barConfig.fullscreenPeekEnabled
       state.panelEnabled  = barConfig.panelEnabled
       state.position      = barConfig.position
       state._configReady  = true
@@ -158,6 +165,7 @@ QtObject {
   onAlwaysVisibleChanged:  if (_configReady) barConfig.alwaysVisible = alwaysVisible
   onPinnedChanged:         if (_configReady) barConfig.pinned        = pinned
   onFloatingChanged:       if (_configReady) barConfig.floating      = floating
+  onFullscreenPeekEnabledChanged: if (_configReady) barConfig.fullscreenPeekEnabled = fullscreenPeekEnabled
   onPanelEnabledChanged:   if (_configReady) barConfig.panelEnabled  = panelEnabled
   onPositionChanged:       if (_configReady) barConfig.set("bar", "position", position)
 
@@ -228,5 +236,11 @@ QtObject {
     name:        "togglePanelEnabled" + state._sfx
     description: "Ligar/desligar o painel inteiro" + (state.instanceId !== "bar" ? " (" + state.instanceId + ")" : " (bar)")
     onPressed:   state.panelEnabled = !state.panelEnabled
+  }
+
+  property var _fsPeekShortcut: GlobalShortcut {
+    name:        "toggleFullscreenPeek" + state._sfx
+    description: "Ativar/desativar auto-ocultar em fullscreen (peek)" + (state.instanceId !== "bar" ? " (" + state.instanceId + ")" : "")
+    onPressed:   state.fullscreenPeekEnabled = !state.fullscreenPeekEnabled
   }
 }

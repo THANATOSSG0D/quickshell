@@ -147,17 +147,21 @@
                 "position": 1
             },
             "mediaplayer": {
-                "textColorActive": "primary"
+                "textColorActive": "primary",
+                "textMode": "artistAndTitle"
             },
             "palette": {
-                "accent": "surface_container_highest",
+                "accent": "primary_fixed_dim",
                 "barBg": "background",
                 "barBgPill": "shadow"
             },
             "workspaces": {
                 "icons": {
+                    "bgColorActive": "primary_container",
                     "bgPaddingH": 0,
-                    "bgPaddingHActive": 6
+                    "bgPaddingHActive": 6,
+                    "iconMonoColor": "on_primary_container",
+                    "iconMonoColorActive": "on_primary_fixed_variant"
                 },
                 "scrollEnabled": true,
                 "showAddButton": false

@@ -15,11 +15,7 @@ Bar.BarPopup {
 
     property var service: null
 
-    property color colorText:    "#cdd6f4"
-    property color colorTextDim: "#9399b2"
-    property color colorAccent:  "#89b4fa"
-    property color colorMuted:   "#f38ba8"
-    property color colorDivider: "#313244"
+    // Cores herdadas do Bar.BarPopup — ver nota em VolumePopupTabbed.qml
     property int   cardRadius:    10
     property int   defaultUrgencyFilter: 0
 

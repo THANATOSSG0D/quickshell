@@ -396,6 +396,61 @@ Item {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // WiFi — reconexão automática à última rede
+    // Não existe timer/daemon nosso rodando: o toggle só liga/desliga o
+    // "connection.autoconnect" nativo do NetworkManager na última rede
+    // conectada (network-ctl.sh cuida disso). É o NM quem reconecta sozinho
+    // assim que a rede aparece de novo, mesmo com o Quickshell fechado —
+    // então isso funciona em background de verdade, sem gastar polling.
+    // ═══════════════════════════════════════════════════════════════════════
+    property bool   wifiAutoReconnect: false
+    property string wifiAutoReconnectLastSsid: ""
+
+    Process {
+        id: autoreconnectStatusProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => autoreconnectStatusProc._buf += l + "\n" }
+        onRunningChanged: {
+            if (!running) {
+                var text = autoreconnectStatusProc._buf
+                autoreconnectStatusProc._buf = ""
+                var lines = text.split("\n")
+                for (var i = 0; i < lines.length; i++) {
+                    var ln = lines[i].trim()
+                    var eq = ln.indexOf("=")
+                    if (eq < 0) continue
+                    var key = ln.slice(0, eq).trim()
+                    var val = ln.slice(eq + 1).trim()
+                    if      (key === "AUTORECONNECT") root.wifiAutoReconnect = (val === "on")
+                    else if (key === "LAST_SSID")      root.wifiAutoReconnectLastSsid = val
+                }
+            }
+        }
+    }
+
+    Process {
+        id: autoreconnectToggleProc
+        property string _buf: ""
+        stdout: SplitParser { onRead: (l) => autoreconnectToggleProc._buf += l + "\n" }
+        onRunningChanged: { if (!running) { autoreconnectToggleProc._buf = ""; _refreshAutoreconnect() } }
+    }
+
+    function _refreshAutoreconnect() {
+        if (!autoreconnectStatusProc.running) {
+            autoreconnectStatusProc.command = ["bash", root.ctl, "autoreconnect", "status"]
+            autoreconnectStatusProc.running = true
+        }
+    }
+
+    function _toggleWifiAutoReconnect() {
+        var goingOn = !root.wifiAutoReconnect
+        autoreconnectToggleProc.command = ["bash", root.ctl,
+            "autoreconnect", goingOn ? "on" : "off"]
+        autoreconnectToggleProc.running = true
+        root.wifiAutoReconnect = goingOn
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Ethernet — lista (aba QsTabNetworks)
     // ═══════════════════════════════════════════════════════════════════════
     property string ethListRaw: ""
@@ -604,6 +659,7 @@ Item {
         caffeineStatusProc.running = true
         _refreshWifiList()
         _refreshEthList()
+        _refreshAutoreconnect()
     })
 
     onPanelOpenChanged: {
@@ -613,6 +669,7 @@ Item {
             if (!caffeineStatusProc.running) caffeineStatusProc.running = true
             _refreshWifiList()
             _refreshEthList()
+            _refreshAutoreconnect()
         } else {
             // Painel fechado: fecha qualquer sub-página aberta (wifi/ethernet/bluetooth/etc.)
             root.subPage = ""
@@ -1236,6 +1293,26 @@ Item {
                                 checked: root.wifiEnabled
                                 colorAccent: root.colorAccent
                                 onToggled: root._toggleWifi()
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 1
+                                Text { text: "Reconectar automaticamente"; color: root.colorText; font.pixelSize: 11 }
+                                Text {
+                                    text: root.wifiAutoReconnect && root.wifiAutoReconnectLastSsid !== ""
+                                        ? "Última rede: " + root.wifiAutoReconnectLastSsid
+                                        : "Volta sozinho pra última rede quando ela aparecer"
+                                    color: root.colorTextDim; font.pixelSize: 8; opacity: 0.7
+                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                }
+                            }
+                            Qs.QsSwitch {
+                                checked: root.wifiAutoReconnect
+                                colorAccent: root.colorAccent
+                                onToggled: root._toggleWifiAutoReconnect()
                             }
                         }
 

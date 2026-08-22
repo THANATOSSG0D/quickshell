@@ -16,11 +16,7 @@ Bar.BarPopup {
   popupW: 280
   popupH: 480
 
-  property color colorText:       "#e2e2e2"
-  property color colorTextDim:    "#c6c6c6"
-  property color colorAccent:     "#ffb4a9"
-  property color colorProgressBg: "#474747"
-  property color colorDivider:    "#474747"
+  // Cores herdadas do Bar.BarPopup — ver nota em VolumePopupTabbed.qml
 
   // Referência capturada por Bar.qml para injetar em Clock.qml
   readonly property var clockContentRef: content

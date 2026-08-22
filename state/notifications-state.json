@@ -1,22 +1,6 @@
 {
-  "doNotDisturb": false,
+  "doNotDisturb": true,
   "dndAllowCritical": true,
   "toastPosition": "bottom-right",
-  "history": [
-    {
-      "id": 1,
-      "appName": "Tarefas",
-      "appIcon": "",
-      "image": "",
-      "summary": "Tarefa agora",
-      "body": "13:50 · Tomar o multivitaminico (1), omega3(2), magnesio(1) e d3(1)",
-      "urgency": 1,
-      "timestamp": 1787244607033,
-      "timeout": 5000,
-      "read": false,
-      "actions": [],
-      "pausedSince": 0,
-      "pausedMs": 0
-    }
-  ]
+  "history": []
 }

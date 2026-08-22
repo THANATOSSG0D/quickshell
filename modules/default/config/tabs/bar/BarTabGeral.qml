@@ -107,6 +107,14 @@ C.CfgScroll {
     onToggled: root.changed({ floating: !(root.g("floating", false) === true) })
   }
   C.CfgToggle {
+    label:        "Auto-ocultar em fullscreen (peek)"
+    checked:      root.g("fullscreenPeekEnabled", true) === true
+    enabled:      root.g("alwaysVisible", false) !== true && root.g("pinned", false) !== true
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ fullscreenPeekEnabled: !(root.g("fullscreenPeekEnabled", true) === true) })
+  }
+  C.CfgToggle {
     label:        "Silence (sem OSD/toasts)"
     checked:      root.g("silenceMode", false) === true
     colorAccent:  root.colorAccent

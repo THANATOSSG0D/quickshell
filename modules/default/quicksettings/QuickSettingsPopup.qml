@@ -13,12 +13,14 @@ Bar.BarPopup {
     popupW: 320
     popupH: 620
 
-    property color colorText:       "#e2e2e2"
-    property color colorTextDim:    "#c6c6c6"
-    property color colorAccent:     "#ffb4a9"
-    property color colorMuted:      "#cf6679"
-    property color colorProgressBg: "#474747"
-    property color colorDivider:    "#474747"
+    // colorText/colorTextDim/colorAccent/colorMuted/colorProgressBg/colorDivider
+    // NÃO são redeclaradas aqui de propósito — são herdadas do Bar.BarPopup,
+    // que já resolve essas cores reativamente a partir do PopupConfig (com
+    // fallback pro tema via Colors). Redeclarar aqui com valor fixo cria uma
+    // property NOVA que sombreia a herdada: o Binding on colorX de dentro do
+    // BarPopup.qml continua resolvendo certinho *internamente*, mas quem lê
+    // popup.colorAccent de fora (QuickSettingsContent) enxerga essa cópia
+    // estática aqui, nunca o valor resolvido pelo PopupConfig.
 
     // Opcional — conecte a partir do Bar.qml pra habilitar o botão de Não
     // Perturbe no cabeçalho (mesmo padrão do QuickSettingsPanel.qml).

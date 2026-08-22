@@ -25,10 +25,7 @@ Bar.BarPopup {
   popupW: 300
   popupH: 560
 
-  property color colorText:    "#e2e2e2"
-  property color colorTextDim: "#9e9e9e"
-  property color colorAccent:  "#ffb4a9"
-  property color colorDivider: "#474747"
+  // Cores herdadas do Bar.BarPopup — ver nota em VolumePopupTabbed.qml
 
   // Referência capturada por Bar.qml para injetar em Tasks.qml
   readonly property var tasksContentRef: content

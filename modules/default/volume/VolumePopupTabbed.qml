@@ -42,12 +42,10 @@ Bar.BarPopup {
   popupW: 300
   popupH: 420
 
-  property color colorText:       "#e2e2e2"
-  property color colorTextDim:    "#c6c6c6"
-  property color colorAccent:     "#ffb4a9"
-  property color colorMuted:      "#cf6679"
-  property color colorProgressBg: "#474747"
-  property color colorDivider:    "#474747"
+  // colorText/colorTextDim/colorAccent/colorMuted/colorProgressBg/colorDivider
+  // NÃO são redeclaradas aqui — são herdadas do Bar.BarPopup, que já resolve
+  // essas cores reativamente a partir do PopupConfig (com fallback pro tema
+  // via Colors). Redeclarar aqui com hex fixo sombreava o binding da base.
 
   // Muda para a aba correta quando o popup abre ou openSource muda
   onPanelOpenChanged: {
