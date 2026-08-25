@@ -173,6 +173,44 @@ Scope {
     function open()    { dmenuIpc.openNative(dmenuIpc.configRef.dmenuDefaultMode) }
   }
 
+  // ── IPC de widgets ───────────────────────────────────────────────────
+  // qs ipc call widgets toggle clock          → liga/desliga 1 widget
+  // qs ipc call widgets toggleMany clock,cpu   → vários juntos (maioria
+  //                                              desligada → liga todos;
+  //                                              maioria ligada → desliga)
+  // qs ipc call widgets toggleGroup sysmon     → liga/desliga o CARD
+  //   inteiro do grupo com esse nome (dado na aba Combinar)
+  WidgetLayoutConfig { id: widgetsLayoutCfg }
+
+  IpcHandler {
+    target: "widgets"
+
+    function toggle(id: string): string {
+      widgetsLayoutCfg.setEnabled(id, !widgetsLayoutCfg.isEnabled(id))
+      return widgetsLayoutCfg.isEnabled(id) ? "on" : "off"
+    }
+
+    function enable(id: string): string  { widgetsLayoutCfg.setEnabled(id, true);  return "on" }
+    function disable(id: string): string { widgetsLayoutCfg.setEnabled(id, false); return "off" }
+
+    function toggleMany(ids: string): string {
+      const list = ids.split(",").map(s => s.trim()).filter(Boolean)
+      if (list.length === 0) return "lista vazia"
+      const onCount = list.filter(id => widgetsLayoutCfg.isEnabled(id)).length
+      const goingOn = onCount * 2 < list.length
+      list.forEach(id => widgetsLayoutCfg.setEnabled(id, goingOn))
+      return goingOn ? "on" : "off"
+    }
+
+    function toggleGroup(name: string): string {
+      const g = widgetsLayoutCfg.findGroupByName(name)
+      if (!g) return "grupo '" + name + "' não encontrado"
+      const goingOn = !g.enabled
+      widgetsLayoutCfg.setGroupEnabled(g.id, goingOn)
+      return goingOn ? "on" : "off"
+    }
+  }
+
   // ── PowerMenuConfig — mesmo padrão do dmenuIpc.configRef: config própria
   // (entries + aparência) persistida em state/PowerMenu.json, editável pela
   // aba "Power Menu" do ConfigWindow.

@@ -123,38 +123,76 @@ Item {
           readonly property var group: modelData
           readonly property string groupName: "Grupo " + (index + 1)
 
-          // ── cabeçalho: nome, habilitar/desabilitar, excluir ──
-          RowLayout {
+          // ── cabeçalho: nome (linha própria, largura toda) + habilitar/excluir ──
+          ColumnLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 6
 
-            Text {
+            Rectangle {
+              id: nameBox
               Layout.fillWidth: true
-              text: groupBlock.groupName +
-                    (groupBlock.group.members.length > 0
-                       ? "  ·  " + groupBlock.group.members.length + " widget(s)"
-                       : "  ·  vazio")
-              color: root.colorText
-              font.pixelSize: 12
-              font.bold: true
-            }
+              Layout.minimumWidth: 120
+              height: 30
+              radius: 6
+              color: "transparent"
+              border.width: 1
+              border.color: nameInput.activeFocus
+                ? root.colorAccent
+                : Qt.rgba(root.colorTextDim.r, root.colorTextDim.g, root.colorTextDim.b, 0.3)
+              Behavior on border.color { ColorAnimation { duration: 60 } }
 
-            C.CfgToggle {
-              label: "Ativo"
-              checked: groupBlock.group.enabled
-              colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-              onToggled: layoutCfg.setGroupEnabled(groupBlock.group.id, !groupBlock.group.enabled)
-            }
-
-            Text {
-              text: "󰩹"
-              color: root.colorTextDim
-              font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
-              MouseArea {
+              TextInput {
+                id: nameInput
                 anchors.fill: parent
-                anchors.margins: -4
-                cursorShape: Qt.PointingHandCursor
-                onClicked: layoutCfg.removeGroup(groupBlock.group.id)
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                verticalAlignment: TextInput.AlignVCenter
+                text: groupBlock.group.name || ""
+                color: root.colorText
+                font.pixelSize: 12
+                font.bold: true
+                selectByMouse: true
+                clip: true
+                onEditingFinished: layoutCfg.setGroupName(groupBlock.group.id, text.trim())
+
+                // placeholder: "Grupo N · X widget(s)" enquanto não tem
+                // nome próprio e o campo não está em foco
+                Text {
+                  visible: nameInput.text.length === 0 && !nameInput.activeFocus
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: groupBlock.groupName +
+                        (groupBlock.group.members.length > 0
+                           ? "  ·  " + groupBlock.group.members.length + " widget(s)"
+                           : "  ·  vazio")
+                  color: root.colorTextDim
+                  font: nameInput.font
+                }
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 8
+
+              Item { Layout.fillWidth: true } // empurra os dois controles pra direita
+
+              C.CfgToggle {
+                label: "Ativo"
+                checked: groupBlock.group.enabled
+                colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+                onToggled: layoutCfg.setGroupEnabled(groupBlock.group.id, !groupBlock.group.enabled)
+              }
+
+              Text {
+                text: "󰩹"
+                color: root.colorTextDim
+                font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: layoutCfg.removeGroup(groupBlock.group.id)
+                }
               }
             }
           }

@@ -156,6 +156,7 @@
                 "barBgPill": "shadow"
             },
             "workspaces": {
+                "iconMonochrome": true,
                 "icons": {
                     "bgColorActive": "primary_container",
                     "bgPaddingH": 0,

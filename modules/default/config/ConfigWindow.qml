@@ -80,6 +80,7 @@ PanelWindow {
   WlrLayershell.layer:         WlrLayershell.Overlay
   WlrLayershell.exclusionMode: ExclusionMode.Ignore
   WlrLayershell.exclusiveZone: 0
+  WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
   anchors.top: true; anchors.bottom: true; anchors.left: true; anchors.right: true
   margins.top:    screen ? Math.max(0, Math.floor((screen.height - winH) / 2)) : 0
   margins.bottom: screen ? Math.max(0, Math.floor((screen.height - winH) / 2)) : 0

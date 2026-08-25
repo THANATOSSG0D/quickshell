@@ -17,10 +17,13 @@ import qs.singletons
 // "mediaplayer", "favorites"
 //
 // Formato de cada grupo:
-//   { id, enabled, position, edgeMargin, offsetX, offsetY, columns,
+//   { id, name, enabled, position, edgeMargin, offsetX, offsetY, columns,
 //     memberColumns, memberFullWidth, memberScale, members, bgColor,
 //     bgOpacity, borderColor, borderOpacity, borderWidth, radius,
 //     columnMinWidth, columnSpacing, itemSpacing }
+//   `name` é um apelido opcional (ex: "sysmon") — usado no IPC
+//   (`qs ipc call widgets toggleGroup <name>`) pra identificar o grupo
+//   sem depender do id gerado. Vazio = a UI cai no fallback "Grupo N".
 //   `offsetX`/`offsetY` são um ajuste fino (px) somado por cima da posição
 //   já resolvida pelo grid de 9 pontos + edgeMargin — servem pra destravar
 //   o card daquele grid quando os 9 pontos não bastam (ex: "quase
@@ -50,7 +53,7 @@ Item {
   id: config
   visible: false
 
-  property var groups: [] // [{ id, enabled, position, edgeMargin, members }]
+  property var groups: [] // [{ id, name, enabled, position, edgeMargin, members }]
 
   // Mapa widgetId → bool. Ausente ou undefined = ATIVO (default é sempre
   // ligado; só existe entrada explícita pra quem já foi desativado alguma
@@ -75,7 +78,7 @@ Item {
   function addGroup() {
     const g = groups.slice()
     g.push({
-      id: _uid(), enabled: true, position: 4, edgeMargin: 48,
+      id: _uid(), name: "", enabled: true, position: 4, edgeMargin: 48,
       offsetX: 0, offsetY: 0,
       columns: 1, memberColumns: {}, memberFullWidth: {}, memberScale: {},
       members: [],
@@ -95,7 +98,28 @@ Item {
     groups = groups.map(g => g.id === groupId ? Object.assign({}, g, patch) : g)
   }
 
-  function setGroupEnabled(groupId, enabled)     { _updateGroup(groupId, { enabled }) }
+  // Ativar/desativar o grupo agora cascateia pro enabled INDIVIDUAL de
+  // cada membro — sem isso, desligar o card só escondia ele, mas os
+  // widgets voltavam soltos na posição individual (isGrouped() só conta
+  // grupos ATIVOS, então um grupo desligado "libera" os membros dele).
+  // Religar o grupo também reativa os membros — cuidado: isso sobrescreve
+  // qualquer desativação manual que você tenha feito em um widget
+  // específico enquanto o grupo estava ligado (ex: pausar só o "cpu"
+  // dentro de um grupo ativo). Se um dia precisar preservar esse tipo de
+  // override individual, dá pra tirar o cascateio do caminho "ligar" e
+  // deixar só no "desligar" — me avisa que eu ajusto.
+  function setGroupEnabled(groupId, value) {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    _updateGroup(groupId, { enabled: value })
+
+    if (group.members && group.members.length > 0) {
+      const e = Object.assign({}, enabled)
+      group.members.forEach(id => { e[id] = value })
+      enabled = e
+    }
+  }
+  function setGroupName(groupId, name)           { _updateGroup(groupId, { name }) }
   function setGroupPosition(groupId, position)   { _updateGroup(groupId, { position }) }
   function setGroupEdgeMargin(groupId, edgeMargin) { _updateGroup(groupId, { edgeMargin }) }
   function setGroupOffsetX(groupId, offsetX)     { _updateGroup(groupId, { offsetX }) }
@@ -251,6 +275,16 @@ Item {
   function groupForWidget(widgetId) {
     const g = groups.find(g => g.enabled && g.members.indexOf(widgetId) !== -1)
     return g ? g.id : ""
+  }
+
+  // Acha o grupo pelo NOME (case-insensitive, ignora espaços nas pontas)
+  // independente de estar ativo ou não — usado pelo IPC (toggleGroup),
+  // que precisa achar o grupo mesmo quando ele está desligado, pra poder
+  // religar. Retorna null se não achar ou se o nome estiver vazio.
+  function findGroupByName(name) {
+    const n = (name || "").trim().toLowerCase()
+    if (!n) return null
+    return groups.find(g => (g.name || "").trim().toLowerCase() === n) || null
   }
 
   FileView {

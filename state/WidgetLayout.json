@@ -1,8 +1,18 @@
 {
     "edgeMargin": 20,
     "enabled": {
-        "bluetooth": false,
+        "bluetooth": true,
+        "clock": true,
+        "cpu": true,
+        "disk": true,
         "favorites": true,
+        "gpu": true,
+        "habits": true,
+        "mediaplayer": true,
+        "network": true,
+        "process": true,
+        "ram": true,
+        "system": true,
         "weather": true
     },
     "groupEnabled": false,
@@ -28,6 +38,7 @@
                 "calendar",
                 "todo"
             ],
+            "name": "clock",
             "position": 3
         },
         {
@@ -41,6 +52,7 @@
             "id": "gmrirvepa589",
             "itemSpacing": 8,
             "memberColumns": {
+                "bluetooth": 2,
                 "cpu": 2,
                 "disk": 1,
                 "favorites": 2,
@@ -69,13 +81,45 @@
                 "disk",
                 "network",
                 "process",
-                "mediaplayer",
-                "habits",
-                "favorites"
+                "bluetooth"
             ],
+            "name": "sysmon",
             "offsetX": 0,
             "offsetY": 2,
-            "position": 5
+            "position": 2
+        },
+        {
+            "bgColor": "surface_container",
+            "bgOpacity": 0.55,
+            "borderColor": "outline_variant",
+            "borderOpacity": 0.4,
+            "borderWidth": 1,
+            "columnMinWidth": 0,
+            "columnSpacing": 14,
+            "columns": 2,
+            "edgeMargin": 20,
+            "enabled": true,
+            "id": "gmt7x69bd412",
+            "itemSpacing": 10,
+            "memberColumns": {
+                "favorites": 2,
+                "habits": 2,
+                "mediaplayer": 1
+            },
+            "memberFullWidth": {
+            },
+            "memberScale": {
+            },
+            "members": [
+                "mediaplayer",
+                "favorites",
+                "habits"
+            ],
+            "name": "media",
+            "offsetX": 0,
+            "offsetY": 0,
+            "position": 8,
+            "radius": 14
         }
     ],
     "members": [
