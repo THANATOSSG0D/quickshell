@@ -203,14 +203,26 @@ Singleton {
         // pontual for mais longo que o esperado.
         clip: true
 
-        Text {
-          visible: !root._ready
-          text: "Carregando…"
-          color: root.fgDimColor
-          font.pixelSize: 10
-        }
+        // Agrupa tudo MENOS a linha de volume: dá uma referência de
+        // largura "natural" estável pra barra de volume esticar até o
+        // fim do tooltip. Antes a Rectangle do volume usava
+        // content.implicitWidth diretamente — mas content inclui a
+        // PRÓPRIA linha de volume, então era um binding loop
+        // (width do volTrack → content.implicitWidth → largura da Row
+        // de volume → width do volTrack outra vez). Isolando as outras
+        // linhas aqui, a referência não depende mais de si mesma.
+        Column {
+          id: statusRows
+          spacing: 6
 
-        StatusRow {
+          Text {
+            visible: !root._ready
+            text: "Carregando…"
+            color: root.fgDimColor
+            font.pixelSize: 10
+          }
+
+          StatusRow {
           visible: root._ready
           icon: "\uf1eb"
           label: root._wifiOn ? (root._wifiSsid || "ligado") : "Wi-Fi desligado"
@@ -297,6 +309,7 @@ Singleton {
           width: parent.width; height: 1
           color: Qt.rgba(1, 1, 1, 0.08)
         }
+        } // fim statusRows
 
         // ── Volume (sempre por último, mesmo estilo do MediaTooltip) ───────
         Row {
@@ -311,7 +324,16 @@ Singleton {
           }
           Rectangle {
             id: volTrack
-            width:  Math.max(60, Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, content.implicitWidth) - volIcon.implicitWidth - volPct.implicitWidth - parent.spacing * 2)
+            // era `content.implicitWidth` — mas content é o PAI desta
+            // própria Row de volume, então a largura do volTrack
+            // influenciava content.implicitWidth, que influenciava de volta
+            // a largura do volTrack (binding loop). Agora usa statusRows
+            // (as linhas Wi-Fi/Eth/BT/dispositivos/shader/clima, que não
+            // incluem a linha de volume), então a referência é estável.
+            width:  Math.max(60, Math.min(
+              root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - TooltipSettings.contentPadding,
+              Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - TooltipSettings.contentPadding, statusRows.implicitWidth)
+            ) - volIcon.implicitWidth - volPct.implicitWidth - parent.spacing * 2)
             height: 4; radius: 2
             color: Qt.rgba(1, 1, 1, 0.15)
             anchors.verticalCenter: parent.verticalCenter

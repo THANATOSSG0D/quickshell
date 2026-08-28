@@ -97,6 +97,11 @@ Scope {
     id: bar
     osdService:   osd.osdService
     notifService: notifService
+    // Injetada abaixo, após dmenuIpc ser criado — ordem de declaração não
+    // importa em QML (binding resolve na conclusão do componente). Usada
+    // pelo módulo "dmenu" da barra (Dmenu.qml) pra chamar openNative()
+    // direto do clique, sem precisar de IPC externo.
+    dmenuIpcRef:  dmenuIpc
 
     onSilenceModeChanged: {
       if (silenceMode)
@@ -132,6 +137,7 @@ Scope {
 
     osdService:   osd.osdService
     notifService: notifService
+    dmenuIpcRef:  dmenuIpc
   }
 
   // ── DmenuIpc — habilita scripts externos via: cmd | qs-dmenu ────────────

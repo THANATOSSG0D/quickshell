@@ -3,3 +3,5 @@ DmenuPanel     DmenuPanel.qml
 DmenuPopup     DmenuPopup.qml
 DmenuIpc       DmenuIpc.qml
 DmenuConfig    DmenuConfig.qml
+Dmenu          Dmenu.qml
+singleton DmenuTooltip   DmenuTooltip.qml

@@ -593,6 +593,9 @@ Item {
     paletteClkTextColor  = paletteClkText
     paletteClkDimColor   = paletteClkDim
     paletteClkAccentColor= paletteClkAccent
+    paletteDmenuText     = resolve(get("dmenu","textColor"))
+    paletteDmenuDim      = resolve(get("dmenu","dimColor"))
+    paletteDmenuAccent   = resolve(get("dmenu","accentColor"))
     paletteTasksText        = resolve(get("tasks","textColor"))
     paletteTasksDim         = resolve(get("tasks","dimColor"))
     paletteTasksAccent      = resolve(get("tasks","accentColor"))
@@ -659,6 +662,10 @@ Item {
   property color paletteClkTextColor:    "#e2e2e2"
   property color paletteClkDimColor:     "#9e9e9e"
   property color paletteClkAccentColor:  "#ffb4a9"
+
+  property color paletteDmenuText:       "#e2e2e2"
+  property color paletteDmenuDim:        "#9e9e9e"
+  property color paletteDmenuAccent:     "#ffb4a9"
 
   property color paletteTasksText:         "#e2e2e2"
   property color paletteTasksDim:          "#9e9e9e"
@@ -802,6 +809,22 @@ Item {
 
   // clock
   readonly property int clkDismissDelayMs: get("clock","dismissDelayMs") || 8000
+
+  // dmenu
+  readonly property string dmenuDisplayMode:   get("dmenu","displayMode")   || "title"
+  readonly property string dmenuIconGlyph:     get("dmenu","iconGlyph")     || "\uf00a"
+  readonly property string dmenuEmptyText:     get("dmenu","emptyText")     || "Desktop"
+  readonly property int    dmenuTitleMaxWidth: get("dmenu","titleMaxWidth") || 180
+  readonly property string dmenuOpenMode:      get("dmenu","openMode")      || "drun"
+  readonly property int    dmenuWindowIconSize: get("dmenu","windowIconSize") || 18
+  readonly property bool   dmenuTextStatic:     get("dmenu","textStatic")     === true
+  readonly property int    dmenuScrollSpeed:    get("dmenu","scrollSpeed")    || 40
+  readonly property int    dmenuScrollPauseMs:  get("dmenu","scrollPauseMs") ?? 1800
+  readonly property bool   dmenuShowWorkspace:     get("dmenu","showWorkspace")     === true
+  readonly property string dmenuWorkspacePosition: get("dmenu","workspacePosition") || "before"
+  readonly property string dmenuWorkspaceFormat:   get("dmenu","workspaceFormat")   || "number"
+  readonly property int    dmenuWorkspaceChipWidth: get("dmenu","workspaceChipWidth") || 20
+  readonly property string dmenuWorkspaceIconMap:   get("dmenu","workspaceIconMap")   || ""
 
   // volume
   readonly property bool volShowSink:   get("volume","showSink")   !== false

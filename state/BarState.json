@@ -129,10 +129,16 @@
                 "barMargin": 3,
                 "barSize": 24,
                 "islandRadius": 19,
-                "moduleScale": 0.7000000000000001,
+                "moduleScale": 0.8000000000000002,
                 "modules": {
                     "center": [
                         "workspaces"
+                    ],
+                    "left": [
+                        "mediaplayer",
+                        "separator",
+                        "dmenu",
+                        "quicksettings"
                     ],
                     "right": [
                         "clock",
@@ -146,6 +152,18 @@
                 "pillMinSpacing": 5,
                 "position": 1
             },
+            "dmenu": {
+                "displayMode": "title",
+                "scrollPauseMs": 3000,
+                "scrollSpeed": 10,
+                "showWorkspace": false,
+                "textStatic": true,
+                "titleMaxWidth": 280,
+                "workspaceChipWidth": 16,
+                "workspaceFormat": "both",
+                "workspaceIconMap": "333",
+                "workspacePosition": "after"
+            },
             "mediaplayer": {
                 "textColorActive": "primary",
                 "textMode": "artistAndTitle"
@@ -156,7 +174,19 @@
                 "barBgPill": "shadow"
             },
             "workspaces": {
-                "iconMonochrome": true,
+                "focus": {
+                    "bgInactiveEnabled": false,
+                    "bgOpacityActive": 0.6999999999999998,
+                    "bgPaddingH": 1,
+                    "bgPaddingHActive": 4,
+                    "bgPaddingV": 0,
+                    "bgPaddingVActive": 0,
+                    "bgRadiusActive": 20,
+                    "fontSize": 9
+                },
+                "iconMonochrome": false,
+                "iconSize": 17,
+                "iconSpacing": 4,
                 "icons": {
                     "bgColorActive": "primary_container",
                     "bgPaddingH": 0,
@@ -165,7 +195,9 @@
                     "iconMonoColorActive": "on_primary_fixed_variant"
                 },
                 "scrollEnabled": true,
-                "showAddButton": false
+                "showAddButton": true,
+                "spacing": 2,
+                "style": "focus"
             }
         },
         "Minimal": {

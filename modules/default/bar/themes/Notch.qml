@@ -5,6 +5,7 @@ import "../modules" as Modules
 import "../../volume" as Vol
 import "../../mediaPlayer/" as Media
 import "../../clock" as ClockModule
+import "../../dmenu" as DmenuModule
 import "../../tasks" as TasksModule
 import "../../quicksettings" as QsModule
 import "../../notifications" as NotifModule
@@ -57,6 +58,7 @@ Item {
   signal sinkPanelRequested()
   signal sourcePanelRequested()
   signal clockPanelRequested()
+  signal dmenuRequested()
   signal tasksPanelRequested()
   signal quickSettingsPanelRequested()
   signal notificationsPanelRequested()
@@ -68,6 +70,7 @@ Item {
   property var sinkWidget:    null
   property var sourceWidget:  null
   property var clock:         null
+  property var dmenu:         null
   property var tasks:         null
   property var notifWidget:   null
   property var qsWidget:      null
@@ -203,6 +206,26 @@ Item {
   property int   cfgClkDismissDelay: 6000
   property real  cfgClkFontScale:    1.0
 
+  // ── Configs Dmenu ────────────────────────────────────────────────────
+  property color  cfgDmenuTextColor:    Qt.rgba(1,1,1,1.0)
+  property color  cfgDmenuDimColor:     Qt.rgba(1,1,1,0.5)
+  property color  cfgDmenuAccent:       Qt.rgba(1,1,1,1.0)
+  property string cfgDmenuDisplayMode:  "title"
+  property string cfgDmenuIconGlyph:    "\uf00a"
+  property string cfgDmenuEmptyText:    "Desktop"
+  property int    cfgDmenuTitleMaxWidth: 180
+  property string cfgDmenuOpenMode:     "drun"
+  property real   cfgDmenuFontScale:    1.0
+  property int    cfgDmenuWindowIconSize: 18
+  property bool   cfgDmenuTextStatic:     false
+  property int    cfgDmenuScrollSpeed:    40
+  property int    cfgDmenuScrollPauseMs:  1800
+  property bool   cfgDmenuShowWorkspace:      false
+  property string cfgDmenuWorkspacePosition:  "before"
+  property string cfgDmenuWorkspaceFormat:    "number"
+  property int    cfgDmenuWorkspaceChipWidth: 20
+  property string cfgDmenuWorkspaceIconMap:   ""
+
   // ── Configs Tasks ────────────────────────────────────────────────────
   property color cfgTasksTextColor: Qt.rgba(1,1,1,0.9)
   property color cfgTasksDimColor:  Qt.rgba(1,1,1,0.45)
@@ -310,6 +333,7 @@ Item {
     root.sinkWidget   = _findRef(leftRep,   "sinkWidget")   || _findRef(centerRep, "sinkWidget")   || _findRef(rightRep,  "sinkWidget")
     root.sourceWidget = _findRef(leftRep,   "sourceWidget") || _findRef(centerRep, "sourceWidget") || _findRef(rightRep,  "sourceWidget")
     root.clock        = _findRef(leftRep,   "clock")        || _findRef(centerRep, "clock")        || _findRef(rightRep,  "clock")
+    root.dmenu        = _findRef(leftRep,   "dmenu")        || _findRef(centerRep, "dmenu")        || _findRef(rightRep,  "dmenu")
     root.tasks        = _findRef(leftRep,   "tasks")        || _findRef(centerRep, "tasks")        || _findRef(rightRep,  "tasks")
     root.notifWidget  = _findRef(leftRep,   "notifWidget")  || _findRef(centerRep, "notifWidget")  || _findRef(rightRep,  "notifWidget")
     root.qsWidget      = _findRef(leftRep,   "qsWidget")      || _findRef(centerRep, "qsWidget")      || _findRef(rightRep,  "qsWidget")
@@ -338,6 +362,7 @@ Item {
       readonly property var sinkWidget:   skLoader.active  && skLoader.item  ? skLoader.item  : null
       readonly property var sourceWidget: srLoader.active  && srLoader.item  ? srLoader.item  : null
       readonly property var clock:        ckLoader.active  && ckLoader.item  ? ckLoader.item  : null
+      readonly property var dmenu:        dmLoader.active  && dmLoader.item  ? dmLoader.item  : null
       readonly property var tasks:        tkLoader.active  && tkLoader.item  ? tkLoader.item  : null
       readonly property var notifWidget:  nfLoader.active  && nfLoader.item  ? nfLoader.item  : null
       readonly property var qsWidget:     qsLoader.active  && qsLoader.item  ? qsLoader.item  : null
@@ -363,6 +388,7 @@ Item {
         if (modId === "sink")           return skLoader
         if (modId === "source")         return srLoader
         if (modId === "clock")          return ckLoader
+        if (modId === "dmenu")          return dmLoader
         if (modId === "tasks")          return tkLoader
         if (modId === "quicksettings")  return qsLoader
         if (modId === "workspaces")     return wsLoader
@@ -471,6 +497,28 @@ Item {
             accentColor: root.cfgClkAccent; dismissDelay: root.cfgClkDismissDelay
             fontScale: root.cfgClkFontScale
             onPanelRequested: root.clockPanelRequested()
+          }
+        }
+        onItemChanged: if (item) root._updateRefs()
+      }
+
+      Loader {
+        id: dmLoader
+        active: modId === "dmenu"
+        anchors.centerIn: parent
+        sourceComponent: Component {
+          DmenuModule.Dmenu {
+            isHorizontal: true; barPosition: root.barPosition
+            textColor: root.cfgDmenuTextColor; dimColor: root.cfgDmenuDimColor
+            accentColor: root.cfgDmenuAccent; displayMode: root.cfgDmenuDisplayMode
+            iconGlyph: root.cfgDmenuIconGlyph; emptyText: root.cfgDmenuEmptyText
+            titleMaxWidth: root.cfgDmenuTitleMaxWidth; fontScale: root.cfgDmenuFontScale
+            windowIconSize: root.cfgDmenuWindowIconSize; textStatic: root.cfgDmenuTextStatic
+            scrollSpeed: root.cfgDmenuScrollSpeed; scrollPauseMs: root.cfgDmenuScrollPauseMs
+            showWorkspace: root.cfgDmenuShowWorkspace; workspacePosition: root.cfgDmenuWorkspacePosition
+            workspaceFormat: root.cfgDmenuWorkspaceFormat; workspaceChipWidth: root.cfgDmenuWorkspaceChipWidth
+            workspaceIconMap: root.cfgDmenuWorkspaceIconMap
+            onPanelRequested: root.dmenuRequested()
           }
         }
         onItemChanged: if (item) root._updateRefs()

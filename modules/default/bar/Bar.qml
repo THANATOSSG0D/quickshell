@@ -83,6 +83,11 @@ Scope {
   property var osdService: null
   property var notifService: null
 
+  // Referência à instância única de DmenuIpc (shell.qml) — usada pelo
+  // módulo "dmenu" da barra (Dmenu.qml) pra abrir o launcher direto do
+  // clique, sem depender do IpcHandler externo.
+  property var dmenuIpcRef: null
+
   // silenceMode — lido pelo shell.qml para propagar ao osd e notifService
   readonly property bool silenceMode: barState.silenceMode
 
@@ -1287,6 +1292,25 @@ Scope {
         _set("cfgClkAccent",       barState.config.paletteClkAccentColor)
         _set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)
         _set("cfgClkFontScale",    barState.config.moduleScale)
+        // dmenu
+        _set("cfgDmenuTextColor",     barState.config.paletteDmenuText)
+        _set("cfgDmenuDimColor",      barState.config.paletteDmenuDim)
+        _set("cfgDmenuAccent",        barState.config.paletteDmenuAccent)
+        _set("cfgDmenuDisplayMode",   barState.config.dmenuDisplayMode)
+        _set("cfgDmenuIconGlyph",     barState.config.dmenuIconGlyph)
+        _set("cfgDmenuEmptyText",     barState.config.dmenuEmptyText)
+        _set("cfgDmenuTitleMaxWidth", barState.config.dmenuTitleMaxWidth)
+        _set("cfgDmenuOpenMode",      barState.config.dmenuOpenMode)
+        _set("cfgDmenuFontScale",     barState.config.moduleScale)
+        _set("cfgDmenuWindowIconSize", barState.config.dmenuWindowIconSize)
+        _set("cfgDmenuTextStatic",     barState.config.dmenuTextStatic)
+        _set("cfgDmenuScrollSpeed",    barState.config.dmenuScrollSpeed)
+        _set("cfgDmenuScrollPauseMs",  barState.config.dmenuScrollPauseMs)
+        _set("cfgDmenuShowWorkspace",     barState.config.dmenuShowWorkspace)
+        _set("cfgDmenuWorkspacePosition", barState.config.dmenuWorkspacePosition)
+        _set("cfgDmenuWorkspaceFormat",   barState.config.dmenuWorkspaceFormat)
+        _set("cfgDmenuWorkspaceChipWidth", barState.config.dmenuWorkspaceChipWidth)
+        _set("cfgDmenuWorkspaceIconMap",   barState.config.dmenuWorkspaceIconMap)
         _set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)
         _set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)
         _set("cfgTasksAccent",     barState.config.paletteTasksAccentColor)
@@ -1483,6 +1507,24 @@ Scope {
         function onPaletteClkDimColorChanged()     { bar._set("cfgClkDimColor",     barState.config.paletteClkDimColor)    }
         function onPaletteClkAccentColorChanged()  { bar._set("cfgClkAccent",       barState.config.paletteClkAccentColor) }
         function onClkDismissDelayMsChanged()      { bar._set("cfgClkDismissDelay", barState.config.clkDismissDelayMs)     }
+        // dmenu
+        function onPaletteDmenuTextChanged()       { bar._set("cfgDmenuTextColor",     barState.config.paletteDmenuText)     }
+        function onPaletteDmenuDimChanged()        { bar._set("cfgDmenuDimColor",      barState.config.paletteDmenuDim)      }
+        function onPaletteDmenuAccentChanged()     { bar._set("cfgDmenuAccent",        barState.config.paletteDmenuAccent)   }
+        function onDmenuDisplayModeChanged()       { bar._set("cfgDmenuDisplayMode",   barState.config.dmenuDisplayMode)     }
+        function onDmenuIconGlyphChanged()         { bar._set("cfgDmenuIconGlyph",     barState.config.dmenuIconGlyph)       }
+        function onDmenuEmptyTextChanged()         { bar._set("cfgDmenuEmptyText",     barState.config.dmenuEmptyText)       }
+        function onDmenuTitleMaxWidthChanged()     { bar._set("cfgDmenuTitleMaxWidth", barState.config.dmenuTitleMaxWidth)   }
+        function onDmenuOpenModeChanged()          { bar._set("cfgDmenuOpenMode",      barState.config.dmenuOpenMode)        }
+        function onDmenuWindowIconSizeChanged()    { bar._set("cfgDmenuWindowIconSize", barState.config.dmenuWindowIconSize) }
+        function onDmenuTextStaticChanged()        { bar._set("cfgDmenuTextStatic",     barState.config.dmenuTextStatic)     }
+        function onDmenuScrollSpeedChanged()       { bar._set("cfgDmenuScrollSpeed",    barState.config.dmenuScrollSpeed)    }
+        function onDmenuScrollPauseMsChanged()     { bar._set("cfgDmenuScrollPauseMs",  barState.config.dmenuScrollPauseMs)  }
+        function onDmenuShowWorkspaceChanged()      { bar._set("cfgDmenuShowWorkspace",      barState.config.dmenuShowWorkspace)      }
+        function onDmenuWorkspacePositionChanged()  { bar._set("cfgDmenuWorkspacePosition",  barState.config.dmenuWorkspacePosition)  }
+        function onDmenuWorkspaceFormatChanged()    { bar._set("cfgDmenuWorkspaceFormat",    barState.config.dmenuWorkspaceFormat)    }
+        function onDmenuWorkspaceChipWidthChanged() { bar._set("cfgDmenuWorkspaceChipWidth", barState.config.dmenuWorkspaceChipWidth) }
+        function onDmenuWorkspaceIconMapChanged()   { bar._set("cfgDmenuWorkspaceIconMap",   barState.config.dmenuWorkspaceIconMap)   }
         function onPaletteTasksTextColorChanged()  { bar._set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)   }
         function onPaletteTasksDimColorChanged()   { bar._set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)    }
         function onPaletteTasksAccentColorChanged(){ bar._set("cfgTasksAccent",     barState.config.paletteTasksAccentColor) }
@@ -1580,6 +1622,28 @@ Scope {
         }
         function onNotificationsPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelNotif);  panelCooldown.restart() }
+        }
+        // Dmenu não é um BarPopup interno — é o launcher externo gerenciado
+        // por DmenuIpc (shell.qml). Só repassa o clique pra ele, no modo
+        // configurado (cfgDmenuOpenMode / aba "Dmenu" do editor).
+        function onDmenuRequested() {
+          if (!panelCooldown.running) {
+            var mode = barRoot.configRef ? barRoot.configRef.dmenuOpenMode : "drun"
+            var ipc  = barRoot.dmenuIpcRef
+            if (ipc) {
+              // openNative() só fecha sozinho se dmenuConfig.dmenuToggle
+              // estiver ligado (preferência global, pensada pro atalho de
+              // teclado) — o clique do botão precisa ser toggle sempre,
+              // então checamos panelVisible/currentNativeMode nós mesmos
+              // (é exatamente pra isso que a DmenuIpc expõe as duas).
+              if (ipc.panelVisible && ipc.currentNativeMode === mode) {
+                ipc._closeAll()
+              } else {
+                ipc.openNative(mode)
+              }
+            }
+            panelCooldown.restart()
+          }
         }
         // O tema também pode pedir o editor directamente
         function onEditorRequested() {

@@ -12,6 +12,7 @@
         "workspaces",
         "mediaplayer",
         "clock",
+        "dmenu",
         "tasks",
         "volume",
         "quicksettings",

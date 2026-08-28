@@ -173,9 +173,9 @@ PanelWindow {
   // Definição dos módulos e suas subabas
   readonly property var _allModules: [
     { id: "bar",        icon: "\uf0c9", label: "Barra",
-      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Tarefas", "Volume", "Config Rápida", "Notificações"] },
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Tarefas", "Volume", "Config Rápida", "Notificações", "Dmenu"] },
     { id: "dock",       icon: "\uf2d1", label: "Dock",
-      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Tarefas", "Volume", "Config Rápida", "Notificações"] },
+      subtabs: ["Geral", "Barra", "Módulos", "Workspaces", "Mídia", "Relógio", "Tarefas", "Volume", "Config Rápida", "Notificações", "Dmenu"] },
     { id: "wallpaper",  icon: "\uf03e", label: "Wallpaper",
       subtabs: ["Wallpaper", "Matugen", "Perfis", "Histórico", "Schedule"] },
     { id: "paineis",    icon: "\uf2d2", label: "Painéis",
@@ -226,6 +226,7 @@ PanelWindow {
     "volume",          // 7 Volume
     "quicksettings",   // 8 Config Rápida
     "notifications",   // 9 Notificações
+    "dmenu",           // 10 Dmenu
   ]
 
   // Delega ao contrato do tema ativo
@@ -840,6 +841,26 @@ PanelWindow {
             }
             Connections {
               target: loaderNotifications.item
+              function onChanged(opts) { win.applyChange(opts) }
+            }
+          }
+
+          // Subtab 10: Dmenu
+          Loader {
+            id: loaderDmenu
+            anchors.fill: parent
+            active: win._isBarSection && win.subtab(win.activeModule) === 10
+            sourceComponent: Component {
+              Tabs.BarTabDmenu {
+                id: tabDmenu
+                config: win.config; overlay: popupOverlay; colors: win._effectiveColors
+                colorAccent: win.colorAccent; colorTextDim: win.colorTextDim
+                colorText: win.colorText; colorDivider: win.colorDivider
+                colorSidebar: win.colorSidebar; colorProgressBg: win.colorProgressBg
+              }
+            }
+            Connections {
+              target: loaderDmenu.item
               function onChanged(opts) { win.applyChange(opts) }
             }
           }

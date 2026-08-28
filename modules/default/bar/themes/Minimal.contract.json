@@ -10,6 +10,7 @@
     "modules": [
         "workspaces",
         "clock",
+        "dmenu",
         "tasks",
         "notifications"
     ]

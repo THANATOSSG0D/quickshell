@@ -26,7 +26,7 @@ QtObject {
   // ── Módulos disponíveis para layout do bar ─────────────────────────────
   readonly property var moduleIds: [
     "mediaplayer", "workspaces", "clock", "tasks", "volume",
-    "quicksettings", "notifications", "separator"
+    "quicksettings", "notifications", "dmenu", "separator"
   ]
 
   // ── Schema completo ────────────────────────────────────────────────────
@@ -142,6 +142,36 @@ QtObject {
         { key:"textColor",      type:"palette", default:"on_surface",        label:"Texto",  section:"CORES" },
         { key:"dimColor",       type:"palette", default:"on_surface_variant",label:"Dim",    section:"CORES" },
         { key:"accentColor",    type:"palette", default:"primary",           label:"Acento", section:"CORES" },
+      ]
+    },
+
+    // ══════════════════════════════════════════════
+    // DMENU — botão da barra que abre o launcher (DmenuIpc.openNative)
+    // ══════════════════════════════════════════════
+    {
+      id: "dmenu", label: "Dmenu", perTheme: true, perStyle: false,
+      props: [
+        { key:"displayMode", type:"enum", default:"title", label:"Exibir", section:"GERAL",
+          options:[{id:"title",label:"Título da janela"},{id:"icon",label:"Ícone fixo"},{id:"windowIcon",label:"Ícone da janela"}] },
+        { key:"iconGlyph",     type:"string", default:"\uf00a", label:"Glifo do ícone",        section:"GERAL" },
+        { key:"emptyText",     type:"string", default:"Desktop", label:"Texto sem janela ativa", section:"GERAL" },
+        { key:"windowIconSize", type:"int",   default:18, min:12, max:32, step:1, unit:"px", label:"Tamanho do ícone da janela", section:"GERAL" },
+        { key:"textStatic",    type:"bool",   default:false, label:"Texto estático (sem carretel)", section:"CARRETEL" },
+        { key:"titleMaxWidth", type:"int",    default:180, min:60, max:400, step:10, unit:"px", label:"Largura do título", section:"CARRETEL" },
+        { key:"scrollSpeed",   type:"int",    default:40, min:10, max:120, step:5, unit:"px/s", label:"Velocidade do carretel", section:"CARRETEL" },
+        { key:"scrollPauseMs", type:"int",    default:1800, min:0, max:5000, step:100, unit:"ms", label:"Pausa antes de rolar", section:"CARRETEL" },
+        { key:"openMode",    type:"enum", default:"drun", label:"Abre em", section:"COMPORTAMENTO",
+          options:[{id:"drun",label:"Aplicativos"},{id:"run",label:"Executar"},{id:"window",label:"Janelas"}] },
+        { key:"showWorkspace", type:"bool", default:false, label:"Mostrar workspace", section:"WORKSPACE" },
+        { key:"workspacePosition", type:"enum", default:"before", label:"Posição", section:"WORKSPACE",
+          options:[{id:"before",label:"Antes"},{id:"after",label:"Depois"}] },
+        { key:"workspaceFormat", type:"enum", default:"number", label:"Formato", section:"WORKSPACE",
+          options:[{id:"number",label:"Número"},{id:"icon",label:"Ícone"},{id:"both",label:"Ícone + número"}] },
+        { key:"workspaceChipWidth", type:"int", default:20, min:14, max:40, step:1, unit:"px", label:"Largura do selo", section:"WORKSPACE" },
+        { key:"workspaceIconMap", type:"string", default:"", label:"Ícones por workspace", section:"WORKSPACE" },
+        { key:"textColor",   type:"palette", default:"on_surface",         label:"Texto",  section:"CORES" },
+        { key:"dimColor",    type:"palette", default:"on_surface_variant", label:"Dim",    section:"CORES" },
+        { key:"accentColor", type:"palette", default:"primary",            label:"Acento", section:"CORES" },
       ]
     },
 
