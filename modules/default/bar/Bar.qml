@@ -934,11 +934,12 @@ Scope {
         // ou seja, cada painel passa a ter tooltip independente de verdade.
         // TooltipSettings.* continua existindo só como fallback (caso o
         // item hoverado não esteja dentro de nenhum barContentRoot).
-        property bool   cfgTooltipEnabled:  barState.config.tooltipEnabled
-        property int    cfgTooltipMinWidth: barState.config.tooltipMinWidth
-        property int    cfgTooltipMaxWidth: barState.config.tooltipMaxWidth
-        property string cfgTooltipAlign:    barState.config.tooltipAlign
-        property int    cfgTooltipOffset:   barState.config.tooltipOffset
+        property bool   cfgTooltipEnabled:    barState.config.tooltipEnabled
+        property string cfgTooltipWidthMode:  barState.config.tooltipWidthMode
+        property int    cfgTooltipMaxWidth:   barState.config.tooltipMaxWidth
+        property int    cfgTooltipFixedWidth: barState.config.tooltipFixedWidth
+        property string cfgTooltipAlign:      barState.config.tooltipAlign
+        property int    cfgTooltipOffset:     barState.config.tooltipOffset
 
         // ── Bindings reativos de módulos ──────────────────────────────────
         // Usam barState.modulesLeft (propriedade direta) em vez de
@@ -1296,7 +1297,9 @@ Scope {
         _set("cfgDmenuTextColor",     barState.config.paletteDmenuText)
         _set("cfgDmenuDimColor",      barState.config.paletteDmenuDim)
         _set("cfgDmenuAccent",        barState.config.paletteDmenuAccent)
-        _set("cfgDmenuDisplayMode",   barState.config.dmenuDisplayMode)
+        _set("cfgDmenuShowIcon",      barState.config.dmenuShowIcon)
+        _set("cfgDmenuIconType",      barState.config.dmenuIconType)
+        _set("cfgDmenuShowTitle",     barState.config.dmenuShowTitle)
         _set("cfgDmenuIconGlyph",     barState.config.dmenuIconGlyph)
         _set("cfgDmenuEmptyText",     barState.config.dmenuEmptyText)
         _set("cfgDmenuTitleMaxWidth", barState.config.dmenuTitleMaxWidth)
@@ -1311,6 +1314,7 @@ Scope {
         _set("cfgDmenuWorkspaceFormat",   barState.config.dmenuWorkspaceFormat)
         _set("cfgDmenuWorkspaceChipWidth", barState.config.dmenuWorkspaceChipWidth)
         _set("cfgDmenuWorkspaceIconMap",   barState.config.dmenuWorkspaceIconMap)
+        _set("cfgDmenuWorkspaceIgnorePattern", barState.config.dmenuWorkspaceIgnorePattern)
         _set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)
         _set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)
         _set("cfgTasksAccent",     barState.config.paletteTasksAccentColor)
@@ -1511,7 +1515,9 @@ Scope {
         function onPaletteDmenuTextChanged()       { bar._set("cfgDmenuTextColor",     barState.config.paletteDmenuText)     }
         function onPaletteDmenuDimChanged()        { bar._set("cfgDmenuDimColor",      barState.config.paletteDmenuDim)      }
         function onPaletteDmenuAccentChanged()     { bar._set("cfgDmenuAccent",        barState.config.paletteDmenuAccent)   }
-        function onDmenuDisplayModeChanged()       { bar._set("cfgDmenuDisplayMode",   barState.config.dmenuDisplayMode)     }
+        function onDmenuShowIconChanged()          { bar._set("cfgDmenuShowIcon",      barState.config.dmenuShowIcon)        }
+        function onDmenuIconTypeChanged()          { bar._set("cfgDmenuIconType",      barState.config.dmenuIconType)        }
+        function onDmenuShowTitleChanged()         { bar._set("cfgDmenuShowTitle",     barState.config.dmenuShowTitle)       }
         function onDmenuIconGlyphChanged()         { bar._set("cfgDmenuIconGlyph",     barState.config.dmenuIconGlyph)       }
         function onDmenuEmptyTextChanged()         { bar._set("cfgDmenuEmptyText",     barState.config.dmenuEmptyText)       }
         function onDmenuTitleMaxWidthChanged()     { bar._set("cfgDmenuTitleMaxWidth", barState.config.dmenuTitleMaxWidth)   }
@@ -1525,6 +1531,7 @@ Scope {
         function onDmenuWorkspaceFormatChanged()    { bar._set("cfgDmenuWorkspaceFormat",    barState.config.dmenuWorkspaceFormat)    }
         function onDmenuWorkspaceChipWidthChanged() { bar._set("cfgDmenuWorkspaceChipWidth", barState.config.dmenuWorkspaceChipWidth) }
         function onDmenuWorkspaceIconMapChanged()   { bar._set("cfgDmenuWorkspaceIconMap",   barState.config.dmenuWorkspaceIconMap)   }
+        function onDmenuWorkspaceIgnorePatternChanged() { bar._set("cfgDmenuWorkspaceIgnorePattern", barState.config.dmenuWorkspaceIgnorePattern) }
         function onPaletteTasksTextColorChanged()  { bar._set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)   }
         function onPaletteTasksDimColorChanged()   { bar._set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)    }
         function onPaletteTasksAccentColorChanged(){ bar._set("cfgTasksAccent",     barState.config.paletteTasksAccentColor) }

@@ -7,15 +7,16 @@ import QtQuick
 // ── Dmenu ──────────────────────────────────────────────────────────────────
 // Widget da barra. Botão que abre o dmenu (launcher) ao clique esquerdo.
 //
-// displayMode:
-//   "title"      → título da janela focada, com carretel (scroll) opcional
-//                  — mesmo padrão de scroll/font do MediaPlayer.qml
-//   "icon"       → glifo fixo escolhido pelo usuário (iconGlyph)
-//   "windowIcon" → ícone do APP da janela focada (Hyprland.activeToplevel.appId
-//                  → DesktopEntries → fallback de caminhos de tema de ícone
-//                  → glifo Nerd Font se nada for achado) — mesmo fallback em
-//                  camadas do artworkComp do MediaPlayer.qml, sem a camada de
-//                  capa de álbum (não existe equivalente aqui).
+// Ícone e título são independentes e combináveis (showIcon/showTitle) —
+// dá pra ter só um dos dois, ou os dois juntos, tipo item de taskbar:
+//   showIcon  + iconType "glyph" → glifo fixo escolhido (iconGlyph)
+//   showIcon  + iconType "app"   → ícone do APP da janela focada
+//                (Hyprland.activeToplevel.appId → DesktopEntries →
+//                "image://icon/" → glifo Nerd Font se nada for achado —
+//                mesmo image provider que o DmenuContent.qml usa pro drun)
+//   showTitle                    → título da janela focada, com carretel
+//                (scroll) opcional — mesmo padrão de scroll/font do
+//                MediaPlayer.qml
 //
 // Espaço FIXO: assim como o MediaPlayer.qml (que reserva scrollWidth/
 // artworkSize sempre, título curto ou longo), implicitWidth/Height aqui são
@@ -26,7 +27,9 @@ import QtQuick
 //
 // Sem janela ativa (área de trabalho vazia) → mostra emptyText, sempre.
 // Vertical: espaço é curto demais pro título — mostra sempre o ícone
-// (windowIcon se configurado, senão o glifo fixo).
+// (do app se iconType "app", senão o glifo fixo; se showIcon estiver
+// desligado mas showTitle ligado, cai no glifo mesmo assim, senão o
+// módulo desaparece de vez na barra vertical).
 //
 // Tooltip (hover): classe/tags/tipo de conteúdo/pid via DmenuTooltip.qml
 // (singleton próprio, vizinho deste arquivo — mesmo padrão do
@@ -59,7 +62,9 @@ Item {
   property color dimColor:    Qt.rgba(1, 1, 1, 0.5)
   property color accentColor: "white"
 
-  property string displayMode:   "title"   // "title" | "icon" | "windowIcon"
+  property bool   showIcon:      true
+  property string iconType:      "glyph"   // "glyph" | "app"
+  property bool   showTitle:     true
   property string iconGlyph:     "\uf00a"  // glifo Nerd Font — trocável pelo usuário
   property string emptyText:     "Desktop"
   property int    titleMaxWidth: 180
@@ -70,7 +75,7 @@ Item {
   property int  scrollSpeed:   40
   property int  scrollPauseMs: 1800
 
-  // ── Ícone da janela (displayMode: "windowIcon") ─────────────────────────
+  // ── Ícone da janela (showIcon + iconType "app") ─────────────────────────
   property int windowIconSize: 18
 
   // ── Indicador de workspace (opcional) — igual ao "window#waybar.class"
@@ -104,9 +109,9 @@ Item {
   }
   readonly property real _iconGlyphW: Math.ceil(glyphMetrics.advanceWidth(root.iconGlyph || " "))
 
-  readonly property real _contentW: root.displayMode === "windowIcon" ? root.windowIconSize
-                                   : root.displayMode === "icon"       ? root._iconGlyphW
-                                   :                                     root.titleMaxWidth
+  readonly property real _iconW:   root.showIcon  ? (root.iconType === "app" ? root.windowIconSize : root._iconGlyphW) : 0
+  readonly property real _titleW:  root.showTitle ? root.titleMaxWidth : 0
+  readonly property real _contentW: root._iconW + (root.showIcon && root.showTitle ? 6 : 0) + root._titleW
   readonly property real _contentH: Math.round(16 * root.fontScale)
   readonly property real _wsChipW:  root.showWorkspace ? (root.workspaceChipWidth + 6) : 0
 
@@ -207,12 +212,49 @@ Item {
     root._closeContextMenu()
   }
 
+  // "emptym" é o seletor especial do Hyprland pra próxima workspace vazia
+  // no monitor atual — sempre disponível, não depende de nenhuma
+  // workspace já existir/estar na lista.
+  function _moveToEmptyWorkspace() {
+    Hyprland.dispatch("movetoworkspace emptym")
+    root._closeContextMenu()
+  }
+
+  // Padrões (glob simples, "*" como coringa) separados por vírgula pra
+  // esconder workspaces da lista de "mover para" — ex: "special-T*"
+  // pra workspaces especiais de script de scratchpad, "special:*" pras
+  // especiais nativas do Hyprland.
+  property string workspaceIgnorePattern: ""
+
+  function _globToRegex(glob) {
+    var esc = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    esc = esc.replace(/\*/g, ".*")
+    return new RegExp("^" + esc + "$", "i")
+  }
+
+  function _isWorkspaceIgnored(ws) {
+    if (!root.workspaceIgnorePattern) return false
+    var patterns = root.workspaceIgnorePattern.split(",")
+    for (var i = 0; i < patterns.length; i++) {
+      var p = patterns[i].trim()
+      if (p === "") continue
+      try {
+        var re = root._globToRegex(p)
+        if (re.test(ws.name) || re.test(String(ws.id))) return true
+      } catch (e) { /* padrão inválido — ignora essa entrada, não quebra o resto */ }
+    }
+    return false
+  }
+
   readonly property var _workspaceList: {
     var out = []
     var all = Hyprland.workspaces ? Hyprland.workspaces.values : []
     for (var i = 0; i < all.length; i++) {
       var w = all[i]
-      out.push({ id: w.id, name: (w.name && w.name !== "") ? w.name : String(w.id) })
+      var entry = { id: w.id, name: (w.name && w.name !== "") ? w.name : String(w.id) }
+      if (root._wsInfo && entry.id === root._wsInfo.id) continue   // já está nela
+      if (root._isWorkspaceIgnored(entry)) continue
+      out.push(entry)
     }
     return out
   }
@@ -316,7 +358,7 @@ Item {
       onNeedsScrollChanged: hScroll.restart()
       Connections {
         target: root
-        function onDisplayModeChanged()   { hScroll.restart() }
+        function onShowTitleChanged()      { hScroll.restart() }
         function onTitleMaxWidthChanged() { hScroll.restart() }
         function onTextStaticChanged()    { hScroll.restart() }
       }
@@ -359,13 +401,13 @@ Item {
 
     Loader {
       anchors.verticalCenter: parent.verticalCenter
-      active:          root.displayMode === "windowIcon"
+      active:          root.showIcon && root.iconType === "app"
       visible:         active
       sourceComponent: windowIconComp
     }
 
     Text {
-      visible:                 root.displayMode === "icon"
+      visible:                 root.showIcon && root.iconType !== "app"
       anchors.verticalCenter:  parent.verticalCenter
       text:                    root.iconGlyph
       color:                   root._hasWindow ? root.textColor : root.dimColor
@@ -376,7 +418,7 @@ Item {
 
     Loader {
       anchors.verticalCenter: parent.verticalCenter
-      active:          root.displayMode === "title"
+      active:          root.showTitle
       visible:         active
       sourceComponent: hScrollComp
     }
@@ -412,13 +454,13 @@ Item {
 
     Loader {
       anchors.horizontalCenter: parent.horizontalCenter
-      active:          root.displayMode === "windowIcon"
+      active:          root.showIcon && root.iconType === "app"
       visible:         active
       sourceComponent: windowIconComp
     }
 
     Text {
-      visible:                  root.displayMode !== "windowIcon"
+      visible:                  !(root.showIcon && root.iconType === "app")
       anchors.horizontalCenter: parent.horizontalCenter
       text:                     root.iconGlyph
       color:                    root._hasWindow ? root.textColor : root.dimColor
@@ -513,6 +555,30 @@ Item {
             id: closeMouse
             anchors.fill: parent; hoverEnabled: true
             onClicked: root._closeWindow()
+          }
+        }
+
+        Rectangle {
+          width: 190; height: 28; radius: 5
+          color: emptyMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+          Row {
+            anchors.left: parent.left; anchors.leftMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 8
+            Text {
+              text: "\uf055"; color: root.accentColor; font.pixelSize: 11
+              font.family: "JetBrainsMono Nerd Font"
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+              text: "Próxima workspace vazia"; color: "#e2e2e2"; font.pixelSize: 11
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+          MouseArea {
+            id: emptyMouse
+            anchors.fill: parent; hoverEnabled: true
+            onClicked: root._moveToEmptyWorkspace()
           }
         }
 

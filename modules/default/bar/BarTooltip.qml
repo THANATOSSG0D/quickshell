@@ -120,9 +120,11 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical:  root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.min(
+    implicitWidth: TooltipSettings.resolveWidth(
+      root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
+      root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth),
       root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
-      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), label.implicitWidth + TooltipSettings.contentPadding)
+      label.implicitWidth + TooltipSettings.contentPadding
     ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: label.implicitHeight + 10 + (_barVertical ? 0 : _touchOffset)
 
@@ -167,10 +169,11 @@ Singleton {
         font.pixelSize: 11
         font.family:    "JetBrainsMono Nerd Font"
         // elide (não wrap) + largura vinda do popup (já resolvido acima,
-        // que por sua vez usa Math.max/Math.min(minWidth, maxWidth,
-        // label.implicitWidth) — referenciar o implicitWidth do PRÓPRIO
-        // label aqui dentro de "width" é que cria o binding loop; como o
-        // popup já encapsulou esse cálculo, só precisamos ler o resultado.
+        // que por sua vez usa TooltipSettings.resolveWidth(widthMode,
+        // fixedWidth, maxWidth, label.implicitWidth)) — referenciar o
+        // implicitWidth do PRÓPRIO label aqui dentro de "width" é que
+        // cria o binding loop; como o popup já encapsulou esse cálculo,
+        // só precisamos ler o resultado.
         elide: Text.ElideRight
         width: popup.implicitWidth - TooltipSettings.contentPadding
       }

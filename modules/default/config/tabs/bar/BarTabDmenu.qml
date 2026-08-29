@@ -27,11 +27,6 @@ C.CfgScroll {
     return (v !== undefined && v !== null) ? v : def
   }
 
-  readonly property string _displayMode: root.g("displayMode", "title")
-  readonly property bool   _isTitleMode: root._displayMode === "title"
-  readonly property bool   _isIconMode:  root._displayMode === "icon"
-  readonly property bool   _isWinIcon:   root._displayMode === "windowIcon"
-
   // ── Campo de texto genérico (glifo / texto sem janela ativa) — mesmo
   //    idioma caseiro que o BarTabMidia.qml usa pra "Prioridade de players"
   component TextField: Item {
@@ -95,31 +90,62 @@ C.CfgScroll {
     font.pixelSize: 10
     width: parent.width
   }
+  C.CfgToggle {
+    label:   "Mostrar ícone"
+    checked: root.g("showIcon", true) !== false
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "dmenu", key: "showIcon", value: !(root.g("showIcon", true) !== false) })
+  }
+
+  readonly property bool _showIcon: root.g("showIcon", true) !== false
+
   Row {
     spacing: 6
+    visible: root._showIcon
     Repeater {
       model: [
-        { id: "title",      label: "Título da janela" },
-        { id: "icon",       label: "Ícone fixo"        },
-        { id: "windowIcon", label: "Ícone da janela"   },
+        { id: "glyph", label: "Glifo fixo"   },
+        { id: "app",   label: "Ícone do app" },
       ]
       delegate: C.CfgChip {
         required property var modelData
         label:  modelData.label
-        active: root._displayMode === modelData.id
+        active: root.g("iconType", "glyph") === modelData.id
         colorAccent:  root.colorAccent
         colorTextDim: root.colorTextDim
-        onChipClicked: root.changed({ moduleId: "dmenu", key: "displayMode", value: modelData.id })
+        onChipClicked: root.changed({ moduleId: "dmenu", key: "iconType", value: modelData.id })
       }
     }
   }
 
   TextField {
     key: "iconGlyph"; label: "Glifo do ícone"
-    hint: "Caractere Nerd Font — usado quando \"Exibir\" = Ícone fixo"
+    hint: "Caractere Nerd Font — usado quando o tipo de ícone é \"Glifo fixo\""
     defaultValue: "\uf00a"; fieldWidth: 70; fontFamily: "JetBrainsMono Nerd Font"
-    visible: root._isIconMode
+    visible: root._showIcon && root.g("iconType", "glyph") === "glyph"
   }
+
+  C.CfgSlider {
+    label: "Tamanho do ícone do app"; value: root.g("windowIconSize", 18)
+    from: 12; to: 32; step: 1; unit: "px"
+    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+    colorText: root.colorText; colorProgressBg: root.colorProgressBg
+    visible: root._showIcon && root.g("iconType", "glyph") === "app"
+    onMoved: (v) => root.changed({ moduleId: "dmenu", key: "windowIconSize", value: v })
+  }
+
+  C.CfgDiv { colorDivider: root.colorDivider }
+
+  C.CfgToggle {
+    label:   "Mostrar título"
+    checked: root.g("showTitle", true) !== false
+    colorAccent:  root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "dmenu", key: "showTitle", value: !(root.g("showTitle", true) !== false) })
+  }
+
+  readonly property bool _showTitle: root.g("showTitle", true) !== false
 
   TextField {
     key: "emptyText"; label: "Sem janela ativa"
@@ -127,31 +153,22 @@ C.CfgScroll {
     defaultValue: "Desktop"; fieldWidth: 130
   }
 
-  C.CfgSlider {
-    label: "Tamanho do ícone da janela"; value: root.g("windowIconSize", 18)
-    from: 12; to: 32; step: 1; unit: "px"
-    colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
-    colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    visible: root._isWinIcon
-    onMoved: (v) => root.changed({ moduleId: "dmenu", key: "windowIconSize", value: v })
-  }
-
-  C.CfgDiv { colorDivider: root.colorDivider; visible: root._isTitleMode }
-  C.CfgSection { title: "CARRETEL"; colorTextDim: root.colorTextDim; visible: root._isTitleMode }
+  C.CfgDiv { colorDivider: root.colorDivider; visible: root._showTitle }
+  C.CfgSection { title: "CARRETEL"; colorTextDim: root.colorTextDim; visible: root._showTitle }
 
   C.CfgSlider {
     label: "Largura do título"; value: root.g("titleMaxWidth", 180)
     from: 60; to: 400; step: 10; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    visible: root._isTitleMode
+    visible: root._showTitle
     onMoved: (v) => root.changed({ moduleId: "dmenu", key: "titleMaxWidth", value: v })
   }
 
   C.CfgToggle {
     label:   "Texto estático (sem carretel)"
     checked: root.g("textStatic", false) === true
-    visible: root._isTitleMode
+    visible: root._showTitle
     colorAccent:  root.colorAccent
     colorTextDim: root.colorTextDim
     onToggled: root.changed({ moduleId: "dmenu", key: "textStatic", value: !(root.g("textStatic", false) === true) })
@@ -160,7 +177,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Velocidade do carretel"; value: root.g("scrollSpeed", 40)
     from: 10; to: 120; step: 5; unit: "px/s"
-    visible: root._isTitleMode && root.g("textStatic", false) !== true
+    visible: root._showTitle && root.g("textStatic", false) !== true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "dmenu", key: "scrollSpeed", value: v })
@@ -169,7 +186,7 @@ C.CfgScroll {
   C.CfgSlider {
     label: "Pausa antes de rolar"; value: root.g("scrollPauseMs", 1800)
     from: 0; to: 5000; step: 100; unit: "ms"
-    visible: root._isTitleMode && root.g("textStatic", false) !== true
+    visible: root._showTitle && root.g("textStatic", false) !== true
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ moduleId: "dmenu", key: "scrollPauseMs", value: v })
@@ -203,6 +220,12 @@ C.CfgScroll {
         onChipClicked: root.changed({ moduleId: "dmenu", key: "openMode", value: modelData.id })
       }
     }
+  }
+
+  TextField {
+    key: "workspaceIgnorePattern"; label: "Ignorar workspaces"
+    hint: "Some da lista \"mover para\" do menu de contexto. Padrão com * como coringa, várias por vírgula — ex: \"special-T*,special:*\""
+    defaultValue: ""; fieldWidth: 160
   }
 
   C.CfgDiv { colorDivider: root.colorDivider }

@@ -151,8 +151,10 @@ QtObject {
     {
       id: "dmenu", label: "Dmenu", perTheme: true, perStyle: false,
       props: [
-        { key:"displayMode", type:"enum", default:"title", label:"Exibir", section:"GERAL",
-          options:[{id:"title",label:"Título da janela"},{id:"icon",label:"Ícone fixo"},{id:"windowIcon",label:"Ícone da janela"}] },
+        { key:"showIcon",  type:"bool", default:true, label:"Mostrar ícone", section:"GERAL" },
+        { key:"iconType",  type:"enum", default:"glyph", label:"Tipo de ícone", section:"GERAL",
+          options:[{id:"glyph",label:"Glifo fixo"},{id:"app",label:"Ícone do app"}] },
+        { key:"showTitle", type:"bool", default:true, label:"Mostrar título", section:"GERAL" },
         { key:"iconGlyph",     type:"string", default:"\uf00a", label:"Glifo do ícone",        section:"GERAL" },
         { key:"emptyText",     type:"string", default:"Desktop", label:"Texto sem janela ativa", section:"GERAL" },
         { key:"windowIconSize", type:"int",   default:18, min:12, max:32, step:1, unit:"px", label:"Tamanho do ícone da janela", section:"GERAL" },
@@ -169,6 +171,7 @@ QtObject {
           options:[{id:"number",label:"Número"},{id:"icon",label:"Ícone"},{id:"both",label:"Ícone + número"}] },
         { key:"workspaceChipWidth", type:"int", default:20, min:14, max:40, step:1, unit:"px", label:"Largura do selo", section:"WORKSPACE" },
         { key:"workspaceIconMap", type:"string", default:"", label:"Ícones por workspace", section:"WORKSPACE" },
+        { key:"workspaceIgnorePattern", type:"string", default:"", label:"Ignorar workspaces (padrão)", section:"WORKSPACE" },
         { key:"textColor",   type:"palette", default:"on_surface",         label:"Texto",  section:"CORES" },
         { key:"dimColor",    type:"palette", default:"on_surface_variant", label:"Dim",    section:"CORES" },
         { key:"accentColor", type:"palette", default:"primary",            label:"Acento", section:"CORES" },

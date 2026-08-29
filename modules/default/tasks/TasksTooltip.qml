@@ -130,14 +130,16 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    // era hardcoded em 260, ignorando completamente MinWidth/MaxWidth —
-    // agora clampado igual aos outros 6 tooltips. 260 fica só como
-    // baseline (mesmo valor de antes) quando o usuário não mexe nos
-    // sliders; o conteúdo continua usando WordWrap, então se ajusta
-    // sozinho à largura resultante.
-    implicitWidth: Math.min(
+    // era hardcoded em 260, ignorando completamente a config — agora
+    // resolvido pelo modo: "fixed" usa sempre fixedWidth; "auto" mantém
+    // o baseline de 260 (não há um "natural width" de verdade pra
+    // calcular aqui, já que o conteúdo usa WordWrap e se ajusta a
+    // qualquer largura), respeitando maxWidth como teto.
+    implicitWidth: TooltipSettings.resolveWidth(
+      root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
+      root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth),
       root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
-      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), 260)
+      260
     ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
 

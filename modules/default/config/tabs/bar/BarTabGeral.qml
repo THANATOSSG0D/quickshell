@@ -141,30 +141,49 @@ C.CfgScroll {
     onToggled: root.changed({ tooltipEnabled: !(root.g("tooltipEnabled", true) === true) })
   }
   C.CfgSlider {
-    label: "Largura mínima"; value: root.g("tooltipMinWidth", 160)
-    from: 80; to: 320; step: 8; unit: "px"
-    enabled:      root.g("tooltipEnabled", true) === true
-    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
-    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ tooltipMinWidth: v })
-  }
-  C.CfgSlider {
-    label: "Largura máxima"; value: root.g("tooltipMaxWidth", 320)
-    // nunca deixa arrastar abaixo da mínima atual — evita configurar
-    // max < min sem perceber
-    from: Math.max(120, root.g("tooltipMinWidth", 160)); to: 480; step: 8; unit: "px"
-    enabled:      root.g("tooltipEnabled", true) === true
-    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
-    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
-    onMoved: (v) => root.changed({ tooltipMaxWidth: v })
-  }
-  C.CfgSlider {
     label: "Distância da barra"; value: root.g("tooltipOffset", 0)
     from: 0; to: 40; step: 2; unit: "px"
     enabled:      root.g("tooltipEnabled", true) === true
     colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
     colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
     onMoved: (v) => root.changed({ tooltipOffset: v })
+  }
+  Row {
+    spacing: 6
+    enabled: root.g("tooltipEnabled", true) === true
+    opacity: enabled ? 1 : 0.4
+    Repeater {
+      model: [
+        { id: "auto",  label: "Ajustável" },
+        { id: "fixed", label: "Fixo" },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label:        modelData.label
+        active:       root.g("tooltipWidthMode", "auto") === modelData.id
+        colorAccent:  root.colorAccent
+        colorTextDim: root.colorTextDim
+        onChipClicked: root.changed({ tooltipWidthMode: modelData.id })
+      }
+    }
+  }
+  C.CfgSlider {
+    visible: root.g("tooltipWidthMode", "auto") === "auto"
+    label: "Largura máxima"; value: root.g("tooltipMaxWidth", 320)
+    from: 120; to: 480; step: 8; unit: "px"
+    enabled:      root.g("tooltipEnabled", true) === true
+    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
+    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ tooltipMaxWidth: v })
+  }
+  C.CfgSlider {
+    visible: root.g("tooltipWidthMode", "auto") === "fixed"
+    label: "Largura"; value: root.g("tooltipFixedWidth", 220)
+    from: 120; to: 480; step: 8; unit: "px"
+    enabled:      root.g("tooltipEnabled", true) === true
+    colorAccent:  root.colorAccent; colorTextDim: root.colorTextDim
+    colorText:    root.colorText;   colorProgressBg: root.colorProgressBg
+    onMoved: (v) => root.changed({ tooltipFixedWidth: v })
   }
   Row {
     spacing: 6

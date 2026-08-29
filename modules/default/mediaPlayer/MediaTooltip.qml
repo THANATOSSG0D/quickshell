@@ -110,9 +110,11 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.min(
+    implicitWidth: TooltipSettings.resolveWidth(
+      root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
+      root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth),
       root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
-      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+      content.implicitWidth + TooltipSettings.contentPadding
     ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
 
@@ -186,21 +188,20 @@ Singleton {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
 
-          // Largura única para toda a coluna — agora derivada de
-          // root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) (com o espaço da capa/spacing/padding
-          // descontado), então o slider "Largura mínima" da UI realmente
-          // muda o tamanho visível deste tooltip. Ainda cresce além disso
-          // se algum texto for mais longo que o piso.
-          readonly property int textColWidth: Math.min(
+          // Largura única para toda a coluna — derivada do modo de largura
+          // (auto: encaixa nos textos até maxWidth · fixed: sempre
+          // fixedWidth), com o espaço da capa/spacing/padding descontado —
+          // então tanto o slider "Largura máxima" quanto "Largura" (fixo)
+          // da UI realmente mudam o tamanho visível deste tooltip.
+          readonly property int textColWidth: TooltipSettings.resolveWidth(
+            root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
+            root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth) - root.artSize - content.spacing - TooltipSettings.contentPadding,
             root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - root.artSize - content.spacing - TooltipSettings.contentPadding,
             Math.max(
-              root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - root.artSize - content.spacing - TooltipSettings.contentPadding,
-              Math.max(
-                titleText.implicitWidth,
-                artistText.implicitWidth,
-                albumText.implicitWidth,
-                appText.implicitWidth
-              )
+              titleText.implicitWidth,
+              artistText.implicitWidth,
+              albumText.implicitWidth,
+              appText.implicitWidth
             )
           )
 

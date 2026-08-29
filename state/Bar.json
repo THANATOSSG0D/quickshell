@@ -13,9 +13,10 @@
         "theme": "Dock",
         "tooltipAlign": "section",
         "tooltipEnabled": true,
-        "tooltipMaxWidth": 480,
-        "tooltipMinWidth": 240,
-        "tooltipOffset": 6
+        "tooltipFixedWidth": 360,
+        "tooltipMaxWidth": 376,
+        "tooltipOffset": 4,
+        "tooltipWidthMode": "fixed"
     },
     "themes": {
         "Aurora": {

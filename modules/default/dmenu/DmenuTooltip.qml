@@ -136,9 +136,11 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth:  Math.min(
+    implicitWidth: TooltipSettings.resolveWidth(
+      root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
+      root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth),
       root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
-      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
+      content.implicitWidth + TooltipSettings.contentPadding
     ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
 
@@ -222,18 +224,17 @@ Singleton {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
 
-          readonly property int textColWidth: Math.min(
+          readonly property int textColWidth: TooltipSettings.resolveWidth(
+            root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
+            root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth) - root.iconSize - content.spacing - TooltipSettings.contentPadding,
             root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - root.iconSize - content.spacing - TooltipSettings.contentPadding,
             Math.max(
-              root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - root.iconSize - content.spacing - TooltipSettings.contentPadding,
-              Math.max(
-                titleText.implicitWidth,
-                classText.implicitWidth,
-                wsStateText.implicitWidth,
-                tagsText.implicitWidth,
-                sizeText.implicitWidth,
-                metaText.implicitWidth
-              )
+              titleText.implicitWidth,
+              classText.implicitWidth,
+              wsStateText.implicitWidth,
+              tagsText.implicitWidth,
+              sizeText.implicitWidth,
+              metaText.implicitWidth
             )
           )
 

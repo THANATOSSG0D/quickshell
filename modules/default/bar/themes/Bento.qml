@@ -217,7 +217,9 @@ Item {
   property color  cfgDmenuTextColor:    Qt.rgba(1,1,1,1.0)
   property color  cfgDmenuDimColor:     Qt.rgba(1,1,1,0.5)
   property color  cfgDmenuAccent:       Qt.rgba(1,1,1,1.0)
-  property string cfgDmenuDisplayMode:  "title"
+  property bool   cfgDmenuShowIcon:      true
+  property string cfgDmenuIconType:      "glyph"
+  property bool   cfgDmenuShowTitle:     true
   property string cfgDmenuIconGlyph:    "\uf00a"
   property string cfgDmenuEmptyText:    "Desktop"
   property int    cfgDmenuTitleMaxWidth: 180
@@ -232,6 +234,7 @@ Item {
   property string cfgDmenuWorkspaceFormat:    "number"
   property int    cfgDmenuWorkspaceChipWidth: 20
   property string cfgDmenuWorkspaceIconMap:   ""
+  property string cfgDmenuWorkspaceIgnorePattern: ""
 
   // ── Configs Tasks ────────────────────────────────────────────────────
   property color cfgTasksTextColor: Qt.rgba(1,1,1,1.0)
@@ -492,7 +495,9 @@ Item {
             textColor:        root.cfgDmenuTextColor
             dimColor:         root.cfgDmenuDimColor
             accentColor:      root.cfgDmenuAccent
-            displayMode:      root.cfgDmenuDisplayMode
+            showIcon:         root.cfgDmenuShowIcon
+            iconType:         root.cfgDmenuIconType
+            showTitle:        root.cfgDmenuShowTitle
             iconGlyph:        root.cfgDmenuIconGlyph
             emptyText:        root.cfgDmenuEmptyText
             titleMaxWidth:    root.cfgDmenuTitleMaxWidth
@@ -506,6 +511,7 @@ Item {
             workspaceFormat:    root.cfgDmenuWorkspaceFormat
             workspaceChipWidth: root.cfgDmenuWorkspaceChipWidth
             workspaceIconMap:   root.cfgDmenuWorkspaceIconMap
+            workspaceIgnorePattern: root.cfgDmenuWorkspaceIgnorePattern
             onPanelRequested: root.dmenuRequested()
           }
         }

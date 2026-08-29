@@ -79,14 +79,21 @@ Item {
   property bool   panelEnabled: true
 
   // ── Tooltips (globais, não por tema) ────────────────────────────────────
-  // Bridge lido por Bar.qml (Binding{} → TooltipSettings) e consumido por
-  // todos os tooltips de hover (BarTooltip, ClockTooltip, MediaTooltip,
-  // NotifTooltip, QsTooltip, VolumeTooltip, WsTooltip). Ver TooltipSettings.qml.
-  property bool   tooltipEnabled:  true
-  property int    tooltipMinWidth: 160
-  property int    tooltipMaxWidth: 320
-  property string tooltipAlign:    "module"
-  property int    tooltipOffset:   0
+  // Lido por Bar.qml, que expõe cada prop aqui como cfgTooltip* no Loader
+  // "barContentRoot" — cada painel (bar/dock) passa a própria config pra
+  // sua árvore de módulos, consumida pelos 8 tooltips de hover (BarTooltip,
+  // ClockTooltip, DmenuTooltip, MediaTooltip, NotifTooltip, QsTooltip,
+  // TasksTooltip, VolumeTooltip, WsTooltip). TooltipSettings.qml só entra
+  // como fallback global caso o item hoverado não esteja dentro de nenhum
+  // barContentRoot. Ver comentário completo em Bar.qml.
+  property bool   tooltipEnabled:    true
+  // "auto" (encaixa no conteúdo, até tooltipMaxWidth) | "fixed" (sempre
+  // tooltipFixedWidth)
+  property string tooltipWidthMode:  "auto"
+  property int    tooltipMaxWidth:   320
+  property int    tooltipFixedWidth: 220
+  property string tooltipAlign:      "module"
+  property int    tooltipOffset:     0
 
   // ── Cantos da tela (globais, não por tema) ──────────────────────────────
   property bool   cornersEnabled: false
@@ -433,11 +440,12 @@ Item {
     if (opts.panelEnabled  !== undefined) root.panelEnabled  = opts.panelEnabled
 
     // ── Tooltips (globais) ───────────────────────────────────────────────
-    if (opts.tooltipEnabled  !== undefined) root.tooltipEnabled  = opts.tooltipEnabled
-    if (opts.tooltipMinWidth !== undefined) root.tooltipMinWidth = opts.tooltipMinWidth
-    if (opts.tooltipMaxWidth !== undefined) root.tooltipMaxWidth = opts.tooltipMaxWidth
-    if (opts.tooltipAlign    !== undefined) root.tooltipAlign    = opts.tooltipAlign
-    if (opts.tooltipOffset   !== undefined) root.tooltipOffset   = opts.tooltipOffset
+    if (opts.tooltipEnabled    !== undefined) root.tooltipEnabled    = opts.tooltipEnabled
+    if (opts.tooltipWidthMode  !== undefined) root.tooltipWidthMode  = opts.tooltipWidthMode
+    if (opts.tooltipMaxWidth   !== undefined) root.tooltipMaxWidth   = opts.tooltipMaxWidth
+    if (opts.tooltipFixedWidth !== undefined) root.tooltipFixedWidth = opts.tooltipFixedWidth
+    if (opts.tooltipAlign      !== undefined) root.tooltipAlign      = opts.tooltipAlign
+    if (opts.tooltipOffset     !== undefined) root.tooltipOffset     = opts.tooltipOffset
 
     // ── Cantos da tela (globais) ─────────────────────────────────────────
     if (opts.cornersEnabled !== undefined) root.cornersEnabled = opts.cornersEnabled
@@ -520,8 +528,8 @@ Item {
       theme: root.theme, silence: root.silenceMode, alwaysVisible: root.alwaysVisible,
       pinned: root.pinned, floating: root.floating,
       fullscreenPeekEnabled: root.fullscreenPeekEnabled, enabled: root.panelEnabled,
-      tooltipEnabled: root.tooltipEnabled, tooltipMinWidth: root.tooltipMinWidth,
-      tooltipMaxWidth: root.tooltipMaxWidth,
+      tooltipEnabled: root.tooltipEnabled, tooltipWidthMode: root.tooltipWidthMode,
+      tooltipMaxWidth: root.tooltipMaxWidth, tooltipFixedWidth: root.tooltipFixedWidth,
       tooltipAlign: root.tooltipAlign, tooltipOffset: root.tooltipOffset,
       cornersEnabled: root.cornersEnabled, cornersRadius: root.cornersRadius,
       cornersMode: root.cornersMode, cornersOverFullscreen: root.cornersOverFullscreen
@@ -811,7 +819,9 @@ Item {
   readonly property int clkDismissDelayMs: get("clock","dismissDelayMs") || 8000
 
   // dmenu
-  readonly property string dmenuDisplayMode:   get("dmenu","displayMode")   || "title"
+  readonly property bool   dmenuShowIcon:      get("dmenu","showIcon")      !== false
+  readonly property string dmenuIconType:      get("dmenu","iconType")      || "glyph"
+  readonly property bool   dmenuShowTitle:     get("dmenu","showTitle")     !== false
   readonly property string dmenuIconGlyph:     get("dmenu","iconGlyph")     || "\uf00a"
   readonly property string dmenuEmptyText:     get("dmenu","emptyText")     || "Desktop"
   readonly property int    dmenuTitleMaxWidth: get("dmenu","titleMaxWidth") || 180
@@ -825,6 +835,7 @@ Item {
   readonly property string dmenuWorkspaceFormat:   get("dmenu","workspaceFormat")   || "number"
   readonly property int    dmenuWorkspaceChipWidth: get("dmenu","workspaceChipWidth") || 20
   readonly property string dmenuWorkspaceIconMap:   get("dmenu","workspaceIconMap")   || ""
+  readonly property string dmenuWorkspaceIgnorePattern: get("dmenu","workspaceIgnorePattern") || ""
 
   // volume
   readonly property bool volShowSink:   get("volume","showSink")   !== false
@@ -854,11 +865,12 @@ Item {
         if (b.floating      !== undefined) root.floating      = b.floating
         if (b.fullscreenPeekEnabled !== undefined) root.fullscreenPeekEnabled = b.fullscreenPeekEnabled
         if (b.enabled        !== undefined) root.panelEnabled  = b.enabled
-        if (b.tooltipEnabled  !== undefined) root.tooltipEnabled  = b.tooltipEnabled
-        if (b.tooltipMinWidth !== undefined) root.tooltipMinWidth = b.tooltipMinWidth
-        if (b.tooltipMaxWidth !== undefined) root.tooltipMaxWidth = b.tooltipMaxWidth
-        if (b.tooltipAlign    !== undefined) root.tooltipAlign    = b.tooltipAlign
-        if (b.tooltipOffset   !== undefined) root.tooltipOffset   = b.tooltipOffset
+        if (b.tooltipEnabled    !== undefined) root.tooltipEnabled    = b.tooltipEnabled
+        if (b.tooltipWidthMode  !== undefined) root.tooltipWidthMode  = b.tooltipWidthMode
+        if (b.tooltipMaxWidth   !== undefined) root.tooltipMaxWidth   = b.tooltipMaxWidth
+        if (b.tooltipFixedWidth !== undefined) root.tooltipFixedWidth = b.tooltipFixedWidth
+        if (b.tooltipAlign      !== undefined) root.tooltipAlign      = b.tooltipAlign
+        if (b.tooltipOffset     !== undefined) root.tooltipOffset     = b.tooltipOffset
         if (b.cornersEnabled !== undefined) root.cornersEnabled = b.cornersEnabled
         if (b.cornersRadius  !== undefined) root.cornersRadius  = b.cornersRadius
         if (b.cornersMode    !== undefined) root.cornersMode    = b.cornersMode

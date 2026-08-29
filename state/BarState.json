@@ -154,14 +154,16 @@
             },
             "dmenu": {
                 "displayMode": "title",
+                "iconType": "app",
                 "scrollPauseMs": 3000,
                 "scrollSpeed": 10,
-                "showWorkspace": false,
+                "showWorkspace": true,
                 "textStatic": true,
                 "titleMaxWidth": 280,
                 "workspaceChipWidth": 16,
-                "workspaceFormat": "both",
+                "workspaceFormat": "number",
                 "workspaceIconMap": "333",
+                "workspaceIgnorePattern": "special:T*",
                 "workspacePosition": "after"
             },
             "mediaplayer": {
