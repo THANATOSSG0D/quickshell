@@ -803,7 +803,12 @@ Item {
                 source: {
                   var ico = dlg.modelData.icon || ""
                   if (ico === "") return ""
-                  if (ico.startsWith("/") || ico.startsWith("file://")) return ico
+                  if (ico.startsWith("file://")) return ico
+                  // Caminho absoluto sem esquema (ex: "/home/user/.../Foo.png")
+                  // — sem o "file://", o QML resolve como qrc:/home/user/...
+                  // (relativo ao pacote de recursos do app) em vez de um
+                  // caminho de disco real, e a imagem nunca abre.
+                  if (ico.startsWith("/")) return "file://" + ico
                   return "image://icon/" + ico
                 }
                 width: 20; height: 20; smooth: true

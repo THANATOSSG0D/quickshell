@@ -209,7 +209,7 @@ Item {
   property color  cfgDmenuDimColor:     Qt.rgba(1,1,1,0.5)
   property color  cfgDmenuAccent:       Qt.rgba(1,1,1,1.0)
   property bool   cfgDmenuShowIcon:      true
-  property string cfgDmenuIconType:      "glyph"
+  property string cfgDmenuIconType:      "app"
   property bool   cfgDmenuShowTitle:     true
   property string cfgDmenuIconGlyph:    "\uf00a"
   property string cfgDmenuEmptyText:    "Desktop"

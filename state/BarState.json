@@ -129,7 +129,7 @@
                 "barMargin": 3,
                 "barSize": 24,
                 "islandRadius": 19,
-                "moduleScale": 0.8000000000000002,
+                "moduleScale": 0.8,
                 "modules": {
                     "center": [
                         "workspaces"
@@ -157,6 +157,7 @@
                 "iconType": "app",
                 "scrollPauseMs": 3000,
                 "scrollSpeed": 10,
+                "showIcon": false,
                 "showWorkspace": true,
                 "textStatic": true,
                 "titleMaxWidth": 280,
@@ -176,10 +177,21 @@
                 "barBgPill": "shadow"
             },
             "workspaces": {
+                "addButtonBgColor": "inverse_on_surface",
+                "addButtonBgEnabled": false,
+                "addButtonBgOpacity": 0,
+                "addButtonBorderEnabled": false,
+                "addButtonColor": "on_surface",
+                "addButtonPaddingH": 1,
+                "addButtonPaddingV": 5,
+                "addButtonSize": 18,
+                "bgGroupEnabled": true,
                 "focus": {
+                    "bgActiveEnabled": true,
                     "bgInactiveEnabled": false,
+                    "bgOpacity": 0.8,
                     "bgOpacityActive": 0.6999999999999998,
-                    "bgPaddingH": 1,
+                    "bgPaddingH": 0,
                     "bgPaddingHActive": 4,
                     "bgPaddingV": 0,
                     "bgPaddingVActive": 0,
@@ -191,15 +203,25 @@
                 "iconSpacing": 4,
                 "icons": {
                     "bgColorActive": "primary_container",
+                    "bgInactiveEnabled": false,
+                    "bgOpacity": 0,
+                    "bgOpacityActive": 0.75,
+                    "bgOpacityInactive": 0.2,
                     "bgPaddingH": 0,
-                    "bgPaddingHActive": 6,
+                    "bgPaddingHActive": 2,
+                    "bgPaddingVActive": 2,
+                    "bgRadiusActive": 20,
                     "iconMonoColor": "on_primary_container",
                     "iconMonoColorActive": "on_primary_fixed_variant"
                 },
+                "iconsSort": "position",
+                "numberBgEnabled": false,
                 "scrollEnabled": true,
+                "scrollInvert": false,
                 "showAddButton": true,
+                "showNumber": true,
                 "spacing": 2,
-                "style": "focus"
+                "style": "icons"
             }
         },
         "Minimal": {

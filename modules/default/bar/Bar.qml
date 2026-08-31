@@ -1118,10 +1118,23 @@ Scope {
       // Reconhece props "de tamanho" dos módulos (ícones, fontes, dots,
       // artwork, paddings/spacing internos) para aplicar o multiplicador
       // global de escala (barState.config.moduleScale). Convenção: qualquer
-      // prop cujo nome termine em Size/Radius/Spacing/PaddingH/PaddingV.
+      // prop cujo nome termine em Size/Radius/Spacing/PaddingH/PaddingV,
+      // opcionalmente seguido de "Active"/"Inactive" (variantes por estado
+      // — ex.: cfgWsBgPaddingHActive, cfgWsBgRadiusInactive).
+      //
+      // FIX: antes o regex era ancorado direto no sufixo semântico
+      // (`Radius$`, `PaddingH$` etc.), então qualquer prop com "Active"/
+      // "Inactive" colado DEPOIS do sufixo (cfgWsBgPaddingHActive,
+      // cfgWsBgPaddingVActive, cfgWsBgRadiusActive, e as três variantes
+      // "Inactive" equivalentes) nunca batia — o "$" nunca encontrava
+      // Size/Radius/Spacing/PaddingH/PaddingV no fim da string, encontrava
+      // "Active"/"Inactive". Resultado: o fundo em pílula da workspace
+      // ativa/inativa (padding + raio) nunca escalava com moduleScale,
+      // enquanto ícone/dot/fonte/fundo-do-grupo escalavam normalmente —
+      // dessincronizando visualmente o fundo do resto dos módulos.
       function _isScalable(prop) {
         if (bar._unscaledProps.indexOf(prop) !== -1) return false
-        return /Size$|Radius$|Spacing$|PaddingH$|PaddingV$/.test(prop)
+        return /(Size|Radius|Spacing|PaddingH|PaddingV)(Active|Inactive)?$/.test(prop)
       }
 
       function _set(prop, value) {

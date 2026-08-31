@@ -1,8 +1,8 @@
 pragma Singleton
 import Quickshell
-import Quickshell.Widgets
 import QtQuick
 import qs
+import "../bar/modules/delegates/IconLookup.js" as IconLookup
 
 // DmenuTooltip — singleton de tooltip rico pro módulo dmenu, mesmo padrão
 // do MediaTooltip.qml: PopupWindow leve anexado ao item da barra, aparece
@@ -33,6 +33,8 @@ Singleton {
   property color accentColor:  "#ffb4a9"
 
   property int iconSize: 40
+
+  readonly property string _homeDir: Quickshell.env("HOME") || ("/home/" + Quickshell.env("USER"))
 
   property var _anchorItem: null
   property var _widget:     null
@@ -136,11 +138,9 @@ Singleton {
     readonly property int  _touchOffset: root._cfg(root._anchorItem, "Offset", TooltipSettings.offset)
     readonly property bool _barVertical: root._barPos === 2 || root._barPos === 4
 
-    implicitWidth: TooltipSettings.resolveWidth(
-      root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
-      root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth),
+    implicitWidth:  Math.min(
       root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth),
-      content.implicitWidth + TooltipSettings.contentPadding
+      Math.max(root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth), content.implicitWidth + TooltipSettings.contentPadding)
     ) + (_barVertical ? _touchOffset : 0)
     implicitHeight: content.implicitHeight + 20 + (_barVertical ? 0 : _touchOffset)
 
@@ -178,39 +178,50 @@ Singleton {
         anchors.centerIn: parent
         spacing: 10
 
-        // ── Ícone do app (mesmo image://icon/ que o Dmenu.qml usa) ────────
+        // ── Ícone do app (mesma lógica do Icons.qml, via IconLookup.js) ───
         Item {
           id: tooltipIconBox
           width: root.iconSize; height: root.iconSize
           anchors.verticalCenter: parent.verticalCenter
 
-          readonly property string _appId: root._class.toLowerCase()
-          readonly property var _desktopEntry: {
-            var _l = DesktopEntries.applications.values.length
-            if (!_appId) return null
-            return DesktopEntries.byId(_appId)
-                || DesktopEntries.byId(_appId.replace(/-/g, ""))
-                || DesktopEntries.heuristicLookup(_appId)
-                || null
-          }
-          readonly property string _iconSrc: {
-            if (!_desktopEntry || !_desktopEntry.icon) return ""
-            var n = _desktopEntry.icon
-            if (n.startsWith("/") || n.startsWith("file://")) return n
-            return "image://icon/" + n
+          property var entry: {
+            var _loaded = DesktopEntries.applications.values.length
+            if (_loaded === 0) return null
+            if (!root._class) return null
+            return IconLookup.findDesktopEntry(root._class, DesktopEntries)
           }
 
-          IconImage {
+          property string iconName: IconLookup.resolveIconName(entry)
+
+          readonly property var iconPaths: IconLookup.buildIconPaths(iconName, root._homeDir)
+
+          property int  attempt:   0
+          property bool exhausted: false
+
+          readonly property string currentSource: {
+            if (exhausted) return ""
+            if (iconPaths.length === 0) return ""
+            return iconPaths[Math.min(attempt, iconPaths.length - 1)]
+          }
+
+          onIconPathsChanged: { tooltipIconBox.attempt = 0; tooltipIconBox.exhausted = false }
+
+          Image {
             id: tooltipIcon
             anchors.fill: parent
-            source:  tooltipIconBox._iconSrc
-            smooth:  true
-            opacity: (tooltipIconBox._iconSrc !== "" && status === Image.Ready) ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            fillMode: Image.PreserveAspectFit
+            source:   tooltipIconBox.currentSource
+            visible:  !tooltipIconBox.exhausted && tooltipIconBox.iconPaths.length > 0
+            onStatusChanged: {
+              if (status === Image.Error) {
+                if (tooltipIconBox.attempt < tooltipIconBox.iconPaths.length - 1) tooltipIconBox.attempt++
+                else tooltipIconBox.exhausted = true
+              }
+            }
           }
           Text {
             anchors.centerIn: parent
-            visible:        tooltipIcon.opacity < 1.0
+            visible:        tooltipIconBox.exhausted || tooltipIconBox.iconPaths.length === 0
             text:           "\uf2d0"   // janela genérica — só quando não achou o ícone real
             color:          root.fgDimColor
             font.pixelSize: Math.round(root.iconSize * 0.5)
@@ -224,17 +235,18 @@ Singleton {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
 
-          readonly property int textColWidth: TooltipSettings.resolveWidth(
-            root._cfg(root._anchorItem, "WidthMode", TooltipSettings.widthMode),
-            root._cfg(root._anchorItem, "FixedWidth", TooltipSettings.fixedWidth) - root.iconSize - content.spacing - TooltipSettings.contentPadding,
+          readonly property int textColWidth: Math.min(
             root._cfg(root._anchorItem, "MaxWidth", TooltipSettings.maxWidth) - root.iconSize - content.spacing - TooltipSettings.contentPadding,
             Math.max(
-              titleText.implicitWidth,
-              classText.implicitWidth,
-              wsStateText.implicitWidth,
-              tagsText.implicitWidth,
-              sizeText.implicitWidth,
-              metaText.implicitWidth
+              root._cfg(root._anchorItem, "MinWidth", TooltipSettings.minWidth) - root.iconSize - content.spacing - TooltipSettings.contentPadding,
+              Math.max(
+                titleText.implicitWidth,
+                classText.implicitWidth,
+                wsStateText.implicitWidth,
+                tagsText.implicitWidth,
+                sizeText.implicitWidth,
+                metaText.implicitWidth
+              )
             )
           )
 

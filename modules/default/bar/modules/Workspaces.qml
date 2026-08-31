@@ -1,7 +1,6 @@
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
-import QtQuick.Layouts
 import 'delegates' as Comp
 
 Item {
@@ -171,6 +170,45 @@ Item {
     return result
   }
 
+  onWorkspacesChanged: root._syncWorkspacesModel()
+
+  // Modelo estável: somente workspaces realmente novas/removidas/movidas
+  // criam, destroem ou reposicionam delegates.
+  ListModel { id: wsModel }
+
+  function _syncWorkspacesModel() {
+    var newList = root.workspaces
+    var newIds = ({})
+
+    for (var a = 0; a < newList.length; a++)
+      newIds[newList[a].id] = true
+
+    for (var r = wsModel.count - 1; r >= 0; r--) {
+      if (!newIds[wsModel.get(r).modelData.id])
+        wsModel.remove(r)
+    }
+
+    for (var idx = 0; idx < newList.length; idx++) {
+      var wsObj = newList[idx]
+      var foundAt = -1
+
+      for (var s = idx; s < wsModel.count; s++) {
+        if (wsModel.get(s).modelData.id === wsObj.id) {
+          foundAt = s
+          break
+        }
+      }
+
+      if (foundAt === -1) {
+        wsModel.insert(idx, { modelData: wsObj })
+      } else if (foundAt !== idx) {
+        wsModel.move(foundAt, idx, 1)
+      }
+    }
+  }
+
+  Component.onCompleted: root._syncWorkspacesModel()
+
   // ── Wrapper por workspace ─────────────────────────────────────────────
   Component {
     id: wsWrapper
@@ -197,6 +235,19 @@ Item {
         var dh = delegateLoader.item ? delegateLoader.item.implicitHeight : 0
         return isHorizontal ? dh : dh + pV * 2
       }
+
+      // FIX (alinhamento): Row/Column são Positioners — só controlam o eixo
+      // PRINCIPAL (x no Row, y no Column). O eixo CRUZADO fica no valor
+      // default (0 = topo/esquerda) se nada disser o contrário. O
+      // GridLayout antigo escondia isso porque esticava cada célula até a
+      // altura/largura da linha/coluna única, centralizando tudo "de
+      // graça". Sem esse stretch, cada wrapper agora usa seu próprio
+      // implicitWidth/implicitHeight como width/height real — e como estilos
+      // diferentes (dots/number/hybrid/icons/focus) têm alturas diferentes,
+      // eles ficavam desalinhados no eixo cruzado. Mesmo padrão já usado no
+      // Loader do botão "+" em rowLayoutComp/columnLayoutComp.
+      anchors.verticalCenter:   root.isHorizontal ? parent.verticalCenter   : undefined
+      anchors.horizontalCenter: !root.isHorizontal ? parent.horizontalCenter : undefined
 
       // Fundo da workspace ATIVA
       Rectangle {
@@ -346,8 +397,11 @@ Item {
       // Focus.qml) para o efeito de expandir no hover — animar de novo
       // aqui em cima causava um "filtro sobre filtro" (easing composto),
       // deixando os ícones aparecerem atrasados/com salto visual.
-      Behavior on implicitWidth  { enabled: root.visible && root.style !== "focus"; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
-      Behavior on implicitHeight { enabled: root.visible && root.style !== "focus"; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+      readonly property bool _delegateAnimatesOwnSize:
+        root.style === "focus" || root.style === "number" || root.style === "hybrid"
+
+      Behavior on implicitWidth  { enabled: root.visible && !wrapper._delegateAnimatesOwnSize; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+      Behavior on implicitHeight { enabled: root.visible && !wrapper._delegateAnimatesOwnSize; NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
     }
   }
 
@@ -358,14 +412,149 @@ Item {
   Component { id: focusComp;   Comp.Focus       {} }
   Component { id: currentComp; Comp.CurrentOnly {} }
 
+  // ── Botão "+" ────────────────────────────────────────────────────────
+  // Componente separado para ser usado no Row ou Column. Não participa de
+  // transitions de opacity/scale do Positioner: uma mudança rápida do
+  // modelo poderia interromper a animação e deixar o item invisível, embora
+  // ele continuasse ocupando espaço.
+  Component {
+    id: addBtnComp
+
+    Rectangle {
+      id: addBtn
+      visible: root.showAddButton
+
+      property bool isAddHovered: false
+
+      readonly property real _baseDiameter: Math.max(
+        root.addButtonSize + root.addButtonPaddingH * 2,
+        root.addButtonSize + root.addButtonPaddingV * 2)
+
+      implicitWidth:  isAddHovered ? _baseDiameter + 4 : _baseDiameter
+      implicitHeight: isAddHovered ? _baseDiameter + 4 : _baseDiameter
+      radius:         width / 2
+
+      readonly property color _bgBase: Qt.rgba(
+        root.addButtonBgColor.r, root.addButtonBgColor.g, root.addButtonBgColor.b,
+        root.addButtonBgColor.a * root.addButtonBgOpacity)
+      readonly property color _bgHover: Qt.rgba(
+        root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, 0.12)
+
+      color: root.addButtonBgEnabled
+        ? (isAddHovered ? _bgHover : _bgBase)
+        : (isAddHovered ? _bgHover : "transparent")
+
+      border.color: root.addButtonBorderEnabled
+        ? Qt.rgba(root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, isAddHovered ? 0.55 : 0.30)
+        : "transparent"
+      border.width: root.addButtonBorderEnabled ? 1 : 0
+
+      Behavior on implicitWidth  { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+      Behavior on implicitHeight { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+      Behavior on color          { ColorAnimation { duration: 120 } }
+      Behavior on border.color   { ColorAnimation { duration: 120 } }
+      Behavior on border.width   { NumberAnimation { duration: 120 } }
+
+      Text {
+        id: addBtnLabel
+        anchors.centerIn: parent
+        text: "+"
+        font.pixelSize: root.addButtonSize
+        color: Qt.rgba(root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, parent.isAddHovered ? 0.95 : 0.55)
+        Behavior on color { ColorAnimation { duration: 120 } }
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        onEntered: parent.isAddHovered = true
+        onExited: parent.isAddHovered = false
+        onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = 'emptynm'})")
+      }
+    }
+  }
+
+  Component {
+    id: rowLayoutComp
+
+    Row {
+      id: rowLayout
+      spacing: root.wsSpacing
+
+      // Só os itens que permanecem são animados ao mudar de posição.
+      // Não usamos add/populate com opacity/scale para evitar delegates
+      // presos em opacity/scale=0 durante atualizações rápidas.
+      move: Transition {
+        NumberAnimation {
+          properties: "x,y"
+          duration: 150
+          easing.type: Easing.InOutQuad
+        }
+      }
+
+      Repeater {
+        id: rowRepeater
+        model: wsModel
+        delegate: wsWrapper
+      }
+
+      // FIX (alinhamento): Row só controla o eixo principal (x); no eixo
+      // cruzado (y) cada filho fica onde a própria altura/posição disser.
+      // O diâmetro do addBtn (addButtonSize + padding) quase nunca bate
+      // exatamente com a altura dos outros delegates, então sem isso ele
+      // ficava desalinhado verticalmente em relação aos demais. Isto é
+      // seguro (não é o mesmo problema de antes — aquele bug era a rajada
+      // de recriação do Repeater, já resolvida pelo wsModel; anchor no
+      // eixo CRUZADO de um filho de Row é um padrão QML padrão).
+      Loader {
+        anchors.verticalCenter: parent.verticalCenter
+        sourceComponent: addBtnComp
+      }
+    }
+  }
+
+  Component {
+    id: columnLayoutComp
+
+    Column {
+      id: columnLayout
+      spacing: root.wsSpacing
+
+      move: Transition {
+        NumberAnimation {
+          properties: "x,y"
+          duration: 150
+          easing.type: Easing.InOutQuad
+        }
+      }
+
+      Repeater {
+        id: colRepeater
+        model: wsModel
+        delegate: wsWrapper
+      }
+
+      // Mesma razão do Loader no rowLayoutComp acima — eixo cruzado do
+      // Column é x, não y.
+      Loader {
+        anchors.horizontalCenter: parent.horizontalCenter
+        sourceComponent: addBtnComp
+      }
+    }
+  }
+
   // ── Fundo global ─────────────────────────────────────────────────────
   Rectangle {
     id: bg
     anchors.centerIn: parent
-    width:  layout.implicitWidth  + (root.isHorizontal ? root.bgPaddingH : root.bgPaddingV) * 2
-    height: layout.implicitHeight + (root.isHorizontal ? root.bgPaddingV : root.bgPaddingH) * 2
+    width: layoutLoader.item
+      ? layoutLoader.item.width + (root.isHorizontal ? root.bgPaddingH : root.bgPaddingV) * 2
+      : 0
+    height: layoutLoader.item
+      ? layoutLoader.item.height + (root.isHorizontal ? root.bgPaddingV : root.bgPaddingH) * 2
+      : 0
     radius: Math.min(width, height) / 2
-    color:  root.bgGroupEnabled
+    color: root.bgGroupEnabled
       ? Qt.rgba(root.bgColor.r, root.bgColor.g, root.bgColor.b, root.bgOpacity)
       : "transparent"
     border.color: root.bgGroupEnabled ? root.bgBorderColor : "transparent"
@@ -373,87 +562,13 @@ Item {
 
     Behavior on color        { ColorAnimation { duration: 150 } }
     Behavior on border.color { ColorAnimation { duration: 150 } }
+    Behavior on width  { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+    Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
 
-    GridLayout {
-      id: layout
+    Loader {
+      id: layoutLoader
       anchors.centerIn: parent
-      columns:       root.isHorizontal ? -1 : 1
-      rows:          root.isHorizontal ? 1  : -1
-      // Separa workspace-spacing de icon-spacing para não confundir os dois conceitos
-      columnSpacing: root.isHorizontal ? root.wsSpacing : 0
-      rowSpacing:    root.isHorizontal ? 0 : root.wsSpacing
-
-      Repeater {
-        model: root.workspaces
-        delegate: wsWrapper
-      }
-
-      // ── Botão "+" ───────────────────────────────────────────────────
-      // Borda e fundo agora são independentes e configuráveis.
-      // Diâmetro deixou de ser fixo: agora nasce do TAMANHO DA FONTE do
-      // glifo "+" + padding ajustável, mesmo espírito do numberBg em
-      // Icons.qml. Importante: usa root.addButtonSize (número) na conta,
-      // NÃO addBtnLabel.implicitWidth/implicitHeight — o implicitHeight de
-      // um Text inclui o ascent/descent inteiro da fonte (espaço extra
-      // assimétrico acima/abaixo do glifo visível), o que fazia o "+"
-      // parecer descentralizado no círculo. Com a conta numérica, a caixa
-      // fica sempre simétrica ao redor do glifo — igual ao Number.qml
-      // (_minSize: fontSize * 2.2), então o anchors.centerIn abaixo
-      // centraliza de verdade, como nos delegates de número.
-      Rectangle {
-        id: addBtn
-        visible:      root.showAddButton
-
-        property bool isAddHovered: false
-
-        readonly property real _baseDiameter: Math.max(
-          root.addButtonSize + root.addButtonPaddingH * 2,
-          root.addButtonSize + root.addButtonPaddingV * 2)
-
-        implicitWidth:  isAddHovered ? _baseDiameter + 4 : _baseDiameter
-        implicitHeight: isAddHovered ? _baseDiameter + 4 : _baseDiameter
-        radius:         width / 2
-
-        readonly property color _bgBase: Qt.rgba(
-          root.addButtonBgColor.r, root.addButtonBgColor.g, root.addButtonBgColor.b,
-          root.addButtonBgColor.a * root.addButtonBgOpacity)
-        readonly property color _bgHover: Qt.rgba(
-          root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, 0.12)
-
-        color: root.addButtonBgEnabled
-          ? (isAddHovered ? _bgHover : _bgBase)
-          : (isAddHovered ? _bgHover : "transparent")
-
-        border.color: root.addButtonBorderEnabled
-          ? Qt.rgba(root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, isAddHovered ? 0.55 : 0.30)
-          : "transparent"
-        border.width: root.addButtonBorderEnabled ? 1 : 0
-
-        Behavior on implicitWidth  { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
-        Behavior on implicitHeight { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
-        Behavior on color          { ColorAnimation  { duration: 120 } }
-        Behavior on border.color   { ColorAnimation  { duration: 120 } }
-        Behavior on border.width   { NumberAnimation { duration: 120 } }
-
-        Text {
-          id: addBtnLabel
-          anchors.centerIn: parent
-          text:           "+"
-          font.pixelSize: root.addButtonSize
-          // Sem negrito — mais opacidade em vez de mais peso pra destacar
-          // o glifo (0.55/0.95 em vez do 0.40/0.80 original).
-          color:          Qt.rgba(root.addButtonColor.r, root.addButtonColor.g, root.addButtonColor.b, parent.isAddHovered ? 0.95 : 0.55)
-          Behavior on color { ColorAnimation { duration: 120 } }
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          hoverEnabled: true
-          onEntered:    parent.isAddHovered = true
-          onExited:     parent.isAddHovered = false
-          onClicked:    Hyprland.dispatch("hl.dsp.focus({ workspace = 'emptynm'})")
-        }
-      }
+      sourceComponent: root.isHorizontal ? rowLayoutComp : columnLayoutComp
     }
   }
 

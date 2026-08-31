@@ -820,7 +820,7 @@ Item {
 
   // dmenu
   readonly property bool   dmenuShowIcon:      get("dmenu","showIcon")      !== false
-  readonly property string dmenuIconType:      get("dmenu","iconType")      || "glyph"
+  readonly property string dmenuIconType:      get("dmenu","iconType")      || "app"
   readonly property bool   dmenuShowTitle:     get("dmenu","showTitle")     !== false
   readonly property string dmenuIconGlyph:     get("dmenu","iconGlyph")     || "\uf00a"
   readonly property string dmenuEmptyText:     get("dmenu","emptyText")     || "Desktop"

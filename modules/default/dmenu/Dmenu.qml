@@ -1,8 +1,8 @@
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Widgets
 import QtQuick
+import "../bar/modules/delegates/IconLookup.js" as IconLookup
 
 // ── Dmenu ──────────────────────────────────────────────────────────────────
 // Widget da barra. Botão que abre o dmenu (launcher) ao clique esquerdo.
@@ -11,9 +11,9 @@ import QtQuick
 // dá pra ter só um dos dois, ou os dois juntos, tipo item de taskbar:
 //   showIcon  + iconType "glyph" → glifo fixo escolhido (iconGlyph)
 //   showIcon  + iconType "app"   → ícone do APP da janela focada
-//                (Hyprland.activeToplevel.appId → DesktopEntries →
-//                "image://icon/" → glifo Nerd Font se nada for achado —
-//                mesmo image provider que o DmenuContent.qml usa pro drun)
+//                (Hyprland.activeToplevel.appId → IconLookup.js, o mesmo
+//                módulo compartilhado que o Icons.qml do módulo de
+//                workspace usa → glifo Nerd Font se nada for achado)
 //   showTitle                    → título da janela focada, com carretel
 //                (scroll) opcional — mesmo padrão de scroll/font do
 //                MediaPlayer.qml
@@ -56,6 +56,8 @@ Item {
   id: root
 
   property bool isHorizontal: true
+
+  readonly property string _homeDir: Quickshell.env("HOME") || ("/home/" + Quickshell.env("USER"))
   property int  barPosition:  2
 
   property color textColor:   "white"
@@ -63,7 +65,7 @@ Item {
   property color accentColor: "white"
 
   property bool   showIcon:      true
-  property string iconType:      "glyph"   // "glyph" | "app"
+  property string iconType:      "app"     // "glyph" | "app"
   property bool   showTitle:     true
   property string iconGlyph:     "\uf00a"  // glifo Nerd Font — trocável pelo usuário
   property string emptyText:     "Desktop"
@@ -212,11 +214,24 @@ Item {
     root._closeContextMenu()
   }
 
-  // "emptym" é o seletor especial do Hyprland pra próxima workspace vazia
-  // no monitor atual — sempre disponível, não depende de nenhuma
-  // workspace já existir/estar na lista.
+  // O seletor especial "emptym" não existe mais na sintaxe atual do
+  // Hyprland (não aparece na lista de seletores de workspace da doc
+  // vigente, e falha com um erro de parsing Lua nas versões novas). Em
+  // vez de depender de um atalho de sintaxe frágil e dependente de
+  // versão, calculamos o menor número de workspace ainda não usado e
+  // despachamos como uma workspace numerada normal — mesmo caminho já
+  // comprovado do _moveToWorkspace.
+  function _nextEmptyWorkspaceId() {
+    var used = {}
+    var all = Hyprland.workspaces ? Hyprland.workspaces.values : []
+    for (var i = 0; i < all.length; i++) used[all[i].id] = true
+    var n = 1
+    while (used[n]) n++
+    return n
+  }
+
   function _moveToEmptyWorkspace() {
-    Hyprland.dispatch("movetoworkspace emptym")
+    Hyprland.dispatch("movetoworkspace " + root._nextEmptyWorkspaceId())
     root._closeContextMenu()
   }
 
@@ -269,43 +284,51 @@ Item {
       id: wIcon
       width: root.windowIconSize; height: root.windowIconSize
 
-      readonly property string appId: (root._windowAppId || "").toLowerCase()
-
-      readonly property var desktopEntry: {
-        var _l = DesktopEntries.applications.values.length
-        if (!appId) return null
-        return DesktopEntries.byId(appId)
-            || DesktopEntries.byId(appId.replace(/-/g, ""))
-            || DesktopEntries.heuristicLookup(appId)
-            || null
+      // Mesma lógica do Icons.qml (delegate de ícones do módulo de
+      // workspace, já comprovada funcionando) — via IconLookup.js
+      // compartilhado, não o image://icon/ que eu tinha tentado antes.
+      property var entry: {
+        var _loaded = DesktopEntries.applications.values.length
+        if (_loaded === 0) return null
+        if (!root._windowAppId) return null
+        return IconLookup.findDesktopEntry(root._windowAppId, DesktopEntries)
       }
 
-      readonly property string iconName: desktopEntry ? (desktopEntry.icon || "") : ""
+      property string iconName: IconLookup.resolveIconName(entry)
 
-      readonly property string iconSource: {
-        if (iconName === "") return ""
-        if (iconName.startsWith("/") || iconName.startsWith("file://")) return iconName
-        // mesmo image provider que o DmenuContent.qml usa pra ícone dos
-        // apps no drun — resolve pelo tema de ícones instalado no sistema,
-        // bem mais confiável que sondar caminhos manualmente.
-        return "image://icon/" + iconName
+      readonly property var iconPaths: IconLookup.buildIconPaths(iconName, root._homeDir)
+
+      property int  attempt:   0
+      property bool exhausted: false
+
+      readonly property string currentSource: {
+        if (exhausted) return ""
+        if (iconPaths.length === 0) return ""
+        return iconPaths[Math.min(attempt, iconPaths.length - 1)]
       }
 
-      // camada 1 — ícone do app, resolvido pelo tema de ícones do sistema
-      IconImage {
+      onIconPathsChanged: { wIcon.attempt = 0; wIcon.exhausted = false }
+
+      // camada 1 — ícone do app, testando os caminhos um a um
+      Image {
         id: appIconImg
         anchors.fill: parent
-        source:  wIcon.iconSource
-        smooth:  true
-        opacity: (wIcon.iconSource !== "" && status === Image.Ready) ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        fillMode: Image.PreserveAspectFit
+        source:   wIcon.currentSource
+        visible:  !wIcon.exhausted && wIcon.iconPaths.length > 0
+        onStatusChanged: {
+          if (status === Image.Error) {
+            if (wIcon.attempt < wIcon.iconPaths.length - 1) wIcon.attempt++
+            else wIcon.exhausted = true
+          }
+        }
       }
 
-      // camada 2 — glifo Nerd Font (fallback final, só quando o tema de
-      // ícones realmente não tem nada pra esse app)
+      // camada 2 — glifo Nerd Font (fallback final, só quando nenhum
+      // caminho candidato resolveu)
       Text {
         anchors.centerIn: parent
-        visible:        appIconImg.opacity < 1.0
+        visible:        wIcon.exhausted || wIcon.iconPaths.length === 0
         text:           root.iconGlyph
         color:          root._hasWindow ? root.textColor : root.dimColor
         font.pixelSize: Math.round(root.windowIconSize * 0.72)

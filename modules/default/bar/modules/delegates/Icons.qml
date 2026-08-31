@@ -196,6 +196,13 @@ Item {
         id: appItem
         required property var modelData
 
+        // FIX: numberBadge (acima) tem Layout.alignment: Qt.AlignCenter
+        // explícito, mas isto aqui não tinha nenhum — GridLayout alinha no
+        // topo/esquerda por padrão quando Layout.alignment não é setado, e
+        // como a altura do numberBadge (texto + padding) quase nunca bate
+        // exatamente com iconSize, isso desalinhava número e ícones no eixo
+        // cruzado (vertical no modo horizontal, horizontal no vertical).
+        Layout.alignment:        Qt.AlignCenter
         Layout.preferredWidth:  root.iconSize
         Layout.preferredHeight: root.iconSize
 

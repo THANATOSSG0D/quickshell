@@ -63,7 +63,7 @@ C.CfgScroll {
         width: parent.width - 16
         color: root.colorText
         font.pixelSize: 11
-        font.family: fld.fontFamily !== "" ? fld.fontFamily : undefined
+        font.family: fld.fontFamily
         horizontalAlignment: fld.fontFamily !== "" ? TextInput.AlignHCenter : TextInput.AlignLeft
         clip: true
         selectByMouse: true
@@ -111,7 +111,7 @@ C.CfgScroll {
       delegate: C.CfgChip {
         required property var modelData
         label:  modelData.label
-        active: root.g("iconType", "glyph") === modelData.id
+        active: root.g("iconType", "app") === modelData.id
         colorAccent:  root.colorAccent
         colorTextDim: root.colorTextDim
         onChipClicked: root.changed({ moduleId: "dmenu", key: "iconType", value: modelData.id })
@@ -123,7 +123,7 @@ C.CfgScroll {
     key: "iconGlyph"; label: "Glifo do ícone"
     hint: "Caractere Nerd Font — usado quando o tipo de ícone é \"Glifo fixo\""
     defaultValue: "\uf00a"; fieldWidth: 70; fontFamily: "JetBrainsMono Nerd Font"
-    visible: root._showIcon && root.g("iconType", "glyph") === "glyph"
+    visible: root._showIcon && root.g("iconType", "app") === "glyph"
   }
 
   C.CfgSlider {
@@ -131,7 +131,7 @@ C.CfgScroll {
     from: 12; to: 32; step: 1; unit: "px"
     colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
     colorText: root.colorText; colorProgressBg: root.colorProgressBg
-    visible: root._showIcon && root.g("iconType", "glyph") === "app"
+    visible: root._showIcon && root.g("iconType", "app") === "app"
     onMoved: (v) => root.changed({ moduleId: "dmenu", key: "windowIconSize", value: v })
   }
 

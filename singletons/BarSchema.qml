@@ -152,7 +152,7 @@ QtObject {
       id: "dmenu", label: "Dmenu", perTheme: true, perStyle: false,
       props: [
         { key:"showIcon",  type:"bool", default:true, label:"Mostrar ícone", section:"GERAL" },
-        { key:"iconType",  type:"enum", default:"glyph", label:"Tipo de ícone", section:"GERAL",
+        { key:"iconType",  type:"enum", default:"app", label:"Tipo de ícone", section:"GERAL",
           options:[{id:"glyph",label:"Glifo fixo"},{id:"app",label:"Ícone do app"}] },
         { key:"showTitle", type:"bool", default:true, label:"Mostrar título", section:"GERAL" },
         { key:"iconGlyph",     type:"string", default:"\uf00a", label:"Glifo do ícone",        section:"GERAL" },
