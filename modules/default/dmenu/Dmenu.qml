@@ -11,7 +11,7 @@ import "../bar/modules/delegates/IconLookup.js" as IconLookup
 // dá pra ter só um dos dois, ou os dois juntos, tipo item de taskbar:
 //   showIcon  + iconType "glyph" → glifo fixo escolhido (iconGlyph)
 //   showIcon  + iconType "app"   → ícone do APP da janela focada
-//                (Hyprland.activeToplevel.appId → IconLookup.js, o mesmo
+//                (Hyprland.activeToplevel.wayland.appId → IconLookup.js, o mesmo
 //                módulo compartilhado que o Icons.qml do módulo de
 //                workspace usa → glifo Nerd Font se nada for achado)
 //   showTitle                    → título da janela focada, com carretel
@@ -97,7 +97,13 @@ Item {
   // ── Janela ativa (reativo — Quickshell atualiza via evento do socket2) ──
   readonly property var    _activeToplevel: Hyprland.activeToplevel
   readonly property string _windowTitle:    _activeToplevel && _activeToplevel.title ? _activeToplevel.title : ""
-  readonly property string _windowAppId:    _activeToplevel && _activeToplevel.appId ? _activeToplevel.appId : ""
+  // HyprlandToplevel NÃO tem "appId" no nível raiz — só address/activated/
+  // title/urgent/handle/monitor/workspace/wayland. O appId real mora dentro
+  // de ".wayland" (o Toplevel genérico do protocolo wlr-foreign-toplevel),
+  // exatamente como o Icons.qml (modelData.wayland.appId) já fazia. Ler
+  // ".appId" direto sempre resultava em undefined → _windowAppId sempre "" →
+  // IconLookup.findDesktopEntry nunca achava nada → caía direto no glifo.
+  readonly property string _windowAppId:    (_activeToplevel && _activeToplevel.wayland && _activeToplevel.wayland.appId) ? _activeToplevel.wayland.appId : ""
   readonly property bool   _hasWindow:      root._activeToplevel !== null
 
   // ══════════════════════════════════════════════════════════════════════

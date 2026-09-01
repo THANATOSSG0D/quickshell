@@ -45,9 +45,9 @@
         {
             "created": "2026-07-23T03:30:35.283Z",
             "done": false,
-            "due": "2026-08-31",
+            "due": "2026-09-01",
             "id": "1784777435283-842",
-            "lastCompleted": "2026-08-30T21:09:22.231Z",
+            "lastCompleted": "2026-08-31T16:35:02.228Z",
             "priority": "media",
             "recurrence": "daily",
             "status": "",
