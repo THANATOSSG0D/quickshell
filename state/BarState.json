@@ -141,11 +141,11 @@
                         "quicksettings"
                     ],
                     "right": [
+                        "tasks",
                         "clock",
                         "separator",
                         "volume",
                         "separator",
-                        "tasks",
                         "notifications"
                     ]
                 },
@@ -176,6 +176,12 @@
                 "accent": "primary_fixed_dim",
                 "barBg": "background",
                 "barBgPill": "shadow"
+            },
+            "tasks": {
+                "calendarEnabled": true,
+                "dateDisplay": "short",
+                "datePosition": "before",
+                "showCount": true
             },
             "workspaces": {
                 "addButtonBgColor": "inverse_on_surface",
@@ -208,8 +214,9 @@
                     "bgOpacity": 0,
                     "bgOpacityActive": 0.75,
                     "bgOpacityInactive": 0.2,
-                    "bgPaddingH": 0,
-                    "bgPaddingHActive": 2,
+                    "bgPaddingH": 3,
+                    "bgPaddingHActive": 6,
+                    "bgPaddingV": 3,
                     "bgPaddingVActive": 2,
                     "bgRadiusActive": 20,
                     "iconMonoColor": "on_primary_container",

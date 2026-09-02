@@ -28,6 +28,73 @@ C.CfgScroll {
     return (v !== undefined && v !== null) ? v : def
   }
 
+  C.CfgSection { title: "COMPORTAMENTO"; colorTextDim: root.colorTextDim }
+
+  C.CfgToggle {
+    label: "Calendário (botão direito + ícone no painel)"
+    checked: root.g("calendarEnabled", true)
+    colorAccent: root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "tasks", key: "calendarEnabled", value: !root.g("calendarEnabled", true) })
+  }
+
+  Text {
+    text: "Data no contador da barra"
+    color: root.colorTextDim
+    font.pixelSize: 9
+    opacity: 0.7
+    topPadding: 6
+  }
+  Row {
+    spacing: 6
+    Repeater {
+      model: [
+        { id: "off",   label: "Desligada" },
+        { id: "short", label: "Curta (01/09)" },
+        { id: "full",  label: "Por extenso" },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label: modelData.label
+        active: root.g("dateDisplay", "off") === modelData.id
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: root.changed({ moduleId: "tasks", key: "dateDisplay", value: modelData.id })
+      }
+    }
+  }
+
+  C.CfgToggle {
+    label: "Número de tarefas pendentes"
+    checked: root.g("showCount", true)
+    colorAccent: root.colorAccent
+    colorTextDim: root.colorTextDim
+    onToggled: root.changed({ moduleId: "tasks", key: "showCount", value: !root.g("showCount", true) })
+  }
+
+  Text {
+    text: "Posição da data"
+    color: root.colorTextDim
+    font.pixelSize: 9
+    opacity: 0.7
+    topPadding: 6
+  }
+  Row {
+    spacing: 6
+    Repeater {
+      model: [
+        { id: "after",  label: "Depois do número" },
+        { id: "before", label: "Antes do número" },
+      ]
+      delegate: C.CfgChip {
+        required property var modelData
+        label: modelData.label
+        active: root.g("datePosition", "after") === modelData.id
+        colorAccent: root.colorAccent; colorTextDim: root.colorTextDim
+        onChipClicked: root.changed({ moduleId: "tasks", key: "datePosition", value: modelData.id })
+      }
+    }
+  }
+
   C.CfgSection { title: "CORES"; colorTextDim: root.colorTextDim }
 
   C.CfgPalette {

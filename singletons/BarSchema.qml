@@ -184,6 +184,13 @@ QtObject {
     {
       id: "tasks", label: "Tarefas", perTheme: true, perStyle: false,
       props: [
+        { key:"calendarEnabled", type:"bool", default:true,
+          label:"Calendário (botão direito + ícone)", section:"COMPORTAMENTO" },
+        { key:"dateDisplay", type:"enum", default:"off", label:"Data no contador da barra", section:"COMPORTAMENTO",
+          options:[{id:"off",label:"Desligada"},{id:"short",label:"Curta (01/09)"},{id:"full",label:"Por extenso"}] },
+        { key:"showCount", type:"bool", default:true, label:"Número de tarefas pendentes", section:"COMPORTAMENTO" },
+        { key:"datePosition", type:"enum", default:"after", label:"Posição da data", section:"COMPORTAMENTO",
+          options:[{id:"after",label:"Depois do número"},{id:"before",label:"Antes do número"}] },
         { key:"textColor",   type:"palette", default:"on_surface",        label:"Texto",  section:"CORES" },
         { key:"dimColor",    type:"palette", default:"on_surface_variant",label:"Dim",    section:"CORES" },
         { key:"accentColor", type:"palette", default:"primary",           label:"Acento (atrasadas)", section:"CORES" },

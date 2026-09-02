@@ -30,6 +30,15 @@ Bar.BarPopup {
   // Referência capturada por Bar.qml para injetar em Tasks.qml
   readonly property var tasksContentRef: content
 
+  // Repassa o pedido de abrir o calendário pro Bar.qml (mesmo esquema do
+  // closeRequested do BarPopup) — quem decide o que fazer (abrir
+  // panelTasksCalendar) é o Bar.qml, na instanciação deste popup.
+  signal calendarRequested()
+
+  // Injetada por Bar.qml a partir de barState.config.tasksCalendarEnabled — controla
+  // se o ícone de calendário aparece no cabeçalho de TasksContent.
+  property bool calendarEnabled: true
+
   TodoModule.TodoAddWindow  { id: addTaskWindow }
   HabitsModule.HabitsAddWindow { id: addHabitWindow }
 
@@ -52,10 +61,12 @@ Bar.BarPopup {
     colorTextDim: popup.colorTextDim
     colorAccent:  popup.colorAccent
     colorDivider: popup.colorDivider
+    calendarEnabled: popup.calendarEnabled
 
     onAddTaskRequested:  addTaskWindow.openForm()
     onEditTaskRequested: (task) => addTaskWindow.openEdit(task)
     onDashboardRequested: todoDashboardWindow.open()
+    onCalendarRequested: popup.calendarRequested()
 
     onAddHabitRequested:  addHabitWindow.openForm()
     onEditHabitRequested: (habit) => addHabitWindow.openEdit(habit)

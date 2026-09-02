@@ -610,6 +610,14 @@ Item {
     paletteTasksTextColor   = paletteTasksText
     paletteTasksDimColor    = paletteTasksDim
     paletteTasksAccentColor = paletteTasksAccent
+    // Não são cores (por isso sem resolve()), mas reaproveitam o mesmo
+    // gatilho de recálculo (on_DepChanged) que todo o resto desta função —
+    // é o motivo de existirem só aqui e não como "readonly property: get()"
+    // solto em Bar.qml (ver nota no topo desta seção).
+    tasksCalendarEnabled = get("tasks","calendarEnabled") !== false
+    tasksDateDisplay     = get("tasks","dateDisplay") || "off"
+    tasksShowCount       = get("tasks","showCount") !== false
+    tasksDatePosition    = get("tasks","datePosition") || "after"
     paletteVolText       = resolve(get("volume","textColor"))
     paletteVolDim        = resolve(get("volume","dimColor"))
     paletteVolAccent     = resolve(get("volume","accentColor"))
@@ -681,6 +689,10 @@ Item {
   property color paletteTasksTextColor:    "#e2e2e2"
   property color paletteTasksDimColor:     "#9e9e9e"
   property color paletteTasksAccentColor:  "#ffb4a9"
+  property bool   tasksCalendarEnabled: true
+  property string tasksDateDisplay:     "off"
+  property bool   tasksShowCount:       true
+  property string tasksDatePosition:    "after"
 
   property color paletteVolText:     "#e2e2e2"
   property color paletteVolDim:      "#9e9e9e"

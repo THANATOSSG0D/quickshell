@@ -3,4 +3,6 @@ module tasks
 Tasks 1.0 Tasks.qml
 TasksContent 1.0 TasksContent.qml
 TasksPopup 1.0 TasksPopup.qml
+TasksCalendarContent 1.0 TasksCalendarContent.qml
+TasksCalendarPopup 1.0 TasksCalendarPopup.qml
 singleton TasksTooltip 1.0 TasksTooltip.qml

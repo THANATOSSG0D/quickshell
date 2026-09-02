@@ -22,6 +22,13 @@ Item {
   signal addTaskRequested()
   signal editTaskRequested(var task)
   signal dashboardRequested()
+  // Ícone de calendário no cabeçalho da seção TAREFAS — abre o
+  // TasksCalendarPopup (ver TasksPopup.qml → calendarRequested).
+  signal calendarRequested()
+
+  // Controla a visibilidade do ícone de calendário — injetada pelo
+  // TasksPopup a partir de barState.config.tasksCalendarEnabled. Default true.
+  property bool calendarEnabled: true
 
   signal addHabitRequested()
   signal editHabitRequested(var habit)
@@ -344,6 +351,23 @@ Item {
                 font { pixelSize: 9; family: "Inter"; weight: Font.DemiBold; letterSpacing: 1 }
               }
               Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: root._tint(0.08) }
+              Rectangle {
+                visible: root.calendarEnabled
+                width: 20; height: 20; radius: 5
+                color: calendarBtnMa.containsMouse ? root._tint(0.14) : root._tint(0.07)
+                Behavior on color { ColorAnimation { duration: 80 } }
+                Text {
+                  anchors.centerIn: parent
+                  text: "\uf073"
+                  color: root.colorText
+                  font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 }
+                }
+                MouseArea {
+                  id: calendarBtnMa
+                  anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                  onClicked: root.calendarRequested()
+                }
+              }
               Rectangle {
                 width: 20; height: 20; radius: 5
                 color: addTaskMa.containsMouse ? root._tint(0.14) : root._tint(0.07)

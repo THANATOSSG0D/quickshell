@@ -60,6 +60,9 @@ Item {
   signal clockPanelRequested()
   signal dmenuRequested()
   signal tasksPanelRequested()
+  // Botão direito no widget Tasks → abre o TasksCalendarPopup (ver
+  // Bar.qml: Connections{target:loader.item}.onTasksCalendarPanelRequested)
+  signal tasksCalendarPanelRequested()
   signal quickSettingsPanelRequested()
   signal notificationsPanelRequested()
   signal mediaPlayerClicked()
@@ -234,6 +237,19 @@ Item {
   property color cfgTasksDimColor:  Qt.rgba(1,1,1,0.45)
   property color cfgTasksAccent:    Qt.rgba(1,1,1,1.0)
   property real  cfgTasksFontScale: 1.0
+  // Habilita o botão direito do calendário — injetada por Bar.qml a
+  // partir de barState.config.tasksCalendarEnabled (config "tasks" →
+  // calendarEnabled, ver BarTabTasks.qml)
+  property bool  cfgTasksCalendarEnabled: true
+  // "off" | "short" | "full" — data de hoje ao lado do contador
+  // (config "tasks" → dateDisplay, ver BarTabTasks.qml)
+  property string cfgTasksDateDisplay: "off"
+  // Mostra/esconde o número de tarefas pendentes (config "tasks" →
+  // showCount)
+  property bool cfgTasksShowCount: true
+  // "after" | "before" — posição da data em relação ao número
+  // (config "tasks" → datePosition)
+  property string cfgTasksDatePosition: "after"
 
   // ── Paleta ─────────────────────────────────────────────────────────────
   // Só barBg/textDim/accent são de fato pintadas neste tema — barBgPill/
@@ -539,7 +555,12 @@ Item {
             textColor: root.cfgTasksTextColor; dimColor: root.cfgTasksDimColor
             accentColor: root.cfgTasksAccent
             fontScale: root.cfgTasksFontScale
+            calendarEnabled:  root.cfgTasksCalendarEnabled
+            dateDisplay:      root.cfgTasksDateDisplay
+            showCount:        root.cfgTasksShowCount
+            datePosition:     root.cfgTasksDatePosition
             onPanelRequested: root.tasksPanelRequested()
+            onCalendarRequested: root.tasksCalendarPanelRequested()
           }
         }
         onItemChanged: if (item) root._updateRefs()

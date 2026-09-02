@@ -102,6 +102,14 @@ Scope {
   // Referência pública ao BarConfig — usada pelo shell.qml para o ConfigWindow
   readonly property var configRef: barState.config
 
+  // tasksCalendarEnabled / tasksDateDisplay (config do módulo "tasks") vivem
+  // em barState.config — ver BarConfig.qml (_resolveAll()/paletteTasksXxx).
+  // Não duplicar aqui como "readonly property: barState.config.get(...)":
+  // é exatamente o binding-loop que o comentário de _resolveAll() já
+  // documenta (get() lê _dep; _dep muda quando overrides muda; reavalia a
+  // prop nesse meio-tempo). _applyConfig()/Connections abaixo leem direto
+  // de barState.config.tasksCalendarEnabled / .tasksDateDisplay.
+
   // ── Exposição pro PanelRouter ────────────────────────────────────────────
   // Quais módulos este bar/dock mostra no layout ativo agora — usado pra
   // decidir onde os popups abrem por padrão (ver PanelRouter.resolveInstance).
@@ -232,6 +240,7 @@ Scope {
     function togglePlayer()     { barRoot._openRouted("mediaplayer",   barRoot.panelPlayer) }
     function toggleClock()      { barRoot._openRouted("clock",         barRoot.panelClock)  }
     function toggleTasks()      { barRoot._openRouted("tasks",         barRoot.panelTasks)  }
+    function toggleTasksCalendar() { barRoot._openRouted("tasks",      barRoot.panelTasksCalendar) }
     function toggleQs()         { barRoot._openRouted("quicksettings", barRoot.panelQs)     }
     function toggleNotif()      { barRoot._openRouted("notifications", barRoot.panelNotif)  }
     // O editor NÃO é roteado — ele edita a config da instância que o abriu
@@ -320,6 +329,7 @@ Scope {
   readonly property int panelNotif:  7
   readonly property int panelVolume: 8
   readonly property int panelTasks:  9
+  readonly property int panelTasksCalendar: 10
 
   // ── Dimensões dos popups (fonte de verdade única) ──────────────────────
   readonly property int popupHVolume: 380
@@ -346,6 +356,9 @@ Scope {
   readonly property int popupWTasks:
       popupConfigRef ? popupConfigRef.get("TasksPopup", "popupW", 300) : 300
   readonly property int popupHTasks:  560
+  readonly property int popupWTasksCalendar:
+      popupConfigRef ? popupConfigRef.get("TasksCalendarPopup", "popupW", 320) : 320
+  readonly property int popupHTasksCalendar: 480
   readonly property int popupHDmenu:  460
 
   // ── Configuração do dmenu (valores fixos) ────────────────────────────────
@@ -501,6 +514,7 @@ Scope {
         if (pillTargetPanel === barRoot.panelSink)   return "volume"
         if (pillTargetPanel === barRoot.panelSource) return "volume"
         if (pillTargetPanel === barRoot.panelTasks)  return "tasks"
+        if (pillTargetPanel === barRoot.panelTasksCalendar) return "tasks"
         return ""
       }
 
@@ -515,6 +529,7 @@ Scope {
         if (pillTargetPanel === barRoot.panelSink)   return volSinkPopup
         if (pillTargetPanel === barRoot.panelSource) return volSourcePopup
         if (pillTargetPanel === barRoot.panelTasks)  return tasksPopup
+        if (pillTargetPanel === barRoot.panelTasksCalendar) return tasksCalendarPopup
         return null
       }
 
@@ -682,6 +697,7 @@ Scope {
         if (pillTargetPanel === barRoot.panelPlayer) return mediaPopup.animDuration
         if (pillTargetPanel === barRoot.panelClock)  return clockPopup.animDuration
         if (pillTargetPanel === barRoot.panelTasks)  return tasksPopup.animDuration
+        if (pillTargetPanel === barRoot.panelTasksCalendar) return tasksCalendarPopup.animDuration
         if (pillTargetPanel === barRoot.panelQs)     return qsPopup.animDuration
         if (pillTargetPanel === barRoot.panelEditor) return editorPopup.animDuration
         if (pillTargetPanel === barRoot.panelNotif)  return notifPopup.animDuration
@@ -752,6 +768,7 @@ Scope {
       readonly property bool playerPanelOpen: activePanel === barRoot.panelPlayer
       readonly property bool clockPanelOpen:  activePanel === barRoot.panelClock
       readonly property bool tasksPanelOpen:  activePanel === barRoot.panelTasks
+      readonly property bool tasksCalendarPanelOpen: activePanel === barRoot.panelTasksCalendar
       readonly property bool qsPanelOpen:     activePanel === barRoot.panelQs
       readonly property bool editorPanelOpen: activePanel === barRoot.panelEditor
       readonly property bool notifPanelOpen:  activePanel === barRoot.panelNotif
@@ -1332,6 +1349,10 @@ Scope {
         _set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)
         _set("cfgTasksAccent",     barState.config.paletteTasksAccentColor)
         _set("cfgTasksFontScale",  barState.config.moduleScale)
+        _set("cfgTasksCalendarEnabled", barState.config.tasksCalendarEnabled)
+        _set("cfgTasksDateDisplay", barState.config.tasksDateDisplay)
+        _set("cfgTasksShowCount", barState.config.tasksShowCount)
+        _set("cfgTasksDatePosition", barState.config.tasksDatePosition)
         // paleta
         _set("colBarBg",          barState.config.paletteBarBg)
         _set("colBarBgPill",      barState.config.paletteBarBgPill)
@@ -1548,6 +1569,10 @@ Scope {
         function onPaletteTasksTextColorChanged()  { bar._set("cfgTasksTextColor",  barState.config.paletteTasksTextColor)   }
         function onPaletteTasksDimColorChanged()   { bar._set("cfgTasksDimColor",   barState.config.paletteTasksDimColor)    }
         function onPaletteTasksAccentColorChanged(){ bar._set("cfgTasksAccent",     barState.config.paletteTasksAccentColor) }
+        function onTasksCalendarEnabledChanged() { bar._set("cfgTasksCalendarEnabled", barState.config.tasksCalendarEnabled) }
+        function onTasksDateDisplayChanged()     { bar._set("cfgTasksDateDisplay",     barState.config.tasksDateDisplay)     }
+        function onTasksShowCountChanged()       { bar._set("cfgTasksShowCount",       barState.config.tasksShowCount)       }
+        function onTasksDatePositionChanged()    { bar._set("cfgTasksDatePosition",    barState.config.tasksDatePosition)    }
         // onModules*Changed — removidos. Os Binding declarativos
         // no Loader são reativos via barState.modules* e atualizam
         // automaticamente sem handlers explícitos.
@@ -1636,6 +1661,9 @@ Scope {
         }
         function onTasksPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelTasks);  panelCooldown.restart() }
+        }
+        function onTasksCalendarPanelRequested() {
+          if (!panelCooldown.running) { bar.openPanel(barRoot.panelTasksCalendar); panelCooldown.restart() }
         }
         function onQuickSettingsPanelRequested() {
           if (!panelCooldown.running) { bar.openPanel(barRoot.panelQs);     panelCooldown.restart() }
@@ -2503,6 +2531,31 @@ Scope {
         popupH: barRoot.popupHTasks
 
         panelOpen: bar.tasksPanelOpen
+        calendarEnabled: barState.config.tasksCalendarEnabled
+
+        anchorGroupSide: bar._anchorFor("tasks").side
+        anchorGroupX:    bar._anchorFor("tasks").gx
+        anchorGroupW:    bar._anchorFor("tasks").gw
+        anchorModuleX:   bar._anchorFor("tasks").mx
+        anchorModuleW:   bar._anchorFor("tasks").mw
+
+        onCloseRequested:    bar.closeAllPanels()
+        onCalendarRequested: bar.openPanel(barRoot.panelTasksCalendar)
+      }
+
+      // ── Tasks — Calendário (aberto pelo botão direito no widget da barra
+      // ou pelo ícone de calendário dentro do TasksPopup) ──────────────────
+      TasksModule.TasksCalendarPopup {
+        id: tasksCalendarPopup
+        barRef: bar
+
+        popupW: barRoot.popupWTasksCalendar
+        popupH: barRoot.popupHTasksCalendar
+
+        panelOpen: bar.tasksCalendarPanelOpen
+        // Reaproveita a MESMA instância de TodoConfig que já vive dentro do
+        // TasksPopup — ver comentário no topo de TasksCalendarPopup.qml.
+        todoConfig: tasksPopup.tasksContentRef ? tasksPopup.tasksContentRef.todoConfig : null
 
         anchorGroupSide: bar._anchorFor("tasks").side
         anchorGroupX:    bar._anchorFor("tasks").gx

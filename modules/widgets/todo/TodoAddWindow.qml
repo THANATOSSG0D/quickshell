@@ -86,10 +86,16 @@ PanelWindow {
     _focusTimer.restart()
   }
 
-  function openForm() {
+  // opts (opcional) — pré-preenchimento parcial: { text, priority, due,
+  // time, tags, recurrence, status }. Usado pelo TasksCalendarPopup pra
+  // abrir o formulário já com a data do dia clicado no calendário
+  // (openForm({ due: "2026-09-01" })). Sem opts, comportamento igual a
+  // antes (formulário em branco).
+  function openForm(opts) {
+    const o = opts || {}
     editingTaskId = ""
-    formText = ""; formPriority = "media"; formDue = ""; formTime = ""
-    formTags = ""; formRecurrence = "none"; formStatus = ""; showDatePicker = false
+    formText = o.text || ""; formPriority = o.priority || "media"; formDue = o.due || ""; formTime = o.time || ""
+    formTags = o.tags || ""; formRecurrence = o.recurrence || "none"; formStatus = o.status || ""; showDatePicker = false
     _reveal()
   }
 
